@@ -1,0 +1,10 @@
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+IJulia = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
+IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
+StellarChem = "a84afe3b-952c-41e2-bc6a-6760f116ab93"
+StellarConstants = "6f81b052-5a35-46da-9297-247d6ebafa96"
+StellarEOS = "bea4d45a-16e6-41f2-bb8c-bedcdf9510c7"

@@ -1,0 +1,4 @@
+name = "StellarOpacity"
+uuid = "eeb08737-d0df-4e7c-8b49-e5a607c545fb"
+authors = ["Pablo Marchant <pablo.marchant@kuleuven.be>"]
+version = "0.1.0"

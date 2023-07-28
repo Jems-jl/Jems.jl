@@ -1,0 +1,8 @@
+name = "StellarEOS"
+uuid = "bea4d45a-16e6-41f2-bb8c-bedcdf9510c7"
+authors = ["Pablo Marchant <pablo.marchant@kuleuven.be>"]
+version = "0.1.0"
+
+[deps]
+StellarChem = "a84afe3b-952c-41e2-bc6a-6760f116ab93"
+StellarConstants = "6f81b052-5a35-46da-9297-247d6ebafa96"
