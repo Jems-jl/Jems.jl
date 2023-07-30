@@ -1,4 +1,4 @@
-export get_EOS_resultsTP, get_EOS_resultsTρ
+export get_EOS_resultsTP
 
 struct IdealEOS <: AbstractEOS
     include_radiation::Bool
