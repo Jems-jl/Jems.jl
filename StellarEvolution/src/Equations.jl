@@ -1,3 +1,7 @@
+
+using ForwardDiff
+using Base.Threads
+
 function example_equationHSE(sm, k, varm1::Vector{<:TT}, var00::Vector{<:TT}, varp1::Vector{<:TT},
                             eosm1::Vector{<:TT}, eos00::Vector{<:TT}, eosp1::Vector{<:TT},
                             κm1::TT, κ00::TT, κp1::TT)::TT where{TT<:Real}

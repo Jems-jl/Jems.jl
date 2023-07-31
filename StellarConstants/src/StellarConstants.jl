@@ -3,7 +3,7 @@ module StellarConstants
 # Most of these are taken from MESA, would be good to update them as I took all
 # this numbers quite some time ago
 
-export CGRAV, CLIGHT, KERG, AMU, CGAS, CRAD, MSUN, RSUN, LSUN, MP, ME
+export CGRAV, CLIGHT, KERG, AMU, CGAS, CRAD, BOLTZ_SIGMA, MSUN, RSUN, LSUN, MP, ME
 
 const CGRAV = 6.67428e-8                 # gravitational constant (g^-1 cm^3 s^-2)
 const PLANCK_H = 6.62606896e-27          # Planck's constant (erg s)
