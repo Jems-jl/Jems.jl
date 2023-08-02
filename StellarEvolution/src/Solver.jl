@@ -93,8 +93,16 @@ function eval_jacobian_row!(sm::StellarModel, k::Int)
         kf = sm.nvars*(k+1)
     end
     ind_vars_view = view(sm.ind_vars,ki:kf)
+
     eval_eqs_wrapper = x->eval_cell_eqs(sm, k, x)
-    sm.jac[sm.nvars*(k-1)+1:sm.nvars*k,ki:kf] = ForwardDiff.jacobian(eval_eqs_wrapper, ind_vars_view)
+    
+    jac_view = view(sm.jac,sm.nvars*(k-1)+1:sm.nvars*k,ki:kf)
+    #sm.jac[sm.nvars*(k-1)+1:sm.nvars*k,ki:kf] = ForwardDiff.jacobian(eval_eqs_wrapper, ind_vars_view)
+    # ForwardDiff computes things in chunks of variables. Perhaps one way to precompute everything is
+    # to enforce calculations are done using a chunk equal to the total variable count (essentially, do
+    # all derivatives in one go). Larger chunks are more memory intensive (go as chunk_size^2), but faster.
+    #cfg = ForwardDiff.JacobianConfig(eval_eqs_wrapper, ind_vars_view, ForwardDiff.Chunk{10}());
+    ForwardDiff.jacobian!(jac_view, eval_eqs_wrapper, ind_vars_view)#, cfg)
 end
 
 function eval_jacobian!(sm::StellarModel)

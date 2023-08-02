@@ -6,6 +6,8 @@ version = "0.1.0"
 [deps]
 BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+LinearSolve = "7ed4a6bd-45f5-4d41-b270-4a48e9bafcae"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StellarChem = "a84afe3b-952c-41e2-bc6a-6760f116ab93"
 StellarConstants = "6f81b052-5a35-46da-9297-247d6ebafa96"
 StellarEOS = "bea4d45a-16e6-41f2-bb8c-bedcdf9510c7"
