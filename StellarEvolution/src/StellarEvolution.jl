@@ -7,8 +7,10 @@ using StellarChem
 using StellarEOS
 using StellarOpacity
 
+include("Options.jl")
 include("StellarModel.jl")
 include("Solver.jl")
 include("Equations.jl")
+#include("EvolutionLoop.jl")
 
 end # module StellarModel

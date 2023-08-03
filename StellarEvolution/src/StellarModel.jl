@@ -39,6 +39,9 @@ mutable struct StellarModel
 
     # Information computed at the start of the Step
     ssi::StellarStepInfo
+
+    # Space for used defined options, defaults are in Options.jl
+    opt::Options
     function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Function}, nvars::Int, nspecies::Int, nz, eos, opacity)
         ind_vars = ones(nvars*nz)
         eqs = ones(nvars*nz)
@@ -65,6 +68,9 @@ mutable struct StellarModel
 
         ssi = StellarStepInfo(0.0,[0.0],[0.0],[0.0],[0.0],[0.0],[0.0])
 
-        new(ind_vars, varnames, eqs, nvars, nspecies, structure_equations, vari, nz, m, dm, 0.0,eos,opacity,isotope_data,jac,linear_solver,ssi)
+        opt = Options()
+
+        new(ind_vars, varnames, eqs, nvars, nspecies, structure_equations, vari, nz, m, dm, 0.0,
+            eos,opacity,isotope_data,jac,linear_solver,ssi, opt)
     end
 end
