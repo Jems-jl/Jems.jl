@@ -1,3 +1,9 @@
+"""
+    eval_cell_eqs(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) where{TT<:Real}
+
+Evaluates the stellar structure equations of the stellar model, `sm`, at cell `k`, given the view of
+the independent variables, `ind_vars_view`.
+"""
 function eval_cell_eqs(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) where{TT<:Real}
     result = Vector{TT}(undef,sm.nvars)
     # initialize as undefined, since m1 and p1 values are not defined at edges

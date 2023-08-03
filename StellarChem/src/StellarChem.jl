@@ -2,6 +2,11 @@ module StellarChem
 
 export Isotope
 
+"The Isotope struct contains:
+Z: atomic number (# protons)
+A: mass number (# protons + neutrons)
+name: its name (eg Hydrogen)
+mass: atomic weight in amu"
 struct Isotope
     Z::Int64
     A::Int64
@@ -9,6 +14,11 @@ struct Isotope
     mass::Float64 #in atomic mass units
 end
 
+"""
+    get_isotope_list()
+
+gets a list of all currently included isotopes.
+"""
 function get_isotope_list()
     Niso = 0
     # First pass to count isotopes

@@ -3,16 +3,16 @@ using ForwardDiff
 using Base.Threads
 
 function example_equationHSE(sm, k, varm1::Vector{<:TT}, var00::Vector{<:TT}, varp1::Vector{<:TT},
-                            eosm1::Vector{<:TT}, eos00::Vector{<:TT}, eosp1::Vector{<:TT},
-                            κm1::TT, κ00::TT, κp1::TT)::TT where{TT<:Real}
+                                    eosm1::Vector{<:TT}, eos00::Vector{<:TT}, eosp1::Vector{<:TT},
+                                    κm1::TT, κ00::TT, κp1::TT)::TT where{TT<:Real}
     if k==sm.nz
         lnP₀ = var00[sm.vari[:lnP]]
-        return lnP₀ + 10.0 #force very low surface density to resemble zero pressure condition
+        return lnP₀ + 10.0  # force very low surface density to resemble zero pressure condition
     end
     if k==1
         lnP₀ = var00[sm.vari[:lnP]]
         lnP₊ = varp1[sm.vari[:lnP]]
-        return lnP₀ - lnP₊#make it simple, just force first to cells to have constant pressure
+        return lnP₀ - lnP₊  # make it simple, just force first to cells to have constant pressure
     end
     lnP₋ = varm1[sm.vari[:lnP]]
     lnP₊ = varp1[sm.vari[:lnP]]
