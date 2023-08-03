@@ -1,0 +1,5 @@
+# StellarEvolution
+
+```@autodocs
+Modules = [StellarEvolution]
+```
