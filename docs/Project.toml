@@ -1,3 +1,5 @@
+name = "docs"
+
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 StellarChem = "a84afe3b-952c-41e2-bc6a-6760f116ab93"
