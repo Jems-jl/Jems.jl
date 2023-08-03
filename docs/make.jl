@@ -3,7 +3,7 @@ using StellarChem, StellarConstants, StellarEOS, StellarEvolution, StellarOpacit
 
 makedocs(
     sitename = "Medusa",
-    format = Documenter.HTML(prettyurls=false),
+    format = Documenter.HTML(),
     modules = [StellarChem, StellarConstants, StellarEOS, StellarEvolution, StellarOpacity]
 )
 
