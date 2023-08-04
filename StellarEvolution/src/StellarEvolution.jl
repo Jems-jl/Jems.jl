@@ -12,6 +12,7 @@ include("StellarModel.jl")
 include("Solver.jl")
 include("Equations.jl")
 include("IO.jl")
-#include("EvolutionLoop.jl")
+include("InitialCondition.jl")
+include("EvolutionLoop.jl")
 
 end # module StellarModel
