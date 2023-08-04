@@ -12,6 +12,11 @@ mutable struct StellarStepInfo
     lnr_old::Vector{<:Real}
 end
 
+"""
+    StellarModel
+
+Structured type that defines the state of the stellar model 
+"""
 mutable struct StellarModel
     # properties that define the model
     ind_vars::Vector{<:Real}
@@ -35,7 +40,7 @@ mutable struct StellarModel
 
     # Jacobian matrix
     jac::SparseMatrixCSC{Float64, Int64}
-    linear_solver #solver that is produced by LinearSolve
+    linear_solver  #solver that is produced by LinearSolve
 
     # Information computed at the start of the Step
     ssi::StellarStepInfo

@@ -54,6 +54,11 @@ function eval_cell_eqs(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) wh
     return result
 end
 
+"""
+    eval_eqs!(sm::StellarModel)
+
+Evaluates the stellar structure equations of the given stellar model, `sm`.
+"""
 function eval_eqs!(sm::StellarModel)
     for k in 1:sm.nz
         ki = 0
@@ -73,6 +78,12 @@ function eval_eqs!(sm::StellarModel)
     end
 end
 
+
+"""
+    eval_jacobian_row!(sm::StellarModel, k::Int)
+
+Evaluates a row of the Jacobian of the stellar model, `sm`, at cell number `k`.
+"""
 function eval_jacobian_row!(sm::StellarModel, k::Int)
     # ranges of ind_vars vector that needs to be considered, needs special cases for k=1 or nz
     # Jacobian has tridiagonal block structure:
@@ -111,6 +122,12 @@ function eval_jacobian_row!(sm::StellarModel, k::Int)
     ForwardDiff.jacobian!(jac_view, eval_eqs_wrapper, ind_vars_view)#, cfg)
 end
 
+
+"""
+    eval_jacobian(sm::StellarModel)
+
+Evaluates the Jacobian of the given stellar model, `sm`.
+"""
 function eval_jacobian!(sm::StellarModel)
     Threads.@threads for k in 1:sm.nz
         eval_jacobian_row!(sm, k)

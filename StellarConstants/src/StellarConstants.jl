@@ -1,3 +1,7 @@
+"""
+Module that holds the definitions of various mathematical and physical constants. The unit system
+used is cgs (centimeter, gram, seconds), which should be explicit in comments behind the definitions.
+"""
 module StellarConstants
 
 # Most of these are taken from MESA, would be good to update them as I took all
