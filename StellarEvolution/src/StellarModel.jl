@@ -2,17 +2,30 @@ using BlockBandedMatrices
 using SparseArrays
 using LinearSolve
 
-mutable struct StellarStepInfo
+@kwdef mutable struct StellarStepInfo
+    # grid properties
+    nz::Int # number of zones in the model
+    m::Vector{<:Real} # mass coordinate of each cell
+    dm::Vector{<:Real} # mass contained in each cell
+    mstar::Real # total model mass
+
+    # unique valued properties (ie not cell dependent)
+    time::Real
     dt::Real
-    ind_vars_old::Vector{<:Real}
-    lnT_old::Vector{<:Real}
-    lnL_old::Vector{<:Real}
-    lnP_old::Vector{<:Real}
-    lnρ_old::Vector{<:Real}
-    lnr_old::Vector{<:Real}
+    model_number::Int
+
+    # full vector with independent variables (size is number of variables * number of zones)
+    ind_vars::Vector{<:Real}
+
+    # Values of properties at each cell, sizes are equal to number of zones
+    lnT::Vector{<:Real}
+    L::Vector{<:Real}
+    lnP::Vector{<:Real}
+    lnρ::Vector{<:Real}
+    lnr::Vector{<:Real}
 end
 
-mutable struct StellarModel
+@kwdef mutable struct StellarModel
     # properties that define the model
     ind_vars::Vector{<:Real}
     varnames::Vector{Symbol}
@@ -27,6 +40,11 @@ mutable struct StellarModel
     m::Vector{<:Real} # mass coordinate of each cell
     dm::Vector{<:Real} # mass contained in each cell
     mstar::Real # total model mass
+
+    # unique valued properties (ie not cell dependent)
+    time::Real
+    dt::Real
+    model_number::Int
     
     # Some basic info
     eos::StellarEOS.AbstractEOS
@@ -37,40 +55,65 @@ mutable struct StellarModel
     jac::SparseMatrixCSC{Float64, Int64}
     linear_solver #solver that is produced by LinearSolve
 
-    # Information computed at the start of the Step
+    # Here I want to preemt things that will be necessary once we have an adaptative mesh.
+    # Idea is that psi contains the information from the previous step (or the initial condition).
+    # ssi will contain information after remeshing. Absent remeshing it will make no difference.
+    # esi will contain properties once the step is completed.
+    # Information coming from the previous step (psi=Previous Step Info)
+    psi::StellarStepInfo
+    # Information computed at the start of the step (ssi=Start Step Info)
     ssi::StellarStepInfo
+    # Information computed at the end of the step (esi=End Step Info)
+    esi::StellarStepInfo
 
     # Space for used defined options, defaults are in Options.jl
     opt::Options
-    function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Function}, nvars::Int, nspecies::Int, nz, eos, opacity)
-        ind_vars = ones(nvars*nz)
-        eqs = ones(nvars*nz)
-        m = ones(nz)
+end
 
-        l,u = 1,1          # block bandwidths
-        N = M = nz        # number of row/column blocks
-        cols = rows = [nvars for i in 1:N]  # block sizes
+function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Function}, nvars::Int, nspecies::Int, nz, eos, opacity)
+    ind_vars = ones(nvars*nz)
+    eqs = ones(nvars*nz)
+    m = ones(nz)
 
-        jac_BBM = BlockBandedMatrix(Ones(sum(rows),sum(cols)), rows,cols, (l,u))
-        jac = sparse(jac_BBM)
-        #create solver
-        problem = LinearProblem(jac, eqs)
-        linear_solver = init(problem)
+    l,u = 1,1          # block bandwidths
+    N = M = nz        # number of row/column blocks
+    cols = rows = [nvars for i in 1:N]  # block sizes
 
-        isotope_data = StellarChem.get_isotope_list();
+    jac_BBM = BlockBandedMatrix(Ones(sum(rows),sum(cols)), rows,cols, (l,u))
+    jac = sparse(jac_BBM)
+    #create solver
+    problem = LinearProblem(jac, eqs)
+    linear_solver = init(problem)
 
-        vari::Dict{Symbol,Int} = Dict()
-        for i in eachindex(varnames)
-            vari[varnames[i]] = i
-        end
+    isotope_data = StellarChem.get_isotope_list();
 
-        dm = zeros(nz)
-
-        ssi = StellarStepInfo(0.0,[0.0],[0.0],[0.0],[0.0],[0.0],[0.0])
-
-        opt = Options()
-
-        new(ind_vars, varnames, eqs, nvars, nspecies, structure_equations, vari, nz, m, dm, 0.0,
-            eos,opacity,isotope_data,jac,linear_solver,ssi, opt)
+    vari::Dict{Symbol,Int} = Dict()
+    for i in eachindex(varnames)
+        vari[varnames[i]] = i
     end
+
+    dm = zeros(nz)
+    m = zeros(nz)
+
+    psi = StellarStepInfo(nz=nz, m=zeros(nz), dm=zeros(nz), mstar=0.0, time=0.0, dt=0.0, model_number=0, ind_vars=zeros(nvars*nz),
+                          lnT=zeros(nz), L=zeros(nz), lnP=zeros(nz), lnρ=zeros(nz), lnr=zeros(nz))
+    ssi = StellarStepInfo(nz=nz, m=zeros(nz), dm=zeros(nz), mstar=0.0, time=0.0, dt=0.0, model_number=0, ind_vars=zeros(nvars*nz),
+                          lnT=zeros(nz), L=zeros(nz), lnP=zeros(nz), lnρ=zeros(nz), lnr=zeros(nz))
+    esi = StellarStepInfo(nz=nz, m=zeros(nz), dm=zeros(nz), mstar=0.0, time=0.0, dt=0.0, model_number=0, ind_vars=zeros(nvars*nz),
+                          lnT=zeros(nz), L=zeros(nz), lnP=zeros(nz), lnρ=zeros(nz), lnr=zeros(nz))
+
+    opt = Options()
+
+    StellarModel(ind_vars=ind_vars,
+        varnames=varnames,
+        eqs=eqs,
+        nvars=nvars, nspecies=nspecies,
+        structure_equations=structure_equations,
+        vari=vari,
+        nz=nz, m=m, dm=dm, mstar=0.0,
+        time=0.0, dt=0.0, model_number=0,
+        eos=eos,opacity=opacity,isotope_data=isotope_data,
+        jac=jac,linear_solver=linear_solver,
+        psi=psi,ssi=ssi,esi=esi,
+        opt=opt)
 end
