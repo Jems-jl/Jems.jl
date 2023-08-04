@@ -8,26 +8,58 @@ using TOML
 end
 
 @kwdef mutable struct TimestepOptions
-    delta_R_limit::Float64 = 0.01
-    delta_Tc_limit::Float64 = 0.01
-    delta_Xc_limit::Float64 = 0.01
+    initial_dt::Int = 1 # in years
+
+    delta_R_limit::Float64 = 0.005
+    delta_Tc_limit::Float64 = 0.005
+    delta_Xc_limit::Float64 = 0.005
 
     dt_max_increase::Float64 = 2
     dt_retry_decrease::Float64 = 2
 end
 
 @kwdef mutable struct TerminationOptions
-    max_model_number::Int = -1
+    max_model_number::Int = 1
     max_center_T::Float64 = -1.0
+end
+
+@kwdef mutable struct IOOptions
+    LOGS_directory::String = "LOGS"
+    decimal_places::Int = 6
+    column_size::Int = 15
+
+    history_interval::Int = 5
+
+    history_values = [
+        :star_age,
+        :dt,
+        :model_number,
+        :star_mass,
+
+        :R_surf,
+        :L_surf,
+        :T_surf,
+        :P_surf,
+        :ρ_surf,
+        :X_surf,
+        :Y_surf,
+
+        :T_center,
+        :P_center,
+        :ρ_center,
+        :X_center,
+        :Y_center
+    ]
 end
 
 mutable struct Options
     solver::SolverOptions
     timestep::TimestepOptions
     termination::TerminationOptions
+    io::IOOptions
 
     function Options()
-        new(SolverOptions(), TimestepOptions(), TerminationOptions())
+        new(SolverOptions(), TimestepOptions(), TerminationOptions(), IOOptions())
     end
 end
 
@@ -38,7 +70,7 @@ function set_options!(opt::Options, toml_path::String)
     # Do this before anything is changed, in that way if the load will fail the
     # input is unmodified
     for key in keys(options_file)
-        if !(key in ["solver", "timestep","termination"])
+        if !(key in ["solver", "timestep","termination","io"])
             throw(ArgumentError("Error while reading $toml_path. One of the sections on the TOML file provided ([$key]) is not valid."))
         end
     end

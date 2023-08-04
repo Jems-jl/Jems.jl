@@ -3,7 +3,7 @@ module StellarConstants
 # Most of these are taken from MESA, would be good to update them as I took all
 # this numbers quite some time ago
 
-export CGRAV, CLIGHT, KERG, AMU, CGAS, CRAD, BOLTZ_SIGMA, MSUN, RSUN, LSUN, MP, ME
+export CGRAV, CLIGHT, KERG, AMU, CGAS, CRAD, BOLTZ_SIGMA, MSUN, RSUN, LSUN, MP, ME, SECYEAR
 
 const CGRAV = 6.67428e-8                 # gravitational constant (g^-1 cm^3 s^-2)
 const PLANCK_H = 6.62606896e-27          # Planck's constant (erg s)
@@ -41,8 +41,8 @@ const LSUN = 3.8418e33                   # solar luminosity (erg s^-1)
 const AGESUN = 4.57e9                    # solar age (years)
 const LY = 9.460528e17                   # light year (cm)
 const PC = 3.261633e0*LY                 # parsec (cm)
-const SECYER = 3.1558149984e7            # seconds per year
-const DAYYER = 365.25e0                  # days per year
+const DAYYEAR = 365.25e0                 # days per year
+const SECYEAR = DAYYEAR*24*3600          # seconds per year
 
 const TEFFSOL = 5777.0e0
 const LOGGSOL = 4.4378893534131256e0     # With mesa's default msol, rsol and standard_cgrav
