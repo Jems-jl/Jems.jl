@@ -1,6 +1,7 @@
 [solver]
 newton_max_iter_first_step = 2000
+newton_max_iter = 200
 
 [termination]
-max_model_number = 300
-max_center_T = 1e8
+max_model_number = 3000
+max_center_T = 2e7

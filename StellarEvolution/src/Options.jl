@@ -10,9 +10,9 @@ end
 @kwdef mutable struct TimestepOptions
     initial_dt::Int = 1 # in years
 
-    delta_R_limit::Float64 = 0.01
-    delta_Tc_limit::Float64 = 0.01
-    delta_Xc_limit::Float64 = 0.01
+    delta_R_limit::Float64 = 0.005
+    delta_Tc_limit::Float64 = 0.005
+    delta_Xc_limit::Float64 = 0.005
 
     dt_max_increase::Float64 = 2
     dt_retry_decrease::Float64 = 2
