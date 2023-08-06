@@ -98,8 +98,8 @@ function do_evolution_loop(sm::StellarModel)
     
         exit_evolution = false
         for i in 1:max_steps
-            StellarEvolution.eval_jacobian!(sm)
-            StellarEvolution.eval_eqs!(sm)
+            eval_jacobian!(sm)
+            eval_eqs!(sm)
             
             sm.linear_solver.A = sm.jac
             sm.linear_solver.b = -sm.eqs
@@ -150,7 +150,7 @@ function do_evolution_loop(sm::StellarModel)
     
         set_end_step_info(sm)
     
-        write_history_data(sm)
+        write_data(sm)
     
         #check termination conditions
         if (sm.model_number > sm.opt.termination.max_model_number)

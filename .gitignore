@@ -2,4 +2,7 @@ Manifest.toml
 .ipynb_checkpoints/
 .vscode/
 **.DS_store
-LOGS
+history.hdf5
+profiles.hdf5
+*.mp4
+*.gif

@@ -24,31 +24,48 @@ end
 end
 
 @kwdef mutable struct IOOptions
-    LOGS_directory::String = "LOGS"
-    decimal_places::Int = 6
-    column_size::Int = 15
+    hdf5_history_filename::String = "history.hdf5"
+    hdf5_history_chunk_size::Int = 50
+    hdf5_history_compression_level::Int = 9
+    hdf5_profile_filename::String = "profiles.hdf5"
+    hdf5_profile_chunk_size::Int = 50
+    hdf5_profile_compression_level::Int = 9
+    hdf5_profile_dataset_name_zero_padding::Int = 10
 
-    history_interval::Int = 5
+    history_interval::Int = 1
+    profile_interval::Int = 10
 
-    history_values = [
-        :star_age,
-        :dt,
-        :model_number,
-        :star_mass,
+    history_values::Vector{String} = [
+        "star_age",
+        "dt",
+        "model_number",
+        "star_mass",
 
-        :R_surf,
-        :L_surf,
-        :T_surf,
-        :P_surf,
-        :ρ_surf,
-        :X_surf,
-        :Y_surf,
+        "R_surf",
+        "L_surf",
+        "T_surf",
+        "P_surf",
+        "ρ_surf",
+        "X_surf",
+        "Y_surf",
 
-        :T_center,
-        :P_center,
-        :ρ_center,
-        :X_center,
-        :Y_center
+        "T_center",
+        "P_center",
+        "ρ_center",
+        "X_center",
+        "Y_center"
+    ]
+
+    profile_values:: Vector{String} = [
+        "zone",
+        "mass",
+        "dm",
+        "log10_ρ",
+        "log10_P",
+        "log10_T",
+        "luminosity",
+        "X",
+        "Y"
     ]
 end
 
