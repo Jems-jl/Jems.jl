@@ -21,7 +21,7 @@ function get_logdq(k, nz, logdq_low, logdq_high, numregion)
     end
 end
 
-function n1_polytrope_initial_condition(sm::StellarModel, M::Real, R::Real)
+function n1_polytrope_initial_condition(sm::StellarModel, M::Real, R::Real; initial_dt=100*SECYEAR)
     logdqs = get_logdq.(1:sm.nz,sm.nz,-3.0,0.0,100)
     dqs = 10 .^ logdqs
     dqs = dqs./sum(dqs)
@@ -107,6 +107,6 @@ function n1_polytrope_initial_condition(sm::StellarModel, M::Real, R::Real)
     sm.ind_vars[(sm.nz-1)*sm.nvars+sm.vari[:lum]] = sm.ind_vars[(sm.nz-2)*sm.nvars+sm.vari[:lum]]
 
     sm.time = 0.0
-    sm.dt = 100*SECYEAR
+    sm.dt = initial_dt
     sm.model_number = 0
 end

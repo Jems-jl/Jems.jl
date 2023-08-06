@@ -68,8 +68,8 @@ profile_output_options = Dict(
     "luminosity" => ("Lsun", (sm, k)->sm.esi.L[k]),
 
     #abundance
-    "X" => ("unitless", sm->profile_get_ind_vars_value(sm, :H1, k)),
-    "Y" => ("unitless", sm->profile_get_ind_vars_value(sm, :He4, k)),
+    "X" => ("unitless", (sm,k)->profile_get_ind_vars_value(sm, :H1, k)),
+    "Y" => ("unitless", (sm,k)->profile_get_ind_vars_value(sm, :He4, k)),
 )
 
 function write_data(sm)
@@ -165,7 +165,7 @@ function get_profile_names_from_hdf5(hdf5_filename)
     end
 end
 
-function get_profile_from_hdf5(hdf5_filename, profile_name)
+function get_profile_dataframe_from_hdf5(hdf5_filename, profile_name)
     h5open(hdf5_filename) do profile_file
         return DataFrame(profile_file[profile_name][:,:],attrs(profile_file[profile_name])["column_names"])
     end

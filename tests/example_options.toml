@@ -1,5 +1,5 @@
 [solver]
-newton_max_iter_first_step = 100
+newton_max_iter_first_step = 1000
 newton_max_iter = 200
 
 [termination]

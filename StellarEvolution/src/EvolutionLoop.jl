@@ -74,7 +74,7 @@ function get_dt_next(sm::StellarModel)
         dt_nextTc = dt_next*sm.opt.timestep.delta_Tc_limit/ΔTc_div_Tc
         dt_nextX = dt_next*sm.opt.timestep.delta_Xc_limit/ΔX
 
-        dt_next = min(2*dt_next, dt_nextR, dt_nextTc, dt_nextX)
+        dt_next = min(sm.opt.timestep.dt_max_increase*dt_next, dt_nextR, dt_nextTc, dt_nextX)
         return dt_next
     end
 end
@@ -117,9 +117,9 @@ function do_evolution_loop(sm::StellarModel)
     
             #scale correction
             if sm.model_number==0
-                corr = corr*min(1,3/maximum(corr))
+                corr = corr*min(1,sm.opt.solver.initial_model_scale_max_correction/maximum(corr))
             else
-                corr = corr*min(1,0.5/maximum(corr))
+                corr = corr*min(1,sm.opt.solver.scale_max_correction/maximum(corr))
             end
             if i%50==0
                 @show i, maximum(corr), real_max_corr, maximum(sm.eqs)

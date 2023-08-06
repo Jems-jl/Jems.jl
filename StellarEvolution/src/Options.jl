@@ -3,7 +3,8 @@ using TOML
 @kwdef mutable struct SolverOptions
     newton_max_iter::Int = 100
     newton_max_iter_first_step::Int = 5000
-    scale_max_correction::Float64 = 3.0
+    initial_model_scale_max_correction::Float64 = 3.0
+    scale_max_correction::Float64 = 0.5
     scale_correction_negative_Lsurf::Float64 = 0.1
 end
 
@@ -27,6 +28,7 @@ end
     hdf5_history_filename::String = "history.hdf5"
     hdf5_history_chunk_size::Int = 50
     hdf5_history_compression_level::Int = 9
+
     hdf5_profile_filename::String = "profiles.hdf5"
     hdf5_profile_chunk_size::Int = 50
     hdf5_profile_compression_level::Int = 9
