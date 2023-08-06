@@ -3,7 +3,8 @@ using TOML
 @kwdef mutable struct SolverOptions
     newton_max_iter::Int = 100
     newton_max_iter_first_step::Int = 5000
-    scale_max_correction::Float64 = 3.0
+    initial_model_scale_max_correction::Float64 = 3.0
+    scale_max_correction::Float64 = 0.5
     scale_correction_negative_Lsurf::Float64 = 0.1
 end
 
@@ -24,31 +25,49 @@ end
 end
 
 @kwdef mutable struct IOOptions
-    LOGS_directory::String = "LOGS"
-    decimal_places::Int = 6
-    column_size::Int = 15
+    hdf5_history_filename::String = "history.hdf5"
+    hdf5_history_chunk_size::Int = 50
+    hdf5_history_compression_level::Int = 9
 
-    history_interval::Int = 5
+    hdf5_profile_filename::String = "profiles.hdf5"
+    hdf5_profile_chunk_size::Int = 50
+    hdf5_profile_compression_level::Int = 9
+    hdf5_profile_dataset_name_zero_padding::Int = 10
 
-    history_values = [
-        :star_age,
-        :dt,
-        :model_number,
-        :star_mass,
+    history_interval::Int = 1
+    profile_interval::Int = 10
 
-        :R_surf,
-        :L_surf,
-        :T_surf,
-        :P_surf,
-        :ρ_surf,
-        :X_surf,
-        :Y_surf,
+    history_values::Vector{String} = [
+        "star_age",
+        "dt",
+        "model_number",
+        "star_mass",
 
-        :T_center,
-        :P_center,
-        :ρ_center,
-        :X_center,
-        :Y_center
+        "R_surf",
+        "L_surf",
+        "T_surf",
+        "P_surf",
+        "ρ_surf",
+        "X_surf",
+        "Y_surf",
+
+        "T_center",
+        "P_center",
+        "ρ_center",
+        "X_center",
+        "Y_center"
+    ]
+
+    profile_values:: Vector{String} = [
+        "zone",
+        "mass",
+        "dm",
+        "log10_ρ",
+        "log10_P",
+        "log10_T",
+        "luminosity",
+        "X",
+        "Y"
     ]
 end
 

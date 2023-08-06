@@ -74,7 +74,7 @@ function get_dt_next(sm::StellarModel)
         dt_nextTc = dt_next*sm.opt.timestep.delta_Tc_limit/ΔTc_div_Tc
         dt_nextX = dt_next*sm.opt.timestep.delta_Xc_limit/ΔX
 
-        dt_next = min(2*dt_next, dt_nextR, dt_nextTc, dt_nextX)
+        dt_next = min(sm.opt.timestep.dt_max_increase*dt_next, dt_nextR, dt_nextTc, dt_nextX)
         return dt_next
     end
 end
@@ -98,8 +98,8 @@ function do_evolution_loop(sm::StellarModel)
     
         exit_evolution = false
         for i in 1:max_steps
-            StellarEvolution.eval_jacobian!(sm)
-            StellarEvolution.eval_eqs!(sm)
+            eval_jacobian!(sm)
+            eval_eqs!(sm)
             
             sm.linear_solver.A = sm.jac
             sm.linear_solver.b = -sm.eqs
@@ -117,9 +117,9 @@ function do_evolution_loop(sm::StellarModel)
     
             #scale correction
             if sm.model_number==0
-                corr = corr*min(1,3/maximum(corr))
+                corr = corr*min(1,sm.opt.solver.initial_model_scale_max_correction/maximum(corr))
             else
-                corr = corr*min(1,0.5/maximum(corr))
+                corr = corr*min(1,sm.opt.solver.scale_max_correction/maximum(corr))
             end
             if i%50==0
                 @show i, maximum(corr), real_max_corr, maximum(sm.eqs)
@@ -150,7 +150,7 @@ function do_evolution_loop(sm::StellarModel)
     
         set_end_step_info(sm)
     
-        write_history_data(sm)
+        write_data(sm)
     
         #check termination conditions
         if (sm.model_number > sm.opt.termination.max_model_number)
