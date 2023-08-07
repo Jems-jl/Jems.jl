@@ -21,7 +21,7 @@ end
 
 @kwdef mutable struct TerminationOptions
     max_model_number::Int = 1
-    max_center_T::Float64 = -1.0
+    max_center_T::Float64 = 1e99
 end
 
 @kwdef mutable struct IOOptions

@@ -1,6 +1,12 @@
 using HDF5
 using DataFrames
 
+"""
+    history_get_ind_vars_edge_value(sm::StellarModel, var_symbol::Symbol, edge::Symbol)
+
+Returns the value of the independent variable var_symbol at either the surface or the
+center of the stellar model sm. `edge` can be either `:surface` or `:center`.    
+""" 
 function history_get_ind_vars_edge_value(sm::StellarModel, var_symbol::Symbol, edge::Symbol)
     if var_symbol ∉ sm.varnames
         throw(ArgumentError(":$var_symbol is not a valid independent variable"))
