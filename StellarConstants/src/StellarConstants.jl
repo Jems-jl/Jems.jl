@@ -33,7 +33,7 @@ const QCONV = MEV_TO_ERGS*AVO
 
 const BOLTZ_SIGMA = 5.670400e-5          # boltzmann's sigma = a*c/4 (erg cm^-2 K^-4 s^-1)
 const CRAD = BOLTZ_SIGMA*4/CLIGHT        # = radiation density constant, a (erg cm^-3 K^-4); Prad = crad * T^4 / 3
-                                         # approx = 7.5657e-15
+                                            # approx = 7.5657e-15
 const WIENLAM = PLANCK_H*CLIGHT/(KERG * 4.965114232e0)
 const WIENFRE = 2.821439372E0*KERG/PLANCK_H
 const RHONUC = 2.342e14                  # density of nucleus (g cm^3)
@@ -47,12 +47,13 @@ const LY = 9.460528e17                   # light year (cm)
 const PC = 3.261633e0*LY                 # parsec (cm)
 const SECYER = 3.1558149984e7            # seconds per year
 const DAYYER = 365.25e0                  # days per year
+const SECDAY = 86400e0                   # seconds per day
 
 const TEFFSOL = 5777.0e0
 const LOGGSOL = 4.4378893534131256e0     # With mesa's default msol, rsol and standard_cgrav
 const MBOLSUN = 4.746                    # Bolometric magnitude of the Sun
 const M_EARTH = 5.9764e27                # earth mass (g)
-                                             # = 3.004424e-6 Msun
+                                            # = 3.004424e-6 Msun
 const R_EARTH = 6.37e8                   # earth radius (cm)
 const AU = 1.495978921e13                # astronomical unit (cm)
 const M_JUPITER = 1.8986e30              # jupiter mass (g)

@@ -19,7 +19,7 @@ end
 """
     get_isotope_list()
 
-gets a list of all included isotopes in `isotopoe.data`.
+gets a list of all included isotopes in `isotope.data`.
 """
 function get_isotope_list()
     Niso = 0
