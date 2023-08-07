@@ -2,8 +2,16 @@ using BlockBandedMatrices
 using SparseArrays
 using LinearSolve
 
+"""
+    mutable struct StellarStepInfo
+
+Information used for a simulation step. A single stellar model can have three different objects of
+    type StellarStepInfo, containing information from the previous step, information right before the
+    Newton solver, and information after the Newton solver has completed.
+""" 
 @kwdef mutable struct StellarStepInfo
     # grid properties
+
     nz::Int # number of zones in the model
     m::Vector{<:Real} # mass coordinate of each cell
     dm::Vector{<:Real} # mass contained in each cell
@@ -25,6 +33,12 @@ using LinearSolve
     lnr::Vector{<:Real}
 end
 
+"""
+    mutable struct StellarStepInfo
+
+An evolutionary model for a star, containing information about the star's current state, as well as the independent
+    variables of the model and its equations.
+""" 
 @kwdef mutable struct StellarModel
     # properties that define the model
     ind_vars::Vector{<:Real}

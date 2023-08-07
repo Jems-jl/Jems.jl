@@ -54,6 +54,11 @@ function eval_cell_eqs(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) wh
     return result
 end
 
+"""
+    eval_eqs(sm::StellarModel)
+
+Evaluates the stellar structure equations of the stellar model, `sm`, for all cells.
+""" 
 function eval_eqs!(sm::StellarModel)
     for k in 1:sm.nz
         ki = 0
