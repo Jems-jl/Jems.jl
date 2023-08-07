@@ -13,41 +13,47 @@ mutable struct StellarStepInfo
 end
 
 """
-    StellarModel
-
 Structured type that defines the state of the stellar model 
 """
 mutable struct StellarModel
     # properties that define the model
-    ind_vars::Vector{<:Real}
-    varnames::Vector{Symbol}
-    eqs::Vector{<:Real}
-    nvars::Int # this is the sum of hydro vars and species
-    nspecies::Int # Just the number of species in the network
-    structure_equations::Vector{Function} # Be careful, this probably kills type inference
-    vari::Dict{Symbol,Int} #links variable names to ind_vars vector
+    ind_vars::Vector{<:Real}  # independent variables
+    varnames::Vector{Symbol}  # names of the independent variables
+    eqs::Vector{<:Real}  # stores the result of equation evaluations
+    nvars::Int  # this is the sum of hydro vars and species
+    nspecies::Int  # the number of species in the network
+    structure_equations::Vector{Function}  # Be careful, this probably kills type inference
+    vari::Dict{Symbol,Int}  # maps variable names to ind_vars vector
 
     # grid properties
-    nz::Int # number of zones in the model
-    m::Vector{<:Real} # mass coordinate of each cell
-    dm::Vector{<:Real} # mass contained in each cell
-    mstar::Real # total model mass
+    nz::Int  # number of zones in the model
+    m::Vector{<:Real}  # mass coordinate of each cell
+    dm::Vector{<:Real}  # mass contained in each cell
+    mstar::Real  # total model mass
     
     # Some basic info
-    eos::StellarEOS.AbstractEOS
-    opacity::StellarOpacity.AbstractOpacity
-    isotope_data::Dict{Symbol, Isotope}
+    eos::StellarEOS.AbstractEOS  # interface to the eos that is used
+    opacity::StellarOpacity.AbstractOpacity  # interface to the opacity law that is used
+    isotope_data::Dict{Symbol, Isotope}  # maps isotope name to its data 
 
     # Jacobian matrix
-    jac::SparseMatrixCSC{Float64, Int64}
-    linear_solver  #solver that is produced by LinearSolve
+    jac::SparseMatrixCSC{Float64, Int64}  # stores the result of the jacobian evaluation
+    linear_solver  # solver that is produced by LinearSolve
 
     # Information computed at the start of the Step
     ssi::StellarStepInfo
 
     # Space for used defined options, defaults are in Options.jl
     opt::Options
-    function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Function}, nvars::Int, nspecies::Int, nz, eos, opacity)
+
+    """
+        StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Function}, 
+                    nvars::Int, nspecies::Int, nz::Int, eos::AbstractEOS, opacity::AbstractOpacity)
+
+    Constructor of a StellarModel instance.
+    """
+    function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Function}, 
+                        nvars::Int, nspecies::Int, nz::Int, eos::AbstractEOS, opacity::AbstractOpacity)
         ind_vars = ones(nvars*nz)
         eqs = ones(nvars*nz)
         m = ones(nz)
