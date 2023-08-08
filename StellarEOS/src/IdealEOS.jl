@@ -1,7 +1,10 @@
 export get_EOS_resultsTP
 
-"IdealEOS (derives from AbstractEOS) struct contains:
-include_radiation: whether radiation pressure should be included"
+"""
+    struct IdealEOS <: AbstractEOS
+
+Interface of an Ideal gas equation of state
+"""
 struct IdealEOS <: AbstractEOS
     include_radiation::Bool
 end
