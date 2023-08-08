@@ -11,7 +11,6 @@ Newton solver, and information after the Newton solver has completed.
 """ 
 @kwdef mutable struct StellarStepInfo
     # grid properties
-
     nz::Int # number of zones in the model
     m::Vector{<:Real} # mass coordinate of each cell
     dm::Vector{<:Real} # mass contained in each cell
@@ -103,9 +102,9 @@ function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Func
     cols = rows = [nvars for i in 1:N]  # block sizes
 
     jac_BBM = BlockBandedMatrix(Ones(sum(rows),sum(cols)), rows,cols, (l,u))
-    jac = sparse(jac_BBM)
+    jacobian = sparse(jac_BBM)
     #create solver
-    problem = LinearProblem(jac, eqs)
+    problem = LinearProblem(jacobian, eqs)
     linear_solver = init(problem)
 
     isotope_data = StellarChem.get_isotope_list();
@@ -136,7 +135,7 @@ function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Func
         nz=nz, m=m, dm=dm, mstar=0.0,
         time=0.0, dt=0.0, model_number=0,
         eos=eos,opacity=opacity,isotope_data=isotope_data,
-        jac=jac,linear_solver=linear_solver,
+        jacobian=jacobian,linear_solver=linear_solver,
         psi=psi,ssi=ssi,esi=esi,
         opt=opt)
 end

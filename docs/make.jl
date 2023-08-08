@@ -2,8 +2,8 @@ using Documenter
 using StellarChem, StellarConstants, StellarEOS, StellarEvolution, StellarOpacity
 
 makedocs(
-    sitename = "Medusa",
-    format = Documenter.HTML(),
+    sitename = "Jems.jl",
+    format=Documenter.HTML(),
     modules = [StellarChem, StellarConstants, StellarEOS, StellarEvolution, StellarOpacity]
 )
 

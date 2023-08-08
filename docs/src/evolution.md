@@ -20,7 +20,7 @@ using StellarConstants
 
 nvars = 6
 nspecies = 2
-varnames = [:lnP,:lnT,:lnr,:lum,:H1, :He4]
+varnames = [:lnP, :lnT, :lnr, :lum, :H1, :He4]
 structure_equations=[StellarEvolution.equationHSE, StellarEvolution.equationT,
                         StellarEvolution.equationContinuity, StellarEvolution.equationLuminosity,
                         StellarEvolution.equationH1, StellarEvolution.equationHe4]
@@ -53,6 +53,7 @@ The results of the simulation are provided in HDF5 format.
 Modules = [StellarEvolution]
 Pages = ["StellarModel.jl"]
 ```
+
 ## Options.jl
 
 ```@autodocs
