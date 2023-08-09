@@ -1,6 +1,6 @@
 module Opacity
 
-using Jems.Chem, Jems.Constants
+using ..Chem, ..Constants
 
 export AbstractOpacity
 

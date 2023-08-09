@@ -107,7 +107,7 @@ function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Func
     problem = LinearProblem(jacobian, eqs)
     linear_solver = init(problem)
 
-    isotope_data = StellarChem.get_isotope_list();
+    isotope_data = Chem.get_isotope_list();
 
     vari::Dict{Symbol,Int} = Dict()
     for i in eachindex(varnames)

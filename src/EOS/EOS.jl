@@ -1,6 +1,6 @@
 module EOS
 
-using Jems.Chem, Jems.Constants
+using ..Chem, ..Constants
 
 export AbstractEOS
 
