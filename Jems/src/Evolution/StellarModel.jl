@@ -60,8 +60,8 @@ variables of the model and its equations.
     model_number::Int
     
     # Some basic info
-    eos::StellarEOS.AbstractEOS
-    opacity::StellarOpacity.AbstractOpacity
+    eos::EOS.AbstractEOS
+    opacity::Opacity.AbstractOpacity
     isotope_data::Dict{Symbol, Isotope}
 
     # Jacobian matrix

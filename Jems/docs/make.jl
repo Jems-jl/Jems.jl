@@ -10,7 +10,7 @@ makedocs(;
     sitename="Jems.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://Pablo Marchant.github.io/Jems.jl",
+        canonical="https://orlox.github.io/Jems.jl",
         edit_link="main",
         assets=String[],
     ),

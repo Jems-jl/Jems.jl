@@ -1,6 +1,6 @@
-module StellarOpacity
+module Opacity
 
-using StellarChem, StellarConstants
+using Jems.Chem, Jems.Constants
 
 export AbstractOpacity
 
@@ -8,4 +8,4 @@ abstract type AbstractOpacity end
 
 include("SimpleElectronScattering.jl")
 
-end # module StellarOpacity
+end # module Opacity

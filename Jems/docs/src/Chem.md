@@ -3,5 +3,5 @@
 Documentation for StellarChem
 
 ```@autodocs
-Modules = [StellarChem]
+Modules = [Jems.Chem]
 ```

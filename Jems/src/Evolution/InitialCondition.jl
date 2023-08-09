@@ -2,7 +2,7 @@
 using ForwardDiff
 using Roots
 
-isotope_list = StellarChem.get_isotope_list()
+isotope_list = Chem.get_isotope_list()
 
 function theta_n(xi)
     return sin(xi)/xi

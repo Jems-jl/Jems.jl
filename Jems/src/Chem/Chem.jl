@@ -1,4 +1,4 @@
-module StellarChem
+module Chem
 
 export Isotope
 
@@ -26,14 +26,14 @@ gets a list of all currently included isotopes.
 function get_isotope_list()
     Niso = 0
     # First pass to count isotopes
-    open(pkgdir(StellarChem,"data","isotope.data")) do io
+    open(pkgdir(Jems,"data/ChemData","isotope.data")) do io
         readline(io) # throw out the first line
         lines = readlines(io)
         Niso = (length(lines)+1)/8 #last isotope is missing an empty line
     end
     isotope_list = Dict{Symbol,Isotope}()
     # second pass to read isotopes
-    open(pkgdir(StellarChem,"data","isotope.data")) do io
+    open(pkgdir(Jems,"data/ChemData","isotope.data")) do io
         readline(io) # throw out the first line
         for i in 1:Niso
             Z = parse(Int64, split(readline(io)," = ")[2]) # Read atomic number
@@ -52,4 +52,4 @@ function get_isotope_list()
     return isotope_list
 end
 
-end # module StellarChem
+end # module Stellar

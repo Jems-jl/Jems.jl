@@ -4,7 +4,7 @@ The StellarEvolution module contains the basic tools needed to combine all other
 It allows a fully customizable definition of the equations that are solved together with their boundary conditions.
 
 ```@contents
-Pages = ["evolution.md"]
+Pages = ["Evolution.md"]
 ```
 
 A model is initialized by specifying its independent variables and equations. The following creates a model with a basic ideal gas EOS and
@@ -13,10 +13,10 @@ Options for a simulation can be specified with a [toml](https://toml.io/en/) fil
 create a file with custom options and then load it up into the model. After setting everything up the simulation is run.
 
 ```@example
-using StellarEvolution
-using StellarEOS
-using StellarOpacity
-using StellarConstants
+using Jems.Evolution
+using Jems.EOS
+using Jems.Opacity
+using Jems.Constants
 
 nvars = 6
 nspecies = 2
@@ -39,10 +39,10 @@ open("options.toml","w") do file
             max_model_number = 300
 """)
 end
-StellarEvolution.set_options!(sm.opt, "options.toml")
+Evolution.set_options!(sm.opt, "options.toml")
 
 #run simulation
-#StellarEvolution.do_evolution_loop(sm)
+#Evolution.do_evolution_loop(sm)
 ```
 
 The results of the simulation are provided in HDF5 format.
@@ -50,48 +50,48 @@ The results of the simulation are provided in HDF5 format.
 ## StellarModel.jl
 
 ```@autodocs
-Modules = [StellarEvolution]
-Pages = ["StellarModel.jl"]
+Modules = [Jems.Evolution]
+Pages = ["Evolution/StellarModel.jl"]
 ```
 
 ## Options.jl
 
 ```@autodocs
-Modules = [StellarEvolution]
-Pages = ["Options.jl"]
+Modules = [Jems.Evolution]
+Pages = ["Evolution/Options.jl"]
 ```
 
 ## Equations.jl
 
 ```@autodocs
-Modules = [StellarEvolution]
-Pages = ["Equations.jl"]
+Modules = [Jems.Evolution]
+Pages = ["Evolution/Equations.jl"]
 ```
 
 ## Solver.jl
 
 ```@autodocs
-Modules = [StellarEvolution]
-Pages = ["Solver.jl"]
+Modules = [Jems.Evolution]
+Pages = ["Evolution/Solver.jl"]
 ```
 
 ## EvolutionLoop.jl
 
 ```@autodocs
-Modules = [StellarEvolution]
-Pages = ["EvolutionLoop.jl"]
+Modules = [Jems.Evolution]
+Pages = ["Evolution/EvolutionLoop.jl"]
 ```
 
 ## InitialCondition.jl
 
 ```@autodocs
-Modules = [StellarEvolution]
-Pages = ["InitialCondition.jl"]
+Modules = [Jems.Evolution]
+Pages = ["Evolution/InitialCondition.jl"]
 ```
 
 ## IO.jl
 
 ```@autodocs
-Modules = [StellarEvolution]
-Pages = ["IO.jl"]
+Modules = [Jems.Evolution]
+Pages = ["Evolution/IO.jl"]
 ```

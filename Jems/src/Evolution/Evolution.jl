@@ -1,11 +1,8 @@
-module StellarEvolution
+module Evolution
 
 export StellarModel
 
-using StellarConstants
-using StellarChem
-using StellarEOS
-using StellarOpacity
+using Jems.Constants, Jems.Chem, Jems.EOS, Jems.Opacity
 
 include("Options.jl")
 include("StellarModel.jl")
@@ -15,4 +12,4 @@ include("IO.jl")
 include("InitialCondition.jl")
 include("EvolutionLoop.jl")
 
-end # module StellarModel
+end # module Evolution

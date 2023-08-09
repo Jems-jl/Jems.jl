@@ -2,5 +2,5 @@
 
 
 ```@autodocs
-Modules = [StellarEOS]
+Modules = [Jems.EOS]
 ```

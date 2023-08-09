@@ -3,5 +3,5 @@
 StellarConstants documentation
 
 ```@autodocs
-Modules = [StellarConstants]
+Modules = [Jems.Constants]
 ```
