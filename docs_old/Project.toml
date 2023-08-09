@@ -1,7 +1,0 @@
-[deps]
-Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-StellarChem = "a84afe3b-952c-41e2-bc6a-6760f116ab93"
-StellarConstants = "6f81b052-5a35-46da-9297-247d6ebafa96"
-StellarEOS = "bea4d45a-16e6-41f2-bb8c-bedcdf9510c7"
-StellarEvolution = "53d3ebeb-465c-4997-82f5-7f1c3c141fa1"
-StellarOpacity = "eeb08737-d0df-4e7c-8b49-e5a607c545fb"
