@@ -7,3 +7,5 @@ profiles.hdf5
 *.mp4
 *.gif
 docs/build
+
+NuclearBurning.md

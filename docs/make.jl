@@ -1,5 +1,10 @@
 using Jems
 using Documenter
+using Literate
+
+# Parse examples using Literate
+pkg_path = pkgdir(Jems)
+Literate.markdown(pkg_path*"/examples/NuclearBurning.jl", pkg_path*"/docs/src/")
 
 DocMeta.setdocmeta!(Jems, :DocTestSetup, :(using Jems); recursive=true)
 
@@ -16,6 +21,7 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Examples" => "NuclearBurning.md",
         "Modules" => [
             "Chem.md",
             "Constants.md",
