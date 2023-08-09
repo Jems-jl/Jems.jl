@@ -6,7 +6,7 @@ DocMeta.setdocmeta!(Jems, :DocTestSetup, :(using Jems); recursive=true)
 makedocs(;
     modules=[Jems],
     authors="Pablo Marchant <pablo.marchant@kuleuven.be>, Matthias Fabry <matthias.fabry@kuleuven.be>",
-    repo="https://github.com/Pablo Marchant/Jems.jl/blob/{commit}{path}#{line}",
+    repo="https://github.com/orlox/Jems.jl/blob/{commit}{path}#{line}",
     sitename="Jems.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
@@ -20,6 +20,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/Pablo Marchant/Jems.jl",
+    repo="github.com/orlox/Jems.jl",
     devbranch="main",
 )
