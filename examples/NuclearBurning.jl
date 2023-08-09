@@ -184,7 +184,7 @@ model_number_str = @lift("model number=$(parse(Int,$pname))")
 profile_text = text!(ax, -10,20,text=model_number_str)
 
 record(f, "rho_P_evolution.gif", profile_names[1:end];
-        framerate = 5) do profile_name
+        framerate = 2) do profile_name
     pname[] = profile_name
 end
 
@@ -214,7 +214,7 @@ profile_line = lines!(ax, mass, X, label="real profile")
 profile_text = text!(ax, 0.7,0.0,text=model_number_str)
 
 record(f, "X_evolution.gif", profile_names[1:end];
-        framerate = 5) do profile_name
+        framerate = 2) do profile_name
     pname[] = profile_name
 end
 
