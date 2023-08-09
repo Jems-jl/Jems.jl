@@ -128,7 +128,7 @@ function do_evolution_loop(sm::StellarModel)
             eval_jacobian!(sm)
             eval_eqs!(sm)
             
-            sm.linear_solver.A = sm.jac  # A dx + b = 0; solve for dx
+            sm.linear_solver.A = sm.jacobian  # A dx + b = 0; solve for dx
             sm.linear_solver.b = -sm.eqs
             corr = solve(sm.linear_solver)
     
