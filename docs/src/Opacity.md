@@ -2,5 +2,5 @@
 
 
 ```@autodocs
-Modules = [StellarOpacity]
+Modules = [Jems.Opacity]
 ```

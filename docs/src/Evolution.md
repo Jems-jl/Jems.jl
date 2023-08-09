@@ -21,16 +21,16 @@ using Jems.Constants
 nvars = 6
 nspecies = 2
 varnames = [:lnP, :lnT, :lnr, :lum, :H1, :He4]
-structure_equations=[StellarEvolution.equationHSE, StellarEvolution.equationT,
-                        StellarEvolution.equationContinuity, StellarEvolution.equationLuminosity,
-                        StellarEvolution.equationH1, StellarEvolution.equationHe4]
+structure_equations=[Evolution.equationHSE, Evolution.equationT,
+                        Evolution.equationContinuity, Evolution.equationLuminosity,
+                        Evolution.equationH1, Evolution.equationHe4]
 nz = 1000
-eos = StellarEOS.IdealEOS(false)
-opacity = StellarOpacity.SimpleElectronScatteringOpacity()
+eos = EOS.IdealEOS(false)
+opacity = Opacity.SimpleElectronScatteringOpacity()
 sm = StellarModel(varnames, structure_equations, nvars, nspecies, nz, eos, opacity)
 
 #Initialize the model as n=1 polytrope with an initial timestep of 10 years
-StellarEvolution.n1_polytrope_initial_condition(sm, MSUN, 100*RSUN; initial_dt=10*SECYEAR)
+Evolution.n1_polytrope_initial_condition(sm, MSUN, 100*RSUN; initial_dt=10*SECYEAR)
 
 #Load custom options
 open("options.toml","w") do file
