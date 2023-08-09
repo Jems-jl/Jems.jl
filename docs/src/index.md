@@ -1,15 +1,14 @@
-# Jems.jl
+```@meta
+CurrentModule = Jems
+```
 
-Documentation for Jems.jl
+# Jems
 
-Medusa contains the following modules:
+Documentation for [Jems](https://github.com/Pablo Marchant/Jems.jl).
 
-```@contents
-Pages = [
-    "chem.md",
-    "const.md",
-    "eos.md",
-    "evolution.md",
-    "kap.md",
-]
+```@index
+```
+
+```@autodocs
+Modules = [Jems]
 ```
