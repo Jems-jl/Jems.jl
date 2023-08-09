@@ -16,6 +16,13 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Modules" => [
+            "Chem.md",
+            "Constants.md",
+            "EOS.md",
+            "Evolution.md",
+            "Opacity.md"
+        ]
     ],
 )
 

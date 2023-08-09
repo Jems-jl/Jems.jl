@@ -1,11 +1,7 @@
-# StellarEvolution
+# Evolution
 
-The StellarEvolution module contains the basic tools needed to combine all other modules to perform stellar evolution.
+The Evolution module of Jems contains the basic tools needed to combine all other modules to perform stellar evolution.
 It allows a fully customizable definition of the equations that are solved together with their boundary conditions.
-
-```@contents
-Pages = ["Evolution.md"]
-```
 
 A model is initialized by specifying its independent variables and equations. The following creates a model with a basic ideal gas EOS and
 electron scattering opacity, which is then initialized using an n=1 polytrope of 1$M_\odot$ and $100R_\odot$.
