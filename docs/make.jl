@@ -1,16 +1,25 @@
+using Jems
 using Documenter
-using StellarChem, StellarConstants, StellarEOS, StellarEvolution, StellarOpacity
 
-makedocs(
-    sitename = "Jems.jl",
-    format=Documenter.HTML(),
-    modules = [StellarChem, StellarConstants, StellarEOS, StellarEvolution, StellarOpacity]
+DocMeta.setdocmeta!(Jems, :DocTestSetup, :(using Jems); recursive=true)
+
+makedocs(;
+    modules=[Jems],
+    authors="Pablo Marchant <pablo.marchant@kuleuven.be>, Matthias Fabry <matthias.fabry@kuleuven.be>",
+    repo="https://github.com/orlox/Jems.jl/blob/{commit}{path}#{line}",
+    sitename="Jems.jl",
+    format=Documenter.HTML(;
+        prettyurls=get(ENV, "CI", "false") == "true",
+        canonical="https://orlox.github.io/Jems.jl",
+        edit_link="main",
+        assets=String[],
+    ),
+    pages=[
+        "Home" => "index.md",
+    ],
 )
 
-# Documenter can also automatically deploy documentation to gh-pages.
-# See "Hosting Documentation" and deploydocs() in the Documenter manual
-# for more information.
-deploydocs(
-    repo = "github.com/orlox/medusa.jl.git",
-    deploy_config = Documenter.GitHubActions()
+deploydocs(;
+    repo="github.com/orlox/Jems.jl",
+    devbranch="main",
 )

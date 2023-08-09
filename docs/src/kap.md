@@ -1,6 +1,0 @@
-# StellarOpacity
-
-
-```@autodocs
-Modules = [StellarOpacity]
-```

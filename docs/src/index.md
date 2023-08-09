@@ -1,15 +1,19 @@
+```@meta
+CurrentModule = Jems
+```
+
 # Jems.jl
 
-Documentation for Jems.jl
+Documentation for [Jems](https://github.com/orlox/Jems.jl).
 
-Medusa contains the following modules:
+Jems.jl contains the following modules:
 
 ```@contents
 Pages = [
-    "chem.md",
-    "const.md",
-    "eos.md",
-    "evolution.md",
-    "kap.md",
+    "Chem.md",
+    "Constants.md",
+    "EOS.md",
+    "Evolution.md",
+    "Opacity.md",
 ]
 ```

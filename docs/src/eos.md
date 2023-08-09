@@ -1,6 +1,0 @@
-# StellarEOS
-
-
-```@autodocs
-Modules = [StellarEOS]
-```
