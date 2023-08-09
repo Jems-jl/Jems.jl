@@ -122,7 +122,7 @@ open("example_options.toml","w") do file
 
         [termination]
         max_model_number = 3000
-        max_center_T = 2e7
+        max_center_T = 4e7
 
         [io]
         profile_interval = 50
@@ -227,7 +227,6 @@ funny!
 ##Plot a funny HR diagram
 f = Figure()
 ax = Axis(f[1,1], xlabel=L"\log_{10}(T_\mathrm{eff}/[K])", ylabel=L"\log_{10}(L/L_\odot)", xreversed=true)
-xvals = collect(LinRange(0,1,1000))
 history = Evolution.get_history_dataframe_from_hdf5("history.hdf5")
 lines!(ax, log10.(history[!,"T_surf"]), log10.(history[!,"L_surf"]))
 f
