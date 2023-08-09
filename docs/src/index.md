@@ -1,6 +1,6 @@
-# Medusa.jl
+# Jems.jl
 
-Documentation for Medusa.jl
+Documentation for Jems.jl
 
 Medusa contains the following modules:
 

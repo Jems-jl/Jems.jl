@@ -1,5 +1,9 @@
-# set end step info (sm.esi) from current state
-function set_end_step_info(sm::StellarModel)
+"""
+    set_end_step_info(sm::StellarModel)
+
+Sets the end step info (sm.esi) from current state of the StellarModel `sm`.
+"""
+function set_end_step_info!(sm::StellarModel)
     sm.esi.model_number = sm.model_number
     sm.esi.time = sm.time
     sm.esi.dt = sm.dt
@@ -25,14 +29,25 @@ function set_end_step_info(sm::StellarModel)
     end
 end
 
-function cycle_step_info(sm::StellarModel)
+"""
+    cycle_step_info!(sm::StellarModel)
+
+Moves the model info of the StellarModel `sm` over one state:
+start step info -> end step info -> previous step info -> start step info
+"""
+function cycle_step_info!(sm::StellarModel)
     temp_step_info = sm.psi
     sm.psi = sm.esi
     sm.esi = sm.ssi
     sm.ssi = temp_step_info
 end
 
-function set_start_step_info(sm::StellarModel)
+"""
+    set_start_step_info!(sm::StellarModel)
+
+Sets the start step info of the StellarModel `sm`.
+"""
+function set_start_step_info!(sm::StellarModel)
     # for now, we dont do anything special before the step (ie remeshing) so we just copy things from sm.psi
     sm.ssi.model_number = sm.psi.model_number
     sm.ssi.time = sm.psi.time
@@ -53,6 +68,11 @@ function set_start_step_info(sm::StellarModel)
     end
 end
 
+"""
+    get_dt_next(sm::StellarModel)
+
+Computes the timestep of the next evolutionary step to be taken by the StellarModel `sm`.
+"""
 function get_dt_next(sm::StellarModel)
     dt_next = sm.esi.dt
     if (sm.esi.model_number==0)
@@ -79,14 +99,21 @@ function get_dt_next(sm::StellarModel)
     end
 end
 
+"""
+    do_evolution_loop(sm::StellarModel)
+
+Performs the main evolutionary loop of the input StellarModel `sm`.
+It continues taking steps until one of the termination criteria is reached (defined
+in sm.opt.termination)
+"""
 function do_evolution_loop(sm::StellarModel)
-    set_end_step_info(sm)
+    set_end_step_info!(sm)
     #be sure to have sensible termination conditions or this will go on forever!
     while true
         dt_next = get_dt_next(sm)
     
-        cycle_step_info(sm)
-        set_start_step_info(sm)
+        cycle_step_info!(sm)
+        set_start_step_info!(sm)
     
         sm.ssi.dt = dt_next
         sm.dt = dt_next
@@ -101,9 +128,9 @@ function do_evolution_loop(sm::StellarModel)
             eval_jacobian!(sm)
             eval_eqs!(sm)
             
-            sm.linear_solver.A = sm.jac
+            sm.linear_solver.A = sm.jac  # A dx + b = 0; solve for dx
             sm.linear_solver.b = -sm.eqs
-            corr =solve(sm.linear_solver)
+            corr = solve(sm.linear_solver)
     
             real_max_corr = maximum(corr)
             
@@ -115,7 +142,7 @@ function do_evolution_loop(sm::StellarModel)
                 corr = corr*(-0.1*lum_surf/corr_lum_surf)
             end
     
-            #scale correction
+            # scale correction
             if sm.model_number==0
                 corr = corr*min(1,sm.opt.solver.initial_model_scale_max_correction/maximum(corr))
             else
@@ -148,7 +175,7 @@ function do_evolution_loop(sm::StellarModel)
         sm.time = sm.time + sm.ssi.dt
         sm.model_number = sm.model_number + 1
     
-        set_end_step_info(sm)
+        set_end_step_info!(sm)
     
         write_data(sm)
     

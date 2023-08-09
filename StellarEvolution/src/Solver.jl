@@ -17,6 +17,8 @@ function eval_cell_eqs(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) wh
     var00::Vector{TT} = []
     varp1::Vector{TT} = []
     species_names = sm.varnames[sm.nvars-sm.nspecies+1:end]
+
+    # collect required variables
     if k>1 && k<sm.nz
         varm1 = ind_vars_view[1:sm.nvars]
         var00 = ind_vars_view[sm.nvars+1:2*sm.nvars]
@@ -29,6 +31,7 @@ function eval_cell_eqs(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) wh
         var00 = ind_vars_view[sm.nvars+1:2*sm.nvars]
     end
 
+    # collect eos and κ info (could be sped up by doing this before eval. the Jacobian!)
     eos00 = get_EOS_resultsTP(sm.eos, sm.isotope_data, var00[sm.vari[:lnT]],var00[sm.vari[:lnP]],
         var00[sm.nvars-sm.nspecies+1:sm.nvars],species_names)
     κ00 = get_opacity_resultsTP(sm.opacity, sm.isotope_data, var00[sm.vari[:lnT]],var00[sm.vari[:lnP]],
@@ -46,6 +49,7 @@ function eval_cell_eqs(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) wh
             varp1[sm.nvars-sm.nspecies+1:sm.nvars],species_names)
     end
 
+    # evaluate all equations!
     for i in 1:sm.nvars
         result[i] = sm.structure_equations[i](sm, k, varm1, var00, varp1, 
                                                      eosm1, eos00, eosp1,
@@ -78,6 +82,11 @@ function eval_eqs!(sm::StellarModel)
     end
 end
 
+"""
+    eval_jacobian_row!(sm::StellarModel, k::int)
+
+Evaluates row `k` of the Jacobian matrix of the given StellarModel `sm`.
+"""
 function eval_jacobian_row!(sm::StellarModel, k::Int)
     # ranges of ind_vars vector that needs to be considered, needs special cases for k=1 or nz
     # Jacobian has tridiagonal block structure:
@@ -90,7 +99,10 @@ function eval_jacobian_row!(sm::StellarModel, k::Int)
     # In the first row, the first block corresponds to the derivatives of the structure equations
     # with respect to the variables at the first cell. The block to the right corresponds to the
     # derivatives with respect to the variables at the second cell.
-    # TODO: complete comment
+    # In the second row until row nz-1, the first block contains the derivatives of the structure 
+    # equations wrt. the variables of the previous cell, the second block wrt. to the varibles in 
+    # the current cell, and the third wrt. the variables of the next cell.
+    # The last row only contains the derivatives wrt. the penultimate cell and the last cell.
     ki = 0
     kf = 0
     if k==1
@@ -116,6 +128,11 @@ function eval_jacobian_row!(sm::StellarModel, k::Int)
     ForwardDiff.jacobian!(jac_view, eval_eqs_wrapper, ind_vars_view)#, cfg)
 end
 
+"""
+    eval_jacobian!(sm::StellarModel)
+
+Evaluates the whole Jacobian matrix of the given StellarModel `sm`.
+"""
 function eval_jacobian!(sm::StellarModel)
     Threads.@threads for k in 1:sm.nz
         eval_jacobian_row!(sm, k)

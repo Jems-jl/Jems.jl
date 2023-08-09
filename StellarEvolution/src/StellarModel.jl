@@ -6,12 +6,11 @@ using LinearSolve
     mutable struct StellarStepInfo
 
 Information used for a simulation step. A single stellar model can have three different objects of
-    type StellarStepInfo, containing information from the previous step, information right before the
-    Newton solver, and information after the Newton solver has completed.
+type StellarStepInfo, containing information from the previous step, information right before the
+Newton solver, and information after the Newton solver has completed.
 """ 
 @kwdef mutable struct StellarStepInfo
     # grid properties
-
     nz::Int # number of zones in the model
     m::Vector{<:Real} # mass coordinate of each cell
     dm::Vector{<:Real} # mass contained in each cell
@@ -34,30 +33,30 @@ Information used for a simulation step. A single stellar model can have three di
 end
 
 """
-    mutable struct StellarStepInfo
+    mutable struct StellarModel
 
-An evolutionary model for a star, containing information about the star's current state, as well as the independent
-    variables of the model and its equations.
+An evolutionary model for a star, containing information about the star's current state, as well as the independent 
+variables of the model and its equations.
 """ 
 @kwdef mutable struct StellarModel
-    # properties that define the model
-    ind_vars::Vector{<:Real}
-    varnames::Vector{Symbol}
-    eqs::Vector{<:Real}
-    nvars::Int # this is the sum of hydro vars and species
-    nspecies::Int # Just the number of species in the network
-    structure_equations::Vector{Function} # Be careful, this probably kills type inference
-    vari::Dict{Symbol,Int} #links variable names to ind_vars vector
+    # Properties that define the model
+    ind_vars::Vector{<:Real}  # List of independent variables
+    varnames::Vector{Symbol}  # List of variable names
+    vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector
+    eqs::Vector{<:Real}  # Stores the results of the equation evaluations
+    nvars::Int  # This is the sum of hydro vars and species
+    nspecies::Int  # Just the number of species in the network
+    structure_equations::Vector{Function}  # List of equations to be solved. Be careful, typing here probably kills type inference
 
-    # grid properties
-    nz::Int # number of zones in the model
-    m::Vector{<:Real} # mass coordinate of each cell
-    dm::Vector{<:Real} # mass contained in each cell
-    mstar::Real # total model mass
+    # Grid properties
+    nz::Int  # Number of zones in the model
+    m::Vector{<:Real}  # Mass coordinate of each cell (g)
+    dm::Vector{<:Real}  # Mass contained in each cell (g)
+    mstar::Real  # Total model mass (g)
 
-    # unique valued properties (ie not cell dependent)
-    time::Real
-    dt::Real
+    # Unique valued properties (ie not cell dependent)
+    time::Real  # Age of the model (s)
+    dt::Real  # Timestep of the current evolutionary step (s)
     model_number::Int
     
     # Some basic info
@@ -66,7 +65,7 @@ An evolutionary model for a star, containing information about the star's curren
     isotope_data::Dict{Symbol, Isotope}
 
     # Jacobian matrix
-    jac::SparseMatrixCSC{Float64, Int64}
+    jacobian::SparseMatrixCSC{Float64, Int64}
     linear_solver #solver that is produced by LinearSolve
 
     # Here I want to preemt things that will be necessary once we have an adaptative mesh.
@@ -84,19 +83,28 @@ An evolutionary model for a star, containing information about the star's curren
     opt::Options
 end
 
-function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Function}, nvars::Int, nspecies::Int, nz, eos, opacity)
+"""
+    StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Function}, nvars::Int, 
+    nspecies::Int, nz::Int, eos::AbstractEOS, opacity::AbstractOpacity)
+
+Constructor for a `StellarModel` instance, using `varnames` for the independent variables, functions of the 
+`structure_equations` to be solved, number of independent variables `nvars`, number of species in the network `nspecies`
+number of zones in the model `nz` and an iterface to the EOS and Opacity laws.
+"""
+function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Function}, nvars::Int, nspecies::Int, 
+        nz::Int, eos::AbstractEOS, opacity::AbstractOpacity)
     ind_vars = ones(nvars*nz)
     eqs = ones(nvars*nz)
     m = ones(nz)
 
-    l,u = 1,1          # block bandwidths
-    N = M = nz        # number of row/column blocks
+    l,u = 1,1  # block bandwidths
+    N = M = nz  # number of row/column blocks
     cols = rows = [nvars for i in 1:N]  # block sizes
 
     jac_BBM = BlockBandedMatrix(Ones(sum(rows),sum(cols)), rows,cols, (l,u))
-    jac = sparse(jac_BBM)
+    jacobian = sparse(jac_BBM)
     #create solver
-    problem = LinearProblem(jac, eqs)
+    problem = LinearProblem(jacobian, eqs)
     linear_solver = init(problem)
 
     isotope_data = StellarChem.get_isotope_list();
@@ -127,7 +135,7 @@ function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Func
         nz=nz, m=m, dm=dm, mstar=0.0,
         time=0.0, dt=0.0, model_number=0,
         eos=eos,opacity=opacity,isotope_data=isotope_data,
-        jac=jac,linear_solver=linear_solver,
+        jacobian=jacobian,linear_solver=linear_solver,
         psi=psi,ssi=ssi,esi=esi,
         opt=opt)
 end
