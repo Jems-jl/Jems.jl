@@ -28,6 +28,9 @@ makedocs(;
             "EOS.md",
             "Evolution.md",
             "Opacity.md"
+        ],
+        "Developing" => [
+            "style.md"
         ]
     ],
 )
