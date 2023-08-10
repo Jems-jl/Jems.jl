@@ -37,38 +37,30 @@ end
     history_interval::Int = 1
     profile_interval::Int = 10
 
-    history_values::Vector{String} = [
-        "star_age",
-        "dt",
-        "model_number",
-        "star_mass",
+    history_values::Vector{String} = ["star_age",
+                                      "dt",
+                                      "model_number",
+                                      "star_mass", "R_surf",
+                                      "L_surf",
+                                      "T_surf",
+                                      "P_surf",
+                                      "ρ_surf",
+                                      "X_surf",
+                                      "Y_surf", "T_center",
+                                      "P_center",
+                                      "ρ_center",
+                                      "X_center",
+                                      "Y_center"]
 
-        "R_surf",
-        "L_surf",
-        "T_surf",
-        "P_surf",
-        "ρ_surf",
-        "X_surf",
-        "Y_surf",
-
-        "T_center",
-        "P_center",
-        "ρ_center",
-        "X_center",
-        "Y_center"
-    ]
-
-    profile_values:: Vector{String} = [
-        "zone",
-        "mass",
-        "dm",
-        "log10_ρ",
-        "log10_P",
-        "log10_T",
-        "luminosity",
-        "X",
-        "Y"
-    ]
+    profile_values::Vector{String} = ["zone",
+                                      "mass",
+                                      "dm",
+                                      "log10_ρ",
+                                      "log10_P",
+                                      "log10_T",
+                                      "luminosity",
+                                      "X",
+                                      "Y"]
 end
 
 mutable struct Options
@@ -89,8 +81,9 @@ function set_options!(opt::Options, toml_path::String)
     # Do this before anything is changed, in that way if the load will fail the
     # input is unmodified
     for key in keys(options_file)
-        if !(key in ["solver", "timestep","termination","io"])
-            throw(ArgumentError("Error while reading $toml_path. One of the sections on the TOML file provided ([$key]) is not valid."))
+        if !(key in ["solver", "timestep", "termination", "io"])
+            throw(ArgumentError("Error while reading $toml_path.
+                One of the sections on the TOML file provided ([$key]) is not valid."))
         end
     end
     for key in keys(options_file)
@@ -98,23 +91,27 @@ function set_options!(opt::Options, toml_path::String)
         for subkey in keys(options_file[key])
             # verify this is a valid option for this section
             if (!(Symbol(subkey) in fieldnames(typeof(section))))
-                throw(ArgumentError("Error while reading $toml_path. Option $subkey is not valid for section [$key]."))
+                throw(ArgumentError("Error while reading $toml_path. 
+                    Option $subkey is not valid for section [$key]."))
             end
             try
                 setfield!(section, Symbol(subkey), options_file[key][subkey])
             catch e
-                io = IOBuffer();
+                io = IOBuffer()
                 showerror(io, e)
                 error_message = String(take!(io))
                 if isa(e, TypeError)
                     throw(ArgumentError("""
                     While reading $toml_path a type error was produced when setting $subkey in [$key].
                     Verify the type is consistent with $(typeof(getfield(section, Symbol(subkey)))).
-                    Full error message is displayed below:\n\n"""*error_message))
+                    Full error message is displayed below:\n\n""" * error_message))
                 end
                 # Exception is not clear, create an IO buffer to load the exception message
-                throw(ArgumentError("""Unkown error while reading $toml_path. An exception of type $(typeof(e)) was produced while setting $subkey in [$key].
-                The original error from the exception is shown below:\n\n"""*error_message))
+                throw(ArgumentError("""
+                Unknown error while reading $toml_path.
+                An exception of type $(typeof(e)) was produced while setting $subkey in [$key].
+                The original error from the exception is shown below:\n\n""" *
+                                    error_message))
             end
         end
     end
