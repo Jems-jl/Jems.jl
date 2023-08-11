@@ -73,7 +73,7 @@ using LinearSolve
     corr = solve($sm.linear_solver)
 end
 #=
-On my system, this takes on the order of 4.3 ms. Next up we can check how long it takes to compute a single row of the
+On my system, this takes on the order of 800 μs. Next up we can check how long it takes to compute a single row of the
 jacobian. With a row here I mean all the entries that correspond to one cell. The code below benchmarks the time it
 takes to compute the jacobian elements associated with row 2
 =#

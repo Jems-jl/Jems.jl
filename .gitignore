@@ -7,5 +7,6 @@ profiles.hdf5
 *.mp4
 *.gif
 docs/build
+alloc-profile.pb.gz
 
 NuclearBurning.md
