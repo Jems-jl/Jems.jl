@@ -100,7 +100,8 @@ function StellarModel(varnames::Vector{Symbol},
                       nspecies::Int,
                       nz::Int,
                       eos::AbstractEOS,
-                      opacity::AbstractOpacity)
+                      opacity::AbstractOpacity;
+                      solver_method = KLUFactorization())
     ind_vars = ones(nvars * nz)
     eqs = ones(nvars * nz)
     m = ones(nz)
@@ -113,7 +114,7 @@ function StellarModel(varnames::Vector{Symbol},
     jacobian = sparse(jac_BBM)
     #create solver
     problem = LinearProblem(jacobian, eqs)
-    linear_solver = init(problem)
+    linear_solver = init(problem, solver_method)
 
     isotope_data = Chem.get_isotope_list()
 
