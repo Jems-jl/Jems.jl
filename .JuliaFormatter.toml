@@ -1,0 +1,10 @@
+style = "yas"  # base style
+
+indent = 4
+margin = 120
+
+ignore =["docs"]
+format_docstrings = true
+always_for_in = false
+always_use_return = false
+separate_kwargs_with_semicolon = false
