@@ -94,9 +94,9 @@ to compute. Let's benchmark the calculation of the full jacobian.
 @benchmark Evolution.eval_jacobian!(sm)
 
 #=
-And in my computer, this took about $5.2\;\mathrm{ms}$. Even though we have a thousand cells, the computation time was
+And on my computer, this took about $5.2\;\mathrm{ms}$. Even though we have a thousand cells, the computation time was
 not a thousand times longer than computing the components of the jacobian for a single cell. The reason for this is that
-the calculation is parallelized so cells are done independently. However, I used 8 cores in my calculation, so the
+the calculation is parallelized so cells are done independently. However, I used 8 cores for my calculations, so the
 scaling is less than ideal. One of the main culprits here is the garbage collector. Current versions of julia can only
 perform garbage collection in a serial way, so it does not take advantage of all threads. Starting with julia 1.10, the
 garbage collector will be able to run in multiple threads, so that should alleviate issues with performance scaling.
@@ -106,7 +106,7 @@ garbage collector will be able to run in multiple threads, so that should allevi
 #=
 ### Evolving our model
 
-We can now evolve our star! We will initiate a $1M_\odot$ star with a radius of $100$_\odot$ using an n=1 polytrope (it
+We can now evolve our star! We will initiate a $1M_\odot$ star with a radius of $100R_\odot$ using an n=1 polytrope (it
 would be much better to use n=3 or n=3/2 polytropes, for now I only use this because there is a simple analytical
 solution). The star is expected to contract until it ignites hydrogen. We set a few options for the simulation with a
 toml file, which we generate dynamically. These simulation should complete in about a thousand steps once it reaches the
@@ -145,12 +145,12 @@ Evolution.n1_polytrope_initial_condition(sm, MSUN, 100 * RSUN; initial_dt=1000 *
 ### Plotting with Makie
 
 Now that our simulation is complete we can analyze the results. We make use of the Makie package for this. I'm not a fan
-of the Makie defaults, so I adjust them. I normally also adjust the fonts to be consistent with LaTeX, but I avoid that
+of the Makie defaults, so I adjust them. I normally also adjust the fonts to be consistent with \LaTeX, but I avoid that
 here so we don't need to distribute those fonts together with Jems.
 =#
 using CairoMakie, LaTeXStrings
 basic_theme = Theme(
-                    #fonts = (; regular = "ComputerModernFont/cmunrm.ttf", bold = "ComputerModernFont/cmunbx.ttf", italic = "ComputerModernFont/cmunti.ttf", bold_italic = "ComputerModernFont/cmunbi.ttf"), # taken from https://sourceforge.net/projects/cm-unicode/
+                    #fonts = (regular = "ComputerModernFont/cmunrm.ttf", bold = "ComputerModernFont/cmunbx.ttf", italic = "ComputerModernFont/cmunti.ttf", bold_italic = "ComputerModernFont/cmunbi.ttf"), # taken from https://sourceforge.net/projects/cm-unicode/
                     fontsize=30, resolution=(1000, 750), linewidth=7,
                     Axis=(xlabelsize=40, ylabelsize=40, titlesize=40, xgridvisible=false, ygridvisible=false,
                           spinewidth=2.5, xminorticksvisible=true, yminorticksvisible=true, xtickalign=1, ytickalign=1,
@@ -195,15 +195,16 @@ record(f, "rho_P_evolution.gif", profile_names[1:end]; framerate=2) do profile_n
     pname[] = profile_name
 end
 
+# ![Movie polytrope](./rho_P_evolution.gif)
+
 ##
 #=
 ### Check nuclear burning
 
-![Movie polytrope](./rho_P_evolution.gif)
 We see that the structure evolves towards an n=3 polytrope. Deviations near the core are due to the non-homogeneous
 composition as hydrogen is burnt. We can similarly visualize how the hydrogen mass fraction changes in the simulation.
 In here only one frame shows the hydrogen that was burnt, to better visualize that you can adjust `profile_interval` in
-the `[io](@ref)` options (and probably adjust the framerate).
+the [Io](Evolution.md##Io.jl) options (and probably adjust the framerate).
 =#
 profile_names = Evolution.get_profile_names_from_hdf5("profiles.hdf5")
 
@@ -224,11 +225,12 @@ record(f, "X_evolution.gif", profile_names[1:end]; framerate=2) do profile_name
     pname[] = profile_name
 end
 
+# ![Movie polytrope](./X_evolution.gif)
+
 ##
 #=
 ### Plot a funny HR diagram
 
-![Movie polytrope](./X_evolution.gif)
 Finally, we can also access the history data of the simulation. We use this to plot a simple HR diagram. As our
 microphysics are very simplistic, and the initial condition is not very physical, this looks a bit funny!
 =#
