@@ -149,11 +149,8 @@ of the Makie defaults, so I adjust them. I normally also adjust the fonts to be 
 here so we don't need to distribute those fonts together with Jems.
 =#
 using CairoMakie, LaTeXStrings
-basic_theme = Theme(#fonts = (; regular = "ComputerModernFont/cmunrm.ttf",
-                    #bold = "ComputerModernFont/cmunbx.ttf",
-                    #italic = "ComputerModernFont/cmunti.ttf",
-                    #bold_italic = "ComputerModernFont/cmunbi.ttf"),
-                    # taken from https://sourceforge.net/projects/cm-unicode/
+basic_theme = Theme(
+                    #fonts = (; regular = "ComputerModernFont/cmunrm.ttf", bold = "ComputerModernFont/cmunbx.ttf", italic = "ComputerModernFont/cmunti.ttf", bold_italic = "ComputerModernFont/cmunbi.ttf"), # taken from https://sourceforge.net/projects/cm-unicode/
                     fontsize=30, resolution=(1000, 750), linewidth=7,
                     Axis=(xlabelsize=40, ylabelsize=40, titlesize=40, xgridvisible=false, ygridvisible=false,
                           spinewidth=2.5, xminorticksvisible=true, yminorticksvisible=true, xtickalign=1, ytickalign=1,
