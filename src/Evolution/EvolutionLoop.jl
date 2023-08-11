@@ -22,8 +22,7 @@ function set_end_step_info!(sm::StellarModel)
         species_names = sm.varnames[(sm.nvars - sm.nspecies + 1):end]
         xa = sm.ind_vars[(i * sm.nvars - sm.nspecies + 1):(i * sm.nvars)]
 
-        eos = get_EOS_resultsTP(sm.eos, sm.isotope_data, sm.psi.lnT[i], sm.psi.lnP[i],
-                                xa, species_names)
+        eos = get_EOS_resultsTP(sm.eos, sm.isotope_data, sm.psi.lnT[i], sm.psi.lnP[i], xa, species_names)
 
         sm.esi.lnρ[i] = log(eos[1])
         sm.esi.ind_vars[((i - 1) * sm.nvars + 1):(i * sm.nvars)] .= sm.ind_vars[((i - 1) * sm.nvars + 1):(i * sm.nvars)]
@@ -49,8 +48,7 @@ end
 Sets the start step info of the StellarModel `sm`.
 """
 function set_start_step_info!(sm::StellarModel)
-    # for now, we dont do anything special before the step (ie remeshing) so we just
-    # copy things from sm.psi
+    # for now, we dont do anything special before the step (ie remeshing) so we just copy things from sm.psi
     sm.ssi.model_number = sm.psi.model_number
     sm.ssi.time = sm.psi.time
     sm.ssi.dt = sm.psi.dt
@@ -73,8 +71,7 @@ end
 """
     get_dt_next(sm::StellarModel)
 
-Computes the timestep of the next evolutionary step to be taken by the StellarModel
-`sm`.
+Computes the timestep of the next evolutionary step to be taken by the StellarModel `sm`.
 """
 function get_dt_next(sm::StellarModel)
     dt_next = sm.esi.dt
@@ -97,8 +94,7 @@ function get_dt_next(sm::StellarModel)
         dt_nextTc = dt_next * sm.opt.timestep.delta_Tc_limit / ΔTc_div_Tc
         dt_nextX = dt_next * sm.opt.timestep.delta_Xc_limit / ΔX
 
-        dt_next = min(sm.opt.timestep.dt_max_increase * dt_next,
-                      dt_nextR, dt_nextTc, dt_nextX)
+        dt_next = min(sm.opt.timestep.dt_max_increase * dt_next, dt_nextR, dt_nextTc, dt_nextX)
         return dt_next
     end
 end
@@ -106,13 +102,12 @@ end
 """
     do_evolution_loop(sm::StellarModel)
 
-Performs the main evolutionary loop of the input StellarModel `sm`.
-It continues taking steps until one of the termination criteria is reached (defined
-in sm.opt.termination)
+Performs the main evolutionary loop of the input StellarModel `sm`. It continues taking steps until one of the
+termination criteria is reached (defined in sm.opt.termination)
 """
 function do_evolution_loop(sm::StellarModel)
     set_end_step_info!(sm)
-    #be sure to have sensible termination conditions or this will go on forever!
+    # be sure to have sensible termination conditions or this will go on forever!
     while true
         dt_next = get_dt_next(sm)
 
@@ -148,11 +143,9 @@ function do_evolution_loop(sm::StellarModel)
 
             # scale correction
             if sm.model_number == 0
-                corr = corr * min(1,
-                                  sm.opt.solver.initial_model_scale_max_correction / maximum(corr))
+                corr = corr * min(1, sm.opt.solver.initial_model_scale_max_correction / maximum(corr))
             else
-                corr = corr * min(1,
-                                  sm.opt.solver.scale_max_correction / maximum(corr))
+                corr = corr * min(1, sm.opt.solver.scale_max_correction / maximum(corr))
             end
             if i % 50 == 0
                 @show i, maximum(corr), real_max_corr, maximum(sm.eqs)
@@ -164,8 +157,7 @@ function do_evolution_loop(sm::StellarModel)
                     println("Found first model")
                 end
                 if sm.model_number % 100 == 0
-                    @show sm.model_number, i, real_max_corr, maximum(sm.eqs),
-                          dt_next / SECYEAR, sm.time / SECYEAR
+                    @show sm.model_number, i, real_max_corr, maximum(sm.eqs), dt_next / SECYEAR, sm.time / SECYEAR
                 end
                 break
             end

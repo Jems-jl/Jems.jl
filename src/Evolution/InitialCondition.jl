@@ -21,10 +21,7 @@ function get_logdq(k, nz, logdq_low, logdq_high, numregion)
     end
 end
 
-function n1_polytrope_initial_condition(sm::StellarModel,
-                                        M::Real,
-                                        R::Real;
-                                        initial_dt=100 * SECYEAR)
+function n1_polytrope_initial_condition(sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
     logdqs = get_logdq.(1:(sm.nz), sm.nz, -3.0, 0.0, 100)
     dqs = 10 .^ logdqs
     dqs = dqs ./ sum(dqs)
@@ -92,20 +89,17 @@ function n1_polytrope_initial_condition(sm::StellarModel,
     sm.dm = dms
     sm.m = m_face
 
-    # set luminosity 
+    # set luminosity
     for i = 1:(sm.nz - 1)
         μ = 0.5
         Pface = Pc * (theta_n(ξ_face[i]))^(n + 1)
         ρface = ρc * (theta_n(ξ_face[i]))^(n)
         Tface = Pface * μ / (CGAS * ρface)
-        dlnT = sm.ind_vars[(i) * sm.nvars + sm.vari[:lnT]] -
-               sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
-        dlnP = sm.ind_vars[(i) * sm.nvars + sm.vari[:lnP]] -
-               sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]]
+        dlnT = sm.ind_vars[(i) * sm.nvars + sm.vari[:lnT]] - sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
+        dlnP = sm.ind_vars[(i) * sm.nvars + sm.vari[:lnP]] - sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]]
         κ = 0.2
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (dlnT / dlnP) *
-                                                          (16π * CRAD * CLIGHT * CGRAV *
-                                                           m_face[i] * Tface^4) /
+                                                          (16π * CRAD * CLIGHT * CGRAV * m_face[i] * Tface^4) /
                                                           (3κ * Pface * LSUN)
     end
 

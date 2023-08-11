@@ -1,11 +1,10 @@
 """
     eval_cell_eqs(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) where{TT<:Real}
 
-Evaluates the stellar structure equations of the stellar model, `sm`, at cell `k`,
-given the view of the independent variables, `ind_vars_view`.
+Evaluates the stellar structure equations of the stellar model, `sm`, at cell `k`, given the view of the independent
+variables, `ind_vars_view`.
 """
-function eval_cell_eqs(sm::StellarModel, k::Int,
-                       ind_vars_view::Vector{<:TT}) where {TT<:Real}
+function eval_cell_eqs(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) where {TT<:Real}
     result = Vector{TT}(undef, sm.nvars)
     # initialize as undefined, since m1 and p1 values are not defined at edges
     eosm1 = Vector{TT}(undef, 7)
@@ -33,46 +32,26 @@ function eval_cell_eqs(sm::StellarModel, k::Int,
     end
 
     # collect eos and κ info (could be sped up by doing this before eval. the Jacobian!)
-    eos00 = get_EOS_resultsTP(sm.eos, sm.isotope_data,
-                              var00[sm.vari[:lnT]],
-                              var00[sm.vari[:lnP]],
-                              var00[(sm.nvars - sm.nspecies + 1):(sm.nvars)],
-                              species_names)
-    κ00 = get_opacity_resultsTP(sm.opacity, sm.isotope_data,
-                                var00[sm.vari[:lnT]],
-                                var00[sm.vari[:lnP]],
-                                var00[(sm.nvars - sm.nspecies + 1):(sm.nvars)],
-                                species_names)
+    eos00 = get_EOS_resultsTP(sm.eos, sm.isotope_data, var00[sm.vari[:lnT]], var00[sm.vari[:lnP]],
+                              var00[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
+    κ00 = get_opacity_resultsTP(sm.opacity, sm.isotope_data, var00[sm.vari[:lnT]], var00[sm.vari[:lnP]],
+                                var00[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
     if k != 1
-        eosm1 = get_EOS_resultsTP(sm.eos, sm.isotope_data,
-                                  varm1[sm.vari[:lnT]],
-                                  varm1[sm.vari[:lnP]],
-                                  varm1[(sm.nvars - sm.nspecies + 1):(sm.nvars)],
-                                  species_names)
-        κm1 = get_opacity_resultsTP(sm.opacity, sm.isotope_data,
-                                    varm1[sm.vari[:lnT]],
-                                    varm1[sm.vari[:lnP]],
-                                    varm1[(sm.nvars - sm.nspecies + 1):(sm.nvars)],
-                                    species_names)
+        eosm1 = get_EOS_resultsTP(sm.eos, sm.isotope_data, varm1[sm.vari[:lnT]], varm1[sm.vari[:lnP]],
+                                  varm1[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
+        κm1 = get_opacity_resultsTP(sm.opacity, sm.isotope_data, varm1[sm.vari[:lnT]], varm1[sm.vari[:lnP]],
+                                    varm1[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
     end
     if k != sm.nz
-        eosp1 = get_EOS_resultsTP(sm.eos, sm.isotope_data,
-                                  varp1[sm.vari[:lnT]],
-                                  varp1[sm.vari[:lnP]],
-                                  varp1[(sm.nvars - sm.nspecies + 1):(sm.nvars)],
-                                  species_names)
-        κp1 = get_opacity_resultsTP(sm.opacity, sm.isotope_data,
-                                    varp1[sm.vari[:lnT]],
-                                    varp1[sm.vari[:lnP]],
-                                    varp1[(sm.nvars - sm.nspecies + 1):(sm.nvars)],
-                                    species_names)
+        eosp1 = get_EOS_resultsTP(sm.eos, sm.isotope_data, varp1[sm.vari[:lnT]], varp1[sm.vari[:lnP]],
+                                  varp1[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
+        κp1 = get_opacity_resultsTP(sm.opacity, sm.isotope_data, varp1[sm.vari[:lnT]], varp1[sm.vari[:lnP]],
+                                    varp1[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
     end
 
     # evaluate all equations!
     for i = 1:(sm.nvars)
-        result[i] = sm.structure_equations[i](sm, k, varm1, var00, varp1,
-                                              eosm1, eos00, eosp1,
-                                              κm1, κ00, κp1)
+        result[i] = sm.structure_equations[i](sm, k, varm1, var00, varp1, eosm1, eos00, eosp1, κm1, κ00, κp1)
     end
     return result
 end
@@ -97,8 +76,7 @@ function eval_eqs!(sm::StellarModel)
             kf = sm.nvars * (k + 1)
         end
         ind_vars_view = sm.ind_vars[ki:kf]
-        sm.eqs[(sm.nvars * (k - 1) + 1):(sm.nvars * k)] = eval_cell_eqs(sm, k,
-                                                                        ind_vars_view)
+        sm.eqs[(sm.nvars * (k - 1) + 1):(sm.nvars * k)] = eval_cell_eqs(sm, k, ind_vars_view)
     end
 end
 
@@ -116,13 +94,12 @@ function eval_jacobian_row!(sm::StellarModel, k::Int)
     # - - x x x -
     # - - - x x x
     # - - - - x x
-    # In the first row, the first block corresponds to the derivatives of the structure equations
-    # with respect to the variables at the first cell. The block to the right corresponds to the
-    # derivatives with respect to the variables at the second cell.
-    # In the second row until row nz-1, the first block contains the derivatives of the structure 
-    # equations wrt. the variables of the previous cell, the second block wrt. to the varibles in 
-    # the current cell, and the third wrt. the variables of the next cell.
-    # The last row only contains the derivatives wrt. the penultimate cell and the last cell.
+    # In the first row, the first block corresponds to the derivatives of the structure equations with respect to the
+    # variables at the first cell. The block to the right corresponds to the derivatives with respect to the variables
+    # at the second cell. In the second row until row nz-1, the first block contains the derivatives of the structure
+    # equations wrt. the variables of the previous cell, the second block wrt. to the varibles in the current cell, and
+    # the third wrt. the variables of the next cell. The last row only contains the derivatives wrt. the penultimate
+    # cell and the last cell.
     ki = 0
     kf = 0
     if k == 1
