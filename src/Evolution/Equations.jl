@@ -1,5 +1,4 @@
-
-function equationHSE(sm, k,
+function equationHSE(sm::StellarModel, k::Int,
                      varm1::Vector{<:TT}, var00::Vector{<:TT}, varp1::Vector{<:TT},
                      eosm1::Vector{<:TT}, eos00::Vector{<:TT}, eosp1::Vector{<:TT},
                      κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
@@ -19,7 +18,7 @@ function equationHSE(sm, k,
            (CGRAV * sm.m[k] / (4π * r₀^4))
 end
 
-function equationT(sm, k,
+function equationT(sm::StellarModel, k::Int,
                    varm1::Vector{<:TT}, var00::Vector{<:TT}, varp1::Vector{<:TT},
                    eosm1::Vector{<:TT}, eos00::Vector{<:TT}, eosp1::Vector{<:TT},
                    κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
@@ -45,12 +44,11 @@ function equationT(sm, k,
         return (Tface * (lnT₊ - lnT₀) / sm.dm[k] +
                 CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface) * ∇ᵣ) / (CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
     else  # should do convection here
-        return (Tface * (lnT₊ - lnT₀) / sm.dm[k] +
-                CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface) * ∇ₐ) / (CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
+        return (Tface * (lnT₊ - lnT₀) / sm.dm[k] - simple_adiabatic(sm, k, varm1, var00, varp1, eosm1, eos00, eosp1, km1, k00, kp1)) / (CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface))
     end
 end
 
-function equationLuminosity(sm, k,
+function equationLuminosity(sm::StellarModel, k::Int,
                             varm1::Vector{<:TT}, var00::Vector{<:TT}, varp1::Vector{<:TT},
                             eosm1::Vector{<:TT}, eos00::Vector{<:TT}, eosp1::Vector{<:TT},
                             κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
@@ -71,7 +69,7 @@ function equationLuminosity(sm, k,
     return ((L₀ - L₋) / sm.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)  # no neutrinos
 end
 
-function equationContinuity(sm, k,
+function equationContinuity(sm::StellarModel, k::Int,
                             varm1::Vector{<:TT}, var00::Vector{<:TT}, varp1::Vector{<:TT},
                             eosm1::Vector{<:TT}, eos00::Vector{<:TT}, eosp1::Vector{<:TT},
                             κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
