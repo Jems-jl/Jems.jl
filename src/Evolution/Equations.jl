@@ -28,24 +28,15 @@ function equationT(sm::StellarModel, k::Int,
         r₀ = exp(var00[sm.vari[:lnr]])
         return lnT₀ - log(L₀ / (BOLTZ_SIGMA * 4π * r₀^2)) / 4  # Eddington gray, ignoring radiation pressure term
     end
-    κface = exp((sm.dm[k] * log(κ00) + sm.dm[k + 1] * log(κp1)) / (sm.dm[k] + sm.dm[k + 1]))
-    L₀ = var00[sm.vari[:lum]] * LSUN
-    r₀ = exp(var00[sm.vari[:lnr]])
     Pface = exp((sm.dm[k] * var00[sm.vari[:lnP]] + sm.dm[k + 1] * varp1[sm.vari[:lnP]]) /
                 (sm.dm[k] + sm.dm[k + 1]))
     lnT₊ = varp1[sm.vari[:lnT]]
     lnT₀ = var00[sm.vari[:lnT]]
-    Tface = exp((sm.dm[k] * lnT₀ + sm.dm[k + 1] * lnT₊) / (sm.dm[k] + sm.dm[k + 1]))
 
-    ∇ᵣ = 3κface * L₀ * Pface / (16π * CRAD * CLIGHT * CGRAV * sm.m[k] * Tface^4)
-    ∇ₐ = (sm.dm[k] * eos00[7] + sm.dm[k + 1] * eosp1[7]) / (sm.dm[k] + sm.dm[k + 1])
+    ∇ = simple_adiabatic(sm, k, varm1, var00, varp1, eosm1, eos00, eosp1, κm1, κ00, κp1)
 
-    if (∇ᵣ < ∇ₐ)
-        return (Tface * (lnT₊ - lnT₀) / sm.dm[k] +
-                CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface) * ∇ᵣ) / (CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
-    else  # should do convection here
-        return (Tface * (lnT₊ - lnT₀) / sm.dm[k] - simple_adiabatic(sm, k, varm1, var00, varp1, eosm1, eos00, eosp1, km1, k00, kp1)) / (CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface))
-    end
+    return ((lnT₊ - lnT₀) / sm.dm[k] +
+                CGRAV * sm.m[k] / (4π * r₀^4 * Pface) * ∇) / (CGRAV * sm.m[k] / (4π * r₀^4 * Pface))
 end
 
 function equationLuminosity(sm::StellarModel, k::Int,

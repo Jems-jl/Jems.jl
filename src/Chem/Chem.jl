@@ -54,4 +54,4 @@ function get_isotope_list()
     return isotope_list
 end
 
-end # module Stellar
+end  # module Chem

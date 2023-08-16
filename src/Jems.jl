@@ -5,6 +5,7 @@ include("Constants/Constants.jl")
 include("Chem/Chem.jl")
 include("EOS/EOS.jl")
 include("Opacity/Opacity.jl")
+include("Convection/Convection.jl")
 include("Evolution/Evolution.jl")
 
 end

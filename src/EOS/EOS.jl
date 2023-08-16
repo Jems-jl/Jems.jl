@@ -8,4 +8,4 @@ abstract type AbstractEOS end
 
 include("IdealEOS.jl")
 
-end # module EOS
+end  # module EOS
