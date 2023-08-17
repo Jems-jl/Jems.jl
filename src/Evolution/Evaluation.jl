@@ -7,16 +7,15 @@ variables, `ind_vars_view`.
 function eval_cell_eqs(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) where {TT<:Real}
     result = Vector{TT}(undef, sm.nvars)
     # initialize as undefined, since m1 and p1 values are not defined at edges
-    eosm1 = Vector{TT}(undef, 7)
-    eos00 = Vector{TT}(undef, 7)
-    eosp1 = Vector{TT}(undef, 7)
+    eosm1 = Vector{TT}(undef, sm.eos.num_results)
+    eos00 = Vector{TT}(undef, sm.eos.num_results)
+    eosp1 = Vector{TT}(undef, sm.eos.num_results)
     κm1::TT = NaN
     κ00::TT = NaN
     κp1::TT = NaN
     varm1::Vector{TT} = []
     var00::Vector{TT} = []
     varp1::Vector{TT} = []
-    species_names = sm.varnames[(sm.nvars - sm.nspecies + 1):end]
 
     # collect required variables
     if k > 1 && k < sm.nz
@@ -31,22 +30,16 @@ function eval_cell_eqs(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) wh
         var00 = ind_vars_view[(sm.nvars + 1):(2 * sm.nvars)]
     end
 
-    # collect eos and κ info (could be sped up by doing this before eval. the Jacobian!)
-    eos00 = get_EOS_resultsTP(sm.eos, sm.isotope_data, var00[sm.vari[:lnT]], var00[sm.vari[:lnP]],
-                              var00[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
-    κ00 = get_opacity_resultsTP(sm.opacity, sm.isotope_data, var00[sm.vari[:lnT]], var00[sm.vari[:lnP]],
-                                var00[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
+    # collect eos and κ info
+    eos00 = sm.eos_results[k, :]
+    κ00 = sm.opacity_results[k]
     if k != 1
-        eosm1 = get_EOS_resultsTP(sm.eos, sm.isotope_data, varm1[sm.vari[:lnT]], varm1[sm.vari[:lnP]],
-                                  varm1[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
-        κm1 = get_opacity_resultsTP(sm.opacity, sm.isotope_data, varm1[sm.vari[:lnT]], varm1[sm.vari[:lnP]],
-                                    varm1[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
+        eosm1 = sm.eos_results[k - 1, :]
+        κm1 = sm.opacity_results[k - 1]
     end
     if k != sm.nz
-        eosp1 = get_EOS_resultsTP(sm.eos, sm.isotope_data, varp1[sm.vari[:lnT]], varp1[sm.vari[:lnP]],
-                                  varp1[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
-        κp1 = get_opacity_resultsTP(sm.opacity, sm.isotope_data, varp1[sm.vari[:lnT]], varp1[sm.vari[:lnP]],
-                                    varp1[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
+        eosp1 = sm.eos_results[k + 1, :]
+        κp1 = sm.opacity_results[k + 1]
     end
 
     # evaluate all equations!
@@ -75,8 +68,7 @@ function eval_eqs!(sm::StellarModel)
             ki = sm.nvars * (k - 2) + 1
             kf = sm.nvars * (k + 1)
         end
-        ind_vars_view = sm.ind_vars[ki:kf]
-        sm.eqs[(sm.nvars * (k - 1) + 1):(sm.nvars * k)] = eval_cell_eqs(sm, k, ind_vars_view)
+        sm.eqs[(sm.nvars * (k - 1) + 1):(sm.nvars * k)] = eval_cell_eqs(sm, k, sm.ind_vars[ki:kf])
     end
 end
 
@@ -134,4 +126,82 @@ function eval_jacobian!(sm::StellarModel)
     Threads.@threads for k = 1:(sm.nz)
         eval_jacobian_row!(sm, k)
     end
+end
+
+function eval_info!(sm::StellarModel)
+    eval_eos!(sm)
+    eval_opacity!(sm)
+    eval_conv!(sm)
+    eval_∇!(sm)
+end
+
+"""
+    eval_eos!(sm::StellarModel)
+
+Evaluates the equation of state of the current stellar model
+"""
+function eval_eos!(sm::StellarModel)
+    species_names = sm.varnames[(sm.nvars - sm.nspecies + 1):end]
+    Threads.@threads for k = 1:(sm.nz)
+        var_here = sm.ind_vars[((k - 1) * sm.nvars + 1):(k * sm.nvars)]
+        sm.eos_results[k, :] .= get_EOS_resultsTP(sm.eos, sm.isotope_data, var_here[sm.vari[:lnT]],
+                                                  var_here[sm.vari[:lnP]],
+                                                  var_here[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
+    end
+end
+
+"""
+    eval_opacity!(sm::StellarModel)
+
+Evaluates the opacity of the current stellar model
+"""
+function eval_opacity!(sm::StellarModel)
+    species_names = sm.varnames[(sm.nvars - sm.nspecies + 1):end]
+    Threads.@threads for k = 1:(sm.nz)
+        var_here = sm.ind_vars[((k - 1) * sm.nvars + 1):(k * sm.nvars)]
+        sm.opacity_results[k] = get_opacity_resultsTP(sm.opacity, sm.isotope_data, var_here[sm.vari[:lnT]],
+                                                      var_here[sm.vari[:lnP]],
+                                                      var_here[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
+    end
+end
+
+"""
+    eval_mlt!(sm::StellarModel)
+
+Evaluates the mlt info of the current stellar model
+"""
+function eval_conv!(sm::StellarModel)
+    Threads.@threads for k = 1:(sm.nz)
+        sm.conv_results[k, :] .= get_conv_results(sm.convection, sm.opt.convection.alpha_mlt, sm.eos_results[k, 7])
+    end
+end
+
+function eval_∇!(sm::StellarModel)
+    Threads.@threads for k = 1:(sm.nz - 1)
+        sm.∇[k] = get_∇ᵣ(sm, k)  # eval'd at face
+        α, β = get_face_weights(sm, k)
+        ∇ₐface = α * sm.eos_results[k, 7] + β * sm.eos_results[k + 1, 7]
+        if ∇ₐface <= sm.∇[k]  # check if we're convective
+            sm.∇[k] = sm.conv_results[k, 1]
+        end
+    end
+end
+
+function get_∇ᵣ(sm::StellarModel, k::Int)
+    α, β = get_face_weights(sm, k)
+    κface = α * sm.opacity_results[k] + β * sm.opacity_results[k + 1]
+    Tface = exp(α * sm.csi.lnT[k] + β * sm.csi.lnT[k + 1])
+    Pface = exp(α * sm.csi.lnP[k] + β * sm.csi.lnT[k + 1])
+    L = sm.csi.L[k] * LSUN
+    return 3κface * L * Pface / (16π * CRAD * CLIGHT * CGRAV * sm.m[k] * Tface^4)
+end
+
+function get_face_weights(sm::StellarModel, k::Int)
+    if k == sm.nz
+        print("cannot take face weight at outer boundary")
+        return
+    end
+    α = sm.dm[k] / (sm.dm[k] + sm.dm[k + 1])
+    β = 1 - α
+    return α, β
 end

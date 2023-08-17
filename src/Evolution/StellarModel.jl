@@ -48,7 +48,7 @@ state, as well as the independent variables of the model and its equations.
     nvars::Int  # This is the sum of hydro vars and species
     nspecies::Int  # Just the number of species in the network
     structure_equations::Vector{Function}  # List of equations to be solved. Be careful,
-    #typing here probably kills type inference
+    #  typing here probably kills type inference
 
     # Grid properties
     nz::Int  # Number of zones in the model
@@ -63,12 +63,18 @@ state, as well as the independent variables of the model and its equations.
 
     # Some basic info
     eos::EOS.AbstractEOS
+    eos_results::Matrix{<:Real}  # size (nz, num_eos_results)
     opacity::Opacity.AbstractOpacity
+    opacity_results::Vector{<:Real}  # size nz
+    convection::Convection.AbstractConvection
+    conv_results::Matrix{<:Real}  # size (nz, num_conv_results)
+    ∇::Vector{<:Real}
+
     isotope_data::Dict{Symbol,Isotope}
 
     # Jacobian matrix
     jacobian::SparseMatrixCSC{Float64,Int64}
-    linear_solver::Any #solver that is produced by LinearSolve
+    linear_solver::Any  # solver that is produced by LinearSolve
 
     # Here I want to preemt things that will be necessary once we have an adaptative
     # mesh. Idea is that psi contains the information from the previous step (or the
@@ -80,6 +86,8 @@ state, as well as the independent variables of the model and its equations.
     ssi::StellarStepInfo
     # Information computed at the end of the step (esi=End Step Info)
     esi::StellarStepInfo
+
+    csi::StellarStepInfo  # pointer to current step info appropriate for the phase of the evolution loop 
 
     # Space for used defined options, defaults are in Options.jl
     opt::Options
@@ -94,14 +102,10 @@ functions of the `structure_equations` to be solved, number of independent varia
 `nvars`, number of species in the network `nspecies` number of zones in the model
 `nz` and an iterface to the EOS and Opacity laws.
 """
-function StellarModel(varnames::Vector{Symbol},
-                      structure_equations::Vector{Function},
-                      nvars::Int,
-                      nspecies::Int,
-                      nz::Int,
-                      eos::AbstractEOS,
-                      opacity::AbstractOpacity;
-                      solver_method = KLUFactorization())
+function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Function},
+                      nvars::Int, nspecies::Int, nz::Int,
+                      eos::AbstractEOS, opacity::AbstractOpacity, convection::AbstractConvection;
+                      solver_method=KLUFactorization())
     ind_vars = ones(nvars * nz)
     eqs = ones(nvars * nz)
     m = ones(nz)
@@ -126,69 +130,22 @@ function StellarModel(varnames::Vector{Symbol},
     dm = zeros(nz)
     m = zeros(nz)
 
-    psi = StellarStepInfo(nz=nz,
-                          m=zeros(nz),
-                          dm=zeros(nz),
-                          mstar=0.0,
-                          time=0.0,
-                          dt=0.0,
-                          model_number=0,
-                          ind_vars=zeros(nvars * nz),
-                          lnT=zeros(nz),
-                          L=zeros(nz),
-                          lnP=zeros(nz),
-                          lnρ=zeros(nz),
-                          lnr=zeros(nz))
-    ssi = StellarStepInfo(nz=nz,
-                          m=zeros(nz),
-                          dm=zeros(nz),
-                          mstar=0.0,
-                          time=0.0,
-                          dt=0.0,
-                          model_number=0,
-                          ind_vars=zeros(nvars * nz),
-                          lnT=zeros(nz),
-                          L=zeros(nz),
-                          lnP=zeros(nz),
-                          lnρ=zeros(nz),
-                          lnr=zeros(nz))
-    esi = StellarStepInfo(nz=nz,
-                          m=zeros(nz),
-                          dm=zeros(nz),
-                          mstar=0.0,
-                          time=0.0,
-                          dt=0.0,
-                          model_number=0,
-                          ind_vars=zeros(nvars * nz),
-                          lnT=zeros(nz),
-                          L=zeros(nz),
-                          lnP=zeros(nz),
-                          lnρ=zeros(nz),
-                          lnr=zeros(nz))
+    psi = StellarStepInfo(nz=nz, m=zeros(nz), dm=zeros(nz), mstar=0.0, time=0.0, dt=0.0, model_number=0,
+                          ind_vars=zeros(nvars * nz), lnT=zeros(nz), L=zeros(nz), lnP=zeros(nz),
+                          lnρ=zeros(nz), lnr=zeros(nz))
+    ssi = StellarStepInfo(nz=nz, m=zeros(nz), dm=zeros(nz), mstar=0.0, time=0.0, dt=0.0, model_number=0,
+                          ind_vars=zeros(nvars * nz), lnT=zeros(nz), L=zeros(nz), lnP=zeros(nz),
+                          lnρ=zeros(nz), lnr=zeros(nz))
+    esi = StellarStepInfo(nz=nz, m=zeros(nz), dm=zeros(nz), mstar=0.0, time=0.0, dt=0.0, model_number=0,
+                          ind_vars=zeros(nvars * nz), lnT=zeros(nz), L=zeros(nz), lnP=zeros(nz),
+                          lnρ=zeros(nz), lnr=zeros(nz))
 
     opt = Options()
 
-    StellarModel(ind_vars=ind_vars,
-                 varnames=varnames,
-                 eqs=eqs,
-                 nvars=nvars,
-                 nspecies=nspecies,
-                 structure_equations=structure_equations,
-                 vari=vari,
-                 nz=nz,
-                 m=m,
-                 dm=dm,
-                 mstar=0.0,
-                 time=0.0,
-                 dt=0.0,
-                 model_number=0,
-                 eos=eos,
-                 opacity=opacity,
-                 isotope_data=isotope_data,
-                 jacobian=jacobian,
-                 linear_solver=linear_solver,
-                 psi=psi,
-                 ssi=ssi,
-                 esi=esi,
-                 opt=opt)
+    StellarModel(ind_vars=ind_vars, varnames=varnames, eqs=eqs, nvars=nvars, nspecies=nspecies,
+                 structure_equations=structure_equations, vari=vari, nz=nz, m=m, dm=dm, mstar=0.0, time=0.0, dt=0.0,
+                 model_number=0, eos=eos, eos_results=zeros(nz, eos.num_results), opacity=opacity,
+                 opacity_results=zeros(nz), convection=convection, conv_results=zeros(nz, convection.num_results), ∇=zeros(nz),
+                 isotope_data=isotope_data, jacobian=jacobian, linear_solver=linear_solver, psi=psi, ssi=ssi, esi=esi,
+                 csi=psi, opt=opt)
 end

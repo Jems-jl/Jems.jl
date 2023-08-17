@@ -2,8 +2,10 @@ module Convection
 
 using ..Constants
 
+export AbstractConvection
+
 abstract type AbstractConvection end
 
-include("Simple_adiabat.jl")
+include("SimpleAdiabatic.jl")
 
 end

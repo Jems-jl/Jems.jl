@@ -27,6 +27,7 @@ function set_end_step_info!(sm::StellarModel)
         sm.esi.lnρ[i] = log(eos[1])
         sm.esi.ind_vars[((i - 1) * sm.nvars + 1):(i * sm.nvars)] .= sm.ind_vars[((i - 1) * sm.nvars + 1):(i * sm.nvars)]
     end
+    sm.csi = sm.esi
 end
 
 """
@@ -66,6 +67,7 @@ function set_start_step_info!(sm::StellarModel)
         sm.ssi.lnρ[i] = sm.psi.lnρ[i]
         sm.ssi.ind_vars[((i - 1) * sm.nvars + 1):(i * sm.nvars)] .= sm.psi.ind_vars[((i - 1) * sm.nvars + 1):(i * sm.nvars)]
     end
+    sm.csi = sm.ssi
 end
 
 """
@@ -112,6 +114,7 @@ function do_evolution_loop(sm::StellarModel)
         dt_next = get_dt_next(sm)
 
         cycle_step_info!(sm)
+        # here we should do any remeshing
         set_start_step_info!(sm)
 
         sm.ssi.dt = dt_next
@@ -124,6 +127,7 @@ function do_evolution_loop(sm::StellarModel)
 
         exit_evolution = false
         for i = 1:max_steps
+            eval_info!(sm)
             eval_jacobian!(sm)
             eval_eqs!(sm)
 

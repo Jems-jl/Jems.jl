@@ -10,6 +10,7 @@ using Jems.Constants
 using Jems.EOS
 using Jems.Opacity
 using Jems.Evolution
+using Jems.Convection
 
 ##
 #=
@@ -31,7 +32,8 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT, Evolution.equ
 nz = 1000
 eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
-sm = StellarModel(varnames, structure_equations, nvars, nspecies, nz, eos, opacity);
+convection = Convection.AdiabaticConvection()
+sm = StellarModel(varnames, structure_equations, nvars, nspecies, nz, eos, opacity, convection);
 
 ##
 #=
@@ -51,8 +53,9 @@ Evolution.set_end_step_info!(sm)
 Evolution.cycle_step_info!(sm)
 Evolution.set_start_step_info!(sm)
 
-Evolution.eval_jacobian!(sm)
+Evolution.eval_info!(sm)
 Evolution.eval_eqs!(sm)
+Evolution.eval_jacobian!(sm)
 
 ##
 #=

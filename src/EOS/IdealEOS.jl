@@ -7,6 +7,8 @@ Interface of an Ideal gas equation of state
 """
 struct IdealEOS <: AbstractEOS
     include_radiation::Bool
+    num_results::Int
+    IdealEOS(include_radiation) = new(include_radiation, 8)
 end
 
 """

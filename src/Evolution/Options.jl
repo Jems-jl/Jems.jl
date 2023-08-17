@@ -1,5 +1,9 @@
 using TOML
 
+@kwdef mutable struct ConvectionOptions
+    alpha_mlt::Float64 = 1.5
+end
+
 @kwdef mutable struct SolverOptions
     newton_max_iter::Int = 100
     newton_max_iter_first_step::Int = 5000
@@ -45,13 +49,14 @@ end
 end
 
 mutable struct Options
+    convection::ConvectionOptions
     solver::SolverOptions
     timestep::TimestepOptions
     termination::TerminationOptions
     io::IOOptions
 
     function Options()
-        new(SolverOptions(), TimestepOptions(), TerminationOptions(), IOOptions())
+        new(ConvectionOptions(), SolverOptions(), TimestepOptions(), TerminationOptions(), IOOptions())
     end
 end
 

@@ -12,7 +12,7 @@ function equationHSE(sm::StellarModel, k::Int,
     lnP₀ = var00[sm.vari[:lnP]]
     lnPface = (sm.dm[k] * lnP₀ + sm.dm[k + 1] * lnP₊) / (sm.dm[k] + sm.dm[k + 1])
     r₀ = exp(var00[sm.vari[:lnr]])
-    dm = (sm.m[k + 1] - sm.m[k])
+    dm = sm.m[k + 1] - sm.m[k]
 
     return (exp(lnPface) * (lnP₊ - lnP₀) / dm + CGRAV * sm.m[k] / (4π * r₀^4)) /
            (CGRAV * sm.m[k] / (4π * r₀^4))
@@ -32,11 +32,9 @@ function equationT(sm::StellarModel, k::Int,
                 (sm.dm[k] + sm.dm[k + 1]))
     lnT₊ = varp1[sm.vari[:lnT]]
     lnT₀ = var00[sm.vari[:lnT]]
-
-    ∇ = simple_adiabatic(sm, k, varm1, var00, varp1, eosm1, eos00, eosp1, κm1, κ00, κp1)
-
+    r₀ = exp(var00[sm.vari[:lnr]])
     return ((lnT₊ - lnT₀) / sm.dm[k] +
-                CGRAV * sm.m[k] / (4π * r₀^4 * Pface) * ∇) / (CGRAV * sm.m[k] / (4π * r₀^4 * Pface))
+                CGRAV * sm.m[k] / (4π * r₀^4 * Pface) * sm.∇[k]) / (CGRAV * sm.m[k] / (4π * r₀^4 * Pface))
 end
 
 function equationLuminosity(sm::StellarModel, k::Int,
