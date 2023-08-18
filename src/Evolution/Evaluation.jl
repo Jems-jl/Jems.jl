@@ -4,8 +4,8 @@
 Evaluates the stellar structure equations of the stellar model, `sm`, at cell `k`, given the view of the independent
 variables, `ind_vars_view`.
 """
-function eval_cell_eqs(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) where {TT<:Real}
-    result = Vector{TT}(undef, sm.nvars)
+function eval_cell_eqs!(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT},
+                        result_view::Vector{<:TT}) where {TT<:Real}
     # initialize as undefined, since m1 and p1 values are not defined at edges
     eosm1 = Vector{TT}(undef, sm.eos.num_results)
     eos00 = Vector{TT}(undef, sm.eos.num_results)
@@ -31,22 +31,21 @@ function eval_cell_eqs(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) wh
     end
 
     # collect eos and κ info
-    eos00 = sm.eos_results[k, :]
+    eos00 = view(sm.eos_results, k, :)
     κ00 = sm.opacity_results[k]
     if k != 1
-        eosm1 = sm.eos_results[k - 1, :]
+        eosm1 = view(sm.eos_results, k - 1, :)
         κm1 = sm.opacity_results[k - 1]
     end
     if k != sm.nz
-        eosp1 = sm.eos_results[k + 1, :]
+        eosp1 = view(sm.eos_results, k + 1, :)
         κp1 = sm.opacity_results[k + 1]
     end
 
     # evaluate all equations!
     for i = 1:(sm.nvars)
-        result[i] = sm.structure_equations[i](sm, k, varm1, var00, varp1, eosm1, eos00, eosp1, κm1, κ00, κp1)
+        result_view[i] = sm.structure_equations[i](sm, k, varm1, var00, varp1, eosm1, eos00, eosp1, κm1, κ00, κp1)
     end
-    return result
 end
 
 """
@@ -68,7 +67,8 @@ function eval_eqs!(sm::StellarModel)
             ki = sm.nvars * (k - 2) + 1
             kf = sm.nvars * (k + 1)
         end
-        sm.eqs[(sm.nvars * (k - 1) + 1):(sm.nvars * k)] = eval_cell_eqs(sm, k, sm.ind_vars[ki:kf])
+        resultview = view(sm.eqs, (sm.nvars * (k - 1) + 1):(sm.nvars * k))
+        eval_cell_eqs!(sm, k, view(sm.ind_vars, ki:kf), resultview)
     end
 end
 
@@ -104,17 +104,14 @@ function eval_jacobian_row!(sm::StellarModel, k::Int)
         ki = sm.nvars * (k - 2) + 1
         kf = sm.nvars * (k + 1)
     end
-    ind_vars_view = view(sm.ind_vars, ki:kf)
-
-    eval_eqs_wrapper = x -> eval_cell_eqs(sm, k, x)
-
+    resultview = view(sm.eqs, (sm.nvars * (k - 1) + 1):(sm.nvars * k))
+    eval_cell_eqs!(sm, k, view(sm.ind_vars, ki:kf), resultview)
     jac_view = view(sm.jacobian, (sm.nvars * (k - 1) + 1):(sm.nvars * k), ki:kf)
-    #sm.jacobian[sm.nvars*(k-1)+1:sm.nvars*k,ki:kf] = ForwardDiff.jacobian(eval_eqs_wrapper, ind_vars_view)
-    # ForwardDiff computes things in chunks of variables. Perhaps one way to precompute everything is
-    # to enforce calculations are done using a chunk equal to the total variable count (essentially, do
-    # all derivatives in one go). Larger chunks are more memory intensive (go as chunk_size^2), but faster.
-    #cfg = ForwardDiff.JacobianConfig(eval_eqs_wrapper, ind_vars_view, ForwardDiff.Chunk{10}());
-    return ForwardDiff.jacobian!(jac_view, eval_eqs_wrapper, ind_vars_view)#, cfg)
+    for j=1:sm.nvars
+        for i=1:sm.nvars
+            jac_view[j, i] = resultview[j].partials[i]
+        end
+    end
 end
 
 """

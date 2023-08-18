@@ -54,7 +54,7 @@ Evolution.cycle_step_info!(sm)
 Evolution.set_start_step_info!(sm)
 
 Evolution.eval_info!(sm)
-Evolution.eval_eqs!(sm)
+# Evolution.eval_eqs!(sm)
 Evolution.eval_jacobian!(sm)
 
 ##

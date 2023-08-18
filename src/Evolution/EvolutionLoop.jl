@@ -14,15 +14,19 @@ function set_end_step_info!(sm::StellarModel)
         sm.esi.m[i] = sm.m[i]
         sm.esi.dm[i] = sm.dm[i]
 
-        sm.esi.lnT[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
-        sm.esi.L[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]]
-        sm.esi.lnP[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]]
-        sm.esi.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]]
+        sm.esi.lnT[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]].value
+        sm.esi.L[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]].value
+        sm.esi.lnP[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]].value
+        sm.esi.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]].value
 
         species_names = sm.varnames[(sm.nvars - sm.nspecies + 1):end]
-        xa = sm.ind_vars[(i * sm.nvars - sm.nspecies + 1):(i * sm.nvars)]
+        
+        xa_values = zeros(sm.nspecies)
+        for j =1:sm.nspecies
+            xa_values[j] = sm.ind_vars[i * sm.nvars - sm.nspecies + j].value
+        end
 
-        eos = get_EOS_resultsTP(sm.eos, sm.isotope_data, sm.psi.lnT[i], sm.psi.lnP[i], xa, species_names)
+        eos = get_EOS_resultsTP(sm.eos, sm.isotope_data, sm.psi.lnT[i], sm.psi.lnP[i], xa_values, species_names)
 
         sm.esi.lnρ[i] = log(eos[1])
         sm.esi.ind_vars[((i - 1) * sm.nvars + 1):(i * sm.nvars)] .= sm.ind_vars[((i - 1) * sm.nvars + 1):(i * sm.nvars)]
