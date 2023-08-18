@@ -110,16 +110,11 @@ function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Func
     s[1] = 1.0
     sample = ForwardDiff.Dual(0.0, ForwardDiff.Partials(Tuple(s)))  # determines type of the matrix entries
     ind_vars = Vector{typeof(sample)}(undef, nz * nvars)
-    for i = 1:(nvars * nz)  # populate
-        var_no = i % nvars
-        if var_no == 0
-            var_no = nvars
-        end
-        s = zeros(nvars)
-        s[var_no] = 1.0
-        ind_vars[i] = ForwardDiff.Dual(1.0, ForwardDiff.Partials(Tuple(s)))
-    end
     eqs = similar(ind_vars)
+    opacity_results = similar(ind_vars)
+    mlt_results = Matrix{typeof(sample)}(undef, nz, convection.num_results)
+    eos_results = Matrix{typeof(sample)}(undef, nz, eos.num_results)
+    ∇ = similar(ind_vars)
     m = ones(nz)
 
     l, u = 1, 1  # block bandwidths
@@ -156,8 +151,8 @@ function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Func
 
     StellarModel(ind_vars=ind_vars, varnames=varnames, eqs=eqs, nvars=nvars, nspecies=nspecies,
                  structure_equations=structure_equations, vari=vari, nz=nz, m=m, dm=dm, mstar=0.0, time=0.0, dt=0.0,
-                 model_number=0, eos=eos, eos_results=zeros(nz, eos.num_results), opacity=opacity,
-                 opacity_results=zeros(nz), convection=convection, conv_results=zeros(nz, convection.num_results),
-                 ∇=zeros(nz), isotope_data=isotope_data, jacobian=jacobian, linear_solver=linear_solver, psi=psi,
+                 model_number=0, eos=eos, eos_results=eos_results, opacity=opacity,
+                 opacity_results=opacity_results, convection=convection, conv_results=mlt_results,
+                 ∇=∇, isotope_data=isotope_data, jacobian=jacobian, linear_solver=linear_solver, psi=psi,
                  ssi=ssi, esi=esi, csi=psi, opt=opt)
 end
