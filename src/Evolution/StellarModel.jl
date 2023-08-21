@@ -1,6 +1,7 @@
 using BlockBandedMatrices
 using SparseArrays
 using LinearSolve
+using PreallocationTools
 
 """
     mutable struct StellarStepInfo
@@ -44,12 +45,12 @@ state, as well as the independent variables of the model and its equations.
     ind_vars::Vector{<:Real}  # List of independent variables
     varnames::Vector{Symbol}  # List of variable names
     vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector
-    eqs::Vector{<:Real}  # Stores the results of the equation evaluations
+    eqs::Matrix{<:Real}  # Stores the results of the equation evaluations
     nvars::Int  # This is the sum of hydro vars and species
     nspecies::Int  # Just the number of species in the network
     structure_equations::Vector{Function}  # List of equations to be solved. Be careful,
     #  typing here probably kills type inference
-
+    diff_caches::Matrix{DiffCache}
     # Grid properties
     nz::Int  # Number of zones in the model
     m::Vector{<:Real}  # Mass coordinate of each cell (g)
@@ -106,16 +107,26 @@ function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Func
                       nvars::Int, nspecies::Int, nz::Int,
                       eos::AbstractEOS, opacity::AbstractOpacity, convection::AbstractConvection;
                       solver_method=KLUFactorization())
-    s = zeros(nvars)
-    s[1] = 1.0
-    sample = ForwardDiff.Dual(0.0, ForwardDiff.Partials(Tuple(s)))  # determines type of the matrix entries
-    ind_vars = Vector{typeof(sample)}(undef, nz * nvars)
-    eqs = similar(ind_vars)
-    opacity_results = similar(ind_vars)
-    mlt_results = Matrix{typeof(sample)}(undef, nz, convection.num_results)
-    eos_results = Matrix{typeof(sample)}(undef, nz, eos.num_results)
-    ∇ = similar(ind_vars)
-    m = ones(nz)
+    dual_type = ForwardDiff.Dual(0.0, (zeros(3 * nvars))...)  # determines type of the AD entries
+    ind_vars = zeros(nz * nvars)
+    eqs = Matrix{typeof(dual_type)}(undef, nz, nvars)
+    for k = 1:nz
+        for i = 1:nvars
+            eqs[k, i] = ForwardDiff.Dual(0.0, (zeros(3 * nvars)...))
+        end
+    end
+    dc_type = DiffCache(zeros(nvars), 3 * nvars)
+    diff_caches = Matrix{typeof(dc_type)}(undef, nz, 3)
+    for k = 1:nz
+        for i = 1:3
+            diff_caches[k, i] = DiffCache(zeros(nvars), 3 * nvars)
+        end
+    end
+    _init_diff_caches!(diff_caches, nz, nvars)
+    opacity_results = Vector{typeof(dual_type)}(undef, nz)
+    mlt_results = Matrix{typeof(dual_type)}(undef, nz, convection.num_results)
+    eos_results = Matrix{typeof(dual_type)}(undef, nz, eos.num_results)
+    ∇ = Vector{typeof(dual_type)}(undef, nz)
 
     l, u = 1, 1  # block bandwidths
     N = M = nz  # number of row/column blocks
@@ -150,9 +161,40 @@ function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Func
     opt = Options()
 
     StellarModel(ind_vars=ind_vars, varnames=varnames, eqs=eqs, nvars=nvars, nspecies=nspecies,
-                 structure_equations=structure_equations, vari=vari, nz=nz, m=m, dm=dm, mstar=0.0, time=0.0, dt=0.0,
+                 structure_equations=structure_equations, diff_caches=diff_caches, vari=vari, nz=nz, m=m, dm=dm,
+                 mstar=0.0, time=0.0, dt=0.0,
                  model_number=0, eos=eos, eos_results=eos_results, opacity=opacity,
                  opacity_results=opacity_results, convection=convection, conv_results=mlt_results,
-                 ∇=∇, isotope_data=isotope_data, jacobian=jacobian, linear_solver=linear_solver, psi=psi,
+                 ∇=∇, isotope_data=isotope_data, jacobian=jac_BBM, linear_solver=linear_solver, psi=psi,
                  ssi=ssi, esi=esi, csi=psi, opt=opt)
+end
+
+function _init_diff_caches!(dc, nz, nvars)
+    for k = 1:nz
+        for i = 1:nvars  # set values in `du`
+            dc[k, 1].du[i] = 0.0
+            dc[k, 2].du[i] = 0.0
+            dc[k, 3].du[i] = 0.0
+        end
+        for i = 1:3  # set all dual values in `dual_du` to 0 for now.
+            # dual_du has size (2/3 * nvars * nvars to hold dx_i/dx_j for its own cell + neighbors)
+            dc[k, 1].dual_du[:] .= 0.0
+            dc[k, 2].dual_du[:] .= 0.0
+            dc[k, 3].dual_du[:] .= 0.0
+        end
+    end
+    for k = 1:nz
+        for i = 1:nvars
+            # these indices are headache inducing
+            # diff_caches[k][2].dual_du has structure:
+            # (value, dx_1^k/dx_1^k-1, ..., dx_1^k/dx_n^k-1, dx_1^k/dx_1^k, ..., dx_1^k/dx_n^k, dx_1^k/dx_1^k+1, ..., dx_1^k/dx_n^k+1,  # subsize 3*nvars+1
+            #  ...
+            #  value, dx_n^k/dx_1^k-1, ..., dx_n^k/dx_n^k-1, dx_n^k/dx_1^k, ..., dx_n^k/dx_n^k, dx_n^k/dx_1^k+1, ..., dx_n^k/dx_n^k+1)
+            # diff_caches[k][3].dual_du has numerators k -> k+1
+            # diff_caches[k][1].dual_du has numerators k -> k-1
+            dc[k, 1].dual_du[(i - 1) * (3 * nvars + 1) + 1 + i] = 1.0
+            dc[k, 2].dual_du[(i - 1) * (3 * nvars + 1) + 1 + nvars + i] = 1.0
+            dc[k, 3].dual_du[(i - 1) * (3 * nvars + 1) + 1 + 2 * nvars + i] = 1.0
+        end
+    end
 end

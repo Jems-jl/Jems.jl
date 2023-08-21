@@ -4,31 +4,12 @@
 Evaluates the stellar structure equations of the stellar model, `sm`, at cell `k`, given the view of the independent
 variables, `ind_vars_view`.
 """
-function eval_cell_eqs!(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT},
-                        result_view::Vector{<:TT}) where {TT<:Real}
+function eval_cell_eqs!(sm::StellarModel, k::Int, result_view::AbstractArray{TT, 1},
+                        cache_view::AbstractArray{DiffCache, 1}) where {TT<:Real}
     # initialize as undefined, since m1 and p1 values are not defined at edges
-    eosm1 = Vector{TT}(undef, sm.eos.num_results)
-    eos00 = Vector{TT}(undef, sm.eos.num_results)
-    eosp1 = Vector{TT}(undef, sm.eos.num_results)
-    κm1::TT = NaN
-    κ00::TT = NaN
-    κp1::TT = NaN
-    varm1::Vector{TT} = []
-    var00::Vector{TT} = []
-    varp1::Vector{TT} = []
-
-    # collect required variables
-    if k > 1 && k < sm.nz
-        varm1 = ind_vars_view[1:(sm.nvars)]
-        var00 = ind_vars_view[(sm.nvars + 1):(2 * sm.nvars)]
-        varp1 = ind_vars_view[(2 * sm.nvars + 1):(3 * sm.nvars)]
-    elseif k == 1
-        var00 = ind_vars_view[1:(sm.nvars)]
-        varp1 = ind_vars_view[(sm.nvars + 1):(2 * sm.nvars)]
-    elseif k == sm.nz
-        varm1 = ind_vars_view[1:(sm.nvars)]
-        var00 = ind_vars_view[(sm.nvars + 1):(2 * sm.nvars)]
-    end
+    varm1::Vector{TT} = get_tmp(cache_view[1], result_view[1])
+    var00::Vector{TT} = get_tmp(cache_view[2], result_view[1])
+    varp1::Vector{TT} = get_tmp(cache_view[3], result_view[1])
 
     # collect eos and κ info
     eos00 = view(sm.eos_results, k, :)
@@ -36,10 +17,16 @@ function eval_cell_eqs!(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT},
     if k != 1
         eosm1 = view(sm.eos_results, k - 1, :)
         κm1 = sm.opacity_results[k - 1]
+    else
+        eosm1 = Vector{TT}(undef, size(sm.eos_results[k, :]))
+        κm1 = TT(NaN)
     end
     if k != sm.nz
         eosp1 = view(sm.eos_results, k + 1, :)
         κp1 = sm.opacity_results[k + 1]
+    else
+        eosp1 = Vector{TT}(undef, size(sm.eos_results[k, :]))
+        κp1 = TT(NaN)
     end
 
     # evaluate all equations!
@@ -67,7 +54,7 @@ function eval_eqs!(sm::StellarModel)
             ki = sm.nvars * (k - 2) + 1
             kf = sm.nvars * (k + 1)
         end
-        resultview = view(sm.eqs, (sm.nvars * (k - 1) + 1):(sm.nvars * k))
+        resultview = view(sm.eqs, k, :)
         eval_cell_eqs!(sm, k, view(sm.ind_vars, ki:kf), resultview)
     end
 end
@@ -92,6 +79,7 @@ function eval_jacobian_row!(sm::StellarModel, k::Int)
     # equations wrt. the variables of the previous cell, the second block wrt. to the varibles in the current cell, and
     # the third wrt. the variables of the next cell. The last row only contains the derivatives wrt. the penultimate
     # cell and the last cell.
+    _set_diff_cache(sm, k)
     ki = 0
     kf = 0
     if k == 1
@@ -104,12 +92,17 @@ function eval_jacobian_row!(sm::StellarModel, k::Int)
         ki = sm.nvars * (k - 2) + 1
         kf = sm.nvars * (k + 1)
     end
-    resultview = view(sm.eqs, (sm.nvars * (k - 1) + 1):(sm.nvars * k))
-    eval_cell_eqs!(sm, k, view(sm.ind_vars, ki:kf), resultview)
+    resultview = view(sm.eqs, k, :)
+    cacheview = view(sm.diff_caches, k, :)
+    eval_cell_eqs!(sm, k, resultview, cacheview)
     jac_view = view(sm.jacobian, (sm.nvars * (k - 1) + 1):(sm.nvars * k), ki:kf)
-    for j=1:sm.nvars
-        for i=1:sm.nvars
-            jac_view[j, i] = resultview[j].partials[i]
+    for i = 1:sm.nvars
+        for j = 1:(k == 1 || k == sm.nz ? 2 * sm.nvars : 3 * sm.nvars)
+            if (k == 1)  # for k==1 the correct derivatives are displaced!
+                jac_view[i, j] = resultview[i].partials[j + sm.nvars]
+            else
+                jac_view[i, j] = resultview[i].partials[j]
+            end
         end
     end
 end
@@ -126,10 +119,11 @@ function eval_jacobian!(sm::StellarModel)
 end
 
 function eval_info!(sm::StellarModel)
-    eval_eos!(sm)
-    eval_opacity!(sm)
-    eval_conv!(sm)
-    eval_∇!(sm)
+    tt = sm.eqs[1]  # get example of type of dual
+    eval_eos!(sm, tt)
+    eval_opacity!(sm, tt)
+    eval_conv!(sm, tt)
+    eval_∇!(sm, tt)
 end
 
 """
@@ -137,13 +131,14 @@ end
 
 Evaluates the equation of state of the current stellar model
 """
-function eval_eos!(sm::StellarModel)
+function eval_eos!(sm::StellarModel, eval_type::TT) where {TT<:Real}
     species_names = sm.varnames[(sm.nvars - sm.nspecies + 1):end]
     Threads.@threads for k = 1:(sm.nz)
-        var_here = sm.ind_vars[((k - 1) * sm.nvars + 1):(k * sm.nvars)]
-        sm.eos_results[k, :] .= get_EOS_resultsTP(sm.eos, sm.isotope_data, var_here[sm.vari[:lnT]],
-                                                  var_here[sm.vari[:lnP]],
-                                                  var_here[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
+        _set_diff_cache(sm, k)
+        var00 = get_tmp(sm.diff_caches[k, 2], eval_type)
+        sm.eos_results[k, :] .= get_EOS_resultsTP(sm.eos, sm.isotope_data, var00[sm.vari[:lnT]],
+                                                  var00[sm.vari[:lnP]],
+                                                  var00[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
     end
 end
 
@@ -152,13 +147,14 @@ end
 
 Evaluates the opacity of the current stellar model
 """
-function eval_opacity!(sm::StellarModel)
+function eval_opacity!(sm::StellarModel, eval_type::TT) where {TT<:Real}
     species_names = sm.varnames[(sm.nvars - sm.nspecies + 1):end]
     Threads.@threads for k = 1:(sm.nz)
-        var_here = sm.ind_vars[((k - 1) * sm.nvars + 1):(k * sm.nvars)]
-        sm.opacity_results[k] = get_opacity_resultsTP(sm.opacity, sm.isotope_data, var_here[sm.vari[:lnT]],
-                                                      var_here[sm.vari[:lnP]],
-                                                      var_here[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
+        _set_diff_cache(sm, k)
+        var00 = get_tmp(sm.diff_caches[k, 2], eval_type)
+        sm.opacity_results[k] = get_opacity_resultsTP(sm.opacity, sm.isotope_data, var00[sm.vari[:lnT]],
+                                                      var00[sm.vari[:lnP]],
+                                                      var00[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
     end
 end
 
@@ -167,15 +163,19 @@ end
 
 Evaluates the mlt info of the current stellar model
 """
-function eval_conv!(sm::StellarModel)
+function eval_conv!(sm::StellarModel, eval_type::TT) where {TT<:Real}
     Threads.@threads for k = 1:(sm.nz)
+        _set_diff_cache(sm, k)
         sm.conv_results[k, :] .= get_conv_results(sm.convection, sm.opt.convection.alpha_mlt, sm.eos_results[k, 7])
     end
 end
 
-function eval_∇!(sm::StellarModel)
+function eval_∇!(sm::StellarModel, eval_type::TT) where {TT<:Real}
     Threads.@threads for k = 1:(sm.nz - 1)
-        sm.∇[k] = get_∇ᵣ(sm, k)  # eval'd at face
+        _set_diff_cache(sm, k)
+        var00 = get_tmp(sm.diff_caches[k, 2], eval_type)
+        varp1 = get_tmp(sm.diff_caches[k, 3], eval_type)
+        sm.∇[k] = get_∇ᵣ(sm, k, sm.opacity_results, var00, varp1)  # eval'd at face
         α, β = get_face_weights(sm, k)
         ∇ₐface = α * sm.eos_results[k, 7] + β * sm.eos_results[k + 1, 7]
         if ∇ₐface <= sm.∇[k]  # check if we're convective
@@ -184,13 +184,13 @@ function eval_∇!(sm::StellarModel)
     end
 end
 
-function get_∇ᵣ(sm::StellarModel, k::Int)
+function get_∇ᵣ(sm::StellarModel, k::Int, κ::AbstractArray{TT, 1}, var00::AbstractArray{TT,1},
+                varp1::AbstractArray{TT, 1}) where {TT<:Real}
     α, β = get_face_weights(sm, k)
-    κface = α * sm.opacity_results[k] + β * sm.opacity_results[k + 1]
-    Tface = exp(α * sm.csi.lnT[k] + β * sm.csi.lnT[k + 1])
-    Pface = exp(α * sm.csi.lnP[k] + β * sm.csi.lnT[k + 1])
-    L = sm.csi.L[k] * LSUN
-    return 3κface * L * Pface / (16π * CRAD * CLIGHT * CGRAV * sm.m[k] * Tface^4)
+    κface = α * κ[k] + β * κ[k + 1]
+    Tface = exp(α * var00[sm.vari[:lnT]] + β * varp1[sm.vari[:lnT]])
+    Pface = exp(α * var00[sm.vari[:lnP]] + β * varp1[sm.vari[:lnP]])
+    return 3κface * var00[sm.vari[:lum]] * LSUN * Pface / (16π * CRAD * CLIGHT * CGRAV * sm.m[k] * Tface^4)
 end
 
 function get_face_weights(sm::StellarModel, k::Int)
@@ -201,4 +201,31 @@ function get_face_weights(sm::StellarModel, k::Int)
     α = sm.dm[k] / (sm.dm[k] + sm.dm[k + 1])
     β = 1 - α
     return α, β
+end
+
+function _set_diff_cache(sm::StellarModel, k::Int)
+    if k == 1
+        for i = 1:(sm.nvars)
+            sm.diff_caches[1, 2].du[i] = sm.ind_vars[sm.nvars * (k - 1) + i]
+            sm.diff_caches[1, 3].du[i] = sm.ind_vars[sm.nvars * (k - 1) + sm.nvars + i]
+            sm.diff_caches[1, 2].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * (k - 1) + i]
+            sm.diff_caches[1, 3].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * (k - 1) + sm.nvars + i]
+        end
+    elseif k == sm.nz
+        for i = 1:(sm.nvars)
+            sm.diff_caches[sm.nz, 1].du[i] = sm.ind_vars[sm.nvars * (k - 2) + i]
+            sm.diff_caches[sm.nz, 2].du[i] = sm.ind_vars[sm.nvars * (k - 2) + sm.nvars + i]
+            sm.diff_caches[sm.nz, 1].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * (k - 2) + i]
+            sm.diff_caches[sm.nz, 2].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * (k - 2) + sm.nvars + i]
+        end
+    else
+        for i = 1:(sm.nvars)
+            sm.diff_caches[k, 1].du[i] = sm.ind_vars[sm.nvars * (k - 2) + i]
+            sm.diff_caches[k, 2].du[i] = sm.ind_vars[sm.nvars * (k - 2) + sm.nvars + i]
+            sm.diff_caches[k, 3].du[i] = sm.ind_vars[sm.nvars * (k - 2) + 2 * sm.nvars + i]
+            sm.diff_caches[k, 1].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * (k - 2) + i]
+            sm.diff_caches[k, 2].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * (k - 2) + sm.nvars + i]
+            sm.diff_caches[k, 3].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * (k - 2) + 2 * sm.nvars + i]
+        end
+    end
 end

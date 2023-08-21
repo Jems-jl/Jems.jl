@@ -4,7 +4,7 @@
 This notebook provides a simple example of a star with simplified mycrophysics undergoing nuclear burning.
 Import all necessary Jems modules. We will also do some benchmarks, so we import BenchmarkTools as well.
 =#
-using BenchmarkTools
+using BenchmarkTools, Profile, PProf
 using Jems.Chem
 using Jems.Constants
 using Jems.EOS
@@ -82,10 +82,12 @@ takes to compute the jacobian elements associated with row 2
 =#
 
 ##
-
+@benchmark Evolution.eval_jacobian_row!($sm, 2)
+##
 # Benchmark one jacobian row
-@benchmark Evolution.eval_jacobian_row!(sm, 2)
-
+Profile.Allocs.clear()
+Profile.Allocs.@profile @benchmark Evolution.eval_jacobian_row!(sm, 2)
+PProf.Allocs.pprof()
 #=
 Again on my machine, this takes $\sim 16\;\mathrm{\mu s}$. This is a short amount of time, but we have a thousand cells
 to compute. Let's benchmark the calculation of the full jacobian.
@@ -95,7 +97,10 @@ to compute. Let's benchmark the calculation of the full jacobian.
 
 # Benchmark entire jacobian
 @benchmark Evolution.eval_jacobian!(sm)
-
+##
+Profile.Allocs.clear()
+Profile.Allocs.@profile @benchmark Evolution.eval_jacobian!(sm)
+PProf.Allocs.pprof()
 #=
 And on my computer, this took about $5.2\;\mathrm{ms}$. Even though we have a thousand cells, the computation time was
 not a thousand times longer than computing the components of the jacobian for a single cell. The reason for this is that
