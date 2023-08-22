@@ -2,6 +2,7 @@ using BlockBandedMatrices
 using SparseArrays
 using LinearSolve
 using PreallocationTools
+using ForwardDiff
 
 """
     mutable struct StellarStepInfo
@@ -10,28 +11,28 @@ Information used for a simulation step. A single stellar model can have three di
 objects of type StellarStepInfo, containing information from the previous step, information
 right before the Newton solver, and information after the Newton solver has completed.
 """
-@kwdef mutable struct StellarStepInfo
+@kwdef mutable struct StellarStepInfo{T1<:Real}
     # grid properties
     nz::Int # number of zones in the model
-    m::Vector{<:Real} # mass coordinate of each cell
-    dm::Vector{<:Real} # mass contained in each cell
-    mstar::Real # total model mass
+    m::Vector{T1} # mass coordinate of each cell
+    dm::Vector{T1} # mass contained in each cell
+    mstar::T1 # total model mass
 
     # unique valued properties (ie not cell dependent)
-    time::Real
-    dt::Real
+    time::T1
+    dt::T1
     model_number::Int
 
     # full vector with independent variables (size is number of variables * number of 
     # zones)
-    ind_vars::Vector{<:Real}
+    ind_vars::Vector{T1}
 
     # Values of properties at each cell, sizes are equal to number of zones
-    lnT::Vector{<:Real}
-    L::Vector{<:Real}
-    lnP::Vector{<:Real}
-    lnρ::Vector{<:Real}
-    lnr::Vector{<:Real}
+    lnT::Vector{T1}
+    L::Vector{T1}
+    lnP::Vector{T1}
+    lnρ::Vector{T1}
+    lnr::Vector{T1}
 end
 
 """
@@ -40,21 +41,22 @@ end
 An evolutionary model for a star, containing information about the star's current
 state, as well as the independent variables of the model and its equations.
 """
-@kwdef mutable struct StellarModel
+@kwdef mutable struct StellarModel{T1<:Real, T2<:Real}
     # Properties that define the model
-    ind_vars::Vector{<:Real}  # List of independent variables
+    ind_vars::Vector{T1}  # List of independent variables
     varnames::Vector{Symbol}  # List of variable names
     vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector
-    eqs::Matrix{<:Real}  # Stores the results of the equation evaluations
+    eqs::Matrix{T2}  # Stores the results of the equation evaluations
+    eqs_nums::Vector{T1}
     nvars::Int  # This is the sum of hydro vars and species
     nspecies::Int  # Just the number of species in the network
     structure_equations::Vector{Function}  # List of equations to be solved. Be careful,
     #  typing here probably kills type inference
-    diff_caches::Matrix{DiffCache}
+    diff_caches::Matrix{DiffCache{Vector{T1}, Vector{T1}}}
     # Grid properties
     nz::Int  # Number of zones in the model
-    m::Vector{<:Real}  # Mass coordinate of each cell (g)
-    dm::Vector{<:Real}  # Mass contained in each cell (g)
+    m::Vector{T1}  # Mass coordinate of each cell (g)
+    dm::Vector{T1}  # Mass contained in each cell (g)
     mstar::Real  # Total model mass (g)
 
     # Unique valued properties (ie not cell dependent)
@@ -64,17 +66,17 @@ state, as well as the independent variables of the model and its equations.
 
     # Some basic info
     eos::EOS.AbstractEOS
-    eos_results::Matrix{<:Real}  # size (nz, num_eos_results)
+    eos_results::Matrix{T2}  # size (nz, num_eos_results)
     opacity::Opacity.AbstractOpacity
-    opacity_results::Vector{<:Real}  # size nz
+    opacity_results::Vector{T2}  # size nz
     convection::Convection.AbstractConvection
-    conv_results::Matrix{<:Real}  # size (nz, num_conv_results)
-    ∇::Vector{<:Real}
+    conv_results::Matrix{T2}  # size (nz, num_conv_results)
+    ∇::Vector{T2}
 
     isotope_data::Dict{Symbol,Isotope}
 
     # Jacobian matrix
-    jacobian::SparseMatrixCSC{Float64,Int64}
+    jacobian::SparseMatrixCSC{T1, Int64}
     linear_solver::Any  # solver that is produced by LinearSolve
 
     # Here I want to preemt things that will be necessary once we have an adaptative
@@ -110,6 +112,7 @@ function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Func
     dual_type = ForwardDiff.Dual(0.0, (zeros(3 * nvars))...)  # determines type of the AD entries
     ind_vars = zeros(nz * nvars)
     eqs = Matrix{typeof(dual_type)}(undef, nz, nvars)
+    eqs_numbers = similar(ind_vars)
     for k = 1:nz
         for i = 1:nvars
             eqs[k, i] = ForwardDiff.Dual(0.0, (zeros(3 * nvars)...))
@@ -135,7 +138,7 @@ function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Func
     jac_BBM = BlockBandedMatrix(Ones(sum(rows), sum(cols)), rows, cols, (l, u))
     jacobian = sparse(jac_BBM)
     #create solver
-    problem = LinearProblem(jacobian, eqs)
+    problem = LinearProblem(jacobian, eqs_numbers)
     linear_solver = init(problem, solver_method)
 
     isotope_data = Chem.get_isotope_list()
@@ -160,12 +163,12 @@ function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Func
 
     opt = Options()
 
-    StellarModel(ind_vars=ind_vars, varnames=varnames, eqs=eqs, nvars=nvars, nspecies=nspecies,
+    StellarModel(ind_vars=ind_vars, varnames=varnames, eqs=eqs, eqs_nums=eqs_numbers, nvars=nvars, nspecies=nspecies,
                  structure_equations=structure_equations, diff_caches=diff_caches, vari=vari, nz=nz, m=m, dm=dm,
                  mstar=0.0, time=0.0, dt=0.0,
                  model_number=0, eos=eos, eos_results=eos_results, opacity=opacity,
                  opacity_results=opacity_results, convection=convection, conv_results=mlt_results,
-                 ∇=∇, isotope_data=isotope_data, jacobian=jac_BBM, linear_solver=linear_solver, psi=psi,
+                 ∇=∇, isotope_data=isotope_data, jacobian=jacobian, linear_solver=linear_solver, psi=psi,
                  ssi=ssi, esi=esi, csi=psi, opt=opt)
 end
 

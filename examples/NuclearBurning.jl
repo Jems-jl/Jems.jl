@@ -29,7 +29,7 @@ nspecies = 2
 varnames = [:lnP, :lnT, :lnr, :lum, :H1, :He4]
 structure_equations = [Evolution.equationHSE, Evolution.equationT, Evolution.equationContinuity,
                        Evolution.equationLuminosity, Evolution.equationH1, Evolution.equationHe4]
-nz = 1000
+nz = 10
 eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 convection = Convection.AdiabaticConvection()
@@ -54,8 +54,10 @@ Evolution.cycle_step_info!(sm)
 Evolution.set_start_step_info!(sm)
 
 Evolution.eval_info!(sm)
-# Evolution.eval_eqs!(sm)
+
+Evolution.eval_jacobian_row!(sm, 2)
 Evolution.eval_jacobian!(sm)
+Evolution.eval_eqs!(sm)
 
 ##
 #=
@@ -86,7 +88,7 @@ takes to compute the jacobian elements associated with row 2
 ##
 # Benchmark one jacobian row
 Profile.Allocs.clear()
-Profile.Allocs.@profile @benchmark Evolution.eval_jacobian_row!(sm, 2)
+Profile.Allocs.@profile @benchmark Evolution.eval_jacobian_row!($sm, 2)
 PProf.Allocs.pprof()
 #=
 Again on my machine, this takes $\sim 16\;\mathrm{\mu s}$. This is a short amount of time, but we have a thousand cells
@@ -96,10 +98,10 @@ to compute. Let's benchmark the calculation of the full jacobian.
 ##
 
 # Benchmark entire jacobian
-@benchmark Evolution.eval_jacobian!(sm)
+@benchmark Evolution.eval_jacobian!($sm)
 ##
 Profile.Allocs.clear()
-Profile.Allocs.@profile @benchmark Evolution.eval_jacobian!(sm)
+Profile.Allocs.@profile @benchmark Evolution.eval_jacobian!($sm)
 PProf.Allocs.pprof()
 #=
 And on my computer, this took about $5.2\;\mathrm{ms}$. Even though we have a thousand cells, the computation time was

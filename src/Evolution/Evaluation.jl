@@ -4,34 +4,13 @@
 Evaluates the stellar structure equations of the stellar model, `sm`, at cell `k`, given the view of the independent
 variables, `ind_vars_view`.
 """
-function eval_cell_eqs!(sm::StellarModel, k::Int, result_view::AbstractArray{TT, 1},
-                        cache_view::AbstractArray{DiffCache, 1}) where {TT<:Real}
-    # initialize as undefined, since m1 and p1 values are not defined at edges
-    varm1::Vector{TT} = get_tmp(cache_view[1], result_view[1])
-    var00::Vector{TT} = get_tmp(cache_view[2], result_view[1])
-    varp1::Vector{TT} = get_tmp(cache_view[3], result_view[1])
-
-    # collect eos and κ info
-    eos00 = view(sm.eos_results, k, :)
-    κ00 = sm.opacity_results[k]
-    if k != 1
-        eosm1 = view(sm.eos_results, k - 1, :)
-        κm1 = sm.opacity_results[k - 1]
-    else
-        eosm1 = Vector{TT}(undef, size(sm.eos_results[k, :]))
-        κm1 = TT(NaN)
-    end
-    if k != sm.nz
-        eosp1 = view(sm.eos_results, k + 1, :)
-        κp1 = sm.opacity_results[k + 1]
-    else
-        eosp1 = Vector{TT}(undef, size(sm.eos_results[k, :]))
-        κp1 = TT(NaN)
-    end
-
-    # evaluate all equations!
+function eval_cell_eqs!(sm::StellarModel, k::Int, result_view::AbstractVector{<:TT},
+                        varm1::AbstractVector{<:TT}, var00::AbstractVector{<:TT}, varp1::AbstractVector{<:TT},
+                        eosm1::AbstractVector{<:TT}, eos00::AbstractVector{<:TT}, eosp1::AbstractVector{<:TT},
+                        κm1::TT, κ00::TT, κp1::TT) where {TT<:Real}
     for i = 1:(sm.nvars)
-        result_view[i] = sm.structure_equations[i](sm, k, varm1, var00, varp1, eosm1, eos00, eosp1, κm1, κ00, κp1)
+        result_view[i] = sm.structure_equations[i](sm, k, varm1, var00, varp1, eosm1, eos00, eosp1, κm1, κ00,
+                                                   κp1)
     end
 end
 
@@ -54,8 +33,30 @@ function eval_eqs!(sm::StellarModel)
             ki = sm.nvars * (k - 2) + 1
             kf = sm.nvars * (k + 1)
         end
-        resultview = view(sm.eqs, k, :)
-        eval_cell_eqs!(sm, k, view(sm.ind_vars, ki:kf), resultview)
+        resultview = view(sm.eqs_nums, ki:kf)
+        cacheview = view(sm.diff_caches, k, :)
+        varm1 = get_tmp(cacheview[1], resultview[1])
+        var00 = get_tmp(cacheview[2], resultview[1])
+        varp1 = get_tmp(cacheview[3], resultview[1])
+        # collect eos and κ info
+        eos00 = [dual.value for dual in view(sm.eos_results, k, :)]
+        κ00 = sm.opacity_results[k].value
+        if k != 1
+            eosm1 = [dual.value for dual in view(sm.eos_results, k - 1, :)]
+            κm1 = sm.opacity_results[k - 1].value
+        else
+            eosm1 = [NaN for dual in 1:length(sm.eos_results[k, :])]
+            κm1 = NaN
+        end
+        if k != sm.nz
+            eosp1 = [dual.value for dual in view(sm.eos_results, k + 1, :)]
+            κp1 = sm.opacity_results[k + 1].value
+        else
+            eosp1 = [Nan for dual in 1:length(sm.eos_results[k, :])]
+            κp1 = NaN
+        end
+        eval_cell_eqs!(sm, k, resultview, varm1, var00, varp1, eosm1, eos00, eosp1, κm1, κ00, κp1)
+
     end
 end
 
@@ -79,7 +80,7 @@ function eval_jacobian_row!(sm::StellarModel, k::Int)
     # equations wrt. the variables of the previous cell, the second block wrt. to the varibles in the current cell, and
     # the third wrt. the variables of the next cell. The last row only contains the derivatives wrt. the penultimate
     # cell and the last cell.
-    _set_diff_cache(sm, k)
+    _set_diff_cache!(sm, k)
     ki = 0
     kf = 0
     if k == 1
@@ -92,11 +93,35 @@ function eval_jacobian_row!(sm::StellarModel, k::Int)
         ki = sm.nvars * (k - 2) + 1
         kf = sm.nvars * (k + 1)
     end
+    jac_view = view(sm.jacobian, (sm.nvars * (k - 1) + 1):(sm.nvars * k), ki:kf)
     resultview = view(sm.eqs, k, :)
     cacheview = view(sm.diff_caches, k, :)
-    eval_cell_eqs!(sm, k, resultview, cacheview)
-    jac_view = view(sm.jacobian, (sm.nvars * (k - 1) + 1):(sm.nvars * k), ki:kf)
-    for i = 1:sm.nvars
+    varm1 = get_tmp(cacheview[1], resultview[1])
+    var00 = get_tmp(cacheview[2], resultview[1])
+    varp1 = get_tmp(cacheview[3], resultview[1])
+
+    # collect eos and κ info
+    eos00 = view(sm.eos_results, k, :)
+    κ00 = sm.opacity_results[k]
+    if k != 1
+        eosm1 = view(sm.eos_results, k - 1, :)
+        κm1 = sm.opacity_results[k - 1]
+    else
+        eosm1 = Vector{typeof(eos00[1])}(undef, size(sm.eos_results[k, :]))
+        κm1 = typeof(κ00)(NaN)
+    end
+    if k != sm.nz
+        eosp1 = view(sm.eos_results, k + 1, :)
+        κp1 = sm.opacity_results[k + 1]
+    else
+        eosp1 = Vector{typeof(eos00[1])}(undef, size(sm.eos_results[k, :]))
+        κp1 = typeof(κ00)(NaN)
+    end
+    eval_cell_eqs!(sm, k, resultview, varm1, var00, varp1, eosm1, eos00, eosp1, κm1, κ00, κp1)
+
+    # FOR SOME REASON, STORING RESULTS IN THE JACOBIAN IS CRAZY MEMORY EXPENSIVE
+    # store results
+    for i = 1:(sm.nvars)
         for j = 1:(k == 1 || k == sm.nz ? 2 * sm.nvars : 3 * sm.nvars)
             if (k == 1)  # for k==1 the correct derivatives are displaced!
                 jac_view[i, j] = resultview[i].partials[j + sm.nvars]
@@ -134,7 +159,7 @@ Evaluates the equation of state of the current stellar model
 function eval_eos!(sm::StellarModel, eval_type::TT) where {TT<:Real}
     species_names = sm.varnames[(sm.nvars - sm.nspecies + 1):end]
     Threads.@threads for k = 1:(sm.nz)
-        _set_diff_cache(sm, k)
+        _set_diff_cache!(sm, k)
         var00 = get_tmp(sm.diff_caches[k, 2], eval_type)
         sm.eos_results[k, :] .= get_EOS_resultsTP(sm.eos, sm.isotope_data, var00[sm.vari[:lnT]],
                                                   var00[sm.vari[:lnP]],
@@ -150,7 +175,7 @@ Evaluates the opacity of the current stellar model
 function eval_opacity!(sm::StellarModel, eval_type::TT) where {TT<:Real}
     species_names = sm.varnames[(sm.nvars - sm.nspecies + 1):end]
     Threads.@threads for k = 1:(sm.nz)
-        _set_diff_cache(sm, k)
+        _set_diff_cache!(sm, k)
         var00 = get_tmp(sm.diff_caches[k, 2], eval_type)
         sm.opacity_results[k] = get_opacity_resultsTP(sm.opacity, sm.isotope_data, var00[sm.vari[:lnT]],
                                                       var00[sm.vari[:lnP]],
@@ -165,14 +190,14 @@ Evaluates the mlt info of the current stellar model
 """
 function eval_conv!(sm::StellarModel, eval_type::TT) where {TT<:Real}
     Threads.@threads for k = 1:(sm.nz)
-        _set_diff_cache(sm, k)
+        _set_diff_cache!(sm, k)
         sm.conv_results[k, :] .= get_conv_results(sm.convection, sm.opt.convection.alpha_mlt, sm.eos_results[k, 7])
     end
 end
 
 function eval_∇!(sm::StellarModel, eval_type::TT) where {TT<:Real}
     Threads.@threads for k = 1:(sm.nz - 1)
-        _set_diff_cache(sm, k)
+        _set_diff_cache!(sm, k)
         var00 = get_tmp(sm.diff_caches[k, 2], eval_type)
         varp1 = get_tmp(sm.diff_caches[k, 3], eval_type)
         sm.∇[k] = get_∇ᵣ(sm, k, sm.opacity_results, var00, varp1)  # eval'd at face
@@ -184,8 +209,8 @@ function eval_∇!(sm::StellarModel, eval_type::TT) where {TT<:Real}
     end
 end
 
-function get_∇ᵣ(sm::StellarModel, k::Int, κ::AbstractArray{TT, 1}, var00::AbstractArray{TT,1},
-                varp1::AbstractArray{TT, 1}) where {TT<:Real}
+function get_∇ᵣ(sm::StellarModel, k::Int, κ::AbstractVector{TT}, var00::AbstractVector{TT},
+                varp1::AbstractVector{TT}) where {TT<:Real}
     α, β = get_face_weights(sm, k)
     κface = α * κ[k] + β * κ[k + 1]
     Tface = exp(α * var00[sm.vari[:lnT]] + β * varp1[sm.vari[:lnT]])
@@ -203,7 +228,7 @@ function get_face_weights(sm::StellarModel, k::Int)
     return α, β
 end
 
-function _set_diff_cache(sm::StellarModel, k::Int)
+function _set_diff_cache!(sm::StellarModel, k::Int)
     if k == 1
         for i = 1:(sm.nvars)
             sm.diff_caches[1, 2].du[i] = sm.ind_vars[sm.nvars * (k - 1) + i]
