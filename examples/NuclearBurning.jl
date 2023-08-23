@@ -51,8 +51,7 @@ Evolution.set_end_step_info!(sm)
 Evolution.cycle_step_info!(sm)
 Evolution.set_start_step_info!(sm)
 
-Evolution.eval_jacobian!(sm)
-Evolution.eval_eqs!(sm)
+Evolution.eval_jacobian_eqs!(sm)
 
 ##
 #=
@@ -81,7 +80,7 @@ takes to compute the jacobian elements associated with row 2
 ##
 
 # Benchmark one jacobian row
-@benchmark Evolution.eval_jacobian_row!(sm, 2)
+@benchmark Evolution.eval_jacobian_row_eqs!(sm, 2)
 
 #=
 Again on my machine, this takes $\sim 16\;\mathrm{\mu s}$. This is a short amount of time, but we have a thousand cells
@@ -91,7 +90,7 @@ to compute. Let's benchmark the calculation of the full jacobian.
 ##
 
 # Benchmark entire jacobian
-@benchmark Evolution.eval_jacobian!(sm)
+@benchmark Evolution.eval_jacobian_eqs!(sm)
 
 #=
 And on my computer, this took about $5.2\;\mathrm{ms}$. Even though we have a thousand cells, the computation time was

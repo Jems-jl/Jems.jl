@@ -19,7 +19,7 @@ function set_end_step_info!(sm::StellarModel)
         sm.esi.lnP[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]]
         sm.esi.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]]
 
-        species_names = sm.varnames[(sm.nvars - sm.nspecies + 1):end]
+        species_names = sm.var_names[(sm.nvars - sm.nspecies + 1):end]
         xa = sm.ind_vars[(i * sm.nvars - sm.nspecies + 1):(i * sm.nvars)]
 
         eos = get_EOS_resultsTP(sm.eos, sm.psi.lnT[i], sm.psi.lnP[i], xa, species_names)
@@ -124,8 +124,7 @@ function do_evolution_loop(sm::StellarModel)
 
         exit_evolution = false
         for i = 1:max_steps
-            eval_jacobian!(sm)
-            eval_eqs!(sm)
+            eval_jacobian_eqs!(sm)
 
             sm.linear_solver.A = sm.jacobian  # A dx + b = 0; solve for dx
             sm.linear_solver.b = -sm.eqs
