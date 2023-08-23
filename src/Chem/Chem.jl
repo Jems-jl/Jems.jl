@@ -54,6 +54,6 @@ function get_isotope_list()
     return isotope_list
 end
 
-global isotope_list::Dict{Symbol,Isotope} = get_isotope_list()
+isotope_list::Dict{Symbol,Isotope} = get_isotope_list()
 
 end # module Stellar
