@@ -69,7 +69,6 @@ The struct has two parametric types, `T1` for 'normal' numbers, `T2` for dual nu
     # Some basic info
     eos::EOS.AbstractEOS
     opacity::Opacity.AbstractOpacity
-    isotope_data::Dict{Symbol,Isotope}
 
     # Jacobian matrix
     jacobian::SparseMatrixCSC{T1,Int64}
@@ -114,8 +113,6 @@ function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Func
     problem = LinearProblem(jacobian, eqs)
     linear_solver = init(problem, solver_method)
 
-    isotope_data = Chem.get_isotope_list()
-
     vari::Dict{Symbol,Int} = Dict()
     for i in eachindex(varnames)
         vari[varnames[i]] = i
@@ -138,6 +135,6 @@ function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Func
 
     StellarModel(ind_vars=ind_vars, varnames=varnames, eqs=eqs, nvars=nvars, nspecies=nspecies,
                  structure_equations=structure_equations, vari=vari, nz=nz, m=m, dm=dm, mstar=0.0, time=0.0, dt=0.0,
-                 model_number=0, eos=eos, opacity=opacity, isotope_data=isotope_data, jacobian=jacobian,
+                 model_number=0, eos=eos, opacity=opacity, jacobian=jacobian,
                  linear_solver=linear_solver, psi=psi, ssi=ssi, esi=esi, opt=opt)
 end

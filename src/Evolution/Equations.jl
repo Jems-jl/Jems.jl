@@ -104,12 +104,12 @@ function equationH1(sm, k,
     ρ₀ = eos00[1]
     ϵnuc = 0.1 * var00[sm.vari[:H1]]^2 * ρ₀ * (exp(var00[sm.vari[:lnT]]) / 1e6)^4 +
            0.1 * var00[sm.vari[:H1]] * ρ₀ * (exp(var00[sm.vari[:lnT]]) / 1e7)^18
-    rate_per_unit_mass = 4 * ϵnuc / ((4 * isotope_list[:H1].mass - isotope_list[:He4].mass) * AMU * CLIGHT^2)
+    rate_per_unit_mass = 4 * ϵnuc / ((4 * Chem.isotope_list[:H1].mass - Chem.isotope_list[:He4].mass) * AMU * CLIGHT^2)
 
     Xi = sm.ssi.ind_vars[(k - 1) * sm.nvars + sm.vari[:H1]]
 
     return (var00[sm.vari[:H1]] - Xi) / sm.ssi.dt +
-           isotope_list[:H1].mass * AMU * rate_per_unit_mass
+           Chem.isotope_list[:H1].mass * AMU * rate_per_unit_mass
 end
 
 function equationHe4(sm, k,

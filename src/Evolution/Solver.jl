@@ -32,20 +32,20 @@ function eval_cell_eqs(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) wh
     end
 
     # collect eos and κ info (could be sped up by doing this before eval. the Jacobian!)
-    eos00 = get_EOS_resultsTP(sm.eos, sm.isotope_data, var00[sm.vari[:lnT]], var00[sm.vari[:lnP]],
+    eos00 = get_EOS_resultsTP(sm.eos, var00[sm.vari[:lnT]], var00[sm.vari[:lnP]],
                               var00[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
-    κ00 = get_opacity_resultsTP(sm.opacity, sm.isotope_data, var00[sm.vari[:lnT]], var00[sm.vari[:lnP]],
+    κ00 = get_opacity_resultsTP(sm.opacity, var00[sm.vari[:lnT]], var00[sm.vari[:lnP]],
                                 var00[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
     if k != 1
-        eosm1 = get_EOS_resultsTP(sm.eos, sm.isotope_data, varm1[sm.vari[:lnT]], varm1[sm.vari[:lnP]],
+        eosm1 = get_EOS_resultsTP(sm.eos, varm1[sm.vari[:lnT]], varm1[sm.vari[:lnP]],
                                   varm1[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
-        κm1 = get_opacity_resultsTP(sm.opacity, sm.isotope_data, varm1[sm.vari[:lnT]], varm1[sm.vari[:lnP]],
+        κm1 = get_opacity_resultsTP(sm.opacity, varm1[sm.vari[:lnT]], varm1[sm.vari[:lnP]],
                                     varm1[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
     end
     if k != sm.nz
-        eosp1 = get_EOS_resultsTP(sm.eos, sm.isotope_data, varp1[sm.vari[:lnT]], varp1[sm.vari[:lnP]],
+        eosp1 = get_EOS_resultsTP(sm.eos, varp1[sm.vari[:lnT]], varp1[sm.vari[:lnP]],
                                   varp1[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
-        κp1 = get_opacity_resultsTP(sm.opacity, sm.isotope_data, varp1[sm.vari[:lnT]], varp1[sm.vari[:lnP]],
+        κp1 = get_opacity_resultsTP(sm.opacity, varp1[sm.vari[:lnT]], varp1[sm.vari[:lnP]],
                                     varp1[(sm.nvars - sm.nspecies + 1):(sm.nvars)], species_names)
     end
 

@@ -1,13 +1,13 @@
-    [solver]
-    newton_max_iter_first_step = 1000
-    newton_max_iter = 200
+[solver]
+newton_max_iter_first_step = 1000
+newton_max_iter = 200
 
-    [timestep]
-    dt_max_increase = 2.0
+[timestep]
+dt_max_increase = 2.0
 
-    [termination]
-    max_model_number = 3000
-    max_center_T = 4e7
+[termination]
+max_model_number = 3000
+max_center_T = 4e7
 
-    [io]
-    profile_interval = 50
+[io]
+profile_interval = 50

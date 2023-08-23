@@ -2,8 +2,6 @@
 using ForwardDiff
 using Roots
 
-isotope_list = Chem.get_isotope_list()
-
 function theta_n(xi)
     return sin(xi) / xi
 end
