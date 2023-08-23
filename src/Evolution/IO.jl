@@ -61,7 +61,7 @@ function get_eos_for_cell(sm::StellarModel, k::Int)
     lnP = sm.esi.lnP[k]
     species_names = sm.varnames[(sm.nvars - sm.nspecies + 1):end]
     xa = sm.ind_vars[(k * sm.nvars - sm.nspecies + 1):(k * sm.nvars)]
-    return get_EOS_resultsTP(sm.eos, sm.isotope_data, lnT, lnP, xa, species_names)
+    return get_EOS_resultsTP(sm.eos, lnT, lnP, xa, species_names)
 end
 
 profile_output_options = Dict(

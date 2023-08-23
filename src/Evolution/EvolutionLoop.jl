@@ -22,7 +22,7 @@ function set_end_step_info!(sm::StellarModel)
         species_names = sm.varnames[(sm.nvars - sm.nspecies + 1):end]
         xa = sm.ind_vars[(i * sm.nvars - sm.nspecies + 1):(i * sm.nvars)]
 
-        eos = get_EOS_resultsTP(sm.eos, sm.isotope_data, sm.psi.lnT[i], sm.psi.lnP[i], xa, species_names)
+        eos = get_EOS_resultsTP(sm.eos, sm.psi.lnT[i], sm.psi.lnP[i], xa, species_names)
 
         sm.esi.lnρ[i] = log(eos[1])
         sm.esi.ind_vars[((i - 1) * sm.nvars + 1):(i * sm.nvars)] .= sm.ind_vars[((i - 1) * sm.nvars + 1):(i * sm.nvars)]

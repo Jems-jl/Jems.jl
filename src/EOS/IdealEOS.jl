@@ -10,34 +10,33 @@ struct IdealEOS <: AbstractEOS
 end
 
 """
-    get_μ_IdealEOS(isotope_data, xa, species)
+    get_μ_IdealEOS(xa, species)
 
-computes the molecular weight of the mixture `xa`, given the `isotope_data` and list of `species`.
+computes the molecular weight of the mixture `xa`, given and list of `species`.
 """
-function get_μ_IdealEOS(isotope_data::Dict{Symbol,Isotope}, xa::Vector{<:TT},
-                        species::Vector{Symbol})::TT where {TT<:Real}
+function get_μ_IdealEOS(xa::Vector{<:TT}, species::Vector{Symbol})::TT where {TT<:Real}
     # See section 4.2 of Kipp
     μ::TT = 0
     for i in eachindex(species)
         # assumes complete ionization!
-        μ += xa[i] * (1 + isotope_data[species[i]].Z) / isotope_data[species[i]].mass
+        μ += xa[i] * (1 + Chem.isotope_list[species[i]].Z) / Chem.isotope_list[species[i]].mass
     end
     return 1 / μ
 end
 
 """
-    get_EOS_resultsTP(eos, isotope_data, lnT, lnP, xa, species)
+    get_EOS_resultsTP(eos, lnT, lnP, xa, species)
 
 computes thermodynamical quantities of a mixture `xa` at temperature `lnT` and pressure `lnP`, given the ideal equation
-of state `eos`, `isotope_data` and list of `species`.
+of state `eos`, list of `species`.
 """
-function get_EOS_resultsTP(eos::IdealEOS, isotope_data::Dict{Symbol,Isotope}, lnT::TT, lnP::TT, xa::Vector{<:TT},
+function get_EOS_resultsTP(eos::IdealEOS, lnT::TT, lnP::TT, xa::Vector{<:TT},
                            species::Vector{Symbol})::Vector{<:TT} where {TT<:Real}
     # See section 13.2 of Kipp
     β::TT = 1
     T = exp(lnT)
     P = exp(lnP)
-    μ = get_μ_IdealEOS(isotope_data, xa, species)
+    μ = get_μ_IdealEOS(xa, species)
     Prad = CRAD * T^4 / 3
     ρ = μ / (CGAS * T) * (P - Prad)
 
