@@ -14,7 +14,7 @@ end
 
 computes the molecular weight of the mixture `xa`, given and list of `species`.
 """
-function get_μ_IdealEOS(xa::Vector{<:TT}, species::Vector{Symbol})::TT where {TT<:Real}
+function get_μ_IdealEOS(xa::AbstractVector{TT}, species::Vector{Symbol})::TT where {TT<:Real}
     # See section 4.2 of Kipp
     μ::TT = 0
     for i in eachindex(species)
@@ -30,8 +30,8 @@ end
 computes thermodynamical quantities of a mixture `xa` at temperature `lnT` and pressure `lnP`, given the ideal equation
 of state `eos`, list of `species`.
 """
-function get_EOS_resultsTP(eos::IdealEOS, lnT::TT, lnP::TT, xa::Vector{<:TT},
-                           species::Vector{Symbol})::Vector{<:TT} where {TT<:Real}
+function get_EOS_resultsTP(eos::IdealEOS, lnT::TT, lnP::TT, xa::AbstractVector{TT},
+                           species::Vector{Symbol})::Vector{TT} where {TT<:Real}
     # See section 13.2 of Kipp
     β::TT = 1
     T = exp(lnT)
