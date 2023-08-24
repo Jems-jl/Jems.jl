@@ -50,7 +50,6 @@ Evolution.n1_polytrope_initial_condition(sm, MSUN, 100 * RSUN; initial_dt=10 * S
 Evolution.set_end_step_info!(sm)
 Evolution.cycle_step_info!(sm)
 Evolution.set_start_step_info!(sm)
-
 Evolution.eval_jacobian_eqs!(sm)
 
 ##
@@ -68,7 +67,7 @@ multiple iterations of the Newton solver, so this would be a lower bound on the 
 using LinearSolve
 @benchmark begin
     $sm.linear_solver.A = $sm.jacobian
-    $sm.linear_solver.b = $sm.eqs
+    $sm.linear_solver.b = $sm.eqs_numbers
     corr = solve($sm.linear_solver)
 end
 #=
@@ -80,7 +79,7 @@ takes to compute the jacobian elements associated with row 2
 ##
 
 # Benchmark one jacobian row
-@benchmark Evolution.eval_jacobian_row_eqs!(sm, 2)
+@benchmark Evolution.eval_jacobian_eqs_row!(sm, 2)
 
 #=
 Again on my machine, this takes $\sim 16\;\mathrm{\mu s}$. This is a short amount of time, but we have a thousand cells

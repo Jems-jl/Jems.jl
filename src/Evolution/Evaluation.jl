@@ -5,43 +5,36 @@ Evaluates the stellar structure equations of the stellar model, `sm`, at cell `k
 variables, `ind_vars_view`.
 """
 function eval_cell_eqs!(sm::StellarModel, k::Int)
-    if k == 1
-        ki = sm.nvars * (k - 1) + 1
-        kf = sm.nvars * (k + 1)
-    elseif k == sm.nz
-        ki = sm.nvars * (k - 2) + 1
-        kf = sm.nvars * (k)
-    else
-        ki = sm.nvars * (k - 2) + 1
-        kf = sm.nvars * (k + 1)
-    end
-    resultview = view(sm.eqs_duals, ki:kf)
-    cacheview = view(sm.diff_caches, k, :)
-    varm1 = get_tmp(cacheview[1], resultview[1])
-    var00 = get_tmp(cacheview[2], resultview[1])
-    varp1 = get_tmp(cacheview[3], resultview[1])
 
-    # collect eos and κ info (could be sped up by doing this before eval. the Jacobian!)
+    var00 = get_tmp(sm.diff_caches[k, :][2], sm.eqs_duals[k, 1])
     eos00 = get_EOS_resultsTP(sm.eos, var00[sm.vari[:lnT]], var00[sm.vari[:lnP]],
                               var00[(sm.nvars - sm.nspecies + 1):(sm.nvars)], sm.species_names)
     κ00 = get_opacity_resultsTP(sm.opacity, var00[sm.vari[:lnT]], var00[sm.vari[:lnP]],
                                 var00[(sm.nvars - sm.nspecies + 1):(sm.nvars)], sm.species_names)
     if k != 1
+        varm1 = get_tmp(sm.diff_caches[k, :][1], sm.eqs_duals[k, 1])
         eosm1 = get_EOS_resultsTP(sm.eos, varm1[sm.vari[:lnT]], varm1[sm.vari[:lnP]],
                                   varm1[(sm.nvars - sm.nspecies + 1):(sm.nvars)], sm.species_names)
         κm1 = get_opacity_resultsTP(sm.opacity, varm1[sm.vari[:lnT]], varm1[sm.vari[:lnP]],
                                     varm1[(sm.nvars - sm.nspecies + 1):(sm.nvars)], sm.species_names)
     else
-        eosm1 = Vector{typeof(eos00[1])}(undef, length(eos00[1]))
+        varm1 = Vector{eltype(var00)}(undef, length(var00[1]))
+        fill!(varm1, eltype(var00)(NaN))
+        eosm1 = Vector{eltype(eos00)}(undef, length(eos00[1]))
+        fill!(eosm1, eltype(eos00)(NaN))
         κm1 = typeof(κ00)(NaN)
     end
     if k != sm.nz
+        varp1 = get_tmp(sm.diff_caches[k, :][3], sm.eqs_duals[k, 1])
         eosp1 = get_EOS_resultsTP(sm.eos, varp1[sm.vari[:lnT]], varp1[sm.vari[:lnP]],
                                   varp1[(sm.nvars - sm.nspecies + 1):(sm.nvars)], sm.species_names)
         κp1 = get_opacity_resultsTP(sm.opacity, varp1[sm.vari[:lnT]], varp1[sm.vari[:lnP]],
                                     varp1[(sm.nvars - sm.nspecies + 1):(sm.nvars)], sm.species_names)
     else
-        eosp1 = Vector{typeof(eos00[1])}(undef, length(eos00[1]))
+        varp1 = Vector{eltype(var00)}(undef, length(var00[1]))
+        fill!(varp1, eltype(var00)(NaN))
+        eosp1 = Vector{eltype(eos00)}(undef, length(eos00[1]))
+        fill!(eosp1, eltype(eos00)(NaN))
         κp1 = typeof(κ00)(NaN)
     end
 
@@ -57,7 +50,7 @@ end
 Evaluates row `k` of the Jacobian matrix of the given StellarModel `sm`.
 """
 function eval_jacobian_eqs_row!(sm::StellarModel, k::Int)
-    #= ranges of ind_vars vector that needs to be considered, needs special cases for k=1 or nz
+    #=
     Jacobian has tridiagonal block structure:
     x x - - - -
     x x x - - -
@@ -76,17 +69,28 @@ function eval_jacobian_eqs_row!(sm::StellarModel, k::Int)
     =#
     init_diff_cache!(sm, k)  # set diff_caches to hold 1s where needed
     eval_cell_eqs!(sm, k)  # evaluate equations on the duals, so we have jacobian also
+    if k == 1
+        ki = sm.nvars * (k - 1) + 1
+        kf = sm.nvars * (k + 1)
+    elseif k == sm.nz
+        ki = sm.nvars * (k - 2) + 1
+        kf = sm.nvars * (k)
+    else
+        ki = sm.nvars * (k - 2) + 1
+        kf = sm.nvars * (k + 1)
+    end
+    jac_view = view(sm.jacobian, (sm.nvars * (k - 1) + 1):(sm.nvars * k), ki:kf)
     for i = 1:(sm.nvars)
         # populate the jacobian with the relevant entries
         for j = 1:(k == 1 || k == sm.nz ? 2 * sm.nvars : 3 * sm.nvars)
             if (k == 1)  # for k==1 the correct derivatives are displaced!
-                sm.jacobian[i, j] = sm.eqs_duals[i].partials[j + sm.nvars]
+                jac_view[i, j] = sm.eqs_duals[k, i].partials[j + sm.nvars]
             else
-                jac_view[i, j] = resultview[i].partials[j]
+                jac_view[i, j] = sm.eqs_duals[k, i].partials[j]
             end
         end
         # populate the eqs_numbers with relevant entries (will be RHS for linear solver)
-        sm.eqs_numbers[i] = sm.eqs_duals[i].value
+        sm.eqs_numbers[(k - 1) * sm.nvars + i] = sm.eqs_duals[k, i].value
     end
 end
 
