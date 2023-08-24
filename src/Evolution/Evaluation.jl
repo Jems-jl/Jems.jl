@@ -67,7 +67,7 @@ function eval_jacobian_eqs_row!(sm::StellarModel, k::Int)
 
     Because this function acts on duals `eqs_duals`, we immediately evaluate the equations also.
     =#
-    init_diff_cache!(sm, k)  # set diff_caches to hold 1s where needed
+    set_diff_cache!(sm, k)  # set diff_caches to hold 1s where needed
     eval_cell_eqs!(sm, k)  # evaluate equations on the duals, so we have jacobian also
     if k == 1
         ki = sm.nvars * (k - 1) + 1
@@ -108,36 +108,20 @@ end
 """
     set_diff_cache!(sm::StellarModel, k::Int)
 
-Initializes the diff_caches to the values of the independent variables, and sets 1s in the correct spots where the
-dx_i^k/dx_i^k entries lie.
+Sets the diff_caches to the values of the independent variables
 """
-function init_diff_cache!(sm::StellarModel, k::Int)
-    # set all partials to 0 for the moment
-    sm.diff_caches[k, 1].dual_du[:] .= 0.0
-    sm.diff_caches[k, 2].dual_du[:] .= 0.0
-    sm.diff_caches[k, 3].dual_du[:] .= 0.0
-    #= these indices are headache inducing...
-    diff_caches[k, 2].dual_du has structure:
-    (x_1, dx_1^k/dx_1^k-1, ..., dx_1^k/dx_n^k-1, dx_1^k/dx_1^k, ..., dx_1^k/dx_n^k, dx_1^k/dx_1^k+1, ..., dx_1^k/dx_n^k+1,  # subsize 3*nvars+1
-     ...
-     x_n, dx_n^k/dx_1^k-1, ..., dx_n^k/dx_n^k-1, dx_n^k/dx_1^k, ..., dx_n^k/dx_n^k, dx_n^k/dx_1^k+1, ..., dx_n^k/dx_n^k+1)
-    diff_caches[k, 3].dual_du has numerators k -> k+1
-    diff_caches[k, 1].dual_du has numerators k -> k-1
-    =#
+function set_diff_cache!(sm::StellarModel, k::Int)
     for i = 1:(sm.nvars)
-        # set variable values in du, dual_du and its corresponding non-zero derivative
+        # set variable values in du and dual_du
         if k != 1
             sm.diff_caches[k, 1].du[i] = sm.ind_vars[sm.nvars * (k - 2) + i]
             sm.diff_caches[k, 1].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * (k - 2) + i]
-            sm.diff_caches[k, 1].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1 + i] = 1.0  # dx^k-1_i/dx^k-1_i = 1!!
         end
         sm.diff_caches[k, 2].du[i] = sm.ind_vars[sm.nvars * (k - 1) + i]
         sm.diff_caches[k, 2].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * (k - 1) + i]
-        sm.diff_caches[k, 2].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1 + sm.nvars + i] = 1.0  # dx^k_i/dx^k_i = 1!!
         if k != sm.nz
             sm.diff_caches[k, 3].du[i] = sm.ind_vars[sm.nvars * k + i]
             sm.diff_caches[k, 3].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * k + i]
-            sm.diff_caches[k, 3].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1 + 2 * sm.nvars + i] = 1.0  # dx^k+1_i/dx^k+1_i = 1!!
         end
     end
 end

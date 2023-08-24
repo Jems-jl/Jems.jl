@@ -44,7 +44,7 @@ variables of the model and its equations.
 
 The struct has two parametric types, `T1` for 'normal' numbers, `T2` for dual numbers used in automatic differentiation
 """
-@kwdef mutable struct StellarModel{T1<:Real,T2<:Real}
+@kwdef mutable struct StellarModel{T1<:Real,T2<:Real,TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity}
     # Properties that define the model
     ind_vars::Vector{T1}  # List of independent variables
     nvars::Int  # This is the sum of hydro vars and species
@@ -76,8 +76,8 @@ The struct has two parametric types, `T1` for 'normal' numbers, `T2` for dual nu
     model_number::Int
 
     # Some basic info
-    eos::EOS.AbstractEOS
-    opacity::Opacity.AbstractOpacity
+    eos::TEOS
+    opacity::TKAP
 
     # Here I want to preemt things that will be necessary once we have an adaptative
     # mesh. Idea is that psi contains the information from the previous step (or the
@@ -124,6 +124,7 @@ function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Fun
             diff_caches[k, i] = DiffCache(zeros(nvars), 3 * nvars)
         end
     end
+
     l, u = 1, 1  # block bandwidths
     N = M = nz  # number of row/column blocks
     cols = rows = [nvars for i = 1:N]  # block sizes
@@ -154,9 +155,50 @@ function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Fun
 
     opt = Options()
 
-    StellarModel(ind_vars=ind_vars, var_names=var_names, species_names=species_names, eqs_numbers=eqs_numbers,
+    sm = StellarModel(ind_vars=ind_vars, var_names=var_names, species_names=species_names, eqs_numbers=eqs_numbers,
                  eqs_duals=eqs_duals, nvars=nvars, nspecies=nspecies, structure_equations=structure_equations,
                  diff_caches=diff_caches, vari=vari, nz=nz, m=m, dm=dm, mstar=0.0, time=0.0, dt=0.0, model_number=0,
                  eos=eos, opacity=opacity, jacobian=jacobian, linear_solver=linear_solver, psi=psi, ssi=ssi, esi=esi,
                  opt=opt)
+    init_diff_cache!(sm)
+    return sm
+end
+
+"""
+    init_diff_cache!(sm::StellarModel, k::Int)
+
+Initializes the diff_caches to the values of the independent variables, and sets 1s in the correct spots where the
+dx_i^k/dx_i^k entries lie.
+"""
+function init_diff_cache!(sm::StellarModel)
+    for k in 1:sm.nz
+        # set all partials to 0 for the moment
+        sm.diff_caches[k, 1].dual_du[:] .= 0.0
+        sm.diff_caches[k, 2].dual_du[:] .= 0.0
+        sm.diff_caches[k, 3].dual_du[:] .= 0.0
+        #= these indices are headache inducing...
+        diff_caches[k, 2].dual_du has structure:
+        (x_1, dx_1^k/dx_1^k-1, ..., dx_1^k/dx_n^k-1, dx_1^k/dx_1^k, ..., dx_1^k/dx_n^k, dx_1^k/dx_1^k+1, ..., dx_1^k/dx_n^k+1,  # subsize 3*nvars+1
+        ...
+        x_n, dx_n^k/dx_1^k-1, ..., dx_n^k/dx_n^k-1, dx_n^k/dx_1^k, ..., dx_n^k/dx_n^k, dx_n^k/dx_1^k+1, ..., dx_n^k/dx_n^k+1)
+        diff_caches[k, 3].dual_du has numerators k -> k+1
+        diff_caches[k, 1].dual_du has numerators k -> k-1
+        =#
+        for i = 1:(sm.nvars)
+            # set variable values in du, dual_du and its corresponding non-zero derivative
+            if k != 1
+                sm.diff_caches[k, 1].du[i] = sm.ind_vars[sm.nvars * (k - 2) + i]
+                sm.diff_caches[k, 1].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * (k - 2) + i]
+                sm.diff_caches[k, 1].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1 + i] = 1.0  # dx^k-1_i/dx^k-1_i = 1!!
+            end
+            sm.diff_caches[k, 2].du[i] = sm.ind_vars[sm.nvars * (k - 1) + i]
+            sm.diff_caches[k, 2].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * (k - 1) + i]
+            sm.diff_caches[k, 2].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1 + sm.nvars + i] = 1.0  # dx^k_i/dx^k_i = 1!!
+            if k != sm.nz
+                sm.diff_caches[k, 3].du[i] = sm.ind_vars[sm.nvars * k + i]
+                sm.diff_caches[k, 3].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * k + i]
+                sm.diff_caches[k, 3].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1 + 2 * sm.nvars + i] = 1.0  # dx^k+1_i/dx^k+1_i = 1!!
+            end
+        end
+    end
 end
