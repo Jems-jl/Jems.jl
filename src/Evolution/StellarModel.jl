@@ -84,11 +84,11 @@ The struct has two parametric types, `T1` for 'normal' numbers, `T2` for dual nu
     # initial condition). ssi will contain information after remeshing. Absent remeshing
     # it will make no difference. esi will contain properties once the step is completed.
     # Information coming from the previous step (psi=Previous Step Info)
-    psi::StellarStepInfo
+    psi::StellarStepInfo{T1}
     # Information computed at the start of the step (ssi=Start Step Info)
-    ssi::StellarStepInfo
+    ssi::StellarStepInfo{T1}
     # Information computed at the end of the step (esi=End Step Info)
-    esi::StellarStepInfo
+    esi::StellarStepInfo{T1}
 
     # Space for used defined options, defaults are in Options.jl
     opt::Options
