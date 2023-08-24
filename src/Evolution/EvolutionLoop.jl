@@ -10,7 +10,7 @@ function set_end_step_info!(sm::StellarModel)
 
     sm.esi.nz = sm.nz
     sm.esi.mstar = sm.mstar
-    for i = 1:(sm.nz)
+    Threads.@threads for i = 1:(sm.nz)
         sm.esi.m[i] = sm.m[i]
         sm.esi.dm[i] = sm.dm[i]
 
@@ -20,12 +20,15 @@ function set_end_step_info!(sm::StellarModel)
         sm.esi.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]]
 
         species_names = sm.var_names[(sm.nvars - sm.nspecies + 1):end]
-        xa = sm.ind_vars[(i * sm.nvars - sm.nspecies + 1):(i * sm.nvars)]
+
+        xa = view(sm.ind_vars, (i * sm.nvars - sm.nspecies + 1):(i * sm.nvars))
 
         eos = get_EOS_resultsTP(sm.eos, sm.psi.lnT[i], sm.psi.lnP[i], xa, species_names)
 
         sm.esi.lnρ[i] = log(eos[1])
-        sm.esi.ind_vars[((i - 1) * sm.nvars + 1):(i * sm.nvars)] .= sm.ind_vars[((i - 1) * sm.nvars + 1):(i * sm.nvars)]
+        for k = 1:sm.nvars
+            sm.esi.ind_vars[(i - 1) * sm.nvars + k] = sm.ind_vars[(i - 1) * sm.nvars + k]
+        end
     end
 end
 
@@ -55,7 +58,7 @@ function set_start_step_info!(sm::StellarModel)
 
     sm.ssi.nz = sm.psi.nz
     sm.ssi.mstar = sm.mstar
-    for i = 1:(sm.nz)
+    Threads.@threads for i = 1:(sm.nz)
         sm.ssi.m[i] = sm.psi.m[i]
         sm.ssi.dm[i] = sm.psi.dm[i]
 
@@ -64,7 +67,9 @@ function set_start_step_info!(sm::StellarModel)
         sm.ssi.lnP[i] = sm.psi.lnP[i]
         sm.ssi.lnr[i] = sm.psi.lnr[i]
         sm.ssi.lnρ[i] = sm.psi.lnρ[i]
-        sm.ssi.ind_vars[((i - 1) * sm.nvars + 1):(i * sm.nvars)] .= sm.psi.ind_vars[((i - 1) * sm.nvars + 1):(i * sm.nvars)]
+        for k in 1:sm.nvars
+            sm.ssi.ind_vars[(i - 1) * sm.nvars + k] = sm.psi.ind_vars[(i - 1) * sm.nvars + k]
+        end
     end
 end
 
