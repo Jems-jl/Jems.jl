@@ -23,9 +23,9 @@ function set_end_step_info!(sm::StellarModel)
 
         xa = view(sm.ind_vars, (i * sm.nvars - sm.nspecies + 1):(i * sm.nvars))
 
-        eos = get_EOS_resultsTP(sm.eos, sm.psi.lnT[i], sm.psi.lnP[i], xa, species_names)
+        set_EOS_resultsTP!(sm.eos, sm.psi.eos_res[i], sm.psi.lnT[i], sm.psi.lnP[i], xa, species_names)
 
-        sm.esi.lnρ[i] = log(eos[1])
+        sm.esi.lnρ[i] = log(sm.psi.eos_res[i].ρ)
         for k = 1:sm.nvars
             sm.esi.ind_vars[(i - 1) * sm.nvars + k] = sm.ind_vars[(i - 1) * sm.nvars + k]
         end

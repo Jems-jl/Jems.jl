@@ -56,14 +56,6 @@ function profile_get_ind_vars_value(sm::StellarModel, var_symbol::Symbol, k::Int
     return sm.ind_vars[(k - 1) * sm.nvars + sm.vari[var_symbol]]
 end
 
-function get_eos_for_cell(sm::StellarModel, k::Int)
-    lnT = sm.esi.lnT[k]
-    lnP = sm.esi.lnP[k]
-    species_names = sm.var_names[(sm.nvars - sm.nspecies + 1):end]
-    xa = sm.ind_vars[(k * sm.nvars - sm.nspecies + 1):(k * sm.nvars)]
-    return get_EOS_resultsTP(sm.eos, lnT, lnP, xa, species_names)
-end
-
 profile_output_options = Dict(
                               #general properties
                               "zone" => ("unitless", (sm, k) -> k),
@@ -74,7 +66,7 @@ profile_output_options = Dict(
                               "log10_r" => ("log10(Rsun)", (sm, k) -> sm.esi.lnr[k] / RSUN / log(10)),
                               "log10_P" => ("log10(dyne)", (sm, k) -> sm.esi.lnP[k] / log(10)),
                               "log10_T" => ("log10(K)", (sm, k) -> sm.esi.lnT[k] / log(10)),
-                              "log10_ρ" => ("log10_(g*cm^-3)", (sm, k) -> log10(get_eos_for_cell(sm, k)[1])),
+                              "log10_ρ" => ("log10_(g*cm^-3)", (sm, k) -> log10(sm.esi.eos_res[k].ρ)),
                               "luminosity" => ("Lsun", (sm, k) -> sm.esi.L[k]),
 
                               #abundance

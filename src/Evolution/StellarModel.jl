@@ -34,6 +34,9 @@ will not be used in automatic differentiation routines.
     lnP::Vector{T1}
     lnρ::Vector{T1}
     lnr::Vector{T1}
+
+    #eos results
+    eos_res::Vector{EOSResults{T1}}
 end
 
 """
@@ -78,6 +81,9 @@ The struct has two parametric types, `T1` for 'normal' numbers, `T2` for dual nu
     # Some basic info
     eos::TEOS
     opacity::TKAP
+
+    # cache for the EOS
+    eos_res::Matrix{EOSResults{T2}}
 
     # Here I want to preemt things that will be necessary once we have an adaptative
     # mesh. Idea is that psi contains the information from the previous step (or the
@@ -143,23 +149,25 @@ function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Fun
     dm = zeros(nz)
     m = zeros(nz)
 
+    eos_res = [EOSResults{typeof(dual_sample)}() for i = 1:nz, j = 1:3]
+
     psi = StellarStepInfo(nz=nz, m=zeros(nz), dm=zeros(nz), mstar=0.0, time=0.0, dt=0.0, model_number=0,
                           ind_vars=zeros(nvars * nz), lnT=zeros(nz), L=zeros(nz), lnP=zeros(nz), lnρ=zeros(nz),
-                          lnr=zeros(nz))
+                          lnr=zeros(nz), eos_res=[EOSResults{Float64}() for i=1:nz])
     ssi = StellarStepInfo(nz=nz, m=zeros(nz), dm=zeros(nz), mstar=0.0, time=0.0, dt=0.0, model_number=0,
                           ind_vars=zeros(nvars * nz), lnT=zeros(nz), L=zeros(nz), lnP=zeros(nz), lnρ=zeros(nz),
-                          lnr=zeros(nz))
+                          lnr=zeros(nz), eos_res=[EOSResults{Float64}() for i=1:nz])
     esi = StellarStepInfo(nz=nz, m=zeros(nz), dm=zeros(nz), mstar=0.0, time=0.0, dt=0.0, model_number=0,
                           ind_vars=zeros(nvars * nz), lnT=zeros(nz), L=zeros(nz), lnP=zeros(nz), lnρ=zeros(nz),
-                          lnr=zeros(nz))
+                          lnr=zeros(nz), eos_res=[EOSResults{Float64}() for i=1:nz])
 
     opt = Options()
 
     sm = StellarModel(ind_vars=ind_vars, var_names=var_names, species_names=species_names, eqs_numbers=eqs_numbers,
                  eqs_duals=eqs_duals, nvars=nvars, nspecies=nspecies, structure_equations=structure_equations,
                  diff_caches=diff_caches, vari=vari, nz=nz, m=m, dm=dm, mstar=0.0, time=0.0, dt=0.0, model_number=0,
-                 eos=eos, opacity=opacity, jacobian=jacobian, linear_solver=linear_solver, psi=psi, ssi=ssi, esi=esi,
-                 opt=opt)
+                 eos=eos, opacity=opacity, jacobian=jacobian, linear_solver=linear_solver, eos_res=eos_res,
+                 psi=psi, ssi=ssi, esi=esi, opt=opt)
     init_diff_cache!(sm)
     return sm
 end

@@ -7,40 +7,38 @@ variables, `ind_vars_view`.
 function eval_cell_eqs!(sm::StellarModel, k::Int)
 
     var00 = get_tmp(view(sm.diff_caches, k, :)[2], sm.eqs_duals[k, 1])
-    eos00 = get_EOS_resultsTP(sm.eos, var00[sm.vari[:lnT]], var00[sm.vari[:lnP]],
-                              view(var00, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
     κ00 = get_opacity_resultsTP(sm.opacity, var00[sm.vari[:lnT]], var00[sm.vari[:lnP]],
                                 view(var00, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+                                
+    set_EOS_resultsTP!(sm.eos, sm.eos_res[k,2], var00[sm.vari[:lnT]], var00[sm.vari[:lnP]],
+                              view(var00, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
     if k != 1
         varm1 = get_tmp(view(sm.diff_caches, k, :)[1], sm.eqs_duals[k, 1])
-        eosm1 = get_EOS_resultsTP(sm.eos, varm1[sm.vari[:lnT]], varm1[sm.vari[:lnP]],
-                                  view(varm1, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
         κm1 = get_opacity_resultsTP(sm.opacity, varm1[sm.vari[:lnT]], varm1[sm.vari[:lnP]],
                                     view(varm1,(sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+        set_EOS_resultsTP!(sm.eos, sm.eos_res[k,1], varm1[sm.vari[:lnT]], varm1[sm.vari[:lnP]],
+                                    view(varm1, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
     else
         varm1 = Vector{eltype(var00)}(undef, length(var00[1]))
         fill!(varm1, eltype(var00)(NaN))
-        eosm1 = Vector{eltype(eos00)}(undef, length(eos00[1]))
-        fill!(eosm1, eltype(eos00)(NaN))
         κm1 = typeof(κ00)(NaN)
     end
     if k != sm.nz
         varp1 = get_tmp(view(sm.diff_caches, k, :)[3], sm.eqs_duals[k, 1])
-        eosp1 = get_EOS_resultsTP(sm.eos, varp1[sm.vari[:lnT]], varp1[sm.vari[:lnP]],
-                                  view(varp1, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
         κp1 = get_opacity_resultsTP(sm.opacity, varp1[sm.vari[:lnT]], varp1[sm.vari[:lnP]],
+                                    view(varp1, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+        set_EOS_resultsTP!(sm.eos, sm.eos_res[k,3], varp1[sm.vari[:lnT]], varp1[sm.vari[:lnP]],
                                     view(varp1, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
     else
         varp1 = Vector{eltype(var00)}(undef, length(var00[1]))
         fill!(varp1, eltype(var00)(NaN))
-        eosp1 = Vector{eltype(eos00)}(undef, length(eos00[1]))
-        fill!(eosp1, eltype(eos00)(NaN))
         κp1 = typeof(κ00)(NaN)
     end
 
     # evaluate all equations!
     for i = 1:(sm.nvars)
-        sm.structure_equations[i](sm.eqs_duals, sm, k, i, varm1, var00, varp1, eosm1, eos00, eosp1, κm1, κ00, κp1)
+        sm.structure_equations[i](sm.eqs_duals, sm, k, i, varm1, var00, varp1, 
+                                  sm.eos_res[k,1], sm.eos_res[k,2], sm.eos_res[k,3], κm1, κ00, κp1)
     end
 end
 
