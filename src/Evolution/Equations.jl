@@ -1,6 +1,6 @@
 function equationHSE!(results::Matrix{TT}, sm::StellarModel, k::Int, i::Int,
                       varm1::AbstractVector{TT}, var00::AbstractVector{TT}, varp1::AbstractVector{TT},
-                      eosm1::AbstractVector{TT}, eos00::AbstractVector{TT}, eosp1::AbstractVector{TT},
+                      eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
                       κm1::TT, κ00::TT, κp1::TT) where {TT<:Real}
     if k == sm.nz  # atmosphere boundary condition
         lnP₀ = var00[sm.vari[:lnP]]
@@ -22,7 +22,7 @@ end
 
 function equationT!(results::Matrix{TT}, sm::StellarModel, k::Int, i::Int,
                     varm1::AbstractVector{TT}, var00::AbstractVector{TT}, varp1::AbstractVector{TT},
-                    eosm1::AbstractVector{TT}, eos00::AbstractVector{TT}, eosp1::AbstractVector{TT},
+                    eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
                     κm1::TT, κ00::TT, κp1::TT) where {TT<:Real}
     if k == sm.nz  # atmosphere boundary condition
         lnT₀ = var00[sm.vari[:lnT]]
@@ -41,7 +41,7 @@ function equationT!(results::Matrix{TT}, sm::StellarModel, k::Int, i::Int,
     Tface = exp((sm.dm[k] * lnT₀ + sm.dm[k + 1] * lnT₊) / (sm.dm[k] + sm.dm[k + 1]))
 
     ∇ᵣ = 3κface * L₀ * Pface / (16π * CRAD * CLIGHT * CGRAV * sm.m[k] * Tface^4)
-    ∇ₐ = (sm.dm[k] * eos00[7] + sm.dm[k + 1] * eosp1[7]) / (sm.dm[k] + sm.dm[k + 1])
+    ∇ₐ = (sm.dm[k] * eos00.∇ₐ + sm.dm[k + 1] * eosp1.∇ₐ) / (sm.dm[k] + sm.dm[k + 1])
 
     if (∇ᵣ < ∇ₐ)
         results[k, i] = (Tface * (lnT₊ - lnT₀) / sm.dm[k] +
@@ -57,7 +57,7 @@ end
 
 function equationLuminosity!(results::Matrix{TT}, sm::StellarModel, k::Int, i::Int,
                              varm1::AbstractVector{TT}, var00::AbstractVector{TT}, varp1::AbstractVector{TT},
-                             eosm1::AbstractVector{TT}, eos00::AbstractVector{TT}, eosp1::AbstractVector{TT},
+                             eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
                              κm1::TT, κ00::TT, κp1::TT) where {TT<:Real}
     if k > 1
         L₋ = varm1[sm.vari[:lum]] * LSUN  # change it if not at first cell
@@ -65,9 +65,9 @@ function equationLuminosity!(results::Matrix{TT}, sm::StellarModel, k::Int, i::I
         L₋::TT = 0  # central luminosity is zero at first cell
     end
     L₀ = var00[sm.vari[:lum]] * LSUN
-    ρ₀ = eos00[1]
-    cₚ = eos00[5]
-    δ = eos00[6]
+    ρ₀ = eos00.ρ
+    cₚ = eos00.cₚ
+    δ = eos00.δ
     dTdt = (exp(var00[sm.vari[:lnT]]) - exp(sm.ssi.lnT[k])) / sm.ssi.dt
     dPdt = (exp(var00[sm.vari[:lnP]]) - exp(sm.ssi.lnP[k])) / sm.ssi.dt
 
@@ -80,9 +80,9 @@ end
 
 function equationContinuity!(results::Matrix{TT}, sm::StellarModel, k::Int, i::Int,
                              varm1::AbstractVector{TT}, var00::AbstractVector{TT}, varp1::AbstractVector{TT},
-                             eosm1::AbstractVector{TT}, eos00::AbstractVector{TT}, eosp1::AbstractVector{TT},
+                             eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
                              κm1::TT, κ00::TT, κp1::TT) where {TT<:Real}
-    ρ₀ = eos00[1]
+    ρ₀ = eos00.ρ
     r₀ = exp(var00[sm.vari[:lnr]])
     if k > 1
         r₋ = exp(varm1[sm.vari[:lnr]])  # change it if not at first cell
@@ -108,9 +108,9 @@ end
 # computation of the jacobian
 function equationH1!(results::Matrix{TT}, sm::StellarModel, k::Int, i::Int,
                      varm1::AbstractVector{TT}, var00::AbstractVector{TT}, varp1::AbstractVector{TT},
-                     eosm1::AbstractVector{TT}, eos00::AbstractVector{TT}, eosp1::AbstractVector{TT},
+                     eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
                      κm1::TT, κ00::TT, κp1::TT) where {TT<:Real}
-    ρ₀ = eos00[1]
+    ρ₀ = eos00.ρ
     ϵnuc = 0.1 * var00[sm.vari[:H1]]^2 * ρ₀ * (exp(var00[sm.vari[:lnT]]) / 1e6)^4 +
            0.1 * var00[sm.vari[:H1]] * ρ₀ * (exp(var00[sm.vari[:lnT]]) / 1e7)^18
     rate_per_unit_mass = 4 * ϵnuc / ((4 * Chem.isotope_list[:H1].mass - Chem.isotope_list[:He4].mass) * AMU * CLIGHT^2)
@@ -124,7 +124,7 @@ end
 
 function equationHe4!(results::Matrix{TT}, sm::StellarModel, k::Int, i::Int,
                       varm1::AbstractVector{TT}, var00::AbstractVector{TT}, varp1::AbstractVector{TT},
-                      eosm1::AbstractVector{TT}, eos00::AbstractVector{TT}, eosp1::AbstractVector{TT},
+                      eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
                       κm1::TT, κ00::TT, κp1::TT) where {TT<:Real}
     results[k, i] = var00[sm.vari[:He4]] + var00[sm.vari[:H1]] - 1.0
     return

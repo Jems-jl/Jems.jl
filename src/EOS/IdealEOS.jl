@@ -1,4 +1,4 @@
-export get_EOS_resultsTP
+export set_EOS_resultsTP!
 
 """
     struct IdealEOS <: AbstractEOS
@@ -30,34 +30,34 @@ end
 computes thermodynamical quantities of a mixture `xa` at temperature `lnT` and pressure `lnP`, given the ideal equation
 of state `eos`, list of `species`.
 """
-function get_EOS_resultsTP(eos::IdealEOS, lnT::TT, lnP::TT, xa::AbstractVector{TT},
-                           species::Vector{Symbol})::Vector{TT} where {TT<:Real}
+function set_EOS_resultsTP!(eos::IdealEOS, r::EOSResults{TT}, lnT::TT, lnP::TT, xa::AbstractVector{TT},
+                           species::Vector{Symbol}) where {TT<:Real}
     # See section 13.2 of Kipp
-    β::TT = 1
-    T = exp(lnT)
-    P = exp(lnP)
-    μ = get_μ_IdealEOS(xa, species)
-    Prad = CRAD * T^4 / 3
-    ρ = μ / (CGAS * T) * (P - Prad)
+    r.T = exp(lnT)
+    r.P = exp(lnP)
+    r.μ = get_μ_IdealEOS(xa, species)
+    r.Prad = CRAD * r.T^4 / 3
+    r.ρ = r.μ / (CGAS * r.T) * (r.P - r.Prad)
 
     if eos.include_radiation
-        β = 1 - Prad / P  # gas pressure fraction
-        if β < 0
-            throw(DomainError(β, "Input values produce negative beta"))
+        r.β = 1 - r.Prad / r.P  # gas pressure fraction
+        if r.β < 0
+            throw(DomainError(r.β, "Input values produce negative beta"))
         end
-    end
-    α = 1 / β
-    δ = (4 - 3 * β) / β
-
-    u = CGAS * T / μ * (3 / 2 + 3 * (1 - β) / β)  # internal energy
-    cₚ = CGAS / μ * (3 / 2 + 3 * (4 + β) * (1 - β) / β^2 + δ * α)  # heat capacity at constant P
-    ∇ₐ = CGAS * δ / (β * μ * cₚ)  # adiabatic temperature gradient
-    Γ₁::TT = 1  # first adiabatic exponent dlnP/dlnρ
-    if eos.include_radiation
-        Γ₁ = 1 / (α - δ * ∇ₐ)
     else
-        Γ₁ = 1 / (1 - ∇ₐ)
+        r.β = 1
     end
+    r.α = 1 / r.β
+    r.δ = (4 - 3 * r.β) / r.β
 
-    return [ρ, μ, β, u, cₚ, δ, ∇ₐ, Γ₁]
+    r.u = CGAS * r.T / r.μ * (3 / 2 + 3 * (1 - r.β) / r.β)  # internal energy
+    r.cₚ = CGAS / r.μ * (3 / 2 + 3 * (4 + r.β) * (1 - r.β) / r.β^2 + r.δ * r.α)  # heat capacity at constant P
+    r.∇ₐ = CGAS * r.δ / (r.β * r.μ * r.cₚ)  # adiabatic temperature gradient
+    # first adiabatic exponent dlnP/dlnρ
+    if eos.include_radiation
+        r.Γ₁ = 1 / (r.α - r.δ * r.∇ₐ)
+    else
+        r.Γ₁ = 1 / (1 - r.∇ₐ)
+    end
+    return
 end
