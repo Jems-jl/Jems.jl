@@ -8,7 +8,7 @@ Returns the value of the independent variable `var_symbol` at either the surface
 `edge` can be either `:surface` or `:center`.
 """
 function history_get_ind_vars_edge_value(sm::StellarModel, var_symbol::Symbol, edge::Symbol)
-    if var_symbol ∉ sm.varnames
+    if var_symbol ∉ sm.var_names
         throw(ArgumentError(":$var_symbol is not a valid independent variable"))
     end
     if edge == :center
@@ -50,7 +50,7 @@ history_output_options = Dict(
 Returns the value of the variable Symbol `var_symbol` at cell number `k` of the StellarModel `sm`.
 """
 function profile_get_ind_vars_value(sm::StellarModel, var_symbol::Symbol, k::Int)
-    if var_symbol ∉ sm.varnames
+    if var_symbol ∉ sm.var_names
         throw(ArgumentError(":$var_symbol is not a valid independent variable"))
     end
     return sm.ind_vars[(k - 1) * sm.nvars + sm.vari[var_symbol]]
@@ -59,7 +59,7 @@ end
 function get_eos_for_cell(sm::StellarModel, k::Int)
     lnT = sm.esi.lnT[k]
     lnP = sm.esi.lnP[k]
-    species_names = sm.varnames[(sm.nvars - sm.nspecies + 1):end]
+    species_names = sm.var_names[(sm.nvars - sm.nspecies + 1):end]
     xa = sm.ind_vars[(k * sm.nvars - sm.nspecies + 1):(k * sm.nvars)]
     return get_EOS_resultsTP(sm.eos, lnT, lnP, xa, species_names)
 end

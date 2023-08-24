@@ -1,6 +1,7 @@
 using BlockBandedMatrices
 using SparseArrays
 using LinearSolve
+using PreallocationTools
 
 """
     mutable struct StellarStepInfo
@@ -14,18 +15,17 @@ will not be used in automatic differentiation routines.
 """
 @kwdef mutable struct StellarStepInfo{T1<:Real}
     # grid properties
-    nz::Int # number of zones in the model
-    m::Vector{T1} # mass coordinate of each cell
-    dm::Vector{T1} # mass contained in each cell
-    mstar::T1 # total model mass
+    nz::Int  # number of zones in the model
+    m::Vector{T1}  # mass coordinate of each cell
+    dm::Vector{T1}  # mass contained in each cell
+    mstar::T1  # total model mass
 
     # unique valued properties (ie not cell dependent)
     time::T1
     dt::T1
     model_number::Int
 
-    # full vector with independent variables (size is number of variables * number of 
-    # zones)
+    # full vector with independent variables (size is number of variables * number of zones)
     ind_vars::Vector{T1}
 
     # Values of properties at each cell, sizes are equal to number of zones
@@ -47,43 +47,48 @@ The struct has two parametric types, `T1` for 'normal' numbers, `T2` for dual nu
 @kwdef mutable struct StellarModel{T1<:Real,T2<:Real}
     # Properties that define the model
     ind_vars::Vector{T1}  # List of independent variables
-    varnames::Vector{Symbol}  # List of variable names
-    vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector
-    eqs::Vector{T2}  # Stores the results of the equation evaluations
     nvars::Int  # This is the sum of hydro vars and species
+    var_names::Vector{Symbol}  # List of variable namesv
+    vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector
+
     nspecies::Int  # Just the number of species in the network
+    species_names::Vector{Symbol}  # just the species names
+
+    # Properties related to the solver
     structure_equations::Vector{Function}  # List of equations to be solved. Be careful,
-    #typing here probably kills type inference
+    #  typing here probably kills type inference
+    eqs_numbers::Vector{T1}  # Stores the results of the equation evaluations (as numbers), size nz * nvars
+    eqs_duals::Matrix{T2}  # Stores the dual results of the equation evaluation, shape (nz, nvars)
+    diff_caches::Matrix{DiffCache{Vector{T1},Vector{T1}}}  # Allocates space for when automatic differentiation needs
+    # to happen
+    jacobian::SparseMatrixCSC{T1,Int64}  # Jacobian matrix
+    linear_solver::Any  # solver that is produced by LinearSolve
 
     # Grid properties
     nz::Int  # Number of zones in the model
     m::Vector{T1}  # Mass coordinate of each cell (g)
     dm::Vector{T1}  # Mass contained in each cell (g)
-    mstar::Real  # Total model mass (g)
+    mstar::T1  # Total model mass (g)
 
     # Unique valued properties (ie not cell dependent)
-    time::Real  # Age of the model (s)
-    dt::Real  # Timestep of the current evolutionary step (s)
+    time::T1  # Age of the model (s)
+    dt::T1  # Timestep of the current evolutionary step (s)
     model_number::Int
 
     # Some basic info
     eos::EOS.AbstractEOS
     opacity::Opacity.AbstractOpacity
 
-    # Jacobian matrix
-    jacobian::SparseMatrixCSC{T1,Int64}
-    linear_solver::Any  # solver that is produced by LinearSolve
-
     # Here I want to preemt things that will be necessary once we have an adaptative
     # mesh. Idea is that psi contains the information from the previous step (or the
     # initial condition). ssi will contain information after remeshing. Absent remeshing
     # it will make no difference. esi will contain properties once the step is completed.
     # Information coming from the previous step (psi=Previous Step Info)
-    psi::StellarStepInfo
+    psi::StellarStepInfo{T1}
     # Information computed at the start of the step (ssi=Start Step Info)
-    ssi::StellarStepInfo
+    ssi::StellarStepInfo{T1}
     # Information computed at the end of the step (esi=End Step Info)
-    esi::StellarStepInfo
+    esi::StellarStepInfo{T1}
 
     # Space for used defined options, defaults are in Options.jl
     opt::Options
@@ -97,12 +102,28 @@ Constructor for a `StellarModel` instance, using `varnames` for the independent 
 `structure_equations` to be solved, number of independent variables `nvars`, number of species in the network `nspecies`
 number of zones in the model `nz` and an iterface to the EOS and Opacity laws.
 """
-function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Function}, nvars::Int, nspecies::Int,
+function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Function}, nvars::Int, nspecies::Int,
                       nz::Int, eos::AbstractEOS, opacity::AbstractOpacity; solver_method=KLUFactorization())
     ind_vars = ones(nvars * nz)
-    eqs = ones(nvars * nz)
-    m = ones(nz)
+    species_names = var_names[(nvars - nspecies + 1):end]
 
+    eqs_numbers = ones(nvars * nz)
+
+    dual_sample = ForwardDiff.Dual(0.0, (zeros(3 * nvars)...))
+    eqs_duals = Matrix{typeof(dual_sample)}(undef, nz, nvars)
+    for k = 1:nz
+        for i = 1:nvars
+            eqs_duals[k, i] = ForwardDiff.Dual(0.0, (zeros(3 * nvars)...))
+        end
+    end
+
+    dc_type = DiffCache(zeros(nvars), 3 * nvars)
+    diff_caches = Matrix{typeof(dc_type)}(undef, nz, 3)
+    for k = 1:nz
+        for i = 1:3
+            diff_caches[k, i] = DiffCache(zeros(nvars), 3 * nvars)
+        end
+    end
     l, u = 1, 1  # block bandwidths
     N = M = nz  # number of row/column blocks
     cols = rows = [nvars for i = 1:N]  # block sizes
@@ -110,12 +131,12 @@ function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Func
     jac_BBM = BlockBandedMatrix(Ones(sum(rows), sum(cols)), rows, cols, (l, u))
     jacobian = sparse(jac_BBM)
     #  create solver
-    problem = LinearProblem(jacobian, eqs)
+    problem = LinearProblem(jacobian, eqs_numbers)
     linear_solver = init(problem, solver_method)
 
     vari::Dict{Symbol,Int} = Dict()
-    for i in eachindex(varnames)
-        vari[varnames[i]] = i
+    for i in eachindex(var_names)
+        vari[var_names[i]] = i
     end
 
     dm = zeros(nz)
@@ -133,8 +154,9 @@ function StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Func
 
     opt = Options()
 
-    StellarModel(ind_vars=ind_vars, varnames=varnames, eqs=eqs, nvars=nvars, nspecies=nspecies,
-                 structure_equations=structure_equations, vari=vari, nz=nz, m=m, dm=dm, mstar=0.0, time=0.0, dt=0.0,
-                 model_number=0, eos=eos, opacity=opacity, jacobian=jacobian,
-                 linear_solver=linear_solver, psi=psi, ssi=ssi, esi=esi, opt=opt)
+    StellarModel(ind_vars=ind_vars, var_names=var_names, species_names=species_names, eqs_numbers=eqs_numbers,
+                 eqs_duals=eqs_duals, nvars=nvars, nspecies=nspecies, structure_equations=structure_equations,
+                 diff_caches=diff_caches, vari=vari, nz=nz, m=m, dm=dm, mstar=0.0, time=0.0, dt=0.0, model_number=0,
+                 eos=eos, opacity=opacity, jacobian=jacobian, linear_solver=linear_solver, psi=psi, ssi=ssi, esi=esi,
+                 opt=opt)
 end

@@ -1,7 +1,6 @@
-
-function equationHSE(sm, k,
-                     varm1::Vector{<:TT}, var00::Vector{<:TT}, varp1::Vector{<:TT},
-                     eosm1::Vector{<:TT}, eos00::Vector{<:TT}, eosp1::Vector{<:TT},
+function equationHSE(sm::StellarModel, k::Int,
+                     varm1::AbstractVector{TT}, var00::AbstractVector{TT}, varp1::AbstractVector{TT},
+                     eosm1::AbstractVector{TT}, eos00::AbstractVector{TT}, eosp1::AbstractVector{TT},
                      κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
     if k == sm.nz  # atmosphere boundary condition
         lnP₀ = var00[sm.vari[:lnP]]
@@ -19,9 +18,9 @@ function equationHSE(sm, k,
            (CGRAV * sm.m[k] / (4π * r₀^4))
 end
 
-function equationT(sm, k,
-                   varm1::Vector{<:TT}, var00::Vector{<:TT}, varp1::Vector{<:TT},
-                   eosm1::Vector{<:TT}, eos00::Vector{<:TT}, eosp1::Vector{<:TT},
+function equationT(sm::StellarModel, k::Int,
+                   varm1::AbstractVector{TT}, var00::AbstractVector{TT}, varp1::AbstractVector{TT},
+                   eosm1::AbstractVector{TT}, eos00::AbstractVector{TT}, eosp1::AbstractVector{TT},
                    κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
     if k == sm.nz  # atmosphere boundary condition
         lnT₀ = var00[sm.vari[:lnT]]
@@ -50,9 +49,9 @@ function equationT(sm, k,
     end
 end
 
-function equationLuminosity(sm, k,
-                            varm1::Vector{<:TT}, var00::Vector{<:TT}, varp1::Vector{<:TT},
-                            eosm1::Vector{<:TT}, eos00::Vector{<:TT}, eosp1::Vector{<:TT},
+function equationLuminosity(sm::StellarModel, k::Int,
+                            varm1::AbstractVector{TT}, var00::AbstractVector{TT}, varp1::AbstractVector{TT},
+                            eosm1::AbstractVector{TT}, eos00::AbstractVector{TT}, eosp1::AbstractVector{TT},
                             κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
     L₋::TT = 0  # central luminosity is zero at first cell
     if k > 1
@@ -71,9 +70,9 @@ function equationLuminosity(sm, k,
     return ((L₀ - L₋) / sm.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)  # no neutrinos
 end
 
-function equationContinuity(sm, k,
-                            varm1::Vector{<:TT}, var00::Vector{<:TT}, varp1::Vector{<:TT},
-                            eosm1::Vector{<:TT}, eos00::Vector{<:TT}, eosp1::Vector{<:TT},
+function equationContinuity(sm::StellarModel, k::Int,
+                            varm1::AbstractVector{TT}, var00::AbstractVector{TT}, varp1::AbstractVector{TT},
+                            eosm1::AbstractVector{TT}, eos00::AbstractVector{TT}, eosp1::AbstractVector{TT},
                             κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
     ρ₀ = eos00[1]
     r₀ = exp(var00[sm.vari[:lnr]])
@@ -97,9 +96,9 @@ end
 # To test performance, include 8 isotopes similar to basic.net in MESA.
 # of course we are keeping these fixed now, but it lets us test their impact on the
 # computation of the jacobian
-function equationH1(sm, k,
-                    varm1::Vector{<:TT}, var00::Vector{<:TT}, varp1::Vector{<:TT},
-                    eosm1::Vector{<:TT}, eos00::Vector{<:TT}, eosp1::Vector{<:TT},
+function equationH1(sm::StellarModel, k::Int,
+                    varm1::AbstractVector{TT}, var00::AbstractVector{TT}, varp1::AbstractVector{TT},
+                    eosm1::AbstractVector{TT}, eos00::AbstractVector{TT}, eosp1::AbstractVector{TT},
                     κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
     ρ₀ = eos00[1]
     ϵnuc = 0.1 * var00[sm.vari[:H1]]^2 * ρ₀ * (exp(var00[sm.vari[:lnT]]) / 1e6)^4 +
@@ -112,9 +111,9 @@ function equationH1(sm, k,
            Chem.isotope_list[:H1].mass * AMU * rate_per_unit_mass
 end
 
-function equationHe4(sm, k,
-                     varm1::Vector{<:TT}, var00::Vector{<:TT}, varp1::Vector{<:TT},
-                     eosm1::Vector{<:TT}, eos00::Vector{<:TT}, eosp1::Vector{<:TT},
+function equationHe4(sm::StellarModel, k::Int,
+                     varm1::AbstractVector{TT}, var00::AbstractVector{TT}, varp1::AbstractVector{TT},
+                     eosm1::AbstractVector{TT}, eos00::AbstractVector{TT}, eosp1::AbstractVector{TT},
                      κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
     return var00[sm.vari[:He4]] + var00[sm.vari[:H1]] - 1.0
 end

@@ -19,7 +19,7 @@ function set_end_step_info!(sm::StellarModel)
         sm.esi.lnP[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]]
         sm.esi.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]]
 
-        species_names = sm.varnames[(sm.nvars - sm.nspecies + 1):end]
+        species_names = sm.var_names[(sm.nvars - sm.nspecies + 1):end]
         xa = sm.ind_vars[(i * sm.nvars - sm.nspecies + 1):(i * sm.nvars)]
 
         eos = get_EOS_resultsTP(sm.eos, sm.psi.lnT[i], sm.psi.lnP[i], xa, species_names)
@@ -124,11 +124,10 @@ function do_evolution_loop(sm::StellarModel)
 
         exit_evolution = false
         for i = 1:max_steps
-            eval_jacobian!(sm)
-            eval_eqs!(sm)
+            eval_jacobian_eqs!(sm)
 
             sm.linear_solver.A = sm.jacobian  # A dx + b = 0; solve for dx
-            sm.linear_solver.b = -sm.eqs
+            sm.linear_solver.b = -sm.eqs_numbers
             corr = solve(sm.linear_solver)
 
             real_max_corr = maximum(corr)
@@ -148,16 +147,16 @@ function do_evolution_loop(sm::StellarModel)
                 corr = corr * min(1, sm.opt.solver.scale_max_correction / maximum(corr))
             end
             if i % 50 == 0
-                @show i, maximum(corr), real_max_corr, maximum(sm.eqs)
+                @show i, maximum(corr), real_max_corr, maximum(sm.eqs_numbers)
             end
             # first try applying correction and see if it would give negative luminosity
-            sm.ind_vars = sm.ind_vars + corr
+            sm.ind_vars += corr
             if real_max_corr < 1e-10
                 if sm.model_number == 0
                     println("Found first model")
                 end
                 if sm.model_number % 100 == 0
-                    @show sm.model_number, i, real_max_corr, maximum(sm.eqs), dt_next / SECYEAR, sm.time / SECYEAR
+                    @show sm.model_number, i, real_max_corr, maximum(sm.eqs_numbers), dt_next / SECYEAR, sm.time / SECYEAR
                 end
                 break
             end
@@ -167,7 +166,7 @@ function do_evolution_loop(sm::StellarModel)
         end
 
         if (exit_evolution)
-            println("Failed to converge, retry")
+            println("Failed to converge, stopping")
             break
         end
 
