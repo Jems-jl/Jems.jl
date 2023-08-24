@@ -26,8 +26,8 @@ to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 nvars = 6
 nspecies = 2
 varnames = [:lnP, :lnT, :lnr, :lum, :H1, :He4]
-structure_equations = [Evolution.equationHSE, Evolution.equationT, Evolution.equationContinuity,
-                       Evolution.equationLuminosity, Evolution.equationH1, Evolution.equationHe4]
+structure_equations = [Evolution.equationHSE!, Evolution.equationT!, Evolution.equationContinuity!,
+                       Evolution.equationLuminosity!, Evolution.equationH1!, Evolution.equationHe4!]
 nz = 1000
 eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
