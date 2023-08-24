@@ -40,7 +40,7 @@ function eval_cell_eqs!(sm::StellarModel, k::Int)
 
     # evaluate all equations!
     for i = 1:(sm.nvars)
-        sm.eqs_duals[k, i] = sm.structure_equations[i](sm, k, varm1, var00, varp1, eosm1, eos00, eosp1, κm1, κ00, κp1)
+        sm.structure_equations[i](view(sm.eqs_duals, :, i), sm, k, varm1, var00, varp1, eosm1, eos00, eosp1, κm1, κ00, κp1)
     end
 end
 
