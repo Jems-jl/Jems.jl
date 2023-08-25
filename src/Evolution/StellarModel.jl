@@ -3,7 +3,22 @@ using SparseArrays
 using LinearSolve
 using PreallocationTools
 using FunctionWrappers
+"""
+    struct TypeStableEquation{TS,TT<:Real}
 
+Structure that wraps a stellar structure equation into a type stable object, using FunctionWrappers.jl. This requires
+that the stellar structure equations have the following signature:
+
+```
+function structure_equation(::TS, ::Int,
+                            ::Matrix{TT}, ::Matrix{TT}, ::Matrix{TT},
+                            ::EOSResults{TT}, ::EOSResults{TT}, ::EOSResults{TT}
+                            ::TT, ::TT, ::TT)::TT
+```
+
+For typical usage, TS is the concrete type of StellarModel, and TT the type of dual number being used for automatic
+differentiation. The function must return an object of type TT, the result of the equation.
+"""
 struct TypeStableEquation{TS,TT<:Real}
     func::FunctionWrappers.FunctionWrapper{TT,
                                            Tuple{TS,Int,
@@ -114,7 +129,7 @@ end
 
 """
     StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Function},
-        nvars::Int, nspecies::Int, nz::Int, eos::AbstractEOS, opacity::AbstractOpacity)
+                 nvars::Int, nspecies::Int, nz::Int, eos::AbstractEOS, opacity::AbstractOpacity)
 
 Constructor for a `StellarModel` instance, using `varnames` for the independent variables, functions of the
 `structure_equations` to be solved, number of independent variables `nvars`, number of species in the network `nspecies`
@@ -203,7 +218,6 @@ function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Fun
                       varm1=Matrix{typeof(dual_sample)}(undef, nz, nvars),
                       eos=eos, opacity=opacity, jacobian=jacobian, linear_solver=linear_solver, eos_res=eos_res,
                       psi=psi, ssi=ssi, esi=esi, opt=opt)
-    # initialize the diff caches with ones in the correct partial derivative entries
     init_diff_cache!(sm)
     return sm
 end
