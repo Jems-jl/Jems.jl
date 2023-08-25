@@ -25,8 +25,8 @@ equilibrium is satisfied.
 
 Residual of comparing dlnP/dm with -GM/4πr^4
 """
-function equationHSE(sm::StellarModel, k::Int, i::Int,
-                     varm1::AbstractVector{TT}, var00::AbstractVector{TT}, varp1::AbstractVector{TT},
+function equationHSE(sm::StellarModel, k::Int,
+                     varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
                      eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
                      κm1::TT, κ00::TT, κp1::TT) where {TT<:Real}
     if k == sm.nz  # atmosphere boundary condition
