@@ -5,40 +5,40 @@ Evaluates the stellar structure equations of the stellar model, `sm`, at cell `k
 variables, `ind_vars_view`.
 """
 function eval_cell_eqs!(sm::StellarModel, k::Int)
+    sm.var00[k, :] .= get_tmp(view(sm.diff_caches, k, :)[2], sm.eqs_duals[k, 1])
+    κ00 = get_opacity_resultsTP(sm.opacity, sm.var00[k, sm.vari[:lnT]], sm.var00[k, sm.vari[:lnP]],
+                                view(sm.var00, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
 
-    var00 = get_tmp(view(sm.diff_caches, k, :)[2], sm.eqs_duals[k, 1])
-    κ00 = get_opacity_resultsTP(sm.opacity, var00[sm.vari[:lnT]], var00[sm.vari[:lnP]],
-                                view(var00, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
-                                
-    set_EOS_resultsTP!(sm.eos, sm.eos_res[k,2], var00[sm.vari[:lnT]], var00[sm.vari[:lnP]],
-                              view(var00, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+    set_EOS_resultsTP!(sm.eos, sm.eos_res[k, 2], sm.var00[k, sm.vari[:lnT]],
+                       sm.var00[k, sm.vari[:lnP]],
+                       view(sm.var00, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
     if k != 1
-        varm1 = get_tmp(view(sm.diff_caches, k, :)[1], sm.eqs_duals[k, 1])
-        κm1 = get_opacity_resultsTP(sm.opacity, varm1[sm.vari[:lnT]], varm1[sm.vari[:lnP]],
-                                    view(varm1,(sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
-        set_EOS_resultsTP!(sm.eos, sm.eos_res[k,1], varm1[sm.vari[:lnT]], varm1[sm.vari[:lnP]],
-                                    view(varm1, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+        sm.varm1[k, :] .= get_tmp(view(sm.diff_caches, k, :)[1], sm.eqs_duals[k, 1])
+        κm1 = get_opacity_resultsTP(sm.opacity, sm.varm1[k, sm.vari[:lnT]], sm.varm1[k, sm.vari[:lnP]],
+                                    view(sm.varm1, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+        set_EOS_resultsTP!(sm.eos, sm.eos_res[k, 1], sm.varm1[k, sm.vari[:lnT]], sm.varm1[k, sm.vari[:lnP]],
+                           view(sm.varm1, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
     else
-        varm1 = Vector{eltype(var00)}(undef, length(var00[1]))
-        fill!(varm1, eltype(var00)(NaN))
-        κm1 = typeof(κ00)(NaN)
+        sm.varm1[k, :] .= (eltype(sm.varm1))(NaN)
+        κm1 = κ00
     end
     if k != sm.nz
-        varp1 = get_tmp(view(sm.diff_caches, k, :)[3], sm.eqs_duals[k, 1])
-        κp1 = get_opacity_resultsTP(sm.opacity, varp1[sm.vari[:lnT]], varp1[sm.vari[:lnP]],
-                                    view(varp1, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
-        set_EOS_resultsTP!(sm.eos, sm.eos_res[k,3], varp1[sm.vari[:lnT]], varp1[sm.vari[:lnP]],
-                                    view(varp1, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+        sm.varp1[k, :] .= get_tmp(view(sm.diff_caches, k, :)[3], sm.eqs_duals[k, 1])
+        κp1 = get_opacity_resultsTP(sm.opacity, sm.varp1[k, sm.vari[:lnT]], sm.varp1[k, sm.vari[:lnP]],
+                                    view(sm.varp1, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+        set_EOS_resultsTP!(sm.eos, sm.eos_res[k, 3], sm.varp1[k, sm.vari[:lnT]], sm.varp1[k, sm.vari[:lnP]],
+                           view(sm.varp1, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
     else
-        varp1 = Vector{eltype(var00)}(undef, length(var00[1]))
-        fill!(varp1, eltype(var00)(NaN))
-        κp1 = typeof(κ00)(NaN)
+        sm.varp1[k, :] .= (eltype(sm.varp1))(NaN)
+        κp1 = κ00
     end
 
     # evaluate all equations!
     for i = 1:(sm.nvars)
-        sm.structure_equations[i](sm.eqs_duals, sm, k, i, varm1, var00, varp1, 
-                                  sm.eos_res[k,1], sm.eos_res[k,2], sm.eos_res[k,3], κm1, κ00, κp1)
+        sm.eqs_duals[k, i] = sm.structure_equations[i].func(sm, k,
+                                                            sm.varm1, sm.var00, sm.varp1,
+                                                            sm.eos_res[k, 1], sm.eos_res[k, 2], sm.eos_res[k, 3],
+                                                            κm1, κ00, κp1)
     end
 end
 
