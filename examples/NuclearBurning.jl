@@ -146,9 +146,10 @@ Now that our simulation is complete we can analyze the results. We make use of t
 of the Makie defaults, so I adjust them. I normally also adjust the fonts to be consistent with \LaTeX, but I avoid that
 here so we don't need to distribute those fonts together with Jems.
 =#
-using CairoMakie, LaTeXStrings
+using CairoMakie, LaTeXStrings, MathTeXEngine
 basic_theme = Theme(
-                    #fonts = (regular = "ComputerModernFont/cmunrm.ttf", bold = "ComputerModernFont/cmunbx.ttf", italic = "ComputerModernFont/cmunti.ttf", bold_italic = "ComputerModernFont/cmunbi.ttf"), # taken from https://sourceforge.net/projects/cm-unicode/
+                    fonts = (regular = texfont(:text), bold = texfont(:bold),
+                    italic = texfont(:italic), bold_italic = texfont(:bolditalic)),
                     fontsize=30, resolution=(1000, 750), linewidth=7,
                     Axis=(xlabelsize=40, ylabelsize=40, titlesize=40, xgridvisible=false, ygridvisible=false,
                           spinewidth=2.5, xminorticksvisible=true, yminorticksvisible=true, xtickalign=1, ytickalign=1,
