@@ -23,7 +23,7 @@ equilibrium is satisfied.
 
 # Returns
 
-Residual of comparing dlnP/dm with -GM/4πr^4
+Residual of comparing dlnP/dm with -GM/4πr^4, where the latter is evaluated at the face of cell `k` and `k+1`.
 """
 function equationHSE(sm::StellarModel, k::Int,
                      varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
@@ -59,7 +59,7 @@ Identical to [`equationHSE`](@ref) for compatibility with [`TypeStableEquation`]
 
 # Returns
 
-Residual of comparing dlnT/dm with -∇*GMT/4πr^4P
+Residual of comparing dlnT/dm with -∇*GMT/4πr^4P, where the latter is evaluation at the face of cell `k` and `k+1`.
 """
 function equationT(sm::StellarModel, k::Int,
                    varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
@@ -152,22 +152,23 @@ function equationContinuity(sm::StellarModel, k::Int,
                             κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
     ρ₀ = eos00.ρ
     r₀ = exp(var00[k, sm.vari[:lnr]])
-    if k > 1
-        r₋ = exp(varm1[k, sm.vari[:lnr]])  # change it if not at first cell
+    if k > 1  # get inner radius
+        r₋ = exp(varm1[k, sm.vari[:lnr]])
     else
         r₋::TT = 0  # central radius is zero at first cell
     end
-
-    dm = sm.m[k]  # this is only valid for k=1
-    if k > 1
+    
+    if k > 1  # get mass chunk
         dm = dm - sm.m[k - 1]
+    else
+        dm = sm.m[k]
     end
 
     # expected_r₀ = r₋ + dm/(4π*r₋^2*ρ)
     expected_dr³_dm = 3 / (4π * ρ₀)
     actual_dr³_dm = (r₀^3 - r₋^3) / dm
 
-    return (expected_dr³_dm - actual_dr³_dm) * ρ₀
+    return (expected_dr³_dm - actual_dr³_dm) * ρ₀  # times ρ to make eq. dim-less
 end
 
 """
@@ -207,7 +208,7 @@ end
                eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
                κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
 
-Default equation of Hydrogen 1 evoluation, evaluated for cell `k` of StellarModel `sm`.
+Default equation of Helium 4 evoluation, evaluated for cell `k` of StellarModel `sm`.
 
 # Arguments
 
@@ -215,7 +216,7 @@ Identical to [`equationHSE`](@ref) for compatibility with [`TypeStableEquation`]
 
 # Returns
 
-Residual of comparing dX_He4/dt with its computed reaction rate
+Residual of comparing He4 content with 1 minus the H1 content.
 """
 function equationHe4(sm::StellarModel, k::Int,
                      varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},

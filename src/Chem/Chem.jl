@@ -16,7 +16,7 @@ struct Isotope
     Z::Int64
     A::Int64
     name::String
-    mass::Float64 # in atomic mass units
+    mass::Float64  # in atomic mass units
 end
 
 """
@@ -56,4 +56,4 @@ end
 
 isotope_list::Dict{Symbol,Isotope} = get_isotope_list()
 
-end # module Stellar
+end

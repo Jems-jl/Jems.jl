@@ -25,10 +25,12 @@ function get_μ_IdealEOS(xa::AbstractVector{TT}, species::Vector{Symbol})::TT wh
 end
 
 """
-    get_EOS_resultsTP(eos, lnT, lnP, xa, species)
 
-computes thermodynamical quantities of a mixture `xa` at temperature `lnT` and pressure `lnP`, given the ideal equation
-of state `eos`, list of `species`.
+    set_EOS_resultsTP!(eos::IdealEOS, r::EOSResults{TT}, lnT::TT, lnP::TT, xa::AbstractVector{TT},
+                           species::Vector{Symbol}) where {TT<:Real}
+
+Computes thermodynamical quantities of a mixture `xa` at temperature `lnT` and pressure `lnP`, given the ideal equation
+of state `eos` and list of `species`. The results are stored in the EOSResults object `r`.
 """
 function set_EOS_resultsTP!(eos::IdealEOS, r::EOSResults{TT}, lnT::TT, lnP::TT, xa::AbstractVector{TT},
                            species::Vector{Symbol}) where {TT<:Real}
@@ -38,7 +40,6 @@ function set_EOS_resultsTP!(eos::IdealEOS, r::EOSResults{TT}, lnT::TT, lnP::TT, 
     r.μ = get_μ_IdealEOS(xa, species)
     r.Prad = CRAD * r.T^4 / 3
     r.ρ = r.μ / (CGAS * r.T) * (r.P - r.Prad)
-
     if eos.include_radiation
         r.β = 1 - r.Prad / r.P  # gas pressure fraction
         if r.β < 0
@@ -49,15 +50,8 @@ function set_EOS_resultsTP!(eos::IdealEOS, r::EOSResults{TT}, lnT::TT, lnP::TT, 
     end
     r.α = 1 / r.β
     r.δ = (4 - 3 * r.β) / r.β
-
-    r.u = CGAS * r.T / r.μ * (3 / 2 + 3 * (1 - r.β) / r.β)  # internal energy
-    r.cₚ = CGAS / r.μ * (3 / 2 + 3 * (4 + r.β) * (1 - r.β) / r.β^2 + r.δ * r.α)  # heat capacity at constant P
+    r.u = CGAS * r.T / r.μ * (3 / 2 + 3 * (1 - r.β) / r.β)  # specific internal energy
+    r.cₚ = CGAS / r.μ * (3 / 2 + 3 * (4 + r.β) * (1 - r.β) * r.α^2 + r.δ * r.α)  # specific heat capacity at constant P
     r.∇ₐ = CGAS * r.δ / (r.β * r.μ * r.cₚ)  # adiabatic temperature gradient
-    # first adiabatic exponent dlnP/dlnρ
-    if eos.include_radiation
-        r.Γ₁ = 1 / (r.α - r.δ * r.∇ₐ)
-    else
-        r.Γ₁ = 1 / (1 - r.∇ₐ)
-    end
-    return
+    r.Γ₁ = 1 / (r.α - r.δ * r.∇ₐ)  # first adiabatic exponent dlnP/dlnρ
 end

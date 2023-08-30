@@ -2,11 +2,14 @@
 using ForwardDiff
 using Roots
 
-function theta_n(xi)
-    return sin(xi) / xi
-end
+"""
+    θ_n(ξ) = sin(ξ) / ξ, the sinc function
+"""
+θ_n(ξ) = sin(ξ) / ξ
 
 # create a profile for composition that better resolves edges
+"""
+"""
 function get_logdq(k, nz, logdq_low, logdq_high, numregion)
     if k < numregion
         return logdq_low + (k - 1) * (logdq_high - logdq_low) / (numregion - 1)
@@ -18,6 +21,8 @@ function get_logdq(k, nz, logdq_low, logdq_high, numregion)
         return logdq_high + (logdq_low - logdq_high) * (k - k0) / (k1 - k0)
     end
 end
+
+
 
 function n1_polytrope_initial_condition(sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
     logdqs = get_logdq.(1:(sm.nz), sm.nz, -3.0, 0.0, 100)
@@ -35,10 +40,10 @@ function n1_polytrope_initial_condition(sm::StellarModel, M::Real, R::Real; init
         end
     end
 
-    n = 1
+    n = 1  # n = 1 polytrope after all...
     rn = R / π  # ξ is defined as r/rn, where rn^2=(n+1)Pc/(4π G ρc^2)
 
-    ρc = M / (4π * rn^3 * (-π^2 * ForwardDiff.derivative(theta_n, π)))
+    ρc = M / (4π * rn^3 * (-π^2 * ForwardDiff.derivative(θ_n, π)))
     Pc = 4π * CGRAV * rn^2 * ρc^2 / (n + 1)
 
     ξ_cell = zeros(sm.nz)
@@ -70,8 +75,8 @@ function n1_polytrope_initial_condition(sm::StellarModel, M::Real, R::Real; init
         XH = 1.0
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]] = log(rn * ξ_face[i])
         if i > 1
-            P = Pc * (theta_n(ξ_cell[i]))^(n + 1)
-            ρ = ρc * (theta_n(ξ_cell[i]))^(n)
+            P = Pc * (θ_n(ξ_cell[i]))^(n + 1)
+            ρ = ρc * (θ_n(ξ_cell[i]))^(n)
         else
             P = Pc
             ρ = ρc
@@ -90,8 +95,8 @@ function n1_polytrope_initial_condition(sm::StellarModel, M::Real, R::Real; init
     # set luminosity
     for i = 1:(sm.nz - 1)
         μ = 0.5
-        Pface = Pc * (theta_n(ξ_face[i]))^(n + 1)
-        ρface = ρc * (theta_n(ξ_face[i]))^(n)
+        Pface = Pc * (θ_n(ξ_face[i]))^(n + 1)
+        ρface = ρc * (θ_n(ξ_face[i]))^(n)
         Tface = Pface * μ / (CGAS * ρface)
         dlnT = sm.ind_vars[(i) * sm.nvars + sm.vari[:lnT]] - sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
         dlnP = sm.ind_vars[(i) * sm.nvars + sm.vari[:lnP]] - sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]]
