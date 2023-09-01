@@ -3,6 +3,7 @@ using SparseArrays
 using LinearSolve
 using PreallocationTools
 using FunctionWrappers
+
 """
     struct TypeStableEquation{TS,TT<:Real}
 
@@ -221,6 +222,7 @@ function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Fun
     init_diff_cache!(sm)
     return sm
 end
+
 """
     init_diff_cache!(sm::StellarModel, k::Int)
 

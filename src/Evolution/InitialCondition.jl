@@ -9,21 +9,28 @@ using Roots
 
 # create a profile for composition that better resolves edges
 """
+    get_logdq(k::Int, nz::Int, logdq_low::TT, logdq_high::TT, numregion::Int)::TT where {TT<:Real}
+
+Computes the logarithm mass chunk `logdq` for zone `k` of a profile with total zones `nz`, while keeping in mind to
+better resolve the first and last `numregion` zones of the profile. It linearly interpolates the value from the inputs
+`logdq_low` and `logdq_high` in these regions, while keeping `logdq_high` in the middle zones.
 """
-function get_logdq(k, nz, logdq_low, logdq_high, numregion)
-    if k < numregion
-        return logdq_low + (k - 1) * (logdq_high - logdq_low) / (numregion - 1)
+function get_logdq(k::Int, nz::Int, logdq_low::TT, logdq_high::TT, numregion::Int)::TT where {TT<:Real}
+    if k <= numregion
+        return logdq_low + (k - 1) * (logdq_high - logdq_low) / numregion
     elseif k < nz - numregion
         return logdq_high
     else
-        k0 = nz - numregion
-        k1 = nz
-        return logdq_high + (logdq_low - logdq_high) * (k - k0) / (k1 - k0)
+        return logdq_high + (logdq_low - logdq_high) * (k - (nz - numregion)) / numregion
     end
 end
 
+"""
+    n1_polytrope_initial_condition(sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
 
-
+Initializes a stellar model `sm` with values corresponding to an n=1 polytrope, setting the independent variables
+`sm.ind_vars`, etc. accordingly. Also sets the initial timestep to be taken, `initial_dt`.
+"""
 function n1_polytrope_initial_condition(sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
     logdqs = get_logdq.(1:(sm.nz), sm.nz, -3.0, 0.0, 100)
     dqs = 10 .^ logdqs
