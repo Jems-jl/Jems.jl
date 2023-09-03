@@ -4,61 +4,78 @@ using LinearSolve
 using PreallocationTools
 using FunctionWrappers
 
-struct TypeStableEquation{TS,TT<:Real}
-    func::FunctionWrappers.FunctionWrapper{TT,
+"""
+    struct TypeStableEquation{TS,TD<:Real}
+
+Structure that wraps a stellar structure equation into a type stable object, using FunctionWrappers.jl. This requires
+that the stellar structure equations have the following signature:
+
+```
+function structure_equation(::TS, ::Int,
+                            ::Matrix{TD}, ::Matrix{TD}, ::Matrix{TD},
+                            ::EOSResults{TD}, ::EOSResults{TD}, ::EOSResults{TD}
+                            ::TD, ::TD, ::TD)::TD
+```
+
+For typical usage, TS is the concrete type of StellarModel, and TD the type of dual number being used for automatic
+differentiation. The function must return an object of type TD, the result of the equation.
+"""
+struct TypeStableEquation{TS,TD<:Real}
+    func::FunctionWrappers.FunctionWrapper{TD,
                                            Tuple{TS,Int,
-                                                 Matrix{TT},Matrix{TT},Matrix{TT},
-                                                 EOSResults{TT},EOSResults{TT},EOSResults{TT},
-                                                 TT,TT,TT}}
+                                                 Matrix{TD},Matrix{TD},Matrix{TD},
+                                                 EOSResults{TD},EOSResults{TD},EOSResults{TD},
+                                                 TD,TD,TD}}
 end
 
 """
-    mutable struct StellarStepInfo
+    mutable struct StellarStepInfo{TN<:Real}
 
 Information used for a simulation step. A single stellar model can have three different objects of type StellarStepInfo,
 containing information from the previous step, information right before the Newton solver, and information after
 the Newton solver has completed.
 
-The struct has one parametric type, T1 to represent 'normal' numbers. No fields here need to have dual numbers as these
+The struct has one parametric type, TN to represent 'normal' numbers. No fields here need to have dual numbers as these
 will not be used in automatic differentiation routines.
 """
-@kwdef mutable struct StellarStepInfo{T1<:Real}
+@kwdef mutable struct StellarStepInfo{TN<:Real}
     # grid properties
     nz::Int  # number of zones in the model
-    m::Vector{T1}  # mass coordinate of each cell
-    dm::Vector{T1}  # mass contained in each cell
-    mstar::T1  # total model mass
+    m::Vector{TN}  # mass coordinate of each cell
+    dm::Vector{TN}  # mass contained in each cell
+    mstar::TN  # total model mass
 
     # unique valued properties (ie not cell dependent)
-    time::T1
-    dt::T1
+    time::TN
+    dt::TN
     model_number::Int
 
     # full vector with independent variables (size is number of variables * number of zones)
-    ind_vars::Vector{T1}
+    ind_vars::Vector{TN}
 
     # Values of properties at each cell, sizes are equal to number of zones
-    lnT::Vector{T1}
-    L::Vector{T1}
-    lnP::Vector{T1}
-    lnρ::Vector{T1}
-    lnr::Vector{T1}
+    lnT::Vector{TN}
+    L::Vector{TN}
+    lnP::Vector{TN}
+    lnρ::Vector{TN}
+    lnr::Vector{TN}
 
     #eos results
-    eos_res::Vector{EOSResults{T1}}
+    eos_res::Vector{EOSResults{TN}}
 end
 
 """
-    mutable struct StellarModel{T1<:Real, T2<: Real}
+    mutable struct StellarModel{TN<:Real,TD<:Real,TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity}
 
 An evolutionary model for a star, containing information about the star's current state, as well as the independent
 variables of the model and its equations.
 
-The struct has two parametric types, `T1` for 'normal' numbers, `T2` for dual numbers used in automatic differentiation
+The struct has four parametric types, `TN` for 'normal' numbers, `TD` for dual numbers used in automatic
+differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type of opacity law being used.
 """
-@kwdef mutable struct StellarModel{T1<:Real,T2<:Real,TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity}
+@kwdef mutable struct StellarModel{TN<:Real,TD<:Real,TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity}
     # Properties that define the model
-    ind_vars::Vector{T1}  # List of independent variables
+    ind_vars::Vector{TN}  # List of independent variables
     nvars::Int  # This is the sum of hydro vars and species
     var_names::Vector{Symbol}  # List of variable namesv
     vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector
@@ -67,23 +84,23 @@ The struct has two parametric types, `T1` for 'normal' numbers, `T2` for dual nu
     species_names::Vector{Symbol}  # just the species names
 
     # Properties related to the solver
-    structure_equations::Vector{TypeStableEquation{StellarModel{T1,T2,TEOS,TKAP},T2}}  # List of equations to be solved.
-    eqs_numbers::Vector{T1}  # Stores the results of the equation evaluations (as numbers), size nz * nvars
-    eqs_duals::Matrix{T2}  # Stores the dual results of the equation evaluation, shape (nz, nvars)
-    diff_caches::Matrix{DiffCache{Vector{T1},Vector{T1}}}  # Allocates space for when automatic differentiation needs
+    structure_equations::Vector{TypeStableEquation{StellarModel{TN,TD,TEOS,TKAP},TD}}  # List of equations to be solved.
+    eqs_numbers::Vector{TN}  # Stores the results of the equation evaluations (as numbers), size nz * nvars
+    eqs_duals::Matrix{TD}  # Stores the dual results of the equation evaluation, shape (nz, nvars)
+    diff_caches::Matrix{DiffCache{Vector{TN},Vector{TN}}}  # Allocates space for when automatic differentiation needs
     # to happen
-    jacobian::SparseMatrixCSC{T1,Int64}  # Jacobian matrix
+    jacobian::SparseMatrixCSC{TN,Int64}  # Jacobian matrix
     linear_solver::Any  # solver that is produced by LinearSolve
 
     # Grid properties
     nz::Int  # Number of zones in the model
-    m::Vector{T1}  # Mass coordinate of each cell (g)
-    dm::Vector{T1}  # Mass contained in each cell (g)
-    mstar::T1  # Total model mass (g)
+    m::Vector{TN}  # Mass coordinate of each cell (g)
+    dm::Vector{TN}  # Mass contained in each cell (g)
+    mstar::TN  # Total model mass (g)
 
     # Unique valued properties (ie not cell dependent)
-    time::T1  # Age of the model (s)
-    dt::T1  # Timestep of the current evolutionary step (s)
+    time::TN  # Age of the model (s)
+    dt::TN  # Timestep of the current evolutionary step (s)
     model_number::Int
 
     # Some basic info
@@ -91,22 +108,22 @@ The struct has two parametric types, `T1` for 'normal' numbers, `T2` for dual nu
     opacity::TKAP
 
     # cache for the EOS
-    eos_res::Matrix{EOSResults{T2}}
+    eos_res::Matrix{EOSResults{TD}}
 
-    varp1::Matrix{T2}
-    var00::Matrix{T2}
-    varm1::Matrix{T2}
+    varp1::Matrix{TD}
+    var00::Matrix{TD}
+    varm1::Matrix{TD}
 
     # Here I want to preemt things that will be necessary once we have an adaptative
     # mesh. Idea is that psi contains the information from the previous step (or the
     # initial condition). ssi will contain information after remeshing. Absent remeshing
     # it will make no difference. esi will contain properties once the step is completed.
     # Information coming from the previous step (psi=Previous Step Info)
-    psi::StellarStepInfo{T1}
+    psi::StellarStepInfo{TN}
     # Information computed at the start of the step (ssi=Start Step Info)
-    ssi::StellarStepInfo{T1}
+    ssi::StellarStepInfo{TN}
     # Information computed at the end of the step (esi=End Step Info)
-    esi::StellarStepInfo{T1}
+    esi::StellarStepInfo{TN}
 
     # Space for used defined options, defaults are in Options.jl
     opt::Options
@@ -114,7 +131,7 @@ end
 
 """
     StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Function},
-        nvars::Int, nspecies::Int, nz::Int, eos::AbstractEOS, opacity::AbstractOpacity)
+                 nvars::Int, nspecies::Int, nz::Int, eos::AbstractEOS, opacity::AbstractOpacity)
 
 Constructor for a `StellarModel` instance, using `varnames` for the independent variables, functions of the
 `structure_equations` to be solved, number of independent variables `nvars`, number of species in the network `nspecies`
@@ -203,14 +220,14 @@ function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Fun
                       varm1=Matrix{typeof(dual_sample)}(undef, nz, nvars),
                       eos=eos, opacity=opacity, jacobian=jacobian, linear_solver=linear_solver, eos_res=eos_res,
                       psi=psi, ssi=ssi, esi=esi, opt=opt)
-    # initialize the diff caches with ones in the correct partial derivative entries
     init_diff_cache!(sm)
     return sm
 end
-"""
-    init_diff_cache!(sm::StellarModel, k::Int)
 
-Initializes the diff_caches to the values of the independent variables, and sets 1s in the correct spots where the
+"""
+    init_diff_cache!(sm::StellarModel)
+
+Initializes the diff_caches to the values of the independent variables, and sets ones in the correct spots where the
 dx_i^k/dx_i^k entries lie.
 """
 function init_diff_cache!(sm::StellarModel)
@@ -222,8 +239,8 @@ function init_diff_cache!(sm::StellarModel)
         #= these indices are headache inducing...
         diff_caches[k, 2].dual_du has structure:
         (x_1, dx_1^k/dx_1^k-1, ..., dx_1^k/dx_n^k-1, dx_1^k/dx_1^k, ..., dx_1^k/dx_n^k, dx_1^k/dx_1^k+1, ..., dx_1^k/dx_n^k+1,  # subsize 3*nvars+1
-        ...
-        x_n, dx_n^k/dx_1^k-1, ..., dx_n^k/dx_n^k-1, dx_n^k/dx_1^k, ..., dx_n^k/dx_n^k, dx_n^k/dx_1^k+1, ..., dx_n^k/dx_n^k+1)
+         ...
+         x_n, dx_n^k/dx_1^k-1, ..., dx_n^k/dx_n^k-1, dx_n^k/dx_1^k, ..., dx_n^k/dx_n^k, dx_n^k/dx_1^k+1, ..., dx_n^k/dx_n^k+1)
         diff_caches[k, 3].dual_du has numerators k -> k+1
         diff_caches[k, 1].dual_du has numerators k -> k-1
         =#

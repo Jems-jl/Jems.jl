@@ -36,7 +36,7 @@ end
     cycle_step_info!(sm::StellarModel)
 
 Moves the model info of the StellarModel `sm` over one state:
-start step info -> end step info -> previous step info -> start step info
+start step info -> end step info -> previous step info -> start step info.
 """
 function cycle_step_info!(sm::StellarModel)
     temp_step_info = sm.psi
@@ -48,7 +48,7 @@ end
 """
     set_start_step_info!(sm::StellarModel)
 
-Sets the start step info of the StellarModel `sm`.
+Sets the start step info of the StellarModel `sm` by copying from the previous step info.
 """
 function set_start_step_info!(sm::StellarModel)
     # for now, we dont do anything special before the step (ie remeshing) so we just copy things from sm.psi
@@ -76,7 +76,8 @@ end
 """
     get_dt_next(sm::StellarModel)
 
-Computes the timestep of the next evolutionary step to be taken by the StellarModel `sm`.
+Computes the timestep of the next evolutionary step to be taken by the StellarModel `sm` by considering all timestep
+controls (`sm.opt.timestep`).
 """
 function get_dt_next(sm::StellarModel)
     dt_next = sm.esi.dt
@@ -108,16 +109,20 @@ end
     do_evolution_loop(sm::StellarModel)
 
 Performs the main evolutionary loop of the input StellarModel `sm`. It continues taking steps until one of the
-termination criteria is reached (defined in sm.opt.termination)
+termination criteria is reached (defined in `sm.opt.termination`).
 """
 function do_evolution_loop(sm::StellarModel)
     set_end_step_info!(sm)
-    # be sure to have sensible termination conditions or this will go on forever!
+    # evolution loop, be sure to have sensible termination conditions or this will go on forever!
     while true
+        # get dt for this step
         dt_next = get_dt_next(sm)
 
-        cycle_step_info!(sm)
-        set_start_step_info!(sm)
+        cycle_step_info!(sm)  # move esi of previous step to psi of this step
+
+        # remeshing will happen here
+
+        set_start_step_info!(sm)  # set info before we attempt any newton solver
 
         sm.ssi.dt = dt_next
         sm.dt = dt_next
@@ -128,6 +133,7 @@ function do_evolution_loop(sm::StellarModel)
         end
 
         exit_evolution = false
+        # step loop
         for i = 1:max_steps
             eval_jacobian_eqs!(sm)
 
@@ -167,19 +173,21 @@ function do_evolution_loop(sm::StellarModel)
             end
             if i == max_steps
                 exit_evolution = true
+                println("Failed to converge, stopping")
             end
         end
 
         if (exit_evolution)
-            println("Failed to converge, stopping")
+            println("Terminating evolution")
             break
         end
 
+        # increment age and model number since we accept the step.
         sm.time = sm.time + sm.ssi.dt
         sm.model_number = sm.model_number + 1
 
+        # write state in sm.esi and potential history/profiles.
         set_end_step_info!(sm)
-
         write_data(sm)
 
         # check termination conditions

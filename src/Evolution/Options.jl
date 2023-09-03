@@ -1,5 +1,10 @@
 using TOML
 
+"""
+    mutable struct SolverOptions
+
+Substructure of Options containing controls relating to the Newton solver
+"""
 @kwdef mutable struct SolverOptions
     newton_max_iter::Int = 100
     newton_max_iter_first_step::Int = 5000
@@ -8,6 +13,11 @@ using TOML
     scale_correction_negative_Lsurf::Float64 = 0.1
 end
 
+"""
+    mutable struct TimestepOptions
+
+Substructure of Options containing controls relating to timestepping
+"""
 @kwdef mutable struct TimestepOptions
     initial_dt::Int = 1 # in years
 
@@ -19,11 +29,21 @@ end
     dt_retry_decrease::Float64 = 2
 end
 
+"""
+    mutable struct TerminationOptions
+
+Substructure of Options containing controls relating to termination of the simulation
+"""
 @kwdef mutable struct TerminationOptions
     max_model_number::Int = 1
     max_center_T::Float64 = 1e99
 end
 
+"""
+    mutable struct IOOptions
+
+Substructure of Options containing controls relating to input/output of data
+"""
 @kwdef mutable struct IOOptions
     hdf5_history_filename::String = "history.hdf5"
     hdf5_history_chunk_size::Int = 50
@@ -44,6 +64,11 @@ end
     profile_values::Vector{String} = ["zone", "mass", "dm", "log10_ρ", "log10_P", "log10_T", "luminosity", "X", "Y"]
 end
 
+"""
+    mutable struct Options
+
+Structure containing tweakable controls of Jems.
+"""
 mutable struct Options
     solver::SolverOptions
     timestep::TimestepOptions
@@ -55,6 +80,12 @@ mutable struct Options
     end
 end
 
+"""
+    set_options!(opt::Options, toml_path::String)
+
+Sets the controls in `opt` to the values supplied in the TOML file `toml_path`, containing `key: value` pairs. Invalid keys are not allowed, and an
+Exception will be thrown.
+"""
 function set_options!(opt::Options, toml_path::String)
     options_file = TOML.parse(open(toml_path))
 

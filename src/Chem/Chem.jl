@@ -5,24 +5,24 @@ export Isotope
 """
     struct Isotope
 
-Contains basic info of an isotope:
+Structure containing basic info of an isotope:
 
   - Z: atomic number (# protons)
   - A: mass number (# protons + neutrons)
-  - name: its name (eg Hydrogen)
+  - name: its name (_eg_ "Hydrogen")
   - mass: atomic weight in amu
 """
 struct Isotope
     Z::Int64
     A::Int64
     name::String
-    mass::Float64 # in atomic mass units
+    mass::Float64  # in atomic mass units
 end
 
 """
     get_isotope_list()
 
-gets a list of all currently included isotopes.
+Returns a dictionary of all included isotopes in Jems, mapping symbols to Isotope objects.
 """
 function get_isotope_list()
     Niso = 0
@@ -56,4 +56,4 @@ end
 
 isotope_list::Dict{Symbol,Isotope} = get_isotope_list()
 
-end # module Stellar
+end

@@ -73,7 +73,13 @@ profile_output_options = Dict(
                               "X" => ("unitless", (sm, k) -> profile_get_ind_vars_value(sm, :H1, k)),
                               "Y" => ("unitless", (sm, k) -> profile_get_ind_vars_value(sm, :He4, k)))
 
-function write_data(sm)
+"""
+    write_data(dm::StellarModel)
+
+Saves data (history/profile) for the current model, as required by the settings in `sm.opt.io`.
+"""
+function write_data(sm::StellarModel)
+    # do history
     if (sm.opt.io.history_interval > 0)
         file_exists = isfile(sm.opt.io.hdf5_history_filename)
         if !file_exists  # create file if it doesn't exist yet
@@ -120,6 +126,7 @@ function write_data(sm)
             end
         end
     end
+    # do profile
     if (sm.opt.io.profile_interval > 0)
         file_exists = isfile(sm.opt.io.hdf5_profile_filename)
         if !file_exists  # create file if it doesn't exist yet
@@ -159,18 +166,33 @@ function write_data(sm)
     end
 end
 
+"""
+    get_history_dataframe_from_hdf5(hdf5_filename)
+
+Returns a DataFrame object built from an hdf5 file, named `hdf5_filename`.
+"""
 function get_history_dataframe_from_hdf5(hdf5_filename)
     h5open(hdf5_filename) do history_file
         return DataFrame(history_file["history"][:, :], attrs(history_file["history"])["column_names"])
     end
 end
 
+"""
+    get_profile_names_from_hdf5(hdf5_filename)
+
+Retruns the column names of the profile data contained in the hdf5 file `hdf5_filename`.
+"""
 function get_profile_names_from_hdf5(hdf5_filename)
     h5open(hdf5_filename) do profile_file
         return keys(profile_file)
     end
 end
 
+"""
+    get_profile_dataframe_from_hdf5(hdf5_filename, profile_name)
+
+Returns a DataFrame object built from an hdf5 file, named `hdf5_filename`, considering the column named `profile_name`
+"""
 function get_profile_dataframe_from_hdf5(hdf5_filename, profile_name)
     h5open(hdf5_filename) do profile_file
         return DataFrame(profile_file[profile_name][:, :], attrs(profile_file[profile_name])["column_names"])

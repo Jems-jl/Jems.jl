@@ -42,11 +42,13 @@ condition is that of an n=1 polytrope. This sets the pressure and density and co
 luminosity is initialized by assuming pure radiative transport for the temperature gradient produced by the polytrope.
 
 The normal evolution loop will store the information at the end of the step into an attribute of type `StellarStepInfo`,
-stored at `sm.esi`. After initializing our polytrope we can mimic that behavior by calling `set_end_step_info!(sm)`.
-TODO: more explanation.
+stored at `sm.esi` (_end step info_). After initializing our polytrope we can mimic that behavior by calling 
+`set_end_step_info!(sm)`. We then 'cycle' this info into the information of a hypothetical previous step with
+`cycle_step_info`, so now `sm.psi` contains our initial condition. Finally we call `set_start_step_info` to use `sm.psi`
+(_previous step info_) to populate the information needed before the Newton solver in `sm.ssi` (_start step info_).
+At last we are in position to evaluate the equations and compute the Jacobian.
 =#
 Evolution.n1_polytrope_initial_condition(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-
 Evolution.set_end_step_info!(sm)
 Evolution.cycle_step_info!(sm)
 Evolution.set_start_step_info!(sm)

@@ -2,23 +2,35 @@
 using ForwardDiff
 using Roots
 
-function theta_n(xi)
-    return sin(xi) / xi
-end
+"""
+    θ_n(ξ) = sin(ξ) / ξ, the sinc function
+"""
+θ_n(ξ) = sin(ξ) / ξ
 
 # create a profile for composition that better resolves edges
-function get_logdq(k, nz, logdq_low, logdq_high, numregion)
-    if k < numregion
-        return logdq_low + (k - 1) * (logdq_high - logdq_low) / (numregion - 1)
+"""
+    get_logdq(k::Int, nz::Int, logdq_low::TT, logdq_high::TT, numregion::Int)::TT where {TT<:Real}
+
+Computes the logarithm mass chunk `logdq` for zone `k` of a profile with total zones `nz`, while keeping in mind to
+better resolve the first and last `numregion` zones of the profile. It linearly interpolates the value from the inputs
+`logdq_low` and `logdq_high` in these regions, while keeping `logdq_high` in the middle zones.
+"""
+function get_logdq(k::Int, nz::Int, logdq_low::TT, logdq_high::TT, numregion::Int)::TT where {TT<:Real}
+    if k <= numregion
+        return logdq_low + (k - 1) * (logdq_high - logdq_low) / numregion
     elseif k < nz - numregion
         return logdq_high
     else
-        k0 = nz - numregion
-        k1 = nz
-        return logdq_high + (logdq_low - logdq_high) * (k - k0) / (k1 - k0)
+        return logdq_high + (logdq_low - logdq_high) * (k - (nz - numregion)) / numregion
     end
 end
 
+"""
+    n1_polytrope_initial_condition(sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
+
+Initializes a stellar model `sm` with values corresponding to an n=1 polytrope, setting the independent variables
+`sm.ind_vars`, etc. accordingly. Also sets the initial timestep to be taken, `initial_dt`.
+"""
 function n1_polytrope_initial_condition(sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
     logdqs = get_logdq.(1:(sm.nz), sm.nz, -3.0, 0.0, 100)
     dqs = 10 .^ logdqs
@@ -35,10 +47,10 @@ function n1_polytrope_initial_condition(sm::StellarModel, M::Real, R::Real; init
         end
     end
 
-    n = 1
+    n = 1  # n = 1 polytrope after all...
     rn = R / π  # ξ is defined as r/rn, where rn^2=(n+1)Pc/(4π G ρc^2)
 
-    ρc = M / (4π * rn^3 * (-π^2 * ForwardDiff.derivative(theta_n, π)))
+    ρc = M / (4π * rn^3 * (-π^2 * ForwardDiff.derivative(θ_n, π)))
     Pc = 4π * CGRAV * rn^2 * ρc^2 / (n + 1)
 
     ξ_cell = zeros(sm.nz)
@@ -70,8 +82,8 @@ function n1_polytrope_initial_condition(sm::StellarModel, M::Real, R::Real; init
         XH = 1.0
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]] = log(rn * ξ_face[i])
         if i > 1
-            P = Pc * (theta_n(ξ_cell[i]))^(n + 1)
-            ρ = ρc * (theta_n(ξ_cell[i]))^(n)
+            P = Pc * (θ_n(ξ_cell[i]))^(n + 1)
+            ρ = ρc * (θ_n(ξ_cell[i]))^(n)
         else
             P = Pc
             ρ = ρc
@@ -90,8 +102,8 @@ function n1_polytrope_initial_condition(sm::StellarModel, M::Real, R::Real; init
     # set luminosity
     for i = 1:(sm.nz - 1)
         μ = 0.5
-        Pface = Pc * (theta_n(ξ_face[i]))^(n + 1)
-        ρface = ρc * (theta_n(ξ_face[i]))^(n)
+        Pface = Pc * (θ_n(ξ_face[i]))^(n + 1)
+        ρface = ρc * (θ_n(ξ_face[i]))^(n)
         Tface = Pface * μ / (CGAS * ρface)
         dlnT = sm.ind_vars[(i) * sm.nvars + sm.vari[:lnT]] - sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
         dlnP = sm.ind_vars[(i) * sm.nvars + sm.vari[:lnP]] - sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]]

@@ -55,4 +55,4 @@ const M_JUPITER = 1.8986e30              # jupiter mass (g) = 0.954454d-3 Msun
 const R_JUPITER = 6.9911e9               # jupiter mean radius (cm)
 const SEMIMAJOR_AXIS_JUPITER = 7.7857e13 # jupiter semimajor axis (cm)
 
-end # module Stellar
+end
