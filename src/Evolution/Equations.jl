@@ -157,16 +157,10 @@ function equationContinuity(sm::StellarModel, k::Int,
     else
         r₋::TT = 0  # central radius is zero at first cell
     end
-    
-    if k > 1  # get mass chunk
-        dm = dm - sm.m[k - 1]
-    else
-        dm = sm.m[k]
-    end
 
     # expected_r₀ = r₋ + dm/(4π*r₋^2*ρ)
     expected_dr³_dm = 3 / (4π * ρ₀)
-    actual_dr³_dm = (r₀^3 - r₋^3) / dm
+    actual_dr³_dm = (r₀^3 - r₋^3) / sm.dm[k]
 
     return (expected_dr³_dm - actual_dr³_dm) * ρ₀  # times ρ to make eq. dim-less
 end
