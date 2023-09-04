@@ -131,6 +131,9 @@ open("example_options.toml", "w") do file
 
           [io]
           profile_interval = 50
+
+          [plotting]
+          do_plotting = false
           """)
 end
 Evolution.set_options!(sm.opt, "./example_options.toml")
