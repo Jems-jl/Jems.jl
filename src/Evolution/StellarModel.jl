@@ -127,6 +127,9 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
 
     # Space for used defined options, defaults are in Options.jl
     opt::Options
+
+    # object holding plotting things, ie figures, data to plot.
+    plt::Plotter
 end
 
 """
@@ -211,6 +214,8 @@ function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Fun
     # create options object
     opt = Options()
 
+    plt = Plotter(nothing)
+
     # create the stellar model
     sm = StellarModel(ind_vars=ind_vars, var_names=var_names, species_names=species_names, eqs_numbers=eqs_numbers,
                       eqs_duals=eqs_duals, nvars=nvars, nspecies=nspecies, structure_equations=tsfs,
@@ -219,7 +224,7 @@ function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Fun
                       var00=Matrix{typeof(dual_sample)}(undef, nz, nvars),
                       varm1=Matrix{typeof(dual_sample)}(undef, nz, nvars),
                       eos=eos, opacity=opacity, jacobian=jacobian, linear_solver=linear_solver, eos_res=eos_res,
-                      psi=psi, ssi=ssi, esi=esi, opt=opt)
+                      psi=psi, ssi=ssi, esi=esi, opt=opt, plt=plt)
     init_diff_cache!(sm)
     return sm
 end

@@ -64,6 +64,10 @@ Substructure of Options containing controls relating to input/output of data
     profile_values::Vector{String} = ["zone", "mass", "dm", "log10_ρ", "log10_P", "log10_T", "luminosity", "X", "Y"]
 end
 
+@kwdef mutable struct PlottingOptions
+    do_plotting::Bool = true
+end
+
 """
     mutable struct Options
 
@@ -74,9 +78,10 @@ mutable struct Options
     timestep::TimestepOptions
     termination::TerminationOptions
     io::IOOptions
+    plotting::PlottingOptions
 
     function Options()
-        new(SolverOptions(), TimestepOptions(), TerminationOptions(), IOOptions())
+        new(SolverOptions(), TimestepOptions(), TerminationOptions(), IOOptions(), PlottingOptions())
     end
 end
 

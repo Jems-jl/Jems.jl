@@ -112,6 +112,9 @@ Performs the main evolutionary loop of the input StellarModel `sm`. It continues
 termination criteria is reached (defined in `sm.opt.termination`).
 """
 function do_evolution_loop(sm::StellarModel)
+    if sm.opt.plotting.do_plotting
+        init_figure(sm)
+    end
     set_end_step_info!(sm)
     # evolution loop, be sure to have sensible termination conditions or this will go on forever!
     while true
@@ -190,6 +193,15 @@ function do_evolution_loop(sm::StellarModel)
         set_end_step_info!(sm)
         write_data(sm)
 
+        if sm.opt.plotting.do_plotting && sm.model_number == 1
+            set_history_observables(sm.plt.axs[1], sm)
+            sm.plt.scr = init_plot(sm.plt.fig, sm.plt.axs[1], sm.plt.obs[:Teff], sm.plt.obs[:L])
+        elseif sm.opt.plotting.do_plotting && sm.model_number % 10 == 0
+            push_observable!(sm.plt.obs[:Teff], exp(sm.esi.lnT[sm.nz]))
+            push_observable!(sm.plt.obs[:L], sm.esi.L[sm.nz])
+            reset_limits!(sm.plt.axs[1])
+        end
+
         # check termination conditions
         if (sm.model_number > sm.opt.termination.max_model_number)
             println("Reached maximum model number")
@@ -200,4 +212,9 @@ function do_evolution_loop(sm::StellarModel)
             break
         end
     end
+    if sm.opt.plotting.do_plotting
+        println(sm.plt.obs[:Teff][])
+        GLMakie.wait(sm.plt.scr)
+    end
+
 end
