@@ -24,6 +24,13 @@ Modules = [Jems.Evolution]
 Pages = ["Evolution/Equations.jl"]
 ```
 
+## Evaluation.jl
+
+```@autodocs
+Modules = [Jems.Evolution]
+Pages = ["Evolution/Evaluation.jl"]
+```
+
 ## Solver.jl
 
 ```@autodocs
