@@ -159,7 +159,7 @@ function equationContinuity(sm::StellarModel, k::Int,
     end
     
     if k > 1  # get mass chunk
-        dm = dm - sm.m[k - 1]
+        dm = sm.m[k] - sm.m[k - 1]
     else
         dm = sm.m[k]
     end
