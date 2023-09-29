@@ -1,0 +1,2 @@
+struct NuclearNetwork
+end
