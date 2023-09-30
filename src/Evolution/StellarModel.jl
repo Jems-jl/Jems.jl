@@ -14,6 +14,7 @@ that the stellar structure equations have the following signature:
 function structure_equation(::TS, ::Int,
                             ::Matrix{TD}, ::Matrix{TD}, ::Matrix{TD},
                             ::EOSResults{TD}, ::EOSResults{TD}, ::EOSResults{TD}
+                            ::Matrix{TD},
                             ::TD, ::TD, ::TD)::TD
 ```
 
@@ -25,6 +26,7 @@ struct TypeStableEquation{TS,TD<:Real}
                                            Tuple{TS,Int,
                                                  Matrix{TD},Matrix{TD},Matrix{TD},
                                                  EOSResults{TD},EOSResults{TD},EOSResults{TD},
+                                                 Matrix{TD},
                                                  TD,TD,TD}}
 end
 
@@ -106,9 +108,13 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     # Some basic info
     eos::TEOS
     opacity::TKAP
+    network::NuclearNetwork
 
     # cache for the EOS
     eos_res::Matrix{EOSResults{TD}}
+
+    # cache for the rates
+    rates_res::Matrix{TD}
 
     varp1::Matrix{TD}
     var00::Matrix{TD}
@@ -138,7 +144,7 @@ Constructor for a `StellarModel` instance, using `varnames` for the independent 
 number of zones in the model `nz` and an iterface to the EOS and Opacity laws.
 """
 function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Function}, nvars::Int, nspecies::Int,
-                      nz::Int, eos::AbstractEOS, opacity::AbstractOpacity; solver_method=KLUFactorization())
+                      nz::Int, network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity; solver_method=KLUFactorization())
     # create the vector containing the independent variables
     ind_vars = ones(nvars * nz)
     # extract the species names from var_names (assumed at the end)
@@ -197,6 +203,9 @@ function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Fun
     # eos results
     eos_res = [EOSResults{typeof(dual_sample)}() for i = 1:nz, j = 1:3]
 
+    # rates results
+    rates_res = Matrix{typeof(dual_sample)}(undef, nz, length(network.reactions))
+
     # create stellar step info objects
     psi = StellarStepInfo(nz=nz, m=zeros(nz), dm=zeros(nz), mstar=0.0, time=0.0, dt=0.0, model_number=0,
                           ind_vars=zeros(nvars * nz), lnT=zeros(nz), L=zeros(nz), lnP=zeros(nz), lnρ=zeros(nz),
@@ -218,7 +227,8 @@ function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Fun
                       model_number=0, varp1=Matrix{typeof(dual_sample)}(undef, nz, nvars),
                       var00=Matrix{typeof(dual_sample)}(undef, nz, nvars),
                       varm1=Matrix{typeof(dual_sample)}(undef, nz, nvars),
-                      eos=eos, opacity=opacity, jacobian=jacobian, linear_solver=linear_solver, eos_res=eos_res,
+                      eos=eos, opacity=opacity, network=network, jacobian=jacobian, linear_solver=linear_solver,
+                      eos_res=eos_res, rates_res = rates_res,
                       psi=psi, ssi=ssi, esi=esi, opt=opt)
     init_diff_cache!(sm)
     return sm

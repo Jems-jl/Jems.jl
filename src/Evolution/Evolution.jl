@@ -2,7 +2,7 @@ module Evolution
 
 export StellarModel
 
-using Jems.Constants, Jems.Chem, Jems.EOS, Jems.Opacity
+using Jems.Constants, Jems.Chem, Jems.EOS, Jems.Opacity, Jems.NuclearNetworks
 
 include("Options.jl")
 include("StellarModel.jl")

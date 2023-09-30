@@ -12,6 +12,10 @@ function eval_cell_eqs!(sm::StellarModel, k::Int)
     set_EOS_resultsTP!(sm.eos, sm.eos_res[k, 2], sm.var00[k, sm.vari[:lnT]],
                        sm.var00[k, sm.vari[:lnP]],
                        view(sm.var00, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+
+    set_rates_for_network!(view(sm.rates_res, k, :), sm.network, sm.eos_res[k,2], 
+                           view(sm.var00, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)))
+
     if k != 1
         sm.varm1[k, :] .= get_tmp(view(sm.diff_caches, k, :)[1], sm.eqs_duals[k, 1])
         κm1 = get_opacity_resultsTP(sm.opacity, sm.varm1[k, sm.vari[:lnT]], sm.varm1[k, sm.vari[:lnP]],
@@ -33,11 +37,20 @@ function eval_cell_eqs!(sm::StellarModel, k::Int)
         κp1 = κ00
     end
 
-    # evaluate all equations!
-    for i = 1:(sm.nvars)
+    # evaluate all equations! (except composition)
+    for i = 1:(sm.nvars - sm.nspecies)
         sm.eqs_duals[k, i] = sm.structure_equations[i].func(sm, k,
                                                             sm.varm1, sm.var00, sm.varp1,
                                                             sm.eos_res[k, 1], sm.eos_res[k, 2], sm.eos_res[k, 3],
+                                                            sm.rates_res,
+                                                            κm1, κ00, κp1)
+    end
+    # evaluate all composition equations
+    for i = 1:sm.nspecies
+        sm.eqs_duals[k, sm.nvars - sm.nspecies + i] = equation_composition(sm, k, sm.species_names[i],
+                                                            sm.varm1, sm.var00, sm.varp1,
+                                                            sm.eos_res[k, 1], sm.eos_res[k, 2], sm.eos_res[k, 3],
+                                                            sm.rates_res,
                                                             κm1, κ00, κp1)
     end
 end
