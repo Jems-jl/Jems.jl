@@ -9,6 +9,7 @@ using Jems.Chem
 using Jems.Constants
 using Jems.EOS
 using Jems.Opacity
+using Jems.NuclearNetworks
 using Jems.Evolution
 
 ##
@@ -26,12 +27,13 @@ to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 nvars = 6
 nspecies = 2
 varnames = [:lnP, :lnT, :lnr, :lum, :H1, :He4]
-structure_equations = [Evolution.equationHSE, Evolution.equationT, Evolution.equationContinuity,
-                       Evolution.equationLuminosity, Evolution.equationH1, Evolution.equationHe4]
+structure_equations = [Evolution.equationHSE, Evolution.equationT,
+                       Evolution.equationContinuity, Evolution.equationLuminosity]
+net = NuclearNetwork([:H1,:He4], [(:toy_rates, :toy_pp), (:toy_rates, :toy_cno)])
 nz = 1000
 eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
-sm = StellarModel(varnames, structure_equations, nvars, nspecies, nz, eos, opacity);
+sm = StellarModel(varnames, structure_equations, nvars, nspecies, nz, net, eos, opacity);
 
 ##
 #=
@@ -50,7 +52,7 @@ At last we are in position to evaluate the equations and compute the Jacobian.
 =#
 Evolution.n1_polytrope_initial_condition(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 Evolution.set_end_step_info!(sm)
-Evolution.cycle_step_info!(sm)
+Evolution.cycle_step_info!(sm);
 Evolution.set_start_step_info!(sm)
 Evolution.eval_jacobian_eqs!(sm)
 
@@ -84,7 +86,7 @@ takes to compute the jacobian elements associated with row 2
 @benchmark Evolution.eval_jacobian_eqs_row!(sm, 2)
 
 #=
-Again on my machine, this takes $\sim 16\;\mathrm{\mu s}$. This is a short amount of time, but we have a thousand cells
+Again on my machine, this takes $\sim 3\;\mathrm{\mu s}$. This is a short amount of time, but we have a thousand cells
 to compute. Let's benchmark the calculation of the full jacobian.
 =#
 
@@ -94,7 +96,7 @@ to compute. Let's benchmark the calculation of the full jacobian.
 @benchmark Evolution.eval_jacobian_eqs!(sm)
 
 #=
-And on my computer, this took about $5.2\;\mathrm{ms}$. Even though we have a thousand cells, the computation time was
+And on my computer, this took about $500\;\mathrm{\mu s}$. Even though we have a thousand cells, the computation time was
 not a thousand times longer than computing the components of the jacobian for a single cell. The reason for this is that
 the calculation is parallelized so cells are done independently. However, I used 8 cores for my calculations, so the
 scaling is less than ideal. One of the main culprits here is the garbage collector. Current versions of julia can only
@@ -126,7 +128,7 @@ open("example_options.toml", "w") do file
           dt_max_increase = 2.0
 
           [termination]
-          max_model_number = 3000
+          max_model_number = 1100
           max_center_T = 4e7
 
           [io]
