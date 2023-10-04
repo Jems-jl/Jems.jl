@@ -220,7 +220,7 @@ function do_evolution_loop(sm::StellarModel)
 
         # write state in sm.esi and potential history/profiles.
         set_end_step_info!(sm)
-        write_data(sm)
+        StellarModels.write_data(sm)
 
         # check termination conditions
         if (sm.model_number > sm.opt.termination.max_model_number)

@@ -10,6 +10,7 @@ using Jems.Constants
 using Jems.EOS
 using Jems.Opacity
 using Jems.NuclearNetworks
+using Jems.StellarModels
 using Jems.Evolution
 
 ##
@@ -50,7 +51,7 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 (_previous step info_) to populate the information needed before the Newton solver in `sm.ssi` (_start step info_).
 At last we are in position to evaluate the equations and compute the Jacobian.
 =#
-Evolution.n1_polytrope_initial_condition(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 Evolution.set_end_step_info!(sm)
 Evolution.cycle_step_info!(sm);
 Evolution.set_start_step_info!(sm)
@@ -135,10 +136,10 @@ open("example_options.toml", "w") do file
           profile_interval = 50
           """)
 end
-Evolution.set_options!(sm.opt, "./example_options.toml")
+StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
-Evolution.n1_polytrope_initial_condition(sm, MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
+StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
 
 @time Evolution.do_evolution_loop(sm)
 
@@ -175,7 +176,7 @@ that the zero points of the polytropes are arbitrary.
 =#
 profile_names = Evolution.get_profile_names_from_hdf5("profiles.hdf5")
 
-f = Figure()
+f = Figure();
 ax = Axis(f[1, 1]; xlabel=L"\log_{10}(\rho/\mathrm{[g\;cm^{-3}]})", ylabel=L"\log_{10}(P/\mathrm{[dyn]})")
 
 pname = Observable(profile_names[1])
@@ -211,7 +212,7 @@ the [Io](Evolution.md##Io.jl) options (and probably adjust the framerate).
 =#
 profile_names = Evolution.get_profile_names_from_hdf5("profiles.hdf5")
 
-f = Figure()
+f = Figure();
 ax = Axis(f[1, 1]; xlabel=L"\mathrm{Mass}\;[M_\odot]", ylabel=L"X")
 
 pname = Observable(profile_names[1])
@@ -237,9 +238,9 @@ end
 Finally, we can also access the history data of the simulation. We use this to plot a simple HR diagram. As our
 microphysics are very simplistic, and the initial condition is not very physical, this looks a bit funny!
 =#
-f = Figure()
+f = Figure();
 ax = Axis(f[1, 1]; xlabel=L"\log_{10}(T_\mathrm{eff}/[K])", ylabel=L"\log_{10}(L/L_\odot)", xreversed=true)
-history = Evolution.get_history_dataframe_from_hdf5("history.hdf5")
+history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
 lines!(ax, log10.(history[!, "T_surf"]), log10.(history[!, "L_surf"]))
 f
 
