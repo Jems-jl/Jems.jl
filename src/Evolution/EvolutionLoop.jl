@@ -152,10 +152,8 @@ function do_evolution_loop(sm::StellarModel)
         # step loop
         for i = 1:max_steps
             eval_jacobian_eqs!(sm)
-
-            sm.linear_solver.A = sm.jacobian  # A dx + b = 0; solve for dx
-            sm.linear_solver.b = -sm.eqs_numbers
-            corr = solve(sm.linear_solver)
+            thomas_algorithm!(sm)
+            corr = @view sm.solver_corr[1:sm.nvars*sm.nz]
 
             real_max_corr = maximum(corr)
 
@@ -177,7 +175,7 @@ function do_evolution_loop(sm::StellarModel)
                 @show i, maximum(corr), real_max_corr, maximum(sm.eqs_numbers)
             end
             # first try applying correction and see if it would give negative luminosity
-            sm.ind_vars += corr
+            sm.ind_vars .= sm.ind_vars .+ corr
             if real_max_corr < 1e-10
                 if sm.model_number == 0
                     println("Found first model")

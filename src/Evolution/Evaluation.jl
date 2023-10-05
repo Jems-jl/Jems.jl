@@ -80,24 +80,29 @@ function eval_jacobian_eqs_row!(sm::StellarModel, k::Int)
     =#
     init_diff_cache!(sm, k)  # set diff_caches to hold 1s where needed
     eval_cell_eqs!(sm, k)  # evaluate equations on the duals, so we have jacobian also
-    if k == 1
-        ki = sm.nvars * (k - 1) + 1
-        kf = sm.nvars * (k + 1)
-    elseif k == sm.nz
-        ki = sm.nvars * (k - 2) + 1
-        kf = sm.nvars * (k)
-    else
-        ki = sm.nvars * (k - 2) + 1
-        kf = sm.nvars * (k + 1)
-    end
-    jac_view = view(sm.jacobian, (sm.nvars * (k - 1) + 1):(sm.nvars * k), ki:kf)
-    for i = 1:(sm.nvars)
-        # populate the jacobian with the relevant entries
-        for j = 1:(k == 1 || k == sm.nz ? 2 * sm.nvars : 3 * sm.nvars)
-            if (k == 1)  # for k==1 the correct derivatives are displaced!
-                jac_view[i, j] = sm.eqs_duals[k, i].partials[j + sm.nvars]
-            else
-                jac_view[i, j] = sm.eqs_duals[k, i].partials[j]
+    # populate the jacobian with the relevant entries
+    jacobian_Lk = sm.jacobian_L[k]
+    jacobian_Dk = sm.jacobian_D[k]
+    jacobian_Uk = sm.jacobian_U[k]
+    for i = 1:sm.nvars
+        # for the solver we normalize all rows of the Jacobian so they don't have crazy values
+        if k==1
+            for j=1:sm.nvars
+                jacobian_Lk[i,j] = 0
+                jacobian_Dk[i,j] = sm.eqs_duals[k, i].partials[j + sm.nvars]
+                jacobian_Uk[i,j] = sm.eqs_duals[k, i].partials[j + 2*sm.nvars]
+            end              
+        elseif k==sm.nz      
+            for j=1:sm.nvars  
+                jacobian_Lk[i,j] = sm.eqs_duals[k, i].partials[j]
+                jacobian_Dk[i,j] = sm.eqs_duals[k, i].partials[j + sm.nvars]
+                jacobian_Uk[i,j] = 0
+            end              
+        else                 
+            for j=1:sm.nvars  
+                jacobian_Lk[i,j] = sm.eqs_duals[k, i].partials[j]
+                jacobian_Dk[i,j] = sm.eqs_duals[k, i].partials[j + sm.nvars]
+                jacobian_Uk[i,j] = sm.eqs_duals[k, i].partials[j + 2*sm.nvars]
             end
         end
         # populate the eqs_numbers with relevant entries (will be RHS for linear solver)

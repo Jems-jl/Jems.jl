@@ -58,7 +58,7 @@ Default equation of energy transport, evaluated for cell `k` of StellarModel `sm
 
 # Arguments
 
-Identical to [`equationHSE`](@ref) for compatibility with [`TypeStableEquation`](@ref)
+Identical to [`equationHSE`](@ref) for compatibility with StellarModels.TypeStableEquation
 
 # Returns
 
@@ -109,7 +109,7 @@ Default equation of energy generation, evaluated for cell `k` of StellarModel `s
 
 # Arguments
 
-Identical to [`equationHSE`](@ref) for compatibility with [`TypeStableEquation`](@ref)
+Identical to [`equationHSE`](@ref) for compatibility with StellarModels.TypeStableEquation
 
 # Returns
 
@@ -149,7 +149,7 @@ Default equation of mass continuity, evaluated for cell `k` of StellarModel `sm`
 
 # Arguments
 
-Identical to [`equationHSE`](@ref) for compatibility with [`TypeStableEquation`](@ref)
+Identical to [`equationHSE`](@ref) for compatibility with StellarModels.TypeStableEquation
 
 # Returns
 
