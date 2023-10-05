@@ -175,13 +175,8 @@ function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Fun
     end
 
     # create jacobian matrix (we have the diagonal and the upper and lower blocks)
-    # jacobian_D = [zeros(nvars,nvars) for i=1:(nz+nextra)]
-    # jacobian_U = [zeros(nvars,nvars) for i=1:(nz+nextra)]
-    # jacobian_L = [zeros(nvars,nvars) for i=1:(nz+nextra)]
-    # jacobian_tmp = [zeros(nvars,nvars) for i=1:(nz+nextra)]
-    # solver_β = [zeros(nvars) for i=1:(nz+nextra)]
-    # solver_x = [zeros(nvars) for i=1:(nz+nextra)]
-    # solver_corr = zeros(nvars*(nz+nextra))
+    # we use static arrays, provided by StaticArrays. These are faster than regular
+    # arrays for small nvars
     jacobian_D = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
     jacobian_U = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
     jacobian_L = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
