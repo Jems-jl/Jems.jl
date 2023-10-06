@@ -46,6 +46,19 @@ function cycle_step_info!(sm::StellarModel)
 end
 
 """
+    uncycle_step_info!(sm::StellarModel)
+
+Moves the model info of the StellarModel `sm` back one state:
+start step info <- end step info <- previous step info <- start step info.
+"""
+function uncycle_step_info!(sm::StellarModel)
+    temp_step_info = sm.esi
+    sm.esi = sm.psi
+    sm.psi = sm.ssi
+    sm.ssi = temp_step_info
+end
+
+"""
     set_start_step_info!(sm::StellarModel)
 
 Sets the start step info of the StellarModel `sm` by copying from the previous step info.
@@ -114,9 +127,11 @@ termination criteria is reached (defined in `sm.opt.termination`).
 function do_evolution_loop(sm::StellarModel)
     set_end_step_info!(sm)
     # evolution loop, be sure to have sensible termination conditions or this will go on forever!
+    dt_factor = 1.0 # this is changed during retries to lower the timestep
+    retry_count = 0
     while true
         # get dt for this step
-        dt_next = get_dt_next(sm)
+        dt_next = get_dt_next(sm)*dt_factor
 
         cycle_step_info!(sm)  # move esi of previous step to psi of this step
 
@@ -133,13 +148,12 @@ function do_evolution_loop(sm::StellarModel)
         end
 
         exit_evolution = false
+        retry_step = false
         # step loop
         for i = 1:max_steps
             eval_jacobian_eqs!(sm)
-
-            sm.linear_solver.A = sm.jacobian  # A dx + b = 0; solve for dx
-            sm.linear_solver.b = -sm.eqs_numbers
-            corr = solve(sm.linear_solver)
+            thomas_algorithm!(sm)
+            corr = @view sm.solver_corr[1:sm.nvars*sm.nz]
 
             real_max_corr = maximum(corr)
 
@@ -161,7 +175,7 @@ function do_evolution_loop(sm::StellarModel)
                 @show i, maximum(corr), real_max_corr, maximum(sm.eqs_numbers)
             end
             # first try applying correction and see if it would give negative luminosity
-            sm.ind_vars += corr
+            sm.ind_vars .= sm.ind_vars .+ corr
             if real_max_corr < 1e-10
                 if sm.model_number == 0
                     println("Found first model")
@@ -172,9 +186,23 @@ function do_evolution_loop(sm::StellarModel)
                 break
             end
             if i == max_steps
-                exit_evolution = true
-                println("Failed to converge, stopping")
+                if retry_count > 10
+                    exit_evolution = true
+                    println("Too many retries, ending simulation")
+                else
+                    retry_count = retry_count + 1
+                    retry_step = true
+                    println("Failed to converge step $(sm.model_number) with timestep $(dt_next/SECYEAR), retrying")
+                end
             end
+        end
+
+        if retry_step
+            dt_factor = dt_factor*0.5
+            uncycle_step_info!(sm)
+            continue
+        else
+            dt_factor = 1.0
         end
 
         if (exit_evolution)
@@ -182,13 +210,15 @@ function do_evolution_loop(sm::StellarModel)
             break
         end
 
+        retry_count = 0
+
         # increment age and model number since we accept the step.
         sm.time = sm.time + sm.ssi.dt
         sm.model_number = sm.model_number + 1
 
         # write state in sm.esi and potential history/profiles.
         set_end_step_info!(sm)
-        write_data(sm)
+        StellarModels.write_data(sm)
 
         # check termination conditions
         if (sm.model_number > sm.opt.termination.max_model_number)
