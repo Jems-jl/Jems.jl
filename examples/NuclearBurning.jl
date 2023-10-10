@@ -1,7 +1,7 @@
 #=
 # NuclearBurning.jl
 
-This notebook provides a simple example of a star with simplified mycrophysics undergoing nuclear burning.
+This notebook provides a simple example of a star with simplified microphysics undergoing nuclear burning.
 Import all necessary Jems modules. We will also do some benchmarks, so we import BenchmarkTools as well.
 =#
 using BenchmarkTools
@@ -88,7 +88,7 @@ garbage collector will be able to run in multiple threads, so that should allevi
 To get an idea of how much a complete iteration of the solver takes, we need to benchmark
 both the calculation of the Jacobian and the matrix solver. This is because the matrix solver
 is destructive, as it uses the allocated Jacobian to store intermediate results. The time it takes
-to run the only the matrix solver can be determined by substracting the previous benchmark to this one.
+to run only the matrix solver can be determined by substracting the previous benchmark from this one.
 =#
 
 @benchmark begin
@@ -197,8 +197,8 @@ end
 
 We see that the structure evolves towards an n=3 polytrope. Deviations near the core are due to the non-homogeneous
 composition as hydrogen is burnt. We can similarly visualize how the hydrogen mass fraction changes in the simulation.
-In here only one frame shows the hydrogen that was burnt, to better visualize that you can adjust `profile_interval` in
-the [Io](Evolution.md##Io.jl) options (and probably adjust the framerate).
+In here, only one frame shows the hydrogen that was burnt. To better visualize that you can adjust `profile_interval` in
+the [IO](Evolution.md##Io.jl) options (and probably adjust the framerate).
 =#
 profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
 
