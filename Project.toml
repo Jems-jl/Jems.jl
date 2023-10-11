@@ -1,6 +1,6 @@
 name = "Jems"
 uuid = "80e28b2b-5ac7-4db2-b78d-9e35bb8cec21"
-authors = ["Pablo Marchant <pablo.marchant@kuleuven.be>", "Matthias Fabry <matthias.fabry@kuleuven.be>", "Eva Kuipers <evakuipers2612@gmail.com>"]
+authors = ["Pablo Marchant <pablo.marchant@kuleuven.be>", "Matthias Fabry <matthias.fabry@kuleuven.be>", "Eva Kuipers <evakuipers2612@gmail.com>", "Digonto Rahman  <digontorahman@hotmail.com>"]
 version = "0.1.0"
 
 [deps]
