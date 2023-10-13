@@ -32,8 +32,12 @@ Initializes a stellar model `sm` with values corresponding to an n=1 polytrope, 
 `sm.ind_vars`, etc. accordingly. Also sets the initial timestep to be taken, `initial_dt`.
 """
 function n1_polytrope_initial_condition!(sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
-    logdqs = get_logdq.(1:(sm.nz), sm.nz, -3.0, 0.0, 100)
+    logdqs = zeros(sm.nz + sm.nextra)
+    for i in 1:sm.nz
+        logdqs[i] = get_logdq(i, sm.nz, -5.0, 0.0, 100)
+    end
     dqs = 10 .^ logdqs
+    dqs[sm.nz+1:end] .= 0 # extra entries beyond nz have no mass
     dqs = dqs ./ sum(dqs)
     dms = dqs .* M
     m_face = cumsum(dms)
@@ -75,6 +79,7 @@ function n1_polytrope_initial_condition!(sm::StellarModel, M::Real, R::Real; ini
             ξ_face[i] = find_zero(mfunc_anon, (0, π), Bisection())
         end
     end
+    mfunc_anon = ξ -> mfunc(ξ, 0.99999*M)
 
     # set radii, pressure and temperature, assuming ideal gas without Prad
     for i = 1:(sm.nz)
