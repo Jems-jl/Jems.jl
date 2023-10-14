@@ -34,7 +34,7 @@ Initializes a stellar model `sm` with values corresponding to an n=1 polytrope, 
 function n1_polytrope_initial_condition!(sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
     logdqs = zeros(sm.nz + sm.nextra)
     for i in 1:sm.nz
-        logdqs[i] = get_logdq(i, sm.nz, -5.0, 0.0, 100)
+        logdqs[i] = get_logdq(i, sm.nz, -3.0, 0.0, 100)
     end
     dqs = 10 .^ logdqs
     dqs[sm.nz+1:end] .= 0 # extra entries beyond nz have no mass

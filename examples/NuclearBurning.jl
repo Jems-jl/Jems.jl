@@ -121,7 +121,7 @@ open("example_options.toml", "w") do file
           dt_max_increase = 2.0
 
           [termination]
-          max_model_number = 1100
+          max_model_number = 2000
           max_center_T = 4e7
 
           [io]
@@ -132,7 +132,7 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 StellarModels.n1_polytrope_initial_condition!(sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
-@time Evolution.do_evolution_loop(sm)
+@time sm = Evolution.do_evolution_loop(sm);
 
 ##
 #=

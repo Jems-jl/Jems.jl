@@ -10,6 +10,7 @@ Substructure of Options containing controls relating to remeshing
     max_cell_mass_ratio::Float64 = 5.0 # split cell if neighboring cell masses are smaller than this
     max_dq_center::Float64 = 1e-5 # maximum dm/M for center cell
     max_dq_surface::Float64 = 1e-5 # maximum dm/M for surface cell
+    do_remesh::Bool = false
 end
 
 """

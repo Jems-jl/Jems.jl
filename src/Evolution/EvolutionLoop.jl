@@ -108,7 +108,9 @@ function do_evolution_loop(sm::StellarModel)
         cycle_step_info!(sm)  # move esi of previous step to psi of this step
 
         # remeshing
-        sm = StellarModels.remesher!(sm)
+        if sm.opt.remesh.do_remesh
+            sm = StellarModels.remesher!(sm)
+        end
 
         set_step_info!(sm, sm.ssi)  # set info before we attempt any newton solver
 
@@ -205,4 +207,5 @@ function do_evolution_loop(sm::StellarModel)
             break
         end
     end
+    return sm
 end
