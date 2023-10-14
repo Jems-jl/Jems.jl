@@ -12,6 +12,7 @@ using Jems.Opacity
 using Jems.NuclearNetworks
 using Jems.StellarModels
 using Jems.Evolution
+using Jems.ReactionRates
 
 ##
 #=
@@ -25,9 +26,8 @@ The Evolution module has pre-defined equations corresponding to these variables,
 simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple simple electron scattering opacity equal
 to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
-nvars = 6
-nspecies = 2
-varnames = [:lnP, :lnT, :lnr, :lum, :H1, :He4]
+
+varnames = [:lnP, :lnT, :lnr, :lum]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 net = NuclearNetwork([:H1,:He4], [(:toy_rates, :toy_pp), (:toy_rates, :toy_cno)])
@@ -35,7 +35,7 @@ nz = 1000
 nextra = 200
 eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
-sm = StellarModel(varnames, structure_equations, nvars, nspecies, nz, nextra, net, eos, opacity);
+sm = StellarModel(varnames, structure_equations, nz, nextra, net, eos, opacity);
 
 ##
 #=
@@ -52,10 +52,11 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 (_previous step info_) to populate the information needed before the Newton solver in `sm.ssi` (_start step info_).
 At last we are in position to evaluate the equations and compute the Jacobian.
 =#
-StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-Evolution.set_end_step_info!(sm)
+#StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+
+Evolution.set_step_info!(sm, sm.esi)
 Evolution.cycle_step_info!(sm);
-Evolution.set_start_step_info!(sm)
+Evolution.set_step_info!(sm, sm.ssi)
 Evolution.eval_jacobian_eqs!(sm)
 
 ##
@@ -95,6 +96,7 @@ to run only the matrix solver can be determined by substracting the previous ben
     Evolution.eval_jacobian_eqs!($sm)
     Evolution.thomas_algorithm!($sm)
 end
+
 ##
 #=
 ### Evolving our model
@@ -119,7 +121,7 @@ open("example_options.toml", "w") do file
           dt_max_increase = 2.0
 
           [termination]
-          max_model_number = 1100
+          max_model_number = 2000
           max_center_T = 4e7
 
           [io]
@@ -129,9 +131,8 @@ end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
-StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
-
-@time Evolution.do_evolution_loop(sm)
+StellarModels.n1_polytrope_initial_condition!(sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
+@time sm = Evolution.do_evolution_loop(sm);
 
 ##
 #=

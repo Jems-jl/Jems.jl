@@ -8,5 +8,6 @@ include("Options.jl")
 include("StellarModel.jl")
 include("IO.jl")
 include("InitialCondition.jl")
+include("Remesher.jl")
 
 end # module Evolution
