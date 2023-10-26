@@ -27,7 +27,9 @@ simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple 
 to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
 
-varnames = [:lnρ, :lnT, :lnr, :lum]
+varnames = [:lnP, :lnT, :lnr, :lum]
+varloc = [:center, :center, :face, :face]
+xaloc = :center
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 net = NuclearNetwork([:H1,:He4], [(:toy_rates, :toy_pp), (:toy_rates, :toy_cno)])
