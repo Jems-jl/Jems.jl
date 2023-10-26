@@ -80,6 +80,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     ind_vars::Vector{TN}  # List of independent variables
     nvars::Int  # This is the sum of hydro vars and species
     var_names::Vector{Symbol}  # List of variable namesv
+    var_locations::Vector{Symbol}
     vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector
 
     # Properties related to the solver
@@ -147,8 +148,8 @@ Constructor for a `StellarModel` instance, using `varnames` for the independent 
 `structure_equations` to be solved, number of independent variables `nvars`, number of species in the network `nspecies`
 number of zones in the model `nz` and an iterface to the EOS and Opacity laws.
 """
-function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Function},
-                      nz::Int, nextra::Int,
+function StellarModel(var_names::Vector{Symbol}, var_locations::Vector{Symbol}, xa_location::Symbol,
+                      structure_equations::Vector{Function}, nz::Int, nextra::Int,
                       network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity)
     nvars = length(var_names) + network.nspecies
 
@@ -190,6 +191,13 @@ function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Fun
     # var_names should also contain the name of species, we get them from the network
     var_names_full = vcat(var_names, network.species_names)
 
+    # var_locations contains the location (cell or face) of variables. The input contains
+    # the location for everything but composition, which is defined by xa_location.
+    var_locations_full = copy(var_locations)
+    for i in 1:network.nspecies
+        push!(var_locations_full, xa_location)
+    end
+
     # link var_names to the correct index so you can do ind_var[vari[:lnT]] = 'some temperature'
     vari::Dict{Symbol,Int} = Dict()
     for i in eachindex(var_names_full)
@@ -229,8 +237,8 @@ function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Fun
     opt = Options()
 
     # create the stellar model
-    sm = StellarModel(ind_vars=ind_vars, var_names=var_names_full, eqs_numbers=eqs_numbers,
-                      eqs_duals=eqs_duals, nvars=nvars,
+    sm = StellarModel(ind_vars=ind_vars, var_names=var_names_full, var_locations = var_locations_full,
+                      eqs_numbers=eqs_numbers, eqs_duals=eqs_duals, nvars=nvars,
                       structure_equations_original=structure_equations,
                       structure_equations=tsfs,
                       diff_caches=diff_caches, vari=vari, nz=nz, nextra=nextra,
@@ -275,8 +283,11 @@ function adjusted_stellar_model_data(sm, new_nz::Int, new_nextra::Int)
     end
     #get var_names without species
     var_names = sm.var_names[1:sm.nvars-sm.network.nspecies]
+    var_locations = sm.var_locations[1:sm.nvars-sm.network.nspecies]
+    xa_location = sm.var_locations[end]
 
-    new_sm = StellarModel(var_names, sm.structure_equations_original,
+    new_sm = StellarModel(var_names, var_locations, xa_location,
+                      sm.structure_equations_original,
                       new_nz, new_nextra, sm.network, sm.eos, sm.opacity)
     new_sm.nz = sm.nz # If this needs to be adjusted it will be done by remeshing routines
     new_sm.opt = sm.opt
@@ -295,6 +306,7 @@ function adjusted_stellar_model_data(sm, new_nz::Int, new_nextra::Int)
         new_sm.m[i] = sm.m[i]
         new_sm.dm[i] = sm.dm[i]
     end
+    @show size(sm.dm), size(sm.ind_vars)
 
     # Copy StellarStepInfo objects
     for (new_ssi, old_ssi) in [(new_sm.psi, sm.psi),(new_sm.ssi, sm.ssi),(new_sm.esi, sm.esi)]

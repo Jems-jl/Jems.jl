@@ -6,7 +6,7 @@ using TOML
 Substructure of Options containing controls relating to remeshing
 """
 @kwdef mutable struct RemeshOptions
-    delta_log10P_split::Float64 = 0.05 # split two cells if difference in log10P is greater than this
+    delta_log10P_split::Float64 = 0.1 # split two cells if difference in log10P is greater than this
     max_cell_mass_ratio::Float64 = 5.0 # split cell if neighboring cell masses are smaller than this
     max_dq_center::Float64 = 1e-5 # maximum dm/M for center cell
     max_dq_surface::Float64 = 1e-5 # maximum dm/M for surface cell
@@ -74,7 +74,7 @@ Substructure of Options containing controls relating to input/output of data
                                       "P_surf", "ρ_surf", "X_surf", "Y_surf", "T_center", "P_center", "ρ_center",
                                       "X_center", "Y_center"]
 
-    profile_values::Vector{String} = ["zone", "mass", "dm", "log10_ρ", "log10_P", "log10_T", "luminosity", "X", "Y"]
+    profile_values::Vector{String} = ["zone", "mass", "dm", "log10_ρ", "log10_r", "log10_P", "log10_T", "luminosity", "X", "Y"]
 end
 
 """
@@ -108,7 +108,7 @@ function set_options!(opt::Options, toml_path::String)
     # Do this before anything is changed, in that way if the load will fail the
     # input is unmodified
     for key in keys(options_file)
-        if !(key in ["solver", "timestep", "termination", "io"])
+        if !(key in ["remesh", "solver", "timestep", "termination", "io"])
             throw(ArgumentError("Error while reading $toml_path. 
                     One of the sections on the TOML file provided ([$key]) is not valid."))
         end

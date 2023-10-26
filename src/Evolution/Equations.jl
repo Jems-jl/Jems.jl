@@ -37,11 +37,26 @@ function equationHSE(sm::StellarModel, k::Int,
         g₀ = CGRAV * sm.mstar / r₀^2
         return lnP₀ - log(2g₀ / (3κ00))  # Eddington gray, ignoring radiation pressure term
     end
-    lnP₊ = varp1[k, sm.vari[:lnP]]
-    lnP₀ = var00[k, sm.vari[:lnP]]
-    lnPface = (sm.dm[k] * lnP₀ + sm.dm[k + 1] * lnP₊) / (sm.dm[k] + sm.dm[k + 1])
+    #log pressure at cell center of cell k
+    if k != 1
+        lnP₀ = var00[k, sm.vari[:lnP]]
+    else
+        #pressure is then defined at the core, interpolate to cell center
+        lnP₀ = (0.5*(sm.dm[k] + sm.dm[k+1])*var00[k, sm.vari[:lnP]]
+                    + 0.5*sm.dm[k]*varp1[k, sm.vari[:lnP]])/(0.5*sm.dm[k]+sm.dm[k+1])
+    end
+
+    #log pressure at cell center of cell k+1
+    if k != sm.nz - 1
+        lnP₊ = varp1[k, sm.vari[:lnP]]
+    else
+        #pressure is then defined at the surface, interpolate to cell center
+        lnP₊ = (0.5*sm.dm[k+1]*var00[k, sm.vari[:lnP]]
+                + 0.5*(sm.dm[k] + sm.dm[k+1])*varp1[k, sm.vari[:lnP]])/(0.5*sm.dm[k]+sm.dm[k+1])
+    end
+    lnPface = (sm.dm[k+1] * lnP₀ + sm.dm[k] * lnP₊) / (sm.dm[k] + sm.dm[k + 1])
     r₀ = exp(var00[k, sm.vari[:lnr]])
-    dm = (sm.m[k + 1] - sm.m[k])
+    dm = 0.5*(sm.dm[k + 1] + sm.dm[k])
 
     return (exp(lnPface) * (lnP₊ - lnP₀) / dm + CGRAV * sm.m[k] / (4π * r₀^4)) /
            (CGRAV * sm.m[k] / (4π * r₀^4))
@@ -167,16 +182,9 @@ function equationContinuity(sm::StellarModel, k::Int,
     else
         r₋::TT = 0  # central radius is zero at first cell
     end
-    
-    if k > 1  # get mass chunk
-        dm = sm.m[k] - sm.m[k - 1]
-    else
-        dm = sm.m[k]
-    end
 
-    # expected_r₀ = r₋ + dm/(4π*r₋^2*ρ)
     expected_dr³_dm = 3 / (4π * ρ₀)
-    actual_dr³_dm = (r₀^3 - r₋^3) / dm
+    actual_dr³_dm = (r₀^3 - r₋^3) / sm.dm[k]
 
     return (expected_dr³_dm - actual_dr³_dm) * ρ₀  # times ρ to make eq. dim-less
 end

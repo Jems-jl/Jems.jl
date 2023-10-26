@@ -28,14 +28,16 @@ to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
 
 varnames = [:lnP, :lnT, :lnr, :lum]
+varloc = [:center, :center, :face, :face]
+xaloc = :center
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 net = NuclearNetwork([:H1,:He4], [(:toy_rates, :toy_pp), (:toy_rates, :toy_cno)])
 nz = 1000
-nextra = 200
+nextra = 100
 eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
-sm = StellarModel(varnames, structure_equations, nz, nextra, net, eos, opacity);
+sm = StellarModel(varnames, varloc, xaloc, structure_equations, nz, nextra, net, eos, opacity);
 
 ##
 #=
@@ -52,8 +54,7 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 (_previous step info_) to populate the information needed before the Newton solver in `sm.ssi` (_start step info_).
 At last we are in position to evaluate the equations and compute the Jacobian.
 =#
-#StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-
+StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 Evolution.set_step_info!(sm, sm.esi)
 Evolution.cycle_step_info!(sm);
 Evolution.set_step_info!(sm, sm.ssi)
@@ -113,6 +114,9 @@ files into DataFrame objects. HDF5 output is compressed by default.
 open("example_options.toml", "w") do file
     write(file,
           """
+          [remesh]
+          do_remesh = false
+
           [solver]
           newton_max_iter_first_step = 1000
           newton_max_iter = 200
@@ -134,6 +138,8 @@ rm(sm.opt.io.hdf5_profile_filename; force=true)
 StellarModels.n1_polytrope_initial_condition!(sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
 @time sm = Evolution.do_evolution_loop(sm);
 
+##
+sm.nz
 ##
 #=
 ### Plotting with Makie
@@ -173,8 +179,10 @@ ax = Axis(f[1, 1]; xlabel=L"\log_{10}(\rho/\mathrm{[g\;cm^{-3}]})", ylabel=L"\lo
 pname = Observable(profile_names[1])
 
 profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
+#To see why this is done this way, see https://docs.makie.org/stable/explanations/nodes/index.html#problems_with_synchronous_updates
+#the main issue is that remeshing changes the size of the arrays
 log10_ρ = @lift($profile[!, "log10_ρ"])
-log10_P = @lift($profile[!, "log10_P"])
+log10_P = Observable(rand(length(log10_ρ.val)))
 
 profile_line = lines!(ax, log10_ρ, log10_P; label="real profile")
 xvals = LinRange(-13, 4, 100)
@@ -187,8 +195,39 @@ model_number_str = @lift("model number=$(parse(Int,$pname))")
 profile_text = text!(ax, -10, 20; text=model_number_str)
 
 record(f, "rho_P_evolution.gif", profile_names[1:end]; framerate=2) do profile_name
+    profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", profile_name)
+    log10_P.val = profile[!, "log10_P"]
     pname[] = profile_name
 end
+
+##
+profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
+profile_names
+profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", profile_names[7])
+log10_ρ = profile[!, "log10_ρ"]
+log10_P = profile[!, "log10_P"]
+log10_T = profile[!, "log10_T"]
+log10_r = profile[!, "log10_r"]
+lum = profile[!, "luminosity"]
+
+##
+sm.dm[2]
+sm.dm[1]
+
+##
+log10_ρ[1]
+##
+
+f = Figure();
+ax = Axis(f[1, 1])
+scatter!(ax, 1:sm.nz, log10.(sm.dm[1:sm.nz]))
+f
+
+##
+r0 = 10^(log10_r[1]*RSUN)
+rho0 = 10^(log10_ρ[1])
+4π/3*r0^3*rho0
+sm.dm[1]
 
 # ![Movie polytrope](./rho_P_evolution.gif)
 
@@ -210,13 +249,15 @@ pname = Observable(profile_names[1])
 
 profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
 mass = @lift($profile[!, "mass"])
-X = @lift($profile[!, "X"])
+X = Observable(rand(length(mass.val)))
 model_number_str = @lift("model number=$(parse(Int,$pname))")
 
 profile_line = lines!(ax, mass, X; label="real profile")
 profile_text = text!(ax, 0.7, 0.0; text=model_number_str)
 
 record(f, "X_evolution.gif", profile_names[1:end]; framerate=2) do profile_name
+    profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", profile_name)
+    X.val = profile[!, "X"]
     pname[] = profile_name
 end
 
@@ -233,6 +274,13 @@ f = Figure();
 ax = Axis(f[1, 1]; xlabel=L"\log_{10}(T_\mathrm{eff}/[K])", ylabel=L"\log_{10}(L/L_\odot)", xreversed=true)
 history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
 lines!(ax, log10.(history[!, "T_surf"]), log10.(history[!, "L_surf"]))
+f
+
+##
+f = Figure();
+ax = Axis(f[1, 1]; xlabel=L"\log_{10}(T_\mathrm{eff}/[K])", ylabel=L"\log_{10}(L/L_\odot)")
+history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
+lines!(ax, history[!, "model_number"], log10.(history[!, "ρ_center"]))
 f
 
 ##
