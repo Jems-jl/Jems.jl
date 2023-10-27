@@ -27,7 +27,7 @@ simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple 
 to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
 
-varnames = [:lnP, :lnT, :lnr, :lum]
+varnames = [:lnρ, :lnT, :lnr, :lum]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 net = NuclearNetwork([:H1,:He4], [(:toy_rates, :toy_pp), (:toy_rates, :toy_cno)])
@@ -52,8 +52,7 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 (_previous step info_) to populate the information needed before the Newton solver in `sm.ssi` (_start step info_).
 At last we are in position to evaluate the equations and compute the Jacobian.
 =#
-#StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-
+StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 Evolution.set_step_info!(sm, sm.esi)
 Evolution.cycle_step_info!(sm);
 Evolution.set_step_info!(sm, sm.ssi)
