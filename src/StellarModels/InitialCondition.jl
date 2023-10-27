@@ -15,13 +15,13 @@ Computes the logarithm mass chunk `logdq` for zone `k` of a profile with total z
 better resolve the first and last `numregion` zones of the profile. It linearly interpolates the value from the inputs
 `logdq_low` and `logdq_high` in these regions, while keeping `logdq_high` in the middle zones.
 """
-function get_logdq(k::Int, nz::Int, logdq_low::TT, logdq_high::TT, numregion::Int)::TT where {TT<:Real}
+function get_logdq(k::Int, nz::Int, logdq_center::TT, logdq_mid::TT, logdq_surf::TT, numregion::Int)::TT where {TT<:Real}
     if k <= numregion
-        return logdq_low + (k - 1) * (logdq_high - logdq_low) / numregion
+        return logdq_center + (k - 1) * (logdq_mid - logdq_center) / numregion
     elseif k < nz - numregion
-        return logdq_high
+        return logdq_mid
     else
-        return logdq_high + (logdq_low - logdq_high) * (k - (nz - numregion)) / numregion
+        return logdq_mid + (logdq_surf - logdq_mid) * (k - (nz - numregion)) / numregion
     end
 end
 
@@ -34,7 +34,7 @@ Initializes a stellar model `sm` with values corresponding to an n=1 polytrope, 
 function n1_polytrope_initial_condition!(sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
     logdqs = zeros(sm.nz + sm.nextra)
     for i in 1:sm.nz
-        logdqs[i] = get_logdq(i, sm.nz, -3.0, 0.0, 100)
+        logdqs[i] = get_logdq(i, sm.nz, -10.0, 0.0, -6.0, 200)
     end
     dqs = 10 .^ logdqs
     dqs[sm.nz+1:end] .= 0 # extra entries beyond nz have no mass
