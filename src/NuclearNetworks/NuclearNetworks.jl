@@ -7,7 +7,7 @@ export NuclearNetwork, set_rates_for_network!
 @kwdef struct NuclearNetwork{TT}
     nspecies::Int  # Just the number of species in the network
     species_names::Vector{Symbol}  # just the species names
-    reactions::Vector{Union{ToyReactionRate{TT}}}
+    reactions::TT
     xa_index::Dict{Symbol,Int}
     species_reactions_in::Vector{Vector{Tuple{Int,Int}}}
     species_reactions_out::Vector{Vector{Tuple{Int,Int}}}

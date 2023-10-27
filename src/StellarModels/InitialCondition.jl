@@ -93,7 +93,7 @@ function n1_polytrope_initial_condition!(sm::StellarModel, M::Real, R::Real; ini
             P = Pc
             ρ = ρc
         end
-        sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]] = log(P)
+        sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]] = log(ρ)
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = log(P * μ / (CGAS * ρ))
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:H1]] = 1.0
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:He4]] = 0
@@ -111,15 +111,20 @@ function n1_polytrope_initial_condition!(sm::StellarModel, M::Real, R::Real; ini
         ρface = ρc * (θ_n(ξ_face[i]))^(n)
         Tface = Pface * μ / (CGAS * ρface)
         dlnT = sm.ind_vars[(i) * sm.nvars + sm.vari[:lnT]] - sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
-        dlnP = sm.ind_vars[(i) * sm.nvars + sm.vari[:lnP]] - sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]]
+        if i != 1
+            dlnP = log(Pc * (θ_n(ξ_cell[i+1]))^(n + 1)) - log(Pc * (θ_n(ξ_cell[i]))^(n + 1))
+        else
+            dlnP = log(Pc * (θ_n(ξ_cell[i+1]))^(n + 1)) - log(Pc)
+        end
         κ = 0.2
+
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (dlnT / dlnP) *
                                                           (16π * CRAD * CLIGHT * CGRAV * m_face[i] * Tface^4) /
                                                           (3κ * Pface * LSUN)
     end
 
     # special cases, just copy values at edges
-    sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lnP]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lnP]]
+    sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lnρ]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lnρ]]
     sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lnT]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lnT]]
     sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lum]]
 
