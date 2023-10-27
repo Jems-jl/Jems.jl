@@ -6,11 +6,11 @@ variables, `ind_vars_view`.
 """
 function eval_cell_eqs!(sm::StellarModel, k::Int)
     sm.var00[k, :] .= get_tmp(view(sm.diff_caches, k, :)[2], sm.eqs_duals[k, 1])
-    κ00 = get_opacity_resultsTP(sm.opacity, sm.var00[k, sm.vari[:lnT]], sm.var00[k, sm.vari[:lnP]],
+    κ00 = get_opacity_resultsTρ(sm.opacity, sm.var00[k, sm.vari[:lnT]], sm.var00[k, sm.vari[:lnρ]],
                                 view(sm.var00, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
 
-    set_EOS_resultsTP!(sm.eos, sm.eos_res[k, 2], sm.var00[k, sm.vari[:lnT]],
-                       sm.var00[k, sm.vari[:lnP]],
+    set_EOS_resultsTρ!(sm.eos, sm.eos_res[k, 2], sm.var00[k, sm.vari[:lnT]],
+                       sm.var00[k, sm.vari[:lnρ]],
                        view(sm.var00, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
 
     set_rates_for_network!(view(sm.rates_res, k, :), sm.network, sm.eos_res[k,2], 
@@ -18,9 +18,9 @@ function eval_cell_eqs!(sm::StellarModel, k::Int)
 
     if k != 1
         sm.varm1[k, :] .= get_tmp(view(sm.diff_caches, k, :)[1], sm.eqs_duals[k, 1])
-        κm1 = get_opacity_resultsTP(sm.opacity, sm.varm1[k, sm.vari[:lnT]], sm.varm1[k, sm.vari[:lnP]],
+        κm1 = get_opacity_resultsTρ(sm.opacity, sm.varm1[k, sm.vari[:lnT]], sm.varm1[k, sm.vari[:lnρ]],
                                     view(sm.varm1, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
-        set_EOS_resultsTP!(sm.eos, sm.eos_res[k, 1], sm.varm1[k, sm.vari[:lnT]], sm.varm1[k, sm.vari[:lnP]],
+        set_EOS_resultsTρ!(sm.eos, sm.eos_res[k, 1], sm.varm1[k, sm.vari[:lnT]], sm.varm1[k, sm.vari[:lnρ]],
                            view(sm.varm1, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
     else
         sm.varm1[k, :] .= (eltype(sm.varm1))(NaN)
@@ -28,9 +28,9 @@ function eval_cell_eqs!(sm::StellarModel, k::Int)
     end
     if k != sm.nz
         sm.varp1[k, :] .= get_tmp(view(sm.diff_caches, k, :)[3], sm.eqs_duals[k, 1])
-        κp1 = get_opacity_resultsTP(sm.opacity, sm.varp1[k, sm.vari[:lnT]], sm.varp1[k, sm.vari[:lnP]],
+        κp1 = get_opacity_resultsTρ(sm.opacity, sm.varp1[k, sm.vari[:lnT]], sm.varp1[k, sm.vari[:lnρ]],
                                     view(sm.varp1, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
-        set_EOS_resultsTP!(sm.eos, sm.eos_res[k, 3], sm.varp1[k, sm.vari[:lnT]], sm.varp1[k, sm.vari[:lnP]],
+        set_EOS_resultsTρ!(sm.eos, sm.eos_res[k, 3], sm.varp1[k, sm.vari[:lnT]], sm.varp1[k, sm.vari[:lnρ]],
                            view(sm.varp1, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
     else
         sm.varp1[k, :] .= (eltype(sm.varp1))(NaN)

@@ -16,16 +16,16 @@ function set_step_info!(sm::StellarModel, si::StellarModels.StellarStepInfo)
 
         si.lnT[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
         si.L[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]]
-        si.lnP[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]]
+        si.lnρ[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]]
         si.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]]
 
         species_names = sm.var_names[(sm.nvars - sm.network.nspecies + 1):end]
 
         xa = view(sm.ind_vars, (i * sm.nvars - sm.network.nspecies + 1):(i * sm.nvars))
 
-        set_EOS_resultsTP!(sm.eos, sm.psi.eos_res[i], sm.psi.lnT[i], sm.psi.lnP[i], xa, species_names)
+        set_EOS_resultsTρ!(sm.eos, si.eos_res[i], si.lnT[i], si.lnρ[i], xa, species_names)
 
-        si.lnρ[i] = log(sm.psi.eos_res[i].ρ)
+        si.lnP[i] = log(si.eos_res[i].P)
         for k = 1:sm.nvars
             si.ind_vars[(i - 1) * sm.nvars + k] = sm.ind_vars[(i - 1) * sm.nvars + k]
         end
