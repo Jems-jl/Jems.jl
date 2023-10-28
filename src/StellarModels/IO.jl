@@ -29,7 +29,7 @@ history_output_options = Dict(
                               "star_mass" => ("Msun", sm -> sm.esi.mstar / MSUN),
 
                               #surface properties
-                              "R_surf" => ("Rsun", sm -> exp(sm.esi.lnr[sm.nz]) / RSUN),
+                              "R_surf" => ("Rsun", sm -> exp(sm.esi.lnr[sm.nz]-log(Rsun))),
                               "L_surf" => ("Lsun", sm -> sm.esi.L[sm.nz]),
                               "T_surf" => ("K", sm -> exp(sm.esi.lnT[sm.nz])),
                               "P_surf" => ("dyne", sm -> exp(sm.esi.lnP[sm.nz])),

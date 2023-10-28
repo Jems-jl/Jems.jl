@@ -119,7 +119,7 @@ open("example_options.toml", "w") do file
           do_remesh = true
 
           [solver]
-          newton_max_iter_first_step = 10007
+          newton_max_iter_first_step = 1000
           newton_max_iter = 200
 
           [timestep]
