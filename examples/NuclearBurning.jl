@@ -30,12 +30,15 @@ to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 varnames = [:lnρ, :lnT, :lnr, :lum]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
+remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
+                          StellarModels.split_lnT, StellarModels.split_xa]
 net = NuclearNetwork([:H1,:He4], [(:toy_rates, :toy_pp), (:toy_rates, :toy_cno)])
 nz = 1000
-nextra = 200
+nextra = 100
 eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
-sm = StellarModel(varnames, structure_equations, nz, nextra, net, eos, opacity);
+sm = StellarModel(varnames, structure_equations, nz, nextra,
+                  remesh_split_functions, net, eos, opacity);
 
 ##
 #=
@@ -112,6 +115,9 @@ files into DataFrame objects. HDF5 output is compressed by default.
 open("example_options.toml", "w") do file
     write(file,
           """
+          [remesh]
+          do_remesh = true
+
           [solver]
           newton_max_iter_first_step = 1000
           newton_max_iter = 200
@@ -172,8 +178,10 @@ ax = Axis(f[1, 1]; xlabel=L"\log_{10}(\rho/\mathrm{[g\;cm^{-3}]})", ylabel=L"\lo
 pname = Observable(profile_names[1])
 
 profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
+#To see why this is done this way, see https://docs.makie.org/stable/explanations/nodes/index.html#problems_with_synchronous_updates
+#the main issue is that remeshing changes the size of the arrays
 log10_ρ = @lift($profile[!, "log10_ρ"])
-log10_P = @lift($profile[!, "log10_P"])
+log10_P = Observable(rand(length(log10_ρ.val)))
 
 profile_line = lines!(ax, log10_ρ, log10_P; label="real profile")
 xvals = LinRange(-13, 4, 100)
@@ -186,6 +194,8 @@ model_number_str = @lift("model number=$(parse(Int,$pname))")
 profile_text = text!(ax, -10, 20; text=model_number_str)
 
 record(f, "rho_P_evolution.gif", profile_names[1:end]; framerate=2) do profile_name
+    profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", profile_name)
+    log10_P.val = profile[!, "log10_P"]
     pname[] = profile_name
 end
 
@@ -209,13 +219,15 @@ pname = Observable(profile_names[1])
 
 profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
 mass = @lift($profile[!, "mass"])
-X = @lift($profile[!, "X"])
+X = Observable(rand(length(mass.val)))
 model_number_str = @lift("model number=$(parse(Int,$pname))")
 
 profile_line = lines!(ax, mass, X; label="real profile")
 profile_text = text!(ax, 0.7, 0.0; text=model_number_str)
 
 record(f, "X_evolution.gif", profile_names[1:end]; framerate=2) do profile_name
+    profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", profile_name)
+    X.val = profile[!, "X"]
     pname[] = profile_name
 end
 

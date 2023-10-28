@@ -104,6 +104,9 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     dm::Vector{TN}  # Mass contained in each cell (g)
     mstar::TN  # Total model mass (g)
 
+    # Remeshing functions
+    remesh_split_functions::Vector{Function}
+
     # Unique valued properties (ie not cell dependent)
     time::TN  # Age of the model (s)
     dt::TN  # Timestep of the current evolutionary step (s)
@@ -147,8 +150,9 @@ Constructor for a `StellarModel` instance, using `varnames` for the independent 
 `structure_equations` to be solved, number of independent variables `nvars`, number of species in the network `nspecies`
 number of zones in the model `nz` and an iterface to the EOS and Opacity laws.
 """
-function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Function},
-                      nz::Int, nextra::Int,
+function StellarModel(var_names::Vector{Symbol},
+                      structure_equations::Vector{Function}, nz::Int, nextra::Int,
+                      remesh_split_functions::Vector{Function},
                       network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity)
     nvars = length(var_names) + network.nspecies
 
@@ -229,12 +233,13 @@ function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Fun
     opt = Options()
 
     # create the stellar model
-    sm = StellarModel(ind_vars=ind_vars, var_names=var_names_full, eqs_numbers=eqs_numbers,
-                      eqs_duals=eqs_duals, nvars=nvars,
+    sm = StellarModel(ind_vars=ind_vars, var_names=var_names_full,
+                      eqs_numbers=eqs_numbers, eqs_duals=eqs_duals, nvars=nvars,
                       structure_equations_original=structure_equations,
                       structure_equations=tsfs,
                       diff_caches=diff_caches, vari=vari, nz=nz, nextra=nextra,
-                      m=m, dm=dm, mstar=0.0, time=0.0, dt=0.0, model_number=0,
+                      m=m, dm=dm, mstar=0.0, remesh_split_functions=remesh_split_functions,
+                      time=0.0, dt=0.0, model_number=0,
                       varp1=Matrix{typeof(dual_sample)}(undef, nz+nextra, nvars),
                       var00=Matrix{typeof(dual_sample)}(undef, nz+nextra, nvars),
                       varm1=Matrix{typeof(dual_sample)}(undef, nz+nextra, nvars),
@@ -277,7 +282,8 @@ function adjusted_stellar_model_data(sm, new_nz::Int, new_nextra::Int)
     var_names = sm.var_names[1:sm.nvars-sm.network.nspecies]
 
     new_sm = StellarModel(var_names, sm.structure_equations_original,
-                      new_nz, new_nextra, sm.network, sm.eos, sm.opacity)
+                      new_nz, new_nextra, sm.remesh_split_functions,
+                      sm.network, sm.eos, sm.opacity)
     new_sm.nz = sm.nz # If this needs to be adjusted it will be done by remeshing routines
     new_sm.opt = sm.opt
 

@@ -32,7 +32,7 @@ Initializes a stellar model `sm` with values corresponding to an n=1 polytrope, 
 `sm.ind_vars`, etc. accordingly. Also sets the initial timestep to be taken, `initial_dt`.
 """
 function n1_polytrope_initial_condition!(sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
-    logdqs = zeros(sm.nz + sm.nextra)
+    logdqs = zeros(length(sm.dm))
     for i in 1:sm.nz
         logdqs[i] = get_logdq(i, sm.nz, -10.0, 0.0, -6.0, 200)
     end

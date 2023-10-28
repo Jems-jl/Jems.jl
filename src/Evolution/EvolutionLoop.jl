@@ -85,7 +85,9 @@ function get_dt_next(sm::StellarModel)
         dt_nextTc = dt_next * sm.opt.timestep.delta_Tc_limit / ΔTc_div_Tc
         dt_nextX = dt_next * sm.opt.timestep.delta_Xc_limit / ΔX
 
+        min_dt = dt_next * sm.opt.timestep.dt_max_decrease
         dt_next = min(sm.opt.timestep.dt_max_increase * dt_next, dt_nextR, dt_nextTc, dt_nextX)
+        dt_next = max(dt_next, min_dt)
         return dt_next
     end
 end
@@ -196,6 +198,11 @@ function do_evolution_loop(sm::StellarModel)
         # write state in sm.esi and potential history/profiles.
         set_step_info!(sm, sm.esi)
         StellarModels.write_data(sm)
+
+        #@show sm.model_number, sm.esi.lnP[1], sm.esi.lnP[2], sm.esi.lnP[sm.nz-1], sm.esi.lnP[sm.nz]
+        #@show sm.model_number, sm.esi.lnT[1], sm.esi.lnT[2], sm.esi.lnT[sm.nz-1], sm.esi.lnT[sm.nz]
+        #@show sm.dm[1], sm.dm[2], sm.dm[3]
+        #@show sum(sm.dm[1:sm.nz])
 
         # check termination conditions
         if (sm.model_number > sm.opt.termination.max_model_number)
