@@ -27,17 +27,18 @@ simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple 
 to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
 
-varnames = [:lnP, :lnT, :lnr, :lum]
-varloc = [:center, :center, :face, :face]
-xaloc = :center
+varnames = [:lnρ, :lnT, :lnr, :lum]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
+remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
+                          StellarModels.split_lnT, StellarModels.split_xa]
 net = NuclearNetwork([:H1,:He4], [(:toy_rates, :toy_pp), (:toy_rates, :toy_cno)])
 nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
-sm = StellarModel(varnames, varloc, xaloc, structure_equations, nz, nextra, net, eos, opacity);
+sm = StellarModel(varnames, structure_equations, nz, nextra,
+                  remesh_split_functions, net, eos, opacity);
 
 ##
 #=
@@ -115,10 +116,10 @@ open("example_options.toml", "w") do file
     write(file,
           """
           [remesh]
-          do_remesh = false
+          do_remesh = true
 
           [solver]
-          newton_max_iter_first_step = 1000
+          newton_max_iter_first_step = 10007
           newton_max_iter = 200
 
           [timestep]
@@ -138,8 +139,6 @@ rm(sm.opt.io.hdf5_profile_filename; force=true)
 StellarModels.n1_polytrope_initial_condition!(sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
 @time sm = Evolution.do_evolution_loop(sm);
 
-##
-sm.nz
 ##
 #=
 ### Plotting with Makie
@@ -200,35 +199,6 @@ record(f, "rho_P_evolution.gif", profile_names[1:end]; framerate=2) do profile_n
     pname[] = profile_name
 end
 
-##
-profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
-profile_names
-profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", profile_names[7])
-log10_ρ = profile[!, "log10_ρ"]
-log10_P = profile[!, "log10_P"]
-log10_T = profile[!, "log10_T"]
-log10_r = profile[!, "log10_r"]
-lum = profile[!, "luminosity"]
-
-##
-sm.dm[2]
-sm.dm[1]
-
-##
-log10_ρ[1]
-##
-
-f = Figure();
-ax = Axis(f[1, 1])
-scatter!(ax, 1:sm.nz, log10.(sm.dm[1:sm.nz]))
-f
-
-##
-r0 = 10^(log10_r[1]*RSUN)
-rho0 = 10^(log10_ρ[1])
-4π/3*r0^3*rho0
-sm.dm[1]
-
 # ![Movie polytrope](./rho_P_evolution.gif)
 
 ##
@@ -280,7 +250,7 @@ f
 f = Figure();
 ax = Axis(f[1, 1]; xlabel=L"\log_{10}(T_\mathrm{eff}/[K])", ylabel=L"\log_{10}(L/L_\odot)")
 history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
-lines!(ax, history[!, "model_number"], log10.(history[!, "ρ_center"]))
+lines!(ax, history[!, "model_number"], log10.(history[!, "T_center"]))
 f
 
 ##

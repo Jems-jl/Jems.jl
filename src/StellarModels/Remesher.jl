@@ -4,10 +4,11 @@
     Todo
 """
 function remesher!(sm::StellarModel)
+    # we first do cell splitting
     do_split = Vector{Bool}(undef, sm.nz) 
     do_split .= false
     for i in 1:sm.nz-1
-        a = abs(sm.ind_vars[(i-1)*sm.nvars + sm.vari[:lnP]] - sm.ind_vars[(i)*sm.nvars + sm.vari[:lnP]])
+        a = abs(sm.psi.lnP[i] - sm.psi.lnP[i+1])/log(10)
         b = sm.opt.remesh.delta_log10P_split
         if a > b
             # if the condition is satisfied, we split the largest of the two cells
@@ -19,7 +20,7 @@ function remesher!(sm::StellarModel)
         end
     end
     # we are ignoring the edges for now
-    do_split[1] = false
+    # do_split[sm.nz] = false
     extra_cells = sum(do_split)
     # if allocated space is not enough, we need to reallocate everything
     if sm.nz + extra_cells > length(sm.dm)
@@ -38,91 +39,126 @@ function remesher!(sm::StellarModel)
             sm.dm[i+extra_cells] = sm.dm[i]
         else
             #split the cell and lower extra_cells by 1
-            if (i!=sm.nz)
-                #first do cell centered values
-                m_up = 0.5*(sm.m[i] + sm.m[i+1])
-                if (i>2)
-                    m_low = 0.5*(sm.m[i-1] + sm.m[i-2])
-                else
-                    m_low = 0.5*(sm.m[i-1])
-                end
-                m_new_up = 0.75*sm.m[i] + 0.25*sm.m[i-1]
-                m_new_low = 0.25*sm.m[i] + 0.75*sm.m[i-1]
-                m_old =  0.5*(sm.m[i] + sm.m[i-1])
-                for j in 1:sm.nvars
-                    if sm.var_locations[j] == :face
-                        continue
-                    end
-                    val_old = sm.ind_vars[(i-1)*sm.nvars+j]
-                    val_up = sm.ind_vars[i*sm.nvars+j]
-                    val_low = sm.ind_vars[(i-2)*sm.nvars+j]
-                    
-                    val_new_up = val_old + (m_new_up - m_old)/(m_up - m_old)*(val_up - val_old)
-                    val_new_low = val_low + (m_new_low - m_low)/(m_old - m_low)*(val_old - val_low)
-                    sm.ind_vars[(i+extra_cells-1)*sm.nvars+j] = val_new_up
-                    sm.ind_vars[(i+extra_cells-2)*sm.nvars+j] = val_new_low
-                end
-                #next do face valued quantities
-                for j in 1:sm.nvars
-                    if sm.var_locations[j] == :center
-                        continue
-                    end
-                    val_old = sm.ind_vars[(i-1)*sm.nvars+j]
-                    val_low = sm.ind_vars[(i-2)*sm.nvars+j]
-                    
-                    val_new_up = val_old
-                    val_new_low = 0.5*(val_low + val_old)
-                    sm.ind_vars[(i+extra_cells-1)*sm.nvars+j] = val_new_up
-                    sm.ind_vars[(i+extra_cells-2)*sm.nvars+j] = val_new_low
-                end
-
-                sm.m[i+extra_cells] = sm.m[i]
-                sm.m[i+extra_cells-1] = sm.m[i]-0.5*sm.dm[i]
-                sm.dm[i+extra_cells] = 0.5*sm.dm[i]
-                sm.dm[i+extra_cells-1] = 0.5*sm.dm[i]
-
+            dm_00 = sm.dm[i]
+            var_00 = view(sm.ind_vars, ((i-1)*sm.nvars + 1):((i-1)*sm.nvars + sm.nvars))
+            if i > 1
+                dm_m1 = sm.dm[i-1]
+                var_m1 = view(sm.ind_vars, ((i-2)*sm.nvars + 1):((i-2)*sm.nvars + sm.nvars))
             else
-                #first do cell centered quantities
-                m_up = sm.m[sm.nz]
-                m_low = 0.5*(sm.m[sm.nz-1] + sm.m[sm.nz-2])
-                m_new_up = sm.m[sm.nz]
-                m_new_low = 0.25*sm.m[sm.nz] + 0.75*sm.m[sm.nz-1]
-                m_old =  sm.m[sm.nz]
-                for j in 1:sm.nvars
-                    if sm.var_locations[j] == :face
-                        continue
-                    end
-                    val_old = sm.ind_vars[(i-1)*sm.nvars+j]
-                    val_low = sm.ind_vars[(i-2)*sm.nvars+j]
-                    
-                    val_new_up = val_old
-                    val_new_low = val_low + (m_new_low - m_low)/(m_old - m_low)*(val_old - val_low)
-                    sm.ind_vars[(i+extra_cells-1)*sm.nvars+j] = val_new_up
-                    sm.ind_vars[(i+extra_cells-2)*sm.nvars+j] = val_new_low
-                end
-                #next do face valued quantities
-                for j in 1:sm.nvars
-                    if sm.var_locations[j] == :center
-                        continue
-                    end
-                    val_old = sm.ind_vars[(i-1)*sm.nvars+j]
-                    val_low = sm.ind_vars[(i-2)*sm.nvars+j]
-                    
-                    val_new_up = val_old
-                    val_new_low = 0.5*(val_low + val_old)
-                    sm.ind_vars[(i+extra_cells-1)*sm.nvars+j] = val_new_up
-                    sm.ind_vars[(i+extra_cells-2)*sm.nvars+j] = val_new_low
-                end
-                sm.m[i+extra_cells] = sm.m[i]
-                sm.m[i+extra_cells-1] = sm.m[i]-0.5*sm.dm[i]
-                sm.dm[i+extra_cells] = 0.5*sm.dm[i]
-                sm.dm[i+extra_cells-1] = 0.5*sm.dm[i]
+                dm_m1 = NaN
+                var_m1 = []
             end
+            if i < sm.nz
+                dm_p1 = sm.dm[i+1]
+                var_p1 = view(sm.ind_vars, ((i)*sm.nvars + 1):((i)*sm.nvars + sm.nvars))
+            else
+                dm_p1 = NaN
+                var_p1 = []
+            end
+            varnew_low = view(sm.ind_vars, 
+                              ((i+extra_cells-2)*sm.nvars+1):((i+extra_cells-2)*sm.nvars+sm.nvars))
+            varnew_up = view(sm.ind_vars, 
+                              ((i+extra_cells-1)*sm.nvars+1):((i+extra_cells-1)*sm.nvars+sm.nvars))
+
+            for remesh_split_function in sm.remesh_split_functions
+                remesh_split_function(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
+                                        varnew_low, varnew_up)
+            end
+
+            sm.m[i+extra_cells] = sm.m[i]
+            sm.m[i+extra_cells-1] = sm.m[i]-0.5*sm.dm[i]
+            sm.dm[i+extra_cells] = 0.5*sm.dm[i]
+            sm.dm[i+extra_cells-1] = 0.5*sm.dm[i]
 
             extra_cells = extra_cells - 1
         end
     end
     sm.nz = sm.nz + sum(do_split)
 
+    # we then do cell merging
+    # TODO      
+
     return sm
+end
+
+function split_lnr_lnρ(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
+    varnew_low, varnew_up)
+
+    lnρ_old = var_00[sm.vari[:lnρ]] # we keep the same density on both new cells
+    lnr_old = var_00[sm.vari[:lnr]]
+
+    # radius of the lower cell is computed with the continuity equation
+    # for i=1 we use the r=0 boundary condition as radius
+    if i == 1
+        r_face_below = 0
+    else
+        r_face_below = exp(var_m1[sm.vari[:lnr]])
+    end
+    r_low = (0.5*dm_00*3/(4π*exp(lnρ_old)) + r_face_below^3)^(1/3)
+
+    varnew_low[sm.vari[:lnρ]] = lnρ_old
+    varnew_low[sm.vari[:lnr]] = log(r_low)
+
+    varnew_up[sm.vari[:lnρ]] = lnρ_old
+    varnew_up[sm.vari[:lnr]] = lnr_old
+end
+
+function split_lum(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
+    varnew_low, varnew_up)
+
+    # for the center face, we use the surface boundary condition L=0
+    if i==1
+        L_face_below = 0
+    else
+        L_face_below = var_m1[sm.vari[:lum]]
+    end
+    L_above = var_00[sm.vari[:lum]]
+
+    varnew_low[sm.vari[:lum]] = 0.5*(L_face_below + L_above)
+    varnew_up[sm.vari[:lum]] = L_above
+end
+
+function split_lnT(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
+    varnew_low, varnew_up)
+
+    if i==1
+        lnT_low = var_00[sm.vari[:lnT]] # Central cell remains at the center
+        lnT_cell_above = var_p1[sm.vari[:lnT]]
+
+        mnew_up = 0.75*dm_00 # mass from the core
+        mcell_above = dm_00 + 0.5*dm_p1
+
+        lnT_up = lnT_low + (lnT_cell_above - lnT_low)*mnew_up/mcell_above
+    elseif i==sm.nz
+        lnT_up = var_00[sm.vari[:lnT]] # Surface remians at same temperature
+        lnT_cell_below = var_m1[sm.vari[:lnT]]
+
+        mnew_low = 0.5*dm_m1 + 0.25*dm_00 # mass of new lower cell from center of lower cell
+        mup = 0.5*dm_m1 + dm_00 # mass of the surface from center of lower cell
+
+        lnT_low = lnT_cell_below + (lnT_up - lnT_cell_below)*mnew_low/mup
+    else
+        lnT_cell_above = var_p1[sm.vari[:lnT]]
+        lnT_cell_below = var_m1[sm.vari[:lnT]]
+        lnT_old = var_00[sm.vari[:lnT]]
+
+        mnew_low = 0.5*dm_m1+0.25*dm_00 # mass at cell center of new lower cell, from center of cell below
+        mold = 0.5*dm_m1+0.5*dm_00 # old mass at cell center, from center of cell below
+        lnT_low = lnT_cell_below + (lnT_old - lnT_cell_below)*mnew_low/mold
+
+        mnew_up = 0.25*dm_00 # mass from center of cell before splitting 
+        mcell_above = 0.5*dm_00+0.5*dm_p1
+        lnT_up = lnT_old + (lnT_cell_above - lnT_old)*mnew_up/mcell_above
+    end
+    varnew_low[sm.vari[:lnT]] = lnT_low
+    varnew_up[sm.vari[:lnT]] = lnT_up
+end
+
+function split_xa(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
+    varnew_low, varnew_up)
+    #use same composition on both cells to preserve species
+    for i in 1:sm.network.nspecies
+        varnew_low[sm.nvars+1-i] = var_00[sm.nvars+1-i]
+        varnew_up[sm.nvars+1-i] = var_00[sm.nvars+1-i]
+    end
 end

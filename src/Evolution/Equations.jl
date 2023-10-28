@@ -37,23 +37,20 @@ function equationHSE(sm::StellarModel, k::Int,
         g₀ = CGRAV * sm.mstar / r₀^2
         return lnP₀ - log(2g₀ / (3κ00))  # Eddington gray, ignoring radiation pressure term
     end
-    #log pressure at cell center of cell k
-    if k != 1
-        lnP₀ = eos00.lnP
-    else
-        #pressure is then defined at the core, interpolate to cell center
-        lnP₀ = (0.5*(sm.dm[k] + sm.dm[k+1])*eos00.lnP
-                    + 0.5*sm.dm[k]*eosp1.lnP)/(0.5*sm.dm[k]+sm.dm[k+1])
+    if k==1
+        P₀ = eos00.P
+        P₊ = eosp1.P
+        ρ₀ = eos00.ρ
+        rmid₊ = 0.5*(exp(var00[k,sm.vari[:lnr]]) + exp(varp1[k,sm.vari[:lnr]]))
+        return 1-(P₊ + CGRAV*ρ₀^2*(2π/3)*rmid₊^2)/P₀
     end
 
+    #log pressure at cell center of cell k
+    lnP₀ = eos00.lnP
+
     #log pressure at cell center of cell k+1
-    if k != sm.nz - 1
-        lnP₊ = eosp1.lnP
-    else
-        #pressure is then defined at the surface, interpolate to cell center
-        lnP₊ = (0.5*sm.dm[k+1]*eos00.lnP
-                + 0.5*(sm.dm[k] + sm.dm[k+1])*eosp1.lnP)/(0.5*sm.dm[k]+sm.dm[k+1])
-    end
+    lnP₊ = eosp1.lnP
+
     lnPface = (sm.dm[k+1] * lnP₀ + sm.dm[k] * lnP₊) / (sm.dm[k] + sm.dm[k + 1])
     r₀ = exp(var00[k, sm.vari[:lnr]])
     dm = 0.5*(sm.dm[k + 1] + sm.dm[k])
