@@ -247,13 +247,6 @@ lines!(ax, log10.(history[!, "T_surf"]), log10.(history[!, "L_surf"]))
 f
 
 ##
-f = Figure();
-ax = Axis(f[1, 1]; xlabel=L"\log_{10}(T_\mathrm{eff}/[K])", ylabel=L"\log_{10}(L/L_\odot)")
-history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
-lines!(ax, history[!, "model_number"], log10.(history[!, "T_center"]))
-f
-
-##
 #=
 ### Perform some cleanup
 
