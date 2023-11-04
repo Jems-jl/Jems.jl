@@ -16,16 +16,16 @@ function set_step_info!(sm::StellarModel, si::StellarModels.StellarStepInfo)
 
         si.lnT[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
         si.L[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]]
-        si.lnP[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]]
+        si.lnρ[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]]
         si.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]]
 
         species_names = sm.var_names[(sm.nvars - sm.network.nspecies + 1):end]
 
         xa = view(sm.ind_vars, (i * sm.nvars - sm.network.nspecies + 1):(i * sm.nvars))
 
-        set_EOS_resultsTP!(sm.eos, sm.psi.eos_res[i], sm.psi.lnT[i], sm.psi.lnP[i], xa, species_names)
+        set_EOS_resultsTρ!(sm.eos, si.eos_res[i], si.lnT[i], si.lnρ[i], xa, species_names)
 
-        si.lnρ[i] = log(sm.psi.eos_res[i].ρ)
+        si.lnP[i] = log(si.eos_res[i].P)
         for k = 1:sm.nvars
             si.ind_vars[(i - 1) * sm.nvars + k] = sm.ind_vars[(i - 1) * sm.nvars + k]
         end
@@ -85,7 +85,9 @@ function get_dt_next(sm::StellarModel)
         dt_nextTc = dt_next * sm.opt.timestep.delta_Tc_limit / ΔTc_div_Tc
         dt_nextX = dt_next * sm.opt.timestep.delta_Xc_limit / ΔX
 
+        min_dt = dt_next * sm.opt.timestep.dt_max_decrease
         dt_next = min(sm.opt.timestep.dt_max_increase * dt_next, dt_nextR, dt_nextTc, dt_nextX)
+        dt_next = max(dt_next, min_dt)
         return dt_next
     end
 end
@@ -202,6 +204,11 @@ function do_evolution_loop(sm::StellarModel)
         elseif sm.opt.plotting.do_plotting && sm.model_number % 10 == 0
             update_plots!(sm)
         end
+
+        #@show sm.model_number, sm.esi.lnP[1], sm.esi.lnP[2], sm.esi.lnP[sm.nz-1], sm.esi.lnP[sm.nz]
+        #@show sm.model_number, sm.esi.lnT[1], sm.esi.lnT[2], sm.esi.lnT[sm.nz-1], sm.esi.lnT[sm.nz]
+        #@show sm.dm[1], sm.dm[2], sm.dm[3]
+        #@show sum(sm.dm[1:sm.nz])
 
         # check termination conditions
         if (sm.model_number > sm.opt.termination.max_model_number)

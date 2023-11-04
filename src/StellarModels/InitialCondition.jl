@@ -15,13 +15,13 @@ Computes the logarithm mass chunk `logdq` for zone `k` of a profile with total z
 better resolve the first and last `numregion` zones of the profile. It linearly interpolates the value from the inputs
 `logdq_low` and `logdq_high` in these regions, while keeping `logdq_high` in the middle zones.
 """
-function get_logdq(k::Int, nz::Int, logdq_low::TT, logdq_high::TT, numregion::Int)::TT where {TT<:Real}
+function get_logdq(k::Int, nz::Int, logdq_center::TT, logdq_mid::TT, logdq_surf::TT, numregion::Int)::TT where {TT<:Real}
     if k <= numregion
-        return logdq_low + (k - 1) * (logdq_high - logdq_low) / numregion
+        return logdq_center + (k - 1) * (logdq_mid - logdq_center) / numregion
     elseif k < nz - numregion
-        return logdq_high
+        return logdq_mid
     else
-        return logdq_high + (logdq_low - logdq_high) * (k - (nz - numregion)) / numregion
+        return logdq_mid + (logdq_surf - logdq_mid) * (k - (nz - numregion)) / numregion
     end
 end
 
@@ -32,9 +32,9 @@ Initializes a stellar model `sm` with values corresponding to an n=1 polytrope, 
 `sm.ind_vars`, etc. accordingly. Also sets the initial timestep to be taken, `initial_dt`.
 """
 function n1_polytrope_initial_condition!(sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
-    logdqs = zeros(sm.nz + sm.nextra)
+    logdqs = zeros(length(sm.dm))
     for i in 1:sm.nz
-        logdqs[i] = get_logdq(i, sm.nz, -3.0, 0.0, 100)
+        logdqs[i] = get_logdq(i, sm.nz, -10.0, 0.0, -6.0, 200)
     end
     dqs = 10 .^ logdqs
     dqs[sm.nz+1:end] .= 0 # extra entries beyond nz have no mass
@@ -93,7 +93,7 @@ function n1_polytrope_initial_condition!(sm::StellarModel, M::Real, R::Real; ini
             P = Pc
             ρ = ρc
         end
-        sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]] = log(P)
+        sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]] = log(ρ)
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = log(P * μ / (CGAS * ρ))
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:H1]] = 1.0
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:He4]] = 0
@@ -111,15 +111,20 @@ function n1_polytrope_initial_condition!(sm::StellarModel, M::Real, R::Real; ini
         ρface = ρc * (θ_n(ξ_face[i]))^(n)
         Tface = Pface * μ / (CGAS * ρface)
         dlnT = sm.ind_vars[(i) * sm.nvars + sm.vari[:lnT]] - sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
-        dlnP = sm.ind_vars[(i) * sm.nvars + sm.vari[:lnP]] - sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]]
+        if i != 1
+            dlnP = log(Pc * (θ_n(ξ_cell[i+1]))^(n + 1)) - log(Pc * (θ_n(ξ_cell[i]))^(n + 1))
+        else
+            dlnP = log(Pc * (θ_n(ξ_cell[i+1]))^(n + 1)) - log(Pc)
+        end
         κ = 0.2
+
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (dlnT / dlnP) *
                                                           (16π * CRAD * CLIGHT * CGRAV * m_face[i] * Tface^4) /
                                                           (3κ * Pface * LSUN)
     end
 
     # special cases, just copy values at edges
-    sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lnP]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lnP]]
+    sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lnρ]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lnρ]]
     sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lnT]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lnT]]
     sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lum]]
 
