@@ -1,33 +1,33 @@
 """
     set_end_step_info(sm::StellarModel)
 
-Sets the StellarStepInfo `si`` from current state of the StellarModel `sm`.
+Sets the end step info (sm.esi) from current state of the StellarModel `sm`.
 """
-function set_step_info!(sm::StellarModel, si::StellarModels.StellarStepInfo)
-    si.model_number = sm.model_number
-    si.time = sm.time
-    si.dt = sm.dt
+function set_end_step_info!(sm::StellarModel)
+    sm.esi.model_number = sm.model_number
+    sm.esi.time = sm.time
+    sm.esi.dt = sm.dt
 
-    si.nz = sm.nz
-    si.mstar = sm.mstar
+    sm.esi.nz = sm.nz
+    sm.esi.mstar = sm.mstar
     Threads.@threads for i = 1:(sm.nz)
-        si.m[i] = sm.m[i]
-        si.dm[i] = sm.dm[i]
+        sm.esi.m[i] = sm.m[i]
+        sm.esi.dm[i] = sm.dm[i]
 
-        si.lnT[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
-        si.L[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]]
-        si.lnP[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]]
-        si.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]]
+        sm.esi.lnT[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
+        sm.esi.L[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]]
+        sm.esi.lnP[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]]
+        sm.esi.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]]
 
-        species_names = sm.var_names[(sm.nvars - sm.network.nspecies + 1):end]
+        species_names = sm.var_names[(sm.nvars - sm.nspecies + 1):end]
 
-        xa = view(sm.ind_vars, (i * sm.nvars - sm.network.nspecies + 1):(i * sm.nvars))
+        xa = view(sm.ind_vars, (i * sm.nvars - sm.nspecies + 1):(i * sm.nvars))
 
         set_EOS_resultsTP!(sm.eos, sm.psi.eos_res[i], sm.psi.lnT[i], sm.psi.lnP[i], xa, species_names)
 
-        si.lnρ[i] = log(sm.psi.eos_res[i].ρ)
+        sm.esi.lnρ[i] = log(sm.psi.eos_res[i].ρ)
         for k = 1:sm.nvars
-            si.ind_vars[(i - 1) * sm.nvars + k] = sm.ind_vars[(i - 1) * sm.nvars + k]
+            sm.esi.ind_vars[(i - 1) * sm.nvars + k] = sm.ind_vars[(i - 1) * sm.nvars + k]
         end
     end
 end
@@ -46,16 +46,31 @@ function cycle_step_info!(sm::StellarModel)
 end
 
 """
-    uncycle_step_info!(sm::StellarModel)
+    set_start_step_info!(sm::StellarModel)
 
-Moves the model info of the StellarModel `sm` back one state:
-start step info <- end step info <- previous step info <- start step info.
+Sets the start step info of the StellarModel `sm` by copying from the previous step info.
 """
-function uncycle_step_info!(sm::StellarModel)
-    temp_step_info = sm.esi
-    sm.esi = sm.psi
-    sm.psi = sm.ssi
-    sm.ssi = temp_step_info
+function set_start_step_info!(sm::StellarModel)
+    # for now, we dont do anything special before the step (ie remeshing) so we just copy things from sm.psi
+    sm.ssi.model_number = sm.psi.model_number
+    sm.ssi.time = sm.psi.time
+    sm.ssi.dt = sm.psi.dt
+
+    sm.ssi.nz = sm.psi.nz
+    sm.ssi.mstar = sm.mstar
+    Threads.@threads for i = 1:(sm.nz)
+        sm.ssi.m[i] = sm.psi.m[i]
+        sm.ssi.dm[i] = sm.psi.dm[i]
+
+        sm.ssi.lnT[i] = sm.psi.lnT[i]
+        sm.ssi.L[i] = sm.psi.L[i]
+        sm.ssi.lnP[i] = sm.psi.lnP[i]
+        sm.ssi.lnr[i] = sm.psi.lnr[i]
+        sm.ssi.lnρ[i] = sm.psi.lnρ[i]
+        for k in 1:sm.nvars
+            sm.ssi.ind_vars[(i - 1) * sm.nvars + k] = sm.psi.ind_vars[(i - 1) * sm.nvars + k]
+        end
+    end
 end
 
 """
@@ -97,22 +112,17 @@ Performs the main evolutionary loop of the input StellarModel `sm`. It continues
 termination criteria is reached (defined in `sm.opt.termination`).
 """
 function do_evolution_loop(sm::StellarModel)
-    set_step_info!(sm, sm.esi)
+    set_end_step_info!(sm)
     # evolution loop, be sure to have sensible termination conditions or this will go on forever!
-    dt_factor = 1.0 # this is changed during retries to lower the timestep
-    retry_count = 0
     while true
         # get dt for this step
-        dt_next = get_dt_next(sm)*dt_factor
+        dt_next = get_dt_next(sm)
 
         cycle_step_info!(sm)  # move esi of previous step to psi of this step
 
-        # remeshing
-        if sm.opt.remesh.do_remesh
-            sm = StellarModels.remesher!(sm)
-        end
+        # remeshing will happen here
 
-        set_step_info!(sm, sm.ssi)  # set info before we attempt any newton solver
+        set_start_step_info!(sm)  # set info before we attempt any newton solver
 
         sm.ssi.dt = dt_next
         sm.dt = dt_next
@@ -123,12 +133,13 @@ function do_evolution_loop(sm::StellarModel)
         end
 
         exit_evolution = false
-        retry_step = false
         # step loop
         for i = 1:max_steps
             eval_jacobian_eqs!(sm)
-            thomas_algorithm!(sm)
-            corr = @view sm.solver_corr[1:sm.nvars*sm.nz]
+
+            sm.linear_solver.A = sm.jacobian  # A dx + b = 0; solve for dx
+            sm.linear_solver.b = -sm.eqs_numbers
+            corr = solve(sm.linear_solver)
 
             real_max_corr = maximum(corr)
 
@@ -150,9 +161,7 @@ function do_evolution_loop(sm::StellarModel)
                 @show i, maximum(corr), real_max_corr, maximum(sm.eqs_numbers)
             end
             # first try applying correction and see if it would give negative luminosity
-            for i=1:sm.nz*sm.nvars
-                sm.ind_vars[i] = sm.ind_vars[i] + corr[i]
-            end
+            sm.ind_vars += corr
             if real_max_corr < 1e-10
                 if sm.model_number == 0
                     println("Found first model")
@@ -163,23 +172,9 @@ function do_evolution_loop(sm::StellarModel)
                 break
             end
             if i == max_steps
-                if retry_count > 10
-                    exit_evolution = true
-                    println("Too many retries, ending simulation")
-                else
-                    retry_count = retry_count + 1
-                    retry_step = true
-                    println("Failed to converge step $(sm.model_number) with timestep $(dt_next/SECYEAR), retrying")
-                end
+                exit_evolution = true
+                println("Failed to converge, stopping")
             end
-        end
-
-        if retry_step
-            dt_factor = dt_factor*0.5
-            uncycle_step_info!(sm)
-            continue
-        else
-            dt_factor = 1.0
         end
 
         if (exit_evolution)
@@ -187,15 +182,19 @@ function do_evolution_loop(sm::StellarModel)
             break
         end
 
-        retry_count = 0
-
         # increment age and model number since we accept the step.
         sm.time = sm.time + sm.ssi.dt
         sm.model_number = sm.model_number + 1
 
         # write state in sm.esi and potential history/profiles.
-        set_step_info!(sm, sm.esi)
-        StellarModels.write_data(sm)
+        set_end_step_info!(sm)
+        write_data(sm)
+
+        if sm.opt.plotting.do_plotting && sm.model_number == 1
+            init_plots!(sm)
+        elseif sm.opt.plotting.do_plotting && sm.model_number % 10 == 0
+            update_plots!(sm)
+        end
 
         # check termination conditions
         if (sm.model_number > sm.opt.termination.max_model_number)
@@ -207,5 +206,8 @@ function do_evolution_loop(sm::StellarModel)
             break
         end
     end
-    return sm
+    if sm.opt.plotting.do_plotting
+        GLMakie.wait(sm.plt.scr)
+    end
+
 end

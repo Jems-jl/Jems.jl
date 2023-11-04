@@ -2,7 +2,6 @@
     equationHSE(sm::StellarModel, k::Int,
                 varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
                 eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                rates::Matrix{TT},
                 κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
 
 Default equation of hydrostatic equilibrium. Evaluates for cell `k` of StellarModel `sm` to what degree hydrostatic
@@ -29,7 +28,6 @@ Residual of comparing dlnP/dm with -GM/4πr^4, where the latter is evaluated at 
 function equationHSE(sm::StellarModel, k::Int,
                      varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
                      eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                     rates::Matrix{TT},
                      κm1::TT, κ00::TT, κp1::TT) where {TT<:Real}
     if k == sm.nz  # atmosphere boundary condition
         lnP₀ = var00[k, sm.vari[:lnP]]
@@ -51,14 +49,13 @@ end
     equationT(sm::StellarModel, k::Int,
               varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
               eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-              rates::Matrix{TT},
               κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
 
 Default equation of energy transport, evaluated for cell `k` of StellarModel `sm`.
 
 # Arguments
 
-Identical to [`equationHSE`](@ref) for compatibility with StellarModels.TypeStableEquation
+Identical to [`equationHSE`](@ref) for compatibility with [`TypeStableEquation`](@ref)
 
 # Returns
 
@@ -67,7 +64,6 @@ Residual of comparing dlnT/dm with -∇*GMT/4πr^4P, where the latter is evaluat
 function equationT(sm::StellarModel, k::Int,
                    varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
                    eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                   rates::Matrix{TT},
                    κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
     if k == sm.nz  # atmosphere boundary condition
         lnT₀ = var00[k, sm.vari[:lnT]]
@@ -102,14 +98,13 @@ end
     equationLuminosity(sm::StellarModel, k::Int,
                        varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
                        eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                       rates::Matrix{TT},
                        κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
 
 Default equation of energy generation, evaluated for cell `k` of StellarModel `sm`.
 
 # Arguments
 
-Identical to [`equationHSE`](@ref) for compatibility with StellarModels.TypeStableEquation
+Identical to [`equationHSE`](@ref) for compatibility with [`TypeStableEquation`](@ref)
 
 # Returns
 
@@ -118,7 +113,6 @@ Residual of comparing dL/dm with ϵnuc - cₚ * dT/dt - (δ / ρ) * dP/dt
 function equationLuminosity(sm::StellarModel, k::Int,
                             varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
                             eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                            rates::Matrix{TT},
                             κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
     if k > 1
         L₋ = varm1[k, sm.vari[:lum]] * LSUN  # change it if not at first cell
@@ -132,24 +126,21 @@ function equationLuminosity(sm::StellarModel, k::Int,
     dTdt = (exp(var00[k, sm.vari[:lnT]]) - exp(sm.ssi.lnT[k])) / sm.ssi.dt
     dPdt = (exp(var00[k, sm.vari[:lnP]]) - exp(sm.ssi.lnP[k])) / sm.ssi.dt
 
-    ϵnuc::TT = 0
-    for i in eachindex(sm.network.reactions)
-        ϵnuc = ϵnuc + rates[k,i]*sm.network.reactions[i].Qvalue
-    end
+    ϵnuc = 0.1 * var00[k, sm.vari[:H1]]^2 * ρ₀ * (exp(var00[k, sm.vari[:lnT]]) / 1e6)^4 +
+           0.1 * var00[k, sm.vari[:H1]] * ρ₀ * (exp(var00[k, sm.vari[:lnT]]) / 1e7)^18
     return ((L₀ - L₋) / sm.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)  # no neutrinos
 end
 """
     equationContinuity(sm::StellarModel, k::Int,
                        varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
                        eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                       rates::Matrix{TT},
                        κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
 
 Default equation of mass continuity, evaluated for cell `k` of StellarModel `sm`.
 
 # Arguments
 
-Identical to [`equationHSE`](@ref) for compatibility with StellarModels.TypeStableEquation
+Identical to [`equationHSE`](@ref) for compatibility with [`TypeStableEquation`](@ref)
 
 # Returns
 
@@ -158,7 +149,6 @@ Residual of comparing dr^3/dm with 3/(4πρ)
 function equationContinuity(sm::StellarModel, k::Int,
                             varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
                             eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                            rates::Matrix{TT},
                             κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
     ρ₀ = eos00.ρ
     r₀ = exp(var00[k, sm.vari[:lnr]])
@@ -166,12 +156,6 @@ function equationContinuity(sm::StellarModel, k::Int,
         r₋ = exp(varm1[k, sm.vari[:lnr]])
     else
         r₋::TT = 0  # central radius is zero at first cell
-    end
-    
-    if k > 1  # get mass chunk
-        dm = sm.m[k] - sm.m[k - 1]
-    else
-        dm = sm.m[k]
     end
 
     # expected_r₀ = r₋ + dm/(4π*r₋^2*ρ)
@@ -182,38 +166,55 @@ function equationContinuity(sm::StellarModel, k::Int,
 end
 
 """
-    equation_composition(sm::StellarModel, k::Int, iso_name::Symbol,
-                         varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
-                         eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                         rates::Matrix{TT},
-                         κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
+    equationH1(sm::StellarModel, k::Int,
+               varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
+               eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
+               κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
 
-Default equation for composition evolution for isotope `iso_name`, evaluated for cell `k` of StellarModel `sm`.
+Default equation of Hydrogen 1 evoluation, evaluated for cell `k` of StellarModel `sm`.
 
 # Arguments
 
-TBD
+Identical to [`equationHSE`](@ref) for compatibility with [`TypeStableEquation`](@ref)
 
 # Returns
 
-Residual of comparing dX_i/dt with its computed reaction rate
+Residual of comparing dX_H1/dt with its computed reaction rate
 """
-function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol,
+function equationH1(sm::StellarModel, k::Int,
                     varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
                     eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                    rates::Matrix{TT},
                     κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
-    dXdt_nuc::TT = 0
-    reactions_in = sm.network.species_reactions_in[sm.network.xa_index[iso_name]]
-    for reaction_in in reactions_in
-        dXdt_nuc = dXdt_nuc - rates[k,reaction_in[1]]*reaction_in[2]*Chem.isotope_list[iso_name].A*AMU
-    end
-    reactions_out = sm.network.species_reactions_out[sm.network.xa_index[iso_name]]
-    for reaction_out in reactions_out
-        dXdt_nuc = dXdt_nuc + rates[k,reaction_out[1]]*reaction_out[2]*Chem.isotope_list[iso_name].A*AMU
-    end
+    ρ₀ = eos00.ρ
+    ϵnuc = 0.1 * var00[k, sm.vari[:H1]]^2 * ρ₀ * (exp(var00[k, sm.vari[:lnT]]) / 1e6)^4 +
+           0.1 * var00[k, sm.vari[:H1]] * ρ₀ * (exp(var00[k, sm.vari[:lnT]]) / 1e7)^18
+    rate_per_unit_mass = 4 * ϵnuc / ((4 * Chem.isotope_list[:H1].mass - Chem.isotope_list[:He4].mass) * AMU * CLIGHT^2)
 
-    Xi = sm.ssi.ind_vars[(k - 1) * sm.nvars + sm.vari[iso_name]]
+    Xi = sm.ssi.ind_vars[(k - 1) * sm.nvars + sm.vari[:H1]]
 
-    return (var00[k, sm.vari[iso_name]] - Xi) / sm.ssi.dt - dXdt_nuc
+    return (var00[k, sm.vari[:H1]] - Xi) / sm.ssi.dt +
+           Chem.isotope_list[:H1].mass * AMU * rate_per_unit_mass
+end
+
+"""
+    equationHe4(sm::StellarModel, k::Int,
+               varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
+               eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
+               κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
+
+Default equation of Helium 4 evoluation, evaluated for cell `k` of StellarModel `sm`.
+
+# Arguments
+
+Identical to [`equationHSE`](@ref) for compatibility with [`TypeStableEquation`](@ref)
+
+# Returns
+
+Residual of comparing He4 content with 1 minus the H1 content.
+"""
+function equationHe4(sm::StellarModel, k::Int,
+                     varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
+                     eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
+                     κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
+    return var00[k, sm.vari[:He4]] + var00[k, sm.vari[:H1]] - 1.0
 end
