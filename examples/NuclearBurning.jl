@@ -1,7 +1,7 @@
 #=
 # NuclearBurning.jl
 
-This notebook provides a simple example of a star with simplified mycrophysics undergoing nuclear burning.
+This notebook provides a simple example of a star with simplified microphysics undergoing nuclear burning.
 Import all necessary Jems modules. We will also do some benchmarks, so we import BenchmarkTools as well.
 =#
 using BenchmarkTools
@@ -9,7 +9,10 @@ using Jems.Chem
 using Jems.Constants
 using Jems.EOS
 using Jems.Opacity
+using Jems.NuclearNetworks
+using Jems.StellarModels
 using Jems.Evolution
+using Jems.ReactionRates
 
 ##
 #=
@@ -23,15 +26,16 @@ The Evolution module has pre-defined equations corresponding to these variables,
 simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple simple electron scattering opacity equal
 to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
-nvars = 6
-nspecies = 2
-varnames = [:lnP, :lnT, :lnr, :lum, :H1, :He4]
-structure_equations = [Evolution.equationHSE, Evolution.equationT, Evolution.equationContinuity,
-                       Evolution.equationLuminosity, Evolution.equationH1, Evolution.equationHe4]
+
+varnames = [:lnP, :lnT, :lnr, :lum]
+structure_equations = [Evolution.equationHSE, Evolution.equationT,
+                       Evolution.equationContinuity, Evolution.equationLuminosity]
+net = NuclearNetwork([:H1,:He4], [(:toy_rates, :toy_pp), (:toy_rates, :toy_cno)])
 nz = 1000
+nextra = 200
 eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
-sm = StellarModel(varnames, structure_equations, nvars, nspecies, nz, eos, opacity);
+sm = StellarModel(varnames, structure_equations, nz, nextra, net, eos, opacity);
 
 ##
 #=
@@ -48,59 +52,50 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 (_previous step info_) to populate the information needed before the Newton solver in `sm.ssi` (_start step info_).
 At last we are in position to evaluate the equations and compute the Jacobian.
 =#
-Evolution.n1_polytrope_initial_condition(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-Evolution.set_end_step_info!(sm)
-Evolution.cycle_step_info!(sm)
-Evolution.set_start_step_info!(sm)
+#StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+
+Evolution.set_step_info!(sm, sm.esi)
+Evolution.cycle_step_info!(sm);
+Evolution.set_step_info!(sm, sm.ssi)
 Evolution.eval_jacobian_eqs!(sm)
 
 ##
 #=
 ### Benchmarking
 
-The previous code leaves everything ready to solve the linearized system. We use the package LinearSolve for this, which
-provides various algorithms for linear systems defined by sparse arrays. In the future we might want to try additional
-solvers provided (for instance, solvers that make use of the Krylov space such as GMRES). Alternate solvers might work
-much better for systems with excessively large nuclear networks.
-
-We can compute a simple benchmark of the time it takes to solve the linear system once. Each timestep will require
-multiple iterations of the Newton solver, so this would be a lower bound on the time that will take.
+The previous code leaves everything ready to solve the linearized system. 
+For now we make use of a the serial Thomas algorithm for tridiagonal block matrices.
+We first show how long it takes to evaluate one row (meaning, one set of lower, diagonal
+and upper block) of the Jacobian matrix.
 =#
-using LinearSolve
-@benchmark begin
-    $sm.linear_solver.A = $sm.jacobian
-    $sm.linear_solver.b = $sm.eqs_numbers
-    corr = solve($sm.linear_solver)
-end
-#=
-On my system, this takes on the order of 800 μs. Next up we can check how long it takes to compute a single row of the
-jacobian. With a row here I mean all the entries that correspond to one cell. The code below benchmarks the time it
-takes to compute the jacobian elements associated with row 2
-=#
-
-##
-
-# Benchmark one jacobian row
 @benchmark Evolution.eval_jacobian_eqs_row!(sm, 2)
 
+##
 #=
-Again on my machine, this takes $\sim 16\;\mathrm{\mu s}$. This is a short amount of time, but we have a thousand cells
+On my machine, this takes $\sim 3\;\mathrm{\mu s}$. This is a short amount of time, but we have a thousand cells
 to compute. Let's benchmark the calculation of the full jacobian.
 =#
-
-##
-
-# Benchmark entire jacobian
 @benchmark Evolution.eval_jacobian_eqs!(sm)
 
+##
 #=
-And on my computer, this took about $5.2\;\mathrm{ms}$. Even though we have a thousand cells, the computation time was
+And on my computer, this took about $1\;\mathrm{ms}$. Even though we have a thousand cells, the computation time was
 not a thousand times longer than computing the components of the jacobian for a single cell. The reason for this is that
 the calculation is parallelized so cells are done independently. However, I used 8 cores for my calculations, so the
 scaling is less than ideal. One of the main culprits here is the garbage collector. Current versions of julia can only
 perform garbage collection in a serial way, so it does not take advantage of all threads. Starting with julia 1.10, the
 garbage collector will be able to run in multiple threads, so that should alleviate issues with performance scaling.
+
+To get an idea of how much a complete iteration of the solver takes, we need to benchmark
+both the calculation of the Jacobian and the matrix solver. This is because the matrix solver
+is destructive, as it uses the allocated Jacobian to store intermediate results. The time it takes
+to run only the matrix solver can be determined by substracting the previous benchmark from this one.
 =#
+
+@benchmark begin
+    Evolution.eval_jacobian_eqs!($sm)
+    Evolution.thomas_algorithm!($sm)
+end
 
 ##
 #=
@@ -126,7 +121,7 @@ open("example_options.toml", "w") do file
           dt_max_increase = 2.0
 
           [termination]
-          max_model_number = 3000
+          max_model_number = 2000
           max_center_T = 4e7
 
           [io]
@@ -136,12 +131,11 @@ open("example_options.toml", "w") do file
           do_plotting = false
           """)
 end
-Evolution.set_options!(sm.opt, "./example_options.toml")
+StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
-Evolution.n1_polytrope_initial_condition(sm, MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
-
-@time Evolution.do_evolution_loop(sm)
+StellarModels.n1_polytrope_initial_condition!(sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
+@time sm = Evolution.do_evolution_loop(sm);
 
 ##
 #=
@@ -174,14 +168,14 @@ profiles contained within the hdf5 file, while `get_profile_dataframe_from_hdf5`
 corresponding to one stellar profile. The animation is constructed using the `Observable` type that makie provides. Note
 that the zero points of the polytropes are arbitrary.
 =#
-profile_names = Evolution.get_profile_names_from_hdf5("profiles.hdf5")
+profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
 
-f = Figure()
+f = Figure();
 ax = Axis(f[1, 1]; xlabel=L"\log_{10}(\rho/\mathrm{[g\;cm^{-3}]})", ylabel=L"\log_{10}(P/\mathrm{[dyn]})")
 
 pname = Observable(profile_names[1])
 
-profile = @lift(Evolution.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
+profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
 log10_ρ = @lift($profile[!, "log10_ρ"])
 log10_P = @lift($profile[!, "log10_P"])
 
@@ -207,17 +201,17 @@ end
 
 We see that the structure evolves towards an n=3 polytrope. Deviations near the core are due to the non-homogeneous
 composition as hydrogen is burnt. We can similarly visualize how the hydrogen mass fraction changes in the simulation.
-In here only one frame shows the hydrogen that was burnt, to better visualize that you can adjust `profile_interval` in
-the [Io](Evolution.md##Io.jl) options (and probably adjust the framerate).
+In here, only one frame shows the hydrogen that was burnt. To better visualize that you can adjust `profile_interval` in
+the [IO](Evolution.md##Io.jl) options (and probably adjust the framerate).
 =#
-profile_names = Evolution.get_profile_names_from_hdf5("profiles.hdf5")
+profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
 
-f = Figure()
+f = Figure();
 ax = Axis(f[1, 1]; xlabel=L"\mathrm{Mass}\;[M_\odot]", ylabel=L"X")
 
 pname = Observable(profile_names[1])
 
-profile = @lift(Evolution.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
+profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
 mass = @lift($profile[!, "mass"])
 X = @lift($profile[!, "X"])
 model_number_str = @lift("model number=$(parse(Int,$pname))")
@@ -238,9 +232,9 @@ end
 Finally, we can also access the history data of the simulation. We use this to plot a simple HR diagram. As our
 microphysics are very simplistic, and the initial condition is not very physical, this looks a bit funny!
 =#
-f = Figure()
+f = Figure();
 ax = Axis(f[1, 1]; xlabel=L"\log_{10}(T_\mathrm{eff}/[K])", ylabel=L"\log_{10}(L/L_\odot)", xreversed=true)
-history = Evolution.get_history_dataframe_from_hdf5("history.hdf5")
+history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
 lines!(ax, log10.(history[!, "T_surf"]), log10.(history[!, "L_surf"]))
 f
 

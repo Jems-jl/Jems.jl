@@ -1,6 +1,19 @@
 using TOML
 
 """
+    mutable struct RemeshOptions
+
+Substructure of Options containing controls relating to remeshing
+"""
+@kwdef mutable struct RemeshOptions
+    delta_log10P_split::Float64 = 0.05 # split two cells if difference in log10P is greater than this
+    max_cell_mass_ratio::Float64 = 5.0 # split cell if neighboring cell masses are smaller than this
+    max_dq_center::Float64 = 1e-5 # maximum dm/M for center cell
+    max_dq_surface::Float64 = 1e-5 # maximum dm/M for surface cell
+    do_remesh::Bool = false
+end
+
+"""
     mutable struct SolverOptions
 
 Substructure of Options containing controls relating to the Newton solver
@@ -74,14 +87,15 @@ end
 Structure containing tweakable controls of Jems.
 """
 mutable struct Options
+    remesh::RemeshOptions
     solver::SolverOptions
     timestep::TimestepOptions
     termination::TerminationOptions
     io::IOOptions
-    plotting::PlottingOptions
 
     function Options()
-        new(SolverOptions(), TimestepOptions(), TerminationOptions(), IOOptions(), PlottingOptions())
+        new(RemeshOptions(), SolverOptions(), TimestepOptions(),
+            TerminationOptions(), IOOptions())
     end
 end
 
