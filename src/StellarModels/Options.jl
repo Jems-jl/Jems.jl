@@ -97,11 +97,12 @@ mutable struct Options
     solver::SolverOptions
     timestep::TimestepOptions
     termination::TerminationOptions
+    plotting::PlottingOptions
     io::IOOptions
 
     function Options()
         new(RemeshOptions(), SolverOptions(), TimestepOptions(),
-            TerminationOptions(), IOOptions())
+            TerminationOptions(), PlottingOptions(), IOOptions())
     end
 end
 
@@ -118,7 +119,7 @@ function set_options!(opt::Options, toml_path::String)
     # Do this before anything is changed, in that way if the load will fail the
     # input is unmodified
     for key in keys(options_file)
-        if !(key in ["remesh", "solver", "timestep", "termination", "io"])
+        if !(key in ["remesh", "solver", "timestep", "termination", "plotting", "io"])
             throw(ArgumentError("Error while reading $toml_path. 
                     One of the sections on the TOML file provided ([$key]) is not valid."))
         end

@@ -1,4 +1,6 @@
-using GLMakie, LaTeXStrings, MathTeXEngine
+module Plotting
+
+using GLMakie, LaTeXStrings, MathTeXEngine, Jems.StellarModels
 
 basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                            italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
@@ -65,4 +67,6 @@ function notify_observables(os::Dict{Symbol,Observable})
     for o in values(os)
         notify(o)
     end
+end
+
 end
