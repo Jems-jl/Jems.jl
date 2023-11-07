@@ -84,7 +84,11 @@ Substructure of Options containing controls relating to input/output of data
 end
 
 @kwdef mutable struct PlottingOptions
-    do_plotting::Bool = true
+    do_plotting::Bool = false
+    do_HR::Bool = false
+    do_profile::Bool = false
+    profile_xaxis::String = "empty"
+    profile_yaxis::String = "empty"
 end
 
 """

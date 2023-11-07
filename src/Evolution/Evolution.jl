@@ -1,7 +1,5 @@
 module Evolution
 
-export StellarModel
-
 using Jems.Constants, Jems.Chem, Jems.EOS, Jems.Opacity, 
       Jems.NuclearNetworks, Jems.StellarModels, Jems.Plotting
 

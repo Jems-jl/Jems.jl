@@ -200,9 +200,9 @@ function do_evolution_loop(sm::StellarModel)
         StellarModels.write_data(sm)
 
         if sm.opt.plotting.do_plotting && sm.model_number == 1
-            init_plots!(sm)
+            Plotting.init_plots!(sm)
         elseif sm.opt.plotting.do_plotting && sm.model_number % 10 == 0
-            update_plots!(sm)
+            Plotting.update_plots!(sm)
         end
 
         #@show sm.model_number, sm.esi.lnP[1], sm.esi.lnP[2], sm.esi.lnP[sm.nz-1], sm.esi.lnP[sm.nz]
@@ -221,7 +221,7 @@ function do_evolution_loop(sm::StellarModel)
         end
     end
     if sm.opt.plotting.do_plotting
-        GLMakie.wait(sm.plt.scr)
+        Plotting.end_of_evolution(sm)
     end
 
     return sm
