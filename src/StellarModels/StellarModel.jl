@@ -235,7 +235,7 @@ function StellarModel(var_names::Vector{Symbol},
     # create options object
     opt = Options()
 
-    plt = Plotter(nothing)
+    plt = Plotter()
 
 
     # create the stellar model

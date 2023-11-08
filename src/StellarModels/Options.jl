@@ -85,10 +85,10 @@ end
 
 @kwdef mutable struct PlottingOptions
     do_plotting::Bool = false
-    do_HR::Bool = false
-    do_profile::Bool = false
     profile_xaxis::String = "empty"
     profile_yaxis::String = "empty"
+
+    window_flags::Vector{String} = [""]
 end
 
 """
@@ -156,5 +156,3 @@ function set_options!(opt::Options, toml_path::String)
         end
     end
 end
-
-opt = Options()

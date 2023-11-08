@@ -26,9 +26,22 @@ function init_plots!(sm::StellarModel)
 
     init_figure!(sm)
     sm.plt.obs = Dict()
-    create_HR_observables!(sm)
-    init_HR_plot!(sm.plt.axs[1], sm.plt.obs[:Teff], sm.plt.obs[:L], sm.plt.obs[:Teff_now],
-                 sm.plt.obs[:L_now]; scatter_kwargs=Dict(:color => "red"))
+    sm.plt.axno = Dict()
+
+    n = 1
+    if "HR" in sm.opt.plotting.window_flags
+        create_HR_observables!(sm)
+        init_HR_plot!(sm.plt.axs[n], sm.plt.obs[:Teff], sm.plt.obs[:L], sm.plt.obs[:Teff_now],
+                    sm.plt.obs[:L_now]; scatter_kwargs=Dict(:color => "red"))
+        sm.plt.axno[:HR] = n
+        n += 1
+    end
+    if "profile" in sm.opt.plotting.window_flags
+        create_profile_observables!(sm)
+        init_profile_plot!(sm.plt.axs[n], sm.plt.obs[:profile_x], sm.plt.obs[:profile_y], "xlabel", "ylabel")
+        sm.plt.axno[:profile] = n
+        n += 1
+    end
     sm.plt.scr = display(sm.plt.fig)
 end
 
@@ -39,24 +52,15 @@ Initializes the plotting figure and adds axes
 """
 function init_figure!(sm::StellarModel)
     sm.plt.fig = Figure()
-    sm.plt.axs = Vector{Makie.Block}(undef, 1)
-    sm.plt.axs[1] = Axis(sm.plt.fig[1, 1])
+    no_of_plots = determine_no_plots(sm)
+    sm.plt.axs = Vector{Makie.Block}(undef, no_of_plots)
+    for i=1:no_of_plots
+        sm.plt.axs[i] = Axis(sm.plt.fig[i, 1])
+    end
 end
 
-"""
-
-    init_HR_plot!(ax::Axis, Teff::Observable, L::Observable, Teff_now::Observable, L_now::Observable;
-                      line_kwargs=Dict(), scatter_kwargs=Dict())
-
-Sets up the plot elements for an HRD
-"""
-function init_HR_plot!(ax::Axis, Teff::Observable, L::Observable, Teff_now::Observable, L_now::Observable;
-                      line_kwargs=Dict(), scatter_kwargs=Dict())
-    ax.xlabel = L"\log_{10}(T_\mathrm{eff}/[K])"
-    ax.ylabel = L"\log_{10}(L/L_\odot)"
-    ax.xreversed = true
-    lines!(ax, Teff, L; line_kwargs...)
-    scatter!(ax, Teff_now, L_now; scatter_kwargs...)
+function determine_no_plots(sm::StellarModel)
+    return length(sm.opt.plotting.window_flags)
 end
 
 """
@@ -75,27 +79,54 @@ function create_HR_observables!(sm::StellarModel)
 end
 
 """
+
+    init_HR_plot!(ax::Axis, Teff::Observable, L::Observable, Teff_now::Observable, L_now::Observable;
+                      line_kwargs=Dict(), scatter_kwargs=Dict())
+
+Sets up the plot elements for an HRD
+"""
+function init_HR_plot!(ax::Axis, Teff::Observable, L::Observable, Teff_now::Observable, L_now::Observable;
+                      line_kwargs=Dict(), scatter_kwargs=Dict())
+    ax.xlabel = L"\log_{10}(T_\mathrm{eff}/[K])"
+    ax.ylabel = L"\log_{10}(L/L_\odot)"
+    ax.xreversed = true
+    lines!(ax, Teff, L; line_kwargs...)
+    scatter!(ax, Teff_now, L_now; scatter_kwargs...)
+end
+
+
+function create_profile_observables!(sm::StellarModel)
+    xname = sm.opt.plotting.profile_xaxis
+    yname = sm.opt.plotting.profile_yaxis
+    xvals = StellarModels.profile_output_options[xname][2].((sm,), 1:sm.nz)
+    yvals = StellarModels.profile_output_options[yname][2].((sm,), 1:sm.nz)
+    sm.plt.obs[:profile_x] = Observable{Vector{Float64}}(xvals)
+    sm.plt.obs[:profile_y] = Observable{Vector{Float64}}(yvals)
+end
+
+function init_profile_plot!(ax::Axis, xvals::Observable, yvals::Observable, xlabel::String="", ylabel::String="", line_kwargs=Dict())
+    ax.xlabel = xlabel
+    ax.ylabel = ylabel
+    lines!(ax, xvals, yvals, line_kwargs...)
+end
+
+"""
     update_plots!(sm::StellarModel)
 
 Updates all plots currently being displayed, by collecting appropriate data and notifying observables
 """
 function update_plots!(sm::StellarModel)
-    push!(sm.plt.obs[:Teff][], exp(sm.esi.lnT[sm.nz]))
-    sm.plt.obs[:Teff_now][] = exp(sm.esi.lnT[sm.nz])
-    push!(sm.plt.obs[:L][], sm.esi.L[sm.nz])
-    sm.plt.obs[:L_now][] = sm.esi.L[sm.nz]
-    reset_limits!(sm.plt.axs[1])
-    notify_observables(sm.plt.obs)
-end
-
-"""
-    notify_observables(os::Dict{Symbol,Observable})
-
-Notifies all observables in the given dict so they are updated in the plots
-"""
-function notify_observables(os::Dict{Symbol,Observable})
-    for o in values(os)
-        notify(o)
+    if "HR" in sm.opt.plotting.window_flags
+        push!(sm.plt.obs[:Teff][], exp(sm.esi.lnT[sm.nz]))
+        sm.plt.obs[:Teff_now][] = exp(sm.esi.lnT[sm.nz])
+        push!(sm.plt.obs[:L][], sm.esi.L[sm.nz])
+        sm.plt.obs[:L_now][] = sm.esi.L[sm.nz]
+        notify(sm.plt.obs[:Teff])  # needed because we change these vars in place
+        autolimits!(sm.plt.axs[sm.plt.axno[:HR]])
+    end
+    if "profile" in sm.opt.plotting.window_flags
+        sm.plt.obs[:profile_x].val = StellarModels.profile_output_options[sm.opt.plotting.profile_xaxis][2].((sm,), 1:sm.nz)
+        sm.plt.obs[:profile_y][] = StellarModels.profile_output_options[sm.opt.plotting.profile_yaxis][2].((sm,), 1:sm.nz)
     end
 end
 
