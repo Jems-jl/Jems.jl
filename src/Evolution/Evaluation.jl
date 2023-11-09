@@ -6,39 +6,39 @@ variables, `ind_vars_view`.
 """
 function eval_cell_eqs!(sm::StellarModel, k::Int)
     sm.var00[k, :] .= get_tmp(view(sm.diff_caches, k, :)[2], sm.eqs_duals[k, 1])
-    κ00 = get_opacity_resultsTP(sm.opacity, sm.var00[k, sm.vari[:lnT]], sm.var00[k, sm.vari[:lnP]],
-                                view(sm.var00, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+    κ00 = get_opacity_resultsTρ(sm.opacity, sm.var00[k, sm.vari[:lnT]], sm.var00[k, sm.vari[:lnρ]],
+                                view(sm.var00, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
 
-    set_EOS_resultsTP!(sm.eos, sm.eos_res[k, 2], sm.var00[k, sm.vari[:lnT]],
-                       sm.var00[k, sm.vari[:lnP]],
-                       view(sm.var00, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+    set_EOS_resultsTρ!(sm.eos, sm.eos_res[k, 2], sm.var00[k, sm.vari[:lnT]],
+                       sm.var00[k, sm.vari[:lnρ]],
+                       view(sm.var00, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
 
     set_rates_for_network!(view(sm.rates_res, k, :), sm.network, sm.eos_res[k,2], 
-                           view(sm.var00, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)))
+                           view(sm.var00, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)))
 
     if k != 1
         sm.varm1[k, :] .= get_tmp(view(sm.diff_caches, k, :)[1], sm.eqs_duals[k, 1])
-        κm1 = get_opacity_resultsTP(sm.opacity, sm.varm1[k, sm.vari[:lnT]], sm.varm1[k, sm.vari[:lnP]],
-                                    view(sm.varm1, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
-        set_EOS_resultsTP!(sm.eos, sm.eos_res[k, 1], sm.varm1[k, sm.vari[:lnT]], sm.varm1[k, sm.vari[:lnP]],
-                           view(sm.varm1, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+        κm1 = get_opacity_resultsTρ(sm.opacity, sm.varm1[k, sm.vari[:lnT]], sm.varm1[k, sm.vari[:lnρ]],
+                                    view(sm.varm1, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
+        set_EOS_resultsTρ!(sm.eos, sm.eos_res[k, 1], sm.varm1[k, sm.vari[:lnT]], sm.varm1[k, sm.vari[:lnρ]],
+                           view(sm.varm1, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
     else
         sm.varm1[k, :] .= (eltype(sm.varm1))(NaN)
         κm1 = κ00
     end
     if k != sm.nz
         sm.varp1[k, :] .= get_tmp(view(sm.diff_caches, k, :)[3], sm.eqs_duals[k, 1])
-        κp1 = get_opacity_resultsTP(sm.opacity, sm.varp1[k, sm.vari[:lnT]], sm.varp1[k, sm.vari[:lnP]],
-                                    view(sm.varp1, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
-        set_EOS_resultsTP!(sm.eos, sm.eos_res[k, 3], sm.varp1[k, sm.vari[:lnT]], sm.varp1[k, sm.vari[:lnP]],
-                           view(sm.varp1, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+        κp1 = get_opacity_resultsTρ(sm.opacity, sm.varp1[k, sm.vari[:lnT]], sm.varp1[k, sm.vari[:lnρ]],
+                                    view(sm.varp1, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
+        set_EOS_resultsTρ!(sm.eos, sm.eos_res[k, 3], sm.varp1[k, sm.vari[:lnT]], sm.varp1[k, sm.vari[:lnρ]],
+                           view(sm.varp1, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
     else
         sm.varp1[k, :] .= (eltype(sm.varp1))(NaN)
         κp1 = κ00
     end
 
     # evaluate all equations! (except composition)
-    for i = 1:(sm.nvars - sm.nspecies)
+    for i = 1:(sm.nvars - sm.network.nspecies)
         sm.eqs_duals[k, i] = sm.structure_equations[i].func(sm, k,
                                                             sm.varm1, sm.var00, sm.varp1,
                                                             sm.eos_res[k, 1], sm.eos_res[k, 2], sm.eos_res[k, 3],
@@ -46,8 +46,8 @@ function eval_cell_eqs!(sm::StellarModel, k::Int)
                                                             κm1, κ00, κp1)
     end
     # evaluate all composition equations
-    for i = 1:sm.nspecies
-        sm.eqs_duals[k, sm.nvars - sm.nspecies + i] = equation_composition(sm, k, sm.species_names[i],
+    for i = 1:sm.network.nspecies
+        sm.eqs_duals[k, sm.nvars - sm.network.nspecies + i] = equation_composition(sm, k, sm.network.species_names[i],
                                                             sm.varm1, sm.var00, sm.varp1,
                                                             sm.eos_res[k, 1], sm.eos_res[k, 2], sm.eos_res[k, 3],
                                                             sm.rates_res,

@@ -1,7 +1,7 @@
 #=
 # NuclearBurning.jl
 
-This notebook provides a simple example of a star with simplified mycrophysics undergoing nuclear burning.
+This notebook provides a simple example of a star with simplified microphysics undergoing nuclear burning.
 Import all necessary Jems modules. We will also do some benchmarks, so we import BenchmarkTools as well.
 =#
 using BenchmarkTools
@@ -12,6 +12,7 @@ using Jems.Opacity
 using Jems.NuclearNetworks
 using Jems.StellarModels
 using Jems.Evolution
+using Jems.ReactionRates
 
 ##
 #=
@@ -25,17 +26,19 @@ The Evolution module has pre-defined equations corresponding to these variables,
 simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple simple electron scattering opacity equal
 to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
-nvars = 6
-nspecies = 2
-varnames = [:lnP, :lnT, :lnr, :lum, :H1, :He4]
+
+varnames = [:lnρ, :lnT, :lnr, :lum]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
+remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
+                          StellarModels.split_lnT, StellarModels.split_xa]
 net = NuclearNetwork([:H1,:He4], [(:toy_rates, :toy_pp), (:toy_rates, :toy_cno)])
 nz = 1000
-nextra = 200
+nextra = 100
 eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
-sm = StellarModel(varnames, structure_equations, nvars, nspecies, nz, nextra, net, eos, opacity);
+sm = StellarModel(varnames, structure_equations, nz, nextra,
+                  remesh_split_functions, net, eos, opacity);
 
 ##
 #=
@@ -53,9 +56,9 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 At last we are in position to evaluate the equations and compute the Jacobian.
 =#
 StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-Evolution.set_end_step_info!(sm)
+Evolution.set_step_info!(sm, sm.esi)
 Evolution.cycle_step_info!(sm);
-Evolution.set_start_step_info!(sm)
+Evolution.set_step_info!(sm, sm.ssi)
 Evolution.eval_jacobian_eqs!(sm)
 
 ##
@@ -88,13 +91,14 @@ garbage collector will be able to run in multiple threads, so that should allevi
 To get an idea of how much a complete iteration of the solver takes, we need to benchmark
 both the calculation of the Jacobian and the matrix solver. This is because the matrix solver
 is destructive, as it uses the allocated Jacobian to store intermediate results. The time it takes
-to run the only the matrix solver can be determined by substracting the previous benchmark to this one.
+to run only the matrix solver can be determined by substracting the previous benchmark from this one.
 =#
 
 @benchmark begin
     Evolution.eval_jacobian_eqs!($sm)
     Evolution.thomas_algorithm!($sm)
 end
+
 ##
 #=
 ### Evolving our model
@@ -111,6 +115,9 @@ files into DataFrame objects. HDF5 output is compressed by default.
 open("example_options.toml", "w") do file
     write(file,
           """
+          [remesh]
+          do_remesh = true
+
           [solver]
           newton_max_iter_first_step = 1000
           newton_max_iter = 200
@@ -119,7 +126,7 @@ open("example_options.toml", "w") do file
           dt_max_increase = 2.0
 
           [termination]
-          max_model_number = 1100
+          max_model_number = 2000
           max_center_T = 4e7
 
           [io]
@@ -129,9 +136,8 @@ end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
-StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
-
-@time Evolution.do_evolution_loop(sm)
+StellarModels.n1_polytrope_initial_condition!(sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
+@time sm = Evolution.do_evolution_loop(sm);
 
 ##
 #=
@@ -172,8 +178,10 @@ ax = Axis(f[1, 1]; xlabel=L"\log_{10}(\rho/\mathrm{[g\;cm^{-3}]})", ylabel=L"\lo
 pname = Observable(profile_names[1])
 
 profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
+#To see why this is done this way, see https://docs.makie.org/stable/explanations/nodes/index.html#problems_with_synchronous_updates
+#the main issue is that remeshing changes the size of the arrays
 log10_ρ = @lift($profile[!, "log10_ρ"])
-log10_P = @lift($profile[!, "log10_P"])
+log10_P = Observable(rand(length(log10_ρ.val)))
 
 profile_line = lines!(ax, log10_ρ, log10_P; label="real profile")
 xvals = LinRange(-13, 4, 100)
@@ -186,6 +194,8 @@ model_number_str = @lift("model number=$(parse(Int,$pname))")
 profile_text = text!(ax, -10, 20; text=model_number_str)
 
 record(f, "rho_P_evolution.gif", profile_names[1:end]; framerate=2) do profile_name
+    profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", profile_name)
+    log10_P.val = profile[!, "log10_P"]
     pname[] = profile_name
 end
 
@@ -197,8 +207,8 @@ end
 
 We see that the structure evolves towards an n=3 polytrope. Deviations near the core are due to the non-homogeneous
 composition as hydrogen is burnt. We can similarly visualize how the hydrogen mass fraction changes in the simulation.
-In here only one frame shows the hydrogen that was burnt, to better visualize that you can adjust `profile_interval` in
-the [Io](Evolution.md##Io.jl) options (and probably adjust the framerate).
+In here, only one frame shows the hydrogen that was burnt. To better visualize that you can adjust `profile_interval` in
+the [IO](Evolution.md##Io.jl) options (and probably adjust the framerate).
 =#
 profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
 
@@ -209,13 +219,15 @@ pname = Observable(profile_names[1])
 
 profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
 mass = @lift($profile[!, "mass"])
-X = @lift($profile[!, "X"])
+X = Observable(rand(length(mass.val)))
 model_number_str = @lift("model number=$(parse(Int,$pname))")
 
 profile_line = lines!(ax, mass, X; label="real profile")
 profile_text = text!(ax, 0.7, 0.0; text=model_number_str)
 
 record(f, "X_evolution.gif", profile_names[1:end]; framerate=2) do profile_name
+    profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", profile_name)
+    X.val = profile[!, "X"]
     pname[] = profile_name
 end
 

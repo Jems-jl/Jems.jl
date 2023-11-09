@@ -32,16 +32,28 @@ function equationHSE(sm::StellarModel, k::Int,
                      rates::Matrix{TT},
                      κm1::TT, κ00::TT, κp1::TT) where {TT<:Real}
     if k == sm.nz  # atmosphere boundary condition
-        lnP₀ = var00[k, sm.vari[:lnP]]
+        lnP₀ = eos00.lnP
         r₀ = exp(var00[k, sm.vari[:lnr]])
         g₀ = CGRAV * sm.mstar / r₀^2
         return lnP₀ - log(2g₀ / (3κ00))  # Eddington gray, ignoring radiation pressure term
     end
-    lnP₊ = varp1[k, sm.vari[:lnP]]
-    lnP₀ = var00[k, sm.vari[:lnP]]
-    lnPface = (sm.dm[k] * lnP₀ + sm.dm[k + 1] * lnP₊) / (sm.dm[k] + sm.dm[k + 1])
+    if k==1
+        P₀ = eos00.P
+        P₊ = eosp1.P
+        ρ₀ = eos00.ρ
+        rmid₊ = 0.5*(exp(var00[k,sm.vari[:lnr]]) + exp(varp1[k,sm.vari[:lnr]]))
+        return 1-(P₊ + CGRAV*ρ₀^2*(2π/3)*rmid₊^2)/P₀
+    end
+
+    #log pressure at cell center of cell k
+    lnP₀ = eos00.lnP
+
+    #log pressure at cell center of cell k+1
+    lnP₊ = eosp1.lnP
+
+    lnPface = (sm.dm[k+1] * lnP₀ + sm.dm[k] * lnP₊) / (sm.dm[k] + sm.dm[k + 1])
     r₀ = exp(var00[k, sm.vari[:lnr]])
-    dm = (sm.m[k + 1] - sm.m[k])
+    dm = 0.5*(sm.dm[k + 1] + sm.dm[k])
 
     return (exp(lnPface) * (lnP₊ - lnP₀) / dm + CGRAV * sm.m[k] / (4π * r₀^4)) /
            (CGRAV * sm.m[k] / (4π * r₀^4))
@@ -70,7 +82,7 @@ function equationT(sm::StellarModel, k::Int,
                    rates::Matrix{TT},
                    κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
     if k == sm.nz  # atmosphere boundary condition
-        lnT₀ = var00[k, sm.vari[:lnT]]
+        lnT₀ = eos00.lnT
         L₀ = var00[k, sm.vari[:lum]] * LSUN
         r₀ = exp(var00[k, sm.vari[:lnr]])
         return lnT₀ - log(L₀ / (BOLTZ_SIGMA * 4π * r₀^2)) / 4  # Eddington gray, ignoring radiation pressure term
@@ -78,10 +90,10 @@ function equationT(sm::StellarModel, k::Int,
     κface = exp((sm.dm[k] * log(κ00) + sm.dm[k + 1] * log(κp1)) / (sm.dm[k] + sm.dm[k + 1]))
     L₀ = var00[k, sm.vari[:lum]] * LSUN
     r₀ = exp(var00[k, sm.vari[:lnr]])
-    Pface = exp((sm.dm[k] * var00[k, sm.vari[:lnP]] + sm.dm[k + 1] * varp1[k, sm.vari[:lnP]]) /
+    Pface = exp((sm.dm[k] * eos00.lnP + sm.dm[k + 1] * eosp1.lnP) /
                 (sm.dm[k] + sm.dm[k + 1]))
-    lnT₊ = varp1[k, sm.vari[:lnT]]
-    lnT₀ = var00[k, sm.vari[:lnT]]
+    lnT₊ = eosp1.lnT
+    lnT₀ = eos00.lnT
     Tface = exp((sm.dm[k] * lnT₀ + sm.dm[k + 1] * lnT₊) / (sm.dm[k] + sm.dm[k + 1]))
 
     ∇ᵣ = 3κface * L₀ * Pface / (16π * CRAD * CLIGHT * CGRAV * sm.m[k] * Tface^4)
@@ -129,8 +141,8 @@ function equationLuminosity(sm::StellarModel, k::Int,
     ρ₀ = eos00.ρ
     cₚ = eos00.cₚ
     δ = eos00.δ
-    dTdt = (exp(var00[k, sm.vari[:lnT]]) - exp(sm.ssi.lnT[k])) / sm.ssi.dt
-    dPdt = (exp(var00[k, sm.vari[:lnP]]) - exp(sm.ssi.lnP[k])) / sm.ssi.dt
+    dTdt = (eos00.T - exp(sm.ssi.lnT[k])) / sm.ssi.dt
+    dPdt = (eos00.P - exp(sm.ssi.lnP[k])) / sm.ssi.dt
 
     ϵnuc::TT = 0
     for i in eachindex(sm.network.reactions)
@@ -167,16 +179,9 @@ function equationContinuity(sm::StellarModel, k::Int,
     else
         r₋::TT = 0  # central radius is zero at first cell
     end
-    
-    if k > 1  # get mass chunk
-        dm = sm.m[k] - sm.m[k - 1]
-    else
-        dm = sm.m[k]
-    end
 
-    # expected_r₀ = r₋ + dm/(4π*r₋^2*ρ)
     expected_dr³_dm = 3 / (4π * ρ₀)
-    actual_dr³_dm = (r₀^3 - r₋^3) / dm
+    actual_dr³_dm = (r₀^3 - r₋^3) / sm.dm[k]
 
     return (expected_dr³_dm - actual_dr³_dm) * ρ₀  # times ρ to make eq. dim-less
 end
