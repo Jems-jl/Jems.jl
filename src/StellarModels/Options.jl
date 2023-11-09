@@ -85,10 +85,10 @@ end
 
 @kwdef mutable struct PlottingOptions
     do_plotting::Bool = false
-    profile_xaxis::String = "empty"
-    profile_yaxis::String = "empty"
+    profile_xaxis::String = ""
+    profile_yaxes::Vector{String} = []
 
-    window_flags::Vector{String} = [""]
+    window_flags::Vector{String} = []
 end
 
 """

@@ -1,7 +1,10 @@
 module Plotting
 
 using GLMakie, LaTeXStrings, MathTeXEngine, Jems.StellarModels
-
+const colors = Iterators.cycle([:red, :blue, :green])
+const label_dict = Dict("mass" => L"m / M_\odot",
+                        "X" => L"X",
+                        "Y" => L"Y")
 """
     init_plots(sm::StellarModel)
 
@@ -31,14 +34,19 @@ function init_plots!(sm::StellarModel)
     n = 1
     if "HR" in sm.opt.plotting.window_flags
         create_HR_observables!(sm)
-        init_HR_plot!(sm.plt.axs[n], sm.plt.obs[:Teff], sm.plt.obs[:L], sm.plt.obs[:Teff_now],
-                    sm.plt.obs[:L_now]; scatter_kwargs=Dict(:color => "red"))
+        make_HR_plot!(sm.plt.axs[n], sm.plt.obs[:Teff], sm.plt.obs[:L], sm.plt.obs[:Teff_now],
+                    sm.plt.obs[:L_now]; scatter_kwargs=Dict(:color => "red", :markersize => 20))
         sm.plt.axno[:HR] = n
         n += 1
     end
     if "profile" in sm.opt.plotting.window_flags
         create_profile_observables!(sm)
-        init_profile_plot!(sm.plt.axs[n], sm.plt.obs[:profile_x], sm.plt.obs[:profile_y], "xlabel", "ylabel")
+        ylabels = Dict{Symbol, String}()
+        for yname in sm.opt.plotting.profile_yaxes
+            ylabels[Symbol(yname)] = label_dict[yname]
+        end
+        make_profile_plot!(sm.plt.axs[n], sm.plt.obs[:profile_x], sm.plt.obs[:profile_ys], 
+                            label_dict[sm.opt.plotting.profile_xaxis], ylabels; )
         sm.plt.axno[:profile] = n
         n += 1
     end
@@ -85,10 +93,10 @@ end
 
 Sets up the plot elements for an HRD
 """
-function init_HR_plot!(ax::Axis, Teff::Observable, L::Observable, Teff_now::Observable, L_now::Observable;
+function make_HR_plot!(ax::Axis, Teff::Observable, L::Observable, Teff_now::Observable, L_now::Observable;
                       line_kwargs=Dict(), scatter_kwargs=Dict())
     ax.xlabel = L"\log_{10}(T_\mathrm{eff}/[K])"
-    ax.ylabel = L"\log_{10}(L/L_\odot)"
+    ax.ylabel = L"L/L_\odot)"
     ax.xreversed = true
     lines!(ax, Teff, L; line_kwargs...)
     scatter!(ax, Teff_now, L_now; scatter_kwargs...)
@@ -97,17 +105,32 @@ end
 
 function create_profile_observables!(sm::StellarModel)
     xname = sm.opt.plotting.profile_xaxis
-    yname = sm.opt.plotting.profile_yaxis
     xvals = StellarModels.profile_output_options[xname][2].((sm,), 1:sm.nz)
-    yvals = StellarModels.profile_output_options[yname][2].((sm,), 1:sm.nz)
     sm.plt.obs[:profile_x] = Observable{Vector{Float64}}(xvals)
-    sm.plt.obs[:profile_y] = Observable{Vector{Float64}}(yvals)
+
+    ynames = sm.opt.plotting.profile_yaxes
+    sm.plt.obs[:profile_ys] = Dict{Symbol, Observable}()
+    for name in ynames
+        sm.plt.obs[:profile_ys][Symbol(name)] = Observable{Vector{Float64}}(StellarModels.profile_output_options[name][2].((sm,), 1:(sm.nz)))
+    end
 end
 
-function init_profile_plot!(ax::Axis, xvals::Observable, yvals::Observable, xlabel::String="", ylabel::String="", line_kwargs=Dict())
+"""
+
+    function make_profile_plot!(ax::Axis, xvals::Observable, yvals::Observable, 
+                            xlabel::AbstractString="", ylabels::Dict{Symbol, <:AbstractString}=Dict(); line_kwargs=Dict())
+
+Plot a line for each entry in the 'yvals' observable, and put the given 'ylabels' in a legend.
+"""
+function make_profile_plot!(ax::Axis, xvals::Observable, yvals::Dict{Symbol, Observable},
+                            xlabel::AbstractString="", ylabels::Dict{Symbol, <:AbstractString}=Dict(); line_kwargs=Dict())
     ax.xlabel = xlabel
-    ax.ylabel = ylabel
-    lines!(ax, xvals, yvals, line_kwargs...)
+    (color, state) = iterate(colors)
+    for (name, yline) in yvals
+        lines!(ax, xvals, yline, line_kwargs..., color=color, label=ylabels[name])
+        (color, state) = iterate(colors, state)
+    end
+    axislegend(ax)
 end
 
 """
@@ -126,7 +149,10 @@ function update_plots!(sm::StellarModel)
     end
     if "profile" in sm.opt.plotting.window_flags
         sm.plt.obs[:profile_x].val = StellarModels.profile_output_options[sm.opt.plotting.profile_xaxis][2].((sm,), 1:sm.nz)
-        sm.plt.obs[:profile_y][] = StellarModels.profile_output_options[sm.opt.plotting.profile_yaxis][2].((sm,), 1:sm.nz)
+        for name in sm.opt.plotting.profile_yaxes
+            sm.plt.obs[:profile_ys][Symbol(name)].val = StellarModels.profile_output_options[name][2].((sm,), 1:sm.nz)
+        end
+        notify(sm.plt.obs[:profile_x])
     end
 end
 
@@ -139,4 +165,4 @@ function end_of_evolution(sm::StellarModel)
     GLMakie.wait(sm.plt.scr)
 end
 
-end
+end  # end module Plotting
