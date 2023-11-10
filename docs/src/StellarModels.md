@@ -29,3 +29,10 @@ Pages = ["StellarModels/InitialCondition.jl"]
 Modules = [Jems.StellarModels]
 Pages = ["StellarModels/IO.jl"]
 ```
+
+## Remesher.jl
+
+```@autodocs
+Modules = [Jems.StellarModels]
+Pages = ["StellarModels/Remesher.jl"]
+```

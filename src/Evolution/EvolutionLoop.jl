@@ -1,33 +1,33 @@
 """
     set_end_step_info(sm::StellarModel)
 
-Sets the end step info (sm.esi) from current state of the StellarModel `sm`.
+Sets the StellarStepInfo `si`` from current state of the StellarModel `sm`.
 """
-function set_end_step_info!(sm::StellarModel)
-    sm.esi.model_number = sm.model_number
-    sm.esi.time = sm.time
-    sm.esi.dt = sm.dt
+function set_step_info!(sm::StellarModel, si::StellarModels.StellarStepInfo)
+    si.model_number = sm.model_number
+    si.time = sm.time
+    si.dt = sm.dt
 
-    sm.esi.nz = sm.nz
-    sm.esi.mstar = sm.mstar
+    si.nz = sm.nz
+    si.mstar = sm.mstar
     Threads.@threads for i = 1:(sm.nz)
-        sm.esi.m[i] = sm.m[i]
-        sm.esi.dm[i] = sm.dm[i]
+        si.m[i] = sm.m[i]
+        si.dm[i] = sm.dm[i]
 
-        sm.esi.lnT[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
-        sm.esi.L[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]]
-        sm.esi.lnP[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnP]]
-        sm.esi.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]]
+        si.lnT[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
+        si.L[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]]
+        si.lnρ[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]]
+        si.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]]
 
-        species_names = sm.var_names[(sm.nvars - sm.nspecies + 1):end]
+        species_names = sm.var_names[(sm.nvars - sm.network.nspecies + 1):end]
 
-        xa = view(sm.ind_vars, (i * sm.nvars - sm.nspecies + 1):(i * sm.nvars))
+        xa = view(sm.ind_vars, (i * sm.nvars - sm.network.nspecies + 1):(i * sm.nvars))
 
-        set_EOS_resultsTP!(sm.eos, sm.psi.eos_res[i], sm.psi.lnT[i], sm.psi.lnP[i], xa, species_names)
+        set_EOS_resultsTρ!(sm.eos, si.eos_res[i], si.lnT[i], si.lnρ[i], xa, species_names)
 
-        sm.esi.lnρ[i] = log(sm.psi.eos_res[i].ρ)
+        si.lnP[i] = log(si.eos_res[i].P)
         for k = 1:sm.nvars
-            sm.esi.ind_vars[(i - 1) * sm.nvars + k] = sm.ind_vars[(i - 1) * sm.nvars + k]
+            si.ind_vars[(i - 1) * sm.nvars + k] = sm.ind_vars[(i - 1) * sm.nvars + k]
         end
     end
 end
@@ -59,34 +59,6 @@ function uncycle_step_info!(sm::StellarModel)
 end
 
 """
-    set_start_step_info!(sm::StellarModel)
-
-Sets the start step info of the StellarModel `sm` by copying from the previous step info.
-"""
-function set_start_step_info!(sm::StellarModel)
-    # for now, we dont do anything special before the step (ie remeshing) so we just copy things from sm.psi
-    sm.ssi.model_number = sm.psi.model_number
-    sm.ssi.time = sm.psi.time
-    sm.ssi.dt = sm.psi.dt
-
-    sm.ssi.nz = sm.psi.nz
-    sm.ssi.mstar = sm.mstar
-    Threads.@threads for i = 1:(sm.nz)
-        sm.ssi.m[i] = sm.psi.m[i]
-        sm.ssi.dm[i] = sm.psi.dm[i]
-
-        sm.ssi.lnT[i] = sm.psi.lnT[i]
-        sm.ssi.L[i] = sm.psi.L[i]
-        sm.ssi.lnP[i] = sm.psi.lnP[i]
-        sm.ssi.lnr[i] = sm.psi.lnr[i]
-        sm.ssi.lnρ[i] = sm.psi.lnρ[i]
-        for k in 1:sm.nvars
-            sm.ssi.ind_vars[(i - 1) * sm.nvars + k] = sm.psi.ind_vars[(i - 1) * sm.nvars + k]
-        end
-    end
-end
-
-"""
     get_dt_next(sm::StellarModel)
 
 Computes the timestep of the next evolutionary step to be taken by the StellarModel `sm` by considering all timestep
@@ -113,7 +85,9 @@ function get_dt_next(sm::StellarModel)
         dt_nextTc = dt_next * sm.opt.timestep.delta_Tc_limit / ΔTc_div_Tc
         dt_nextX = dt_next * sm.opt.timestep.delta_Xc_limit / ΔX
 
+        min_dt = dt_next * sm.opt.timestep.dt_max_decrease
         dt_next = min(sm.opt.timestep.dt_max_increase * dt_next, dt_nextR, dt_nextTc, dt_nextX)
+        dt_next = max(dt_next, min_dt)
         return dt_next
     end
 end
@@ -125,7 +99,7 @@ Performs the main evolutionary loop of the input StellarModel `sm`. It continues
 termination criteria is reached (defined in `sm.opt.termination`).
 """
 function do_evolution_loop(sm::StellarModel)
-    set_end_step_info!(sm)
+    set_step_info!(sm, sm.esi)
     # evolution loop, be sure to have sensible termination conditions or this will go on forever!
     dt_factor = 1.0 # this is changed during retries to lower the timestep
     retry_count = 0
@@ -135,9 +109,12 @@ function do_evolution_loop(sm::StellarModel)
 
         cycle_step_info!(sm)  # move esi of previous step to psi of this step
 
-        # remeshing will happen here
+        # remeshing
+        if sm.opt.remesh.do_remesh
+            sm = StellarModels.remesher!(sm)
+        end
 
-        set_start_step_info!(sm)  # set info before we attempt any newton solver
+        set_step_info!(sm, sm.ssi)  # set info before we attempt any newton solver
 
         sm.ssi.dt = dt_next
         sm.dt = dt_next
@@ -175,7 +152,9 @@ function do_evolution_loop(sm::StellarModel)
                 @show i, maximum(corr), real_max_corr, maximum(sm.eqs_numbers)
             end
             # first try applying correction and see if it would give negative luminosity
-            sm.ind_vars .= sm.ind_vars .+ corr
+            for i=1:sm.nz*sm.nvars
+                sm.ind_vars[i] = sm.ind_vars[i] + corr[i]
+            end
             if real_max_corr < 1e-10
                 if sm.model_number == 0
                     println("Found first model")
@@ -217,8 +196,13 @@ function do_evolution_loop(sm::StellarModel)
         sm.model_number = sm.model_number + 1
 
         # write state in sm.esi and potential history/profiles.
-        set_end_step_info!(sm)
+        set_step_info!(sm, sm.esi)
         StellarModels.write_data(sm)
+
+        #@show sm.model_number, sm.esi.lnP[1], sm.esi.lnP[2], sm.esi.lnP[sm.nz-1], sm.esi.lnP[sm.nz]
+        #@show sm.model_number, sm.esi.lnT[1], sm.esi.lnT[2], sm.esi.lnT[sm.nz-1], sm.esi.lnT[sm.nz]
+        #@show sm.dm[1], sm.dm[2], sm.dm[3]
+        #@show sum(sm.dm[1:sm.nz])
 
         # check termination conditions
         if (sm.model_number > sm.opt.termination.max_model_number)
@@ -230,4 +214,5 @@ function do_evolution_loop(sm::StellarModel)
             break
         end
     end
+    return sm
 end
