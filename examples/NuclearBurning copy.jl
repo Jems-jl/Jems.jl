@@ -53,7 +53,7 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 At last we are in position to evaluate the equations and compute the Jacobian.
 =#
 #change to new function
-StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+StellarModels.n_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 Evolution.set_end_step_info!(sm)
 Evolution.cycle_step_info!(sm);
 Evolution.set_start_step_info!(sm)
@@ -131,7 +131,7 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 #change to new function
-StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
+StellarModels.n_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
 
 @time Evolution.do_evolution_loop(sm)
 

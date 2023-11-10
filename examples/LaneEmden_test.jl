@@ -47,7 +47,7 @@ z_smallx(x,n) = - 1/3*x + n/30*x^3 -3*n*(8*n-5)/760*x^5;
 
 #set up grid in x 
 Δx = 1e-4
-n = 3/2
+n = 0
 println("n=$n")
 nsteps = 200000 #putting a maximum on the number of steps
 xvals = LinRange(Δx,nsteps*Δx,nsteps)
@@ -119,10 +119,10 @@ println("y(ξ_1) = $(yvals[end])")
 f = Figure()
 ax = Axis(f[1, 1])
 lines!(ax, xvals, yvals)
-#scatter the point (ξ_1,0) and label it
 scatter!(ax, [xvals[end]], [0.0], markersize = 20) 
 println("End Run, show plot")
 #x label
 ax.xlabel = "ξ"
 ax.ylabel = "θ_n(ξ)"
+lines!(ax,xvals, 1 .-xvals.^2 ./6)
 f
