@@ -74,17 +74,17 @@ The struct has four parametric types, `TN` for 'normal' numbers, `TD` for dual n
 differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type of opacity law being used.
 """
 @kwdef mutable struct StellarModel{TN<:Real,TD<:Real,
-                                   TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,
+                                   TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,TR,
                                    TSM<:AbstractMatrix,TSV<:AbstractVector}
     # Properties that define the model
     ind_vars::Vector{TN}  # List of independent variables
     nvars::Int  # This is the sum of hydro vars and species
-    var_names::Vector{Symbol}  # List of variable namesv
+    var_names::Vector{Symbol}  # List of variable names
     vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector
 
     # Properties related to the solver
     structure_equations_original::Vector{Function} # original vector of functions that are solved. These are turned into TypeStableEquations. We keep the original input for when we resize the stellar model.
-    structure_equations::Vector{TypeStableEquation{StellarModel{TN,TD,TEOS,TKAP},TD}}  # List of equations to be solved.
+    structure_equations::Vector{TypeStableEquation{StellarModel{TN,TD,TEOS,TKAP,TR,TSM,TSV},TD}}  # List of equations to be solved.
     eqs_numbers::Vector{TN}  # Stores the results of the equation evaluations (as numbers), size nz * nvars
     eqs_duals::Matrix{TD}  # Stores the dual results of the equation evaluation, shape (nz, nvars)
     diff_caches::Matrix{DiffCache{Vector{TN},Vector{TN}}}  # Allocates space for when automatic differentiation needs
@@ -115,7 +115,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     # Some basic info
     eos::TEOS
     opacity::TKAP
-    network::NuclearNetwork
+    network::NuclearNetwork{TR}
 
     # cache for the EOS
     eos_res::Matrix{EOSResults{TD}}
@@ -204,10 +204,14 @@ function StellarModel(var_names::Vector{Symbol},
     end
 
     # create type stable function objects
-    tsfs = Vector{TypeStableEquation{StellarModel{eltype(ind_vars),typeof(dual_sample),typeof(eos),typeof(opacity)},
+    tpe_stbl_funcs = Vector{TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample),
+                                                            typeof(eos), typeof(opacity), typeof(network.reactions),
+                                                            eltype(jacobian_D), eltype(solver_x)},
                                      typeof(dual_sample)}}(undef, length(structure_equations))
     for i in eachindex(structure_equations)
-        tsfs[i] = TypeStableEquation{StellarModel{eltype(ind_vars),typeof(dual_sample),typeof(eos),typeof(opacity)},
+        tpe_stbl_funcs[i] = TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample),
+                                                            typeof(eos), typeof(opacity), typeof(network.reactions),
+                                                            eltype(jacobian_D), eltype(solver_x)},
                                      typeof(dual_sample)}(structure_equations[i])
     end
 
@@ -242,7 +246,7 @@ function StellarModel(var_names::Vector{Symbol},
     sm = StellarModel(ind_vars=ind_vars, var_names=var_names_full,
                       eqs_numbers=eqs_numbers, eqs_duals=eqs_duals, nvars=nvars,
                       structure_equations_original=structure_equations,
-                      structure_equations=tsfs,
+                      structure_equations=tpe_stbl_funcs,
                       diff_caches=diff_caches, vari=vari, nz=nz, nextra=nextra,
                       m=m, dm=dm, mstar=0.0, remesh_split_functions=remesh_split_functions,
                       time=0.0, dt=0.0, model_number=0,

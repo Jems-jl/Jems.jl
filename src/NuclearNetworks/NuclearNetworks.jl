@@ -63,7 +63,6 @@ function set_rates_for_network!(rates::AbstractArray{TT}, net::NuclearNetwork, e
     for i in eachindex(rates)
         rates[i] = ReactionRates.get_reaction_rate(net.reactions[i], eos00, xa, net.xa_index)
     end
-    return
 end
 
 end
