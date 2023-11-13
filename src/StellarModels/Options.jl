@@ -80,15 +80,25 @@ Substructure of Options containing controls relating to input/output of data
                                       "P_surf", "ρ_surf", "X_surf", "Y_surf", "T_center", "P_center", "ρ_center",
                                       "X_center", "Y_center"]
 
-    profile_values::Vector{String} = ["zone", "mass", "dm", "log10_ρ", "log10_r", "log10_P", "log10_T", "luminosity", "X", "Y"]
+    profile_values::Vector{String} = ["zone", "mass", "dm", "log10_ρ", "log10_r", "log10_P", "log10_T", "luminosity",
+                                      "X", "Y"]
 end
 
+"""
+    mutable struct PlottingOptions
+
+Options relating to the live plotting of the simulation
+"""
 @kwdef mutable struct PlottingOptions
     do_plotting::Bool = false
+    wait_at_termination::Bool = false
+    plotting_interval::Int = 10
+
+    window_specs::Vector{Vector{String}} = [[]]
+    window_layouts::Vector{Vector{Vector{Int}}} = [[[]]]
+
     profile_xaxis::String = ""
     profile_yaxes::Vector{String} = []
-
-    window_flags::Vector{String} = []
 end
 
 """

@@ -4,7 +4,10 @@ using GLMakie, LaTeXStrings, MathTeXEngine, Jems.StellarModels
 const colors = Iterators.cycle([:red, :blue, :green])
 const label_dict = Dict("mass" => L"m / M_\odot",
                         "X" => L"X",
-                        "Y" => L"Y")
+                        "Y" => L"Y",
+                        "log10_T" => L"\log_{10}(T / K)",
+                        "zone" => L"\mathrm{zone}")
+
 """
     init_plots(sm::StellarModel)
 
@@ -22,108 +25,113 @@ function init_plots!(sm::StellarModel)
                               yminortickwidth=2.5,
                               xticklabelsize=35, yticklabelsize=35, xticksmirrored=true, yticksmirrored=true),
                         Legend=(patchsize=(70, 10), framevisible=false, patchlabelgap=20, rowgap=10))
-    
+
     GLMakie.set_theme!(basic_theme)
     GLMakie.activate!()
     GLMakie.set_window_config!(; float=true)  # place windows on top
 
-    init_figure!(sm)
-    sm.plt.obs = Dict()
-    sm.plt.axno = Dict()
+    # create figure/axes objects
+    init_figures!(sm)
 
-    n = 1
-    if "HR" in sm.opt.plotting.window_flags
-        create_HR_observables!(sm)
-        make_HR_plot!(sm.plt.axs[n], sm.plt.obs[:Teff], sm.plt.obs[:L], sm.plt.obs[:Teff_now],
-                    sm.plt.obs[:L_now]; scatter_kwargs=Dict(:color => "red", :markersize => 20))
-        sm.plt.axno[:HR] = n
-        n += 1
-    end
-    if "profile" in sm.opt.plotting.window_flags
-        create_profile_observables!(sm)
-        ylabels = Dict{Symbol, String}()
-        for yname in sm.opt.plotting.profile_yaxes
-            ylabels[Symbol(yname)] = label_dict[yname]
+    # populate observables and plot elements on the respective axes
+    for fig in sm.plt.figs
+        for plot in fig.plots
+            if plot.type == :HR
+                create_HR_observables!(sm, plot)
+                make_HR_plot!(plot.ax, plot.x_obs[:Teff], plot.y_obs[:L], plot.x_obs[:Teff_now],
+                            plot.y_obs[:L_now]; scatter_kwargs=Dict(:color => "red", :markersize => 20))
+            elseif plot.type == :profile
+                create_profile_observables!(sm, plot)
+                ylabels = Dict{Symbol,String}()
+                for yname in sm.opt.plotting.profile_yaxes
+                    ylabels[Symbol(yname)] = label_dict[yname]
+                end
+                make_profile_plot!(plot.ax, plot.x_obs[:profile_x], plot.y_obs,
+                                label_dict[sm.opt.plotting.profile_xaxis], ylabels;)
+            end
         end
-        make_profile_plot!(sm.plt.axs[n], sm.plt.obs[:profile_x], sm.plt.obs[:profile_ys], 
-                            label_dict[sm.opt.plotting.profile_xaxis], ylabels; )
-        sm.plt.axno[:profile] = n
-        n += 1
     end
-    sm.plt.scr = display(sm.plt.fig)
+    
+    # display the figures
+    for fig in sm.plt.figs
+        fig.scr = display(GLMakie.Screen(), fig.window)
+    end
 end
 
 """
     init_figure!(sm::StellarModel)
 
-Initializes the plotting figure and adds axes
+Initializes the plotting figures and adds axes
 """
-function init_figure!(sm::StellarModel)
-    sm.plt.fig = Figure()
-    no_of_plots = determine_no_plots(sm)
-    sm.plt.axs = Vector{Makie.Block}(undef, no_of_plots)
-    for i=1:no_of_plots
-        sm.plt.axs[i] = Axis(sm.plt.fig[i, 1])
+function init_figures!(sm::StellarModel)
+    no_of_windows = length(sm.opt.plotting.window_specs)
+    sm.plt.figs = Vector{StellarModels.JemsFigure}(undef, no_of_windows)
+    for i = 1:no_of_windows
+        no_of_plots = length(sm.opt.plotting.window_specs[i])
+        sm.plt.figs[i] = StellarModels.JemsFigure(Figure(), no_of_plots)
+        for j = 1:no_of_plots
+            this_axis = Axis(sm.plt.figs[i].window[sm.opt.plotting.window_layouts[i][j]...])
+            this_type = Symbol(sm.opt.plotting.window_specs[i][j])
+            sm.plt.figs[i].plots[j] = StellarModels.JemsPlot(this_axis, this_type)
+        end
     end
 end
 
-function determine_no_plots(sm::StellarModel)
-    return length(sm.opt.plotting.window_flags)
-end
-
 """
-    create_HR_observables!(sm::StellarModel)
+    create_HR_observables!(sm::StellarModel, plot::StellarModels.JemsPlot)
 
-creates teff and L observables and adds them to the observable list
+creates teff and L observables and adds them to the observable list of the given plot
 """
-function create_HR_observables!(sm::StellarModel)
+function create_HR_observables!(sm::StellarModel, plot::StellarModels.JemsPlot)
+    plot.x_obs = Dict{Symbol, Observable}()
     teff = exp(sm.esi.lnT[sm.nz])
-    sm.plt.obs[:Teff_now] = Observable{Float64}(teff)
-    sm.plt.obs[:Teff] = Observable(Float64[])
-    push!(sm.plt.obs[:Teff][], teff)
-    sm.plt.obs[:L_now] = Observable{Float64}(sm.esi.L[sm.nz])
-    sm.plt.obs[:L] = Observable(Float64[])
-    push!(sm.plt.obs[:L][], sm.esi.L[sm.nz])
+    plot.x_obs[:Teff_now] = Observable{Float64}(teff)
+    plot.x_obs[:Teff] = Observable(Float64[])
+    push!(plot.x_obs[:Teff][], teff)
+    plot.y_obs = Dict{Symbol, Observable}()
+    plot.y_obs[:L_now] = Observable{Float64}(sm.esi.L[sm.nz])
+    plot.y_obs[:L] = Observable(Float64[])
+    push!(plot.y_obs[:L][], sm.esi.L[sm.nz])
 end
 
 """
-
     init_HR_plot!(ax::Axis, Teff::Observable, L::Observable, Teff_now::Observable, L_now::Observable;
                       line_kwargs=Dict(), scatter_kwargs=Dict())
 
 Sets up the plot elements for an HRD
 """
 function make_HR_plot!(ax::Axis, Teff::Observable, L::Observable, Teff_now::Observable, L_now::Observable;
-                      line_kwargs=Dict(), scatter_kwargs=Dict())
+                       line_kwargs=Dict(), scatter_kwargs=Dict())
     ax.xlabel = L"\log_{10}(T_\mathrm{eff}/[K])"
-    ax.ylabel = L"L/L_\odot)"
+    ax.ylabel = L"L/L_\odot"
     ax.xreversed = true
     lines!(ax, Teff, L; line_kwargs...)
     scatter!(ax, Teff_now, L_now; scatter_kwargs...)
 end
 
-
-function create_profile_observables!(sm::StellarModel)
+function create_profile_observables!(sm::StellarModel, plot::StellarModels.JemsPlot)
     xname = sm.opt.plotting.profile_xaxis
-    xvals = StellarModels.profile_output_options[xname][2].((sm,), 1:sm.nz)
-    sm.plt.obs[:profile_x] = Observable{Vector{Float64}}(xvals)
+    xvals = StellarModels.profile_output_options[xname][2].((sm,), 1:(sm.nz))
+    plot.x_obs = Dict{Symbol, Observable}()
+    plot.x_obs[:profile_x] = Observable{Vector{Float64}}(xvals)
 
     ynames = sm.opt.plotting.profile_yaxes
-    sm.plt.obs[:profile_ys] = Dict{Symbol, Observable}()
+    plot.y_obs = Dict{Symbol, Observable}()
     for name in ynames
-        sm.plt.obs[:profile_ys][Symbol(name)] = Observable{Vector{Float64}}(StellarModels.profile_output_options[name][2].((sm,), 1:(sm.nz)))
+        plot.y_obs[Symbol(name)] = 
+            Observable{Vector{Float64}}(StellarModels.profile_output_options[name][2].((sm,), 1:(sm.nz)))
     end
 end
 
 """
-
     function make_profile_plot!(ax::Axis, xvals::Observable, yvals::Observable, 
                             xlabel::AbstractString="", ylabels::Dict{Symbol, <:AbstractString}=Dict(); line_kwargs=Dict())
 
 Plot a line for each entry in the 'yvals' observable, and put the given 'ylabels' in a legend.
 """
-function make_profile_plot!(ax::Axis, xvals::Observable, yvals::Dict{Symbol, Observable},
-                            xlabel::AbstractString="", ylabels::Dict{Symbol, <:AbstractString}=Dict(); line_kwargs=Dict())
+function make_profile_plot!(ax::Axis, xvals::Observable, yvals::Dict{Symbol,Observable},
+                            xlabel::AbstractString="", ylabels::Dict{Symbol,<:AbstractString}=Dict();
+                            line_kwargs=Dict())
     ax.xlabel = xlabel
     (color, state) = iterate(colors)
     for (name, yline) in yvals
@@ -133,26 +141,40 @@ function make_profile_plot!(ax::Axis, xvals::Observable, yvals::Dict{Symbol, Obs
     axislegend(ax)
 end
 
+function update_plot_data!(sm::StellarModel)
+    for fig in sm.plt.figs
+        for plot in fig.plots
+            if plot.type == :HR
+                push!(plot.x_obs[:Teff][], exp(sm.esi.lnT[sm.nz]))
+                plot.x_obs[:Teff_now].val = exp(sm.esi.lnT[sm.nz])
+                push!(plot.y_obs[:L][], sm.esi.L[sm.nz])
+                plot.y_obs[:L_now].val = sm.esi.L[sm.nz]
+            elseif plot.type == :profile
+                plot.x_obs[:profile_x].val =
+                    StellarModels.profile_output_options[sm.opt.plotting.profile_xaxis][2].((sm,), 1:(sm.nz))
+                for (key, obs) in pairs(plot.y_obs)
+                    obs.val = StellarModels.profile_output_options[String(key)][2].((sm,), 1:(sm.nz))
+                end
+            end
+        end
+    end
+end
+
+
 """
     update_plots!(sm::StellarModel)
 
 Updates all plots currently being displayed, by collecting appropriate data and notifying observables
 """
-function update_plots!(sm::StellarModel)
-    if "HR" in sm.opt.plotting.window_flags
-        push!(sm.plt.obs[:Teff][], exp(sm.esi.lnT[sm.nz]))
-        sm.plt.obs[:Teff_now][] = exp(sm.esi.lnT[sm.nz])
-        push!(sm.plt.obs[:L][], sm.esi.L[sm.nz])
-        sm.plt.obs[:L_now][] = sm.esi.L[sm.nz]
-        notify(sm.plt.obs[:Teff])  # needed because we change these vars in place
-        autolimits!(sm.plt.axs[sm.plt.axno[:HR]])
-    end
-    if "profile" in sm.opt.plotting.window_flags
-        sm.plt.obs[:profile_x].val = StellarModels.profile_output_options[sm.opt.plotting.profile_xaxis][2].((sm,), 1:sm.nz)
-        for name in sm.opt.plotting.profile_yaxes
-            sm.plt.obs[:profile_ys][Symbol(name)].val = StellarModels.profile_output_options[name][2].((sm,), 1:sm.nz)
+function update_plotting!(sm::StellarModel)
+    update_plot_data!(sm)
+    for fig in sm.plt.figs
+        for plot in fig.plots
+            for xobs in values(plot.x_obs)
+                notify(xobs)  # notifying only the x observables should replot everything
+            end
+            autolimits!(plot.ax)
         end
-        notify(sm.plt.obs[:profile_x])
     end
 end
 
@@ -162,7 +184,11 @@ end
 Perform end of evolution actions
 """
 function end_of_evolution(sm::StellarModel)
-    GLMakie.wait(sm.plt.scr)
+    if sm.opt.plotting.wait_at_termination
+        for fig in sm.plt.figs
+            GLMakie.wait(fig.scr)
+        end
+    end
 end
 
 end  # end module Plotting
