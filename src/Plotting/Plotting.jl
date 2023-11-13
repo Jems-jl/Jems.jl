@@ -42,11 +42,19 @@ function init_plots!(sm::StellarModel)
         elseif plot.type == :profile
             create_profile_observables!(sm, plot)
             ylabels = Dict{Symbol,String}()
-            for yname in sm.opt.plotting.profile_yaxes
-                ylabels[Symbol(yname)] = label_dict[yname]
+            for name in sm.opt.plotting.profile_yaxes
+                ylabels[Symbol(name)] = label_dict[name]
             end
-            make_profile_plot!(plot.ax, plot.x_obs[:profile_x], plot.y_obs,
-                            label_dict[sm.opt.plotting.profile_xaxis], ylabels;)
+            if !isnothing(plot.alt_ax)
+                alt_ylabels = Dict{Symbol,String}()
+                for name in sm.opt.plotting.profile_alt_yaxes
+                    alt_ylabels[Symbol(name)] = label_dict[name]
+                end
+            else
+                alt_ylabels = nothing
+            end
+            make_profile_plot!(plot.ax, plot.x_obs[:profile_x], plot.y_obs, label_dict[sm.opt.plotting.profile_xaxis], 
+                            ylabels; alt_ax=plot.alt_ax, alt_yvals=plot.alt_y_obs, alt_ylabels=alt_ylabels )
         end
     end
     
@@ -67,6 +75,11 @@ function init_figures!(sm::StellarModel)
         this_axis = Axis(sm.plt.fig[sm.opt.plotting.window_layouts[j]...])
         this_type = Symbol(sm.opt.plotting.window_specs[j])
         sm.plt.plots[j] = StellarModels.JemsPlot(this_axis, this_type)
+        if sm.plt.plots[j].type == :profile && length(sm.opt.plotting.profile_alt_yaxes) > 0
+            sm.plt.plots[j].alt_ax = Axis(sm.plt.fig[sm.opt.plotting.window_layouts[j]...])
+            sm.plt.plots[j].alt_ax.yaxisposition = :right
+            linkxaxes!(sm.plt.plots[j].ax, sm.plt.plots[j].alt_ax)
+        end
     end
 end
 
@@ -114,6 +127,12 @@ function create_profile_observables!(sm::StellarModel, plot::StellarModels.JemsP
         plot.y_obs[Symbol(name)] = 
             Observable{Vector{Float64}}(StellarModels.profile_output_options[name][2].((sm,), 1:(sm.nz)))
     end
+    ynames = sm.opt.plotting.profile_alt_yaxes
+    plot.alt_y_obs = Dict{Symbol,Observable}()
+    for name in ynames
+        plot.alt_y_obs[Symbol(name)] = Observable{Vector{Float64}}(StellarModels.profile_output_options[name][2].((sm,),
+                                                                                                              1:(sm.nz)))
+    end
 end
 
 """
@@ -124,6 +143,8 @@ Plot a line for each entry in the 'yvals' observable, and put the given 'ylabels
 """
 function make_profile_plot!(ax::Axis, xvals::Observable, yvals::Dict{Symbol,Observable},
                             xlabel::AbstractString="", ylabels::Dict{Symbol,<:AbstractString}=Dict();
+                            alt_ax::Axis=nothing, alt_yvals::Dict{Symbol,Observable}=nothing, 
+                            alt_ylabels::Dict{Symbol,<:AbstractString}=nothing,
                             line_kwargs=Dict())
     ax.xlabel = xlabel
     (color, state) = iterate(colors)
@@ -131,26 +152,15 @@ function make_profile_plot!(ax::Axis, xvals::Observable, yvals::Dict{Symbol,Obse
         lines!(ax, xvals, yline, line_kwargs..., color=color, label=ylabels[name])
         (color, state) = iterate(colors, state)
     end
-    axislegend(ax)
-end
-
-function update_plot_data!(sm::StellarModel)
-    for plot in sm.plt.plots
-        if plot.type == :HR
-            push!(plot.x_obs[:Teff][], exp(sm.esi.lnT[sm.nz]))
-            plot.x_obs[:Teff_now].val = exp(sm.esi.lnT[sm.nz])
-            push!(plot.y_obs[:L][], sm.esi.L[sm.nz])
-            plot.y_obs[:L_now].val = sm.esi.L[sm.nz]
-        elseif plot.type == :profile
-            plot.x_obs[:profile_x].val =
-                StellarModels.profile_output_options[sm.opt.plotting.profile_xaxis][2].((sm,), 1:(sm.nz))
-            for (key, obs) in pairs(plot.y_obs)
-                obs.val = StellarModels.profile_output_options[String(key)][2].((sm,), 1:(sm.nz))
-            end
+    axislegend(ax, position=:lt)
+    if ! isnothing(alt_ax)
+        for (name, yline) in alt_yvals
+            lines!(alt_ax, xvals, yline, line_kwargs..., color=color, label=alt_ylabels[name])
         end
+        axislegend(alt_ax)
     end
-end
 
+end
 
 """
     update_plots!(sm::StellarModel)
@@ -158,12 +168,37 @@ end
 Updates all plots currently being displayed, by collecting appropriate data and notifying observables
 """
 function update_plotting!(sm::StellarModel)
-    update_plot_data!(sm)
+    for plot in sm.plt.plots
+        if plot.type == :HR
+            push!(plot.x_obs[:Teff][], exp(sm.esi.lnT[sm.nz]))
+            plot.x_obs[:Teff_now].val = exp(sm.esi.lnT[sm.nz])
+            push!(plot.y_obs[:L][], sm.esi.L[sm.nz])
+            plot.y_obs[:L_now].val = sm.esi.L[sm.nz]
+        elseif plot.type == :profile
+            plot.x_obs[:profile_x].val = 
+                StellarModels.profile_output_options[sm.opt.plotting.profile_xaxis][2].((sm,), 1:(sm.nz))
+            for (key, obs) in pairs(plot.y_obs)
+                obs.val = StellarModels.profile_output_options[String(key)][2].((sm,), 1:(sm.nz))
+            end
+            for (key, obs) in pairs(plot.alt_y_obs)
+                obs.val = StellarModels.profile_output_options[String(key)][2].((sm,), 1:(sm.nz))
+            end
+        end
+    end
     for plot in sm.plt.plots
         for xobs in values(plot.x_obs)
             notify(xobs)  # notifying only the x observables should replot everything
         end
-        autolimits!(plot.ax)
+        try
+            autolimits!(plot.ax)
+        catch  # catches Float32 errors in Makie
+        end  # empty blocks allowed in julia!
+        if !isnothing(plot.alt_ax)
+            try
+                autolimits!(plot.alt_ax)
+            catch
+            end
+        end
     end
 end
 

@@ -141,7 +141,8 @@ open("example_options.toml", "w") do file
                             
 
           profile_xaxis = 'zone'
-          profile_yaxes = ['X', 'log10_T']
+          profile_yaxes = ['log10_T']
+          profile_alt_yaxes = ['X']
 
           [io]
           profile_interval = 50

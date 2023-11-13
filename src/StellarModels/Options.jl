@@ -99,6 +99,7 @@ Options relating to the live plotting of the simulation
 
     profile_xaxis::String = ""
     profile_yaxes::Vector{String} = []
+    profile_alt_yaxes::Vector{String} = []
 end
 
 """
