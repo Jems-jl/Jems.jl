@@ -34,28 +34,24 @@ function init_plots!(sm::StellarModel)
     init_figures!(sm)
 
     # populate observables and plot elements on the respective axes
-    for fig in sm.plt.figs
-        for plot in fig.plots
-            if plot.type == :HR
-                create_HR_observables!(sm, plot)
-                make_HR_plot!(plot.ax, plot.x_obs[:Teff], plot.y_obs[:L], plot.x_obs[:Teff_now],
-                            plot.y_obs[:L_now]; scatter_kwargs=Dict(:color => "red", :markersize => 20))
-            elseif plot.type == :profile
-                create_profile_observables!(sm, plot)
-                ylabels = Dict{Symbol,String}()
-                for yname in sm.opt.plotting.profile_yaxes
-                    ylabels[Symbol(yname)] = label_dict[yname]
-                end
-                make_profile_plot!(plot.ax, plot.x_obs[:profile_x], plot.y_obs,
-                                label_dict[sm.opt.plotting.profile_xaxis], ylabels;)
+    for plot in sm.plt.plots
+        if plot.type == :HR
+            create_HR_observables!(sm, plot)
+            make_HR_plot!(plot.ax, plot.x_obs[:Teff], plot.y_obs[:L], plot.x_obs[:Teff_now],
+                        plot.y_obs[:L_now]; scatter_kwargs=Dict(:color => "red", :markersize => 20))
+        elseif plot.type == :profile
+            create_profile_observables!(sm, plot)
+            ylabels = Dict{Symbol,String}()
+            for yname in sm.opt.plotting.profile_yaxes
+                ylabels[Symbol(yname)] = label_dict[yname]
             end
+            make_profile_plot!(plot.ax, plot.x_obs[:profile_x], plot.y_obs,
+                            label_dict[sm.opt.plotting.profile_xaxis], ylabels;)
         end
     end
     
     # display the figures
-    for fig in sm.plt.figs
-        fig.scr = display(GLMakie.Screen(), fig.window)
-    end
+    sm.plt.scr = display(sm.plt.fig)
 end
 
 """
@@ -64,16 +60,13 @@ end
 Initializes the plotting figures and adds axes
 """
 function init_figures!(sm::StellarModel)
-    no_of_windows = length(sm.opt.plotting.window_specs)
-    sm.plt.figs = Vector{StellarModels.JemsFigure}(undef, no_of_windows)
-    for i = 1:no_of_windows
-        no_of_plots = length(sm.opt.plotting.window_specs[i])
-        sm.plt.figs[i] = StellarModels.JemsFigure(Figure(), no_of_plots)
-        for j = 1:no_of_plots
-            this_axis = Axis(sm.plt.figs[i].window[sm.opt.plotting.window_layouts[i][j]...])
-            this_type = Symbol(sm.opt.plotting.window_specs[i][j])
-            sm.plt.figs[i].plots[j] = StellarModels.JemsPlot(this_axis, this_type)
-        end
+    sm.plt.fig = Figure()
+    no_of_plots = length(sm.opt.plotting.window_specs)
+    sm.plt.plots = Vector{StellarModels.JemsPlot}(undef, no_of_plots)
+    for j = 1:no_of_plots
+        this_axis = Axis(sm.plt.fig[sm.opt.plotting.window_layouts[j]...])
+        this_type = Symbol(sm.opt.plotting.window_specs[j])
+        sm.plt.plots[j] = StellarModels.JemsPlot(this_axis, this_type)
     end
 end
 
@@ -142,19 +135,17 @@ function make_profile_plot!(ax::Axis, xvals::Observable, yvals::Dict{Symbol,Obse
 end
 
 function update_plot_data!(sm::StellarModel)
-    for fig in sm.plt.figs
-        for plot in fig.plots
-            if plot.type == :HR
-                push!(plot.x_obs[:Teff][], exp(sm.esi.lnT[sm.nz]))
-                plot.x_obs[:Teff_now].val = exp(sm.esi.lnT[sm.nz])
-                push!(plot.y_obs[:L][], sm.esi.L[sm.nz])
-                plot.y_obs[:L_now].val = sm.esi.L[sm.nz]
-            elseif plot.type == :profile
-                plot.x_obs[:profile_x].val =
-                    StellarModels.profile_output_options[sm.opt.plotting.profile_xaxis][2].((sm,), 1:(sm.nz))
-                for (key, obs) in pairs(plot.y_obs)
-                    obs.val = StellarModels.profile_output_options[String(key)][2].((sm,), 1:(sm.nz))
-                end
+    for plot in sm.plt.plots
+        if plot.type == :HR
+            push!(plot.x_obs[:Teff][], exp(sm.esi.lnT[sm.nz]))
+            plot.x_obs[:Teff_now].val = exp(sm.esi.lnT[sm.nz])
+            push!(plot.y_obs[:L][], sm.esi.L[sm.nz])
+            plot.y_obs[:L_now].val = sm.esi.L[sm.nz]
+        elseif plot.type == :profile
+            plot.x_obs[:profile_x].val =
+                StellarModels.profile_output_options[sm.opt.plotting.profile_xaxis][2].((sm,), 1:(sm.nz))
+            for (key, obs) in pairs(plot.y_obs)
+                obs.val = StellarModels.profile_output_options[String(key)][2].((sm,), 1:(sm.nz))
             end
         end
     end
@@ -168,13 +159,11 @@ Updates all plots currently being displayed, by collecting appropriate data and 
 """
 function update_plotting!(sm::StellarModel)
     update_plot_data!(sm)
-    for fig in sm.plt.figs
-        for plot in fig.plots
-            for xobs in values(plot.x_obs)
-                notify(xobs)  # notifying only the x observables should replot everything
-            end
-            autolimits!(plot.ax)
+    for plot in sm.plt.plots
+        for xobs in values(plot.x_obs)
+            notify(xobs)  # notifying only the x observables should replot everything
         end
+        autolimits!(plot.ax)
     end
 end
 
@@ -185,9 +174,7 @@ Perform end of evolution actions
 """
 function end_of_evolution(sm::StellarModel)
     if sm.opt.plotting.wait_at_termination
-        for fig in sm.plt.figs
-            GLMakie.wait(fig.scr)
-        end
+        GLMakie.wait(sm.plt.scr)
     end
 end
 

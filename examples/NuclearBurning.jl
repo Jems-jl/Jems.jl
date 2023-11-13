@@ -134,11 +134,11 @@ open("example_options.toml", "w") do file
           wait_at_termination = false
           plotting_interval = 1
 
-          window_specs = [["HR"],  # window 1 contains "HR" plot
-                          ["profile", "profile"]]
-          window_layouts = [[[1, 1]],  # arrangement of plots listed in window 1 
-                            [[1, 1], [2, 1]]
+          window_specs = ["HR", "profile"]
+          window_layouts = [[1, 1],  # arrangement of plots
+                            [2, 1],
                             ]
+                            
 
           profile_xaxis = 'zone'
           profile_yaxes = ['X', 'log10_T']

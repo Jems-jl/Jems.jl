@@ -94,8 +94,8 @@ Options relating to the live plotting of the simulation
     wait_at_termination::Bool = false
     plotting_interval::Int = 10
 
-    window_specs::Vector{Vector{String}} = [[]]
-    window_layouts::Vector{Vector{Vector{Int}}} = [[[]]]
+    window_specs::Vector{String} = []
+    window_layouts::Vector{Vector{Int}} = [[]]
 
     profile_xaxis::String = ""
     profile_yaxes::Vector{String} = []
