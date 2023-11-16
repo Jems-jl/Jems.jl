@@ -2,6 +2,7 @@
 using ForwardDiff
 using Roots
 
+
 """
     θ_n(ξ) = sin(ξ) / ξ, the sinc function
 """

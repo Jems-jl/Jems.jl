@@ -2,8 +2,9 @@
 ##
 println("Hello World!")
 
-xvalues = [0,10,20]
-yvalues = [0,5,10]
+
+
+##
 
 function linear_interpolation(xvalues, yvalues)
     function θ_n(x)
@@ -15,9 +16,7 @@ function linear_interpolation(xvalues, yvalues)
     end
     return θ_n
 end
-linear_interpolation(xvalues, yvalues)(1)
-myfunction = linear_interpolation(xvalues, yvalues)
-myfunction(18)
+
 
 
 ##
@@ -47,7 +46,7 @@ z_smallx(x,n) = - 1/3*x + n/30*x^3 -3*n*(8*n-5)/760*x^5;
 
 #set up grid in x 
 Δx = 1e-4
-n = 0
+n = 3/2
 println("n=$n")
 nsteps = 200000 #putting a maximum on the number of steps
 xvals = LinRange(Δx,nsteps*Δx,nsteps)
@@ -73,11 +72,21 @@ function endOfLoop!(xrange::LinRange, yrange::Vector{Float64}, zrange::Vector{Fl
     return (newxvals, push!(yrange[1:endIndex-1],0.0))
 end
 
-bla = xvals[1]
 
 
+##
 
 #perform Runge-Kutta integration
+for i in 2:nsteps
+    x = xvals[i-1]; 
+    y = yvals[i-1]; z = zvals[i-1]
+    #(ynew,znew) = RK_step(x,y,z,n,Δx)
+    
+    yvals[i] = ynew
+    zvals[i] = znew
+end  
+        
+##
 for i in 2:nsteps
     x = xvals[i-1]; 
     y = yvals[i-1]; z = zvals[i-1]
@@ -109,9 +118,7 @@ for i in 2:nsteps
     yvals[i] = y+k₁/6+k₂/3+k₃/3+k₄/6 #new y value
     zvals[i] = z+l₁/6+l₂/3+l₃/3+l₄/6 #new z value
 end  
-        
-
-
+##
 using CairoMakie
 
 println("ξ_1 = $(xvals[end])")

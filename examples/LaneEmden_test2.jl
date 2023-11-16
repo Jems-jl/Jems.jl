@@ -1,7 +1,14 @@
-
+using BenchmarkTools
+using Jems.Chem
+using Jems.Constants
+using Jems.EOS
+using Jems.Opacity
+using Jems.NuclearNetworks
+using Jems.StellarModels
+using Jems.Evolution
+using Jems.ReactionRates
+using Interpolations
 ###My code
-
-
 
 
 function RungeKutta(n)
@@ -12,11 +19,18 @@ function RungeKutta(n)
     z_smallx(x,n) = - 1/3*x + n/30*x^3 -3*n*(8*n-5)/760*x^5;
 
     function endOfLoop!(xvals::LinRange, yvals::Vector{Float64}, zvals::Vector{Float64}, endIndex::Int)
-        slope = (xvals[endIndex-1] - yvals[endIndex-2]) / (xvals[endIndex-1] - xvals[endIndex-2])
+        slope = (yvals[endIndex-1] - yvals[endIndex-2]) / (xvals[endIndex-1] - xvals[endIndex-2])
         xlast = xvals[endIndex-1] - yvals[endIndex-1] / slope
         newxvals = zeros(endIndex)
         newxvals[1:endIndex-1] = xvals[1:endIndex-1]; newxvals[endIndex] = xlast
-        return (newxvals, push!(yvals[1:endIndex-1],0.0), zvals[1:endIndex])
+        #add last entry
+        yvals[endIndex] = 0.0
+        zvals[endIndex] = zvals[endIndex-1]
+        #put first entry (core boundary conditions)
+        pushfirst!(yvals,1.0)
+        pushfirst!(newxvals,0.0)
+        pushfirst!(zvals,0.0)
+        return (newxvals,yvals[1:endIndex+1],zvals[1:endIndex+1])
     end
 
     Δx = 1e-4
@@ -54,16 +68,17 @@ function RungeKutta(n)
     return xvals, yvals, zvals
 end
 
-function linear_interpolation(xvalues, yvalues)
-    function θ_n(x)
-        for i in eachindex(xvalues)
-            if xvalues[i] <= x < xvalues[i+1]
-                return yvalues[i] + (yvalues[i+1] - yvalues[i]) / (xvalues[i+1] - xvalues[i]) * (x - xvalues[i])
-            end
-        end
-    end
-    return θ_n
-end
+#function linear_interpolation(xvalues, yvalues)
+#    function θ_n(x)
+#        for i in 1:length(xvalues)-1
+#            if xvalues[i] <= x <= xvalues[i+1]
+#                return yvalues[i] + (yvalues[i+1] - yvalues[i]) / (xvalues[i+1] - xvalues[i]) * (x - xvalues[i])
+#            end
+#        end
+#    end
+#    return θ_n
+#end
+
 
 
 function get_logdq(k::Int, nz::Int, logdq_center::TT, logdq_mid::TT, logdq_surf::TT, numregion::Int)::TT where {TT<:Real}
@@ -77,7 +92,7 @@ function get_logdq(k::Int, nz::Int, logdq_center::TT, logdq_mid::TT, logdq_surf:
 end
 
 function n_polytrope_initial_condition!(sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
-    n=3
+    n=1 #remove this 
     xvals, yvals, zvals = RungeKutta(n)
     (θ_n, ξ_1, derivative_θ_n) = (linear_interpolation(xvals,yvals), xvals[end],linear_interpolation(xvals,zvals))
     logdqs = zeros(length(sm.dm))
@@ -175,7 +190,9 @@ function n_polytrope_initial_condition!(sm::StellarModel, M::Real, R::Real; init
     # special cases, just copy values at edges
     sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lnρ]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lnρ]]
     sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lnT]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lnT]]
-    sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lum]]
+    #sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lum]]
+    sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 3) * sm.nvars + sm.vari[:lum]]
+    sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 3) * sm.nvars + sm.vari[:lum]]
 
     sm.time = 0.0
     sm.dt = initial_dt
@@ -205,14 +222,77 @@ eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 sm = StellarModel(varnames, structure_equations, nz, nextra,
                   remesh_split_functions, net, eos, opacity);
-##
+
 n_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 #StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 Evolution.set_step_info!(sm, sm.esi)
 Evolution.cycle_step_info!(sm);
 Evolution.set_step_info!(sm, sm.ssi)
 Evolution.eval_jacobian_eqs!(sm)
+##
+sm.ssi.lnP[1:1000]
+sm.ssi.lnρ[1:1000]
+sm.ssi.L[1:1000]
+sm.ssi.lnT[1:1000]
+sm.dm[1:1000]
+
+#[sm.ind_vars[sm.nvars*(i-1)+4] for i in 1:nz]
+
 
 ##
 using ForwardDiff
 using Roots
+
+##
+n=3
+xvals, yvals, zvals = RungeKutta(n)
+(θ_n, ξ_1, derivative_θ_n) = (linear_interpolation(xvals,yvals), xvals[end],linear_interpolation(xvals,zvals))
+##
+xvals
+##
+open("example_options.toml", "w") do file
+    write(file,
+          """
+          [remesh]
+          do_remesh = true
+
+          [solver]
+          newton_max_iter_first_step = 1000
+          newton_max_iter = 200
+
+          [timestep]
+          dt_max_increase = 2.0
+
+          [termination]
+          max_model_number = 2000
+          max_center_T = 4e7
+
+          [io]
+          profile_interval = 50
+          """)
+end
+StellarModels.set_options!(sm.opt, "./example_options.toml")
+rm(sm.opt.io.hdf5_history_filename; force=true)
+rm(sm.opt.io.hdf5_profile_filename; force=true)
+n_polytrope_initial_condition!(sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
+@time sm = Evolution.do_evolution_loop(sm);
+
+
+
+
+
+
+
+using CairoMakie
+f=Figure()
+ax = Axis(f[1,1])
+#lines!(ax,xvals, zvals)
+lines!(ax, xvals, derivative_θ_n.(xvals))
+lines!(ax,xvals, yvals)
+lines!(ax,xvals, θ_n.(xvals))
+
+f
+##
+println(θ_n(0.00001))
+##
+xvals[1]
