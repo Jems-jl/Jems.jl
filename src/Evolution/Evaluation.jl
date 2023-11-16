@@ -6,38 +6,51 @@ variables, `ind_vars_view`.
 """
 function eval_cell_eqs!(sm::StellarModel, k::Int)
     sm.var00[k, :] .= get_tmp(view(sm.diff_caches, k, :)[2], sm.eqs_duals[k, 1])
-    κ00 = get_opacity_resultsTP(sm.opacity, sm.var00[k, sm.vari[:lnT]], sm.var00[k, sm.vari[:lnP]],
-                                view(sm.var00, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+    κ00 = get_opacity_resultsTρ(sm.opacity, sm.var00[k, sm.vari[:lnT]], sm.var00[k, sm.vari[:lnρ]],
+                                view(sm.var00, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
 
-    set_EOS_resultsTP!(sm.eos, sm.eos_res[k, 2], sm.var00[k, sm.vari[:lnT]],
-                       sm.var00[k, sm.vari[:lnP]],
-                       view(sm.var00, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+    set_EOS_resultsTρ!(sm.eos, sm.eos_res[k, 2], sm.var00[k, sm.vari[:lnT]],
+                       sm.var00[k, sm.vari[:lnρ]],
+                       view(sm.var00, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
+
+    set_rates_for_network!(view(sm.rates_res, k, :), sm.network, sm.eos_res[k,2], 
+                           view(sm.var00, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)))
+
     if k != 1
         sm.varm1[k, :] .= get_tmp(view(sm.diff_caches, k, :)[1], sm.eqs_duals[k, 1])
-        κm1 = get_opacity_resultsTP(sm.opacity, sm.varm1[k, sm.vari[:lnT]], sm.varm1[k, sm.vari[:lnP]],
-                                    view(sm.varm1, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
-        set_EOS_resultsTP!(sm.eos, sm.eos_res[k, 1], sm.varm1[k, sm.vari[:lnT]], sm.varm1[k, sm.vari[:lnP]],
-                           view(sm.varm1, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+        κm1 = get_opacity_resultsTρ(sm.opacity, sm.varm1[k, sm.vari[:lnT]], sm.varm1[k, sm.vari[:lnρ]],
+                                    view(sm.varm1, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
+        set_EOS_resultsTρ!(sm.eos, sm.eos_res[k, 1], sm.varm1[k, sm.vari[:lnT]], sm.varm1[k, sm.vari[:lnρ]],
+                           view(sm.varm1, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
     else
         sm.varm1[k, :] .= (eltype(sm.varm1))(NaN)
         κm1 = κ00
     end
     if k != sm.nz
         sm.varp1[k, :] .= get_tmp(view(sm.diff_caches, k, :)[3], sm.eqs_duals[k, 1])
-        κp1 = get_opacity_resultsTP(sm.opacity, sm.varp1[k, sm.vari[:lnT]], sm.varp1[k, sm.vari[:lnP]],
-                                    view(sm.varp1, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
-        set_EOS_resultsTP!(sm.eos, sm.eos_res[k, 3], sm.varp1[k, sm.vari[:lnT]], sm.varp1[k, sm.vari[:lnP]],
-                           view(sm.varp1, k, (sm.nvars - sm.nspecies + 1):(sm.nvars)), sm.species_names)
+        κp1 = get_opacity_resultsTρ(sm.opacity, sm.varp1[k, sm.vari[:lnT]], sm.varp1[k, sm.vari[:lnρ]],
+                                    view(sm.varp1, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
+        set_EOS_resultsTρ!(sm.eos, sm.eos_res[k, 3], sm.varp1[k, sm.vari[:lnT]], sm.varp1[k, sm.vari[:lnρ]],
+                           view(sm.varp1, k, (sm.nvars - sm.network.nspecies + 1):(sm.nvars)), sm.network.species_names)
     else
         sm.varp1[k, :] .= (eltype(sm.varp1))(NaN)
         κp1 = κ00
     end
 
-    # evaluate all equations!
-    for i = 1:(sm.nvars)
+    # evaluate all equations! (except composition)
+    for i = 1:(sm.nvars - sm.network.nspecies)
         sm.eqs_duals[k, i] = sm.structure_equations[i].func(sm, k,
                                                             sm.varm1, sm.var00, sm.varp1,
                                                             sm.eos_res[k, 1], sm.eos_res[k, 2], sm.eos_res[k, 3],
+                                                            sm.rates_res,
+                                                            κm1, κ00, κp1)
+    end
+    # evaluate all composition equations
+    for i = 1:sm.network.nspecies
+        sm.eqs_duals[k, sm.nvars - sm.network.nspecies + i] = equation_composition(sm, k, sm.network.species_names[i],
+                                                            sm.varm1, sm.var00, sm.varp1,
+                                                            sm.eos_res[k, 1], sm.eos_res[k, 2], sm.eos_res[k, 3],
+                                                            sm.rates_res,
                                                             κm1, κ00, κp1)
     end
 end
@@ -67,24 +80,29 @@ function eval_jacobian_eqs_row!(sm::StellarModel, k::Int)
     =#
     init_diff_cache!(sm, k)  # set diff_caches to hold 1s where needed
     eval_cell_eqs!(sm, k)  # evaluate equations on the duals, so we have jacobian also
-    if k == 1
-        ki = sm.nvars * (k - 1) + 1
-        kf = sm.nvars * (k + 1)
-    elseif k == sm.nz
-        ki = sm.nvars * (k - 2) + 1
-        kf = sm.nvars * (k)
-    else
-        ki = sm.nvars * (k - 2) + 1
-        kf = sm.nvars * (k + 1)
-    end
-    jac_view = view(sm.jacobian, (sm.nvars * (k - 1) + 1):(sm.nvars * k), ki:kf)
-    for i = 1:(sm.nvars)
-        # populate the jacobian with the relevant entries
-        for j = 1:(k == 1 || k == sm.nz ? 2 * sm.nvars : 3 * sm.nvars)
-            if (k == 1)  # for k==1 the correct derivatives are displaced!
-                jac_view[i, j] = sm.eqs_duals[k, i].partials[j + sm.nvars]
-            else
-                jac_view[i, j] = sm.eqs_duals[k, i].partials[j]
+    # populate the jacobian with the relevant entries
+    jacobian_Lk = sm.jacobian_L[k]
+    jacobian_Dk = sm.jacobian_D[k]
+    jacobian_Uk = sm.jacobian_U[k]
+    for i = 1:sm.nvars
+        # for the solver we normalize all rows of the Jacobian so they don't have crazy values
+        if k==1
+            for j=1:sm.nvars
+                jacobian_Lk[i,j] = 0
+                jacobian_Dk[i,j] = sm.eqs_duals[k, i].partials[j + sm.nvars]
+                jacobian_Uk[i,j] = sm.eqs_duals[k, i].partials[j + 2*sm.nvars]
+            end              
+        elseif k==sm.nz      
+            for j=1:sm.nvars  
+                jacobian_Lk[i,j] = sm.eqs_duals[k, i].partials[j]
+                jacobian_Dk[i,j] = sm.eqs_duals[k, i].partials[j + sm.nvars]
+                jacobian_Uk[i,j] = 0
+            end              
+        else                 
+            for j=1:sm.nvars  
+                jacobian_Lk[i,j] = sm.eqs_duals[k, i].partials[j]
+                jacobian_Dk[i,j] = sm.eqs_duals[k, i].partials[j + sm.nvars]
+                jacobian_Uk[i,j] = sm.eqs_duals[k, i].partials[j + 2*sm.nvars]
             end
         end
         # populate the eqs_numbers with relevant entries (will be RHS for linear solver)

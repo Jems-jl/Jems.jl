@@ -1,6 +1,24 @@
 using TOML
 
 """
+    mutable struct RemeshOptions
+
+Substructure of Options containing controls relating to remeshing
+"""
+@kwdef mutable struct RemeshOptions
+    delta_log10P_split::Float64 = 0.1 # split two cells if difference in log10P is greater than this
+    max_cell_mass_ratio::Float64 = 5.0 # split cell if neighboring cell masses are smaller than this
+    max_dq_center::Float64 = 1e-5 # maximum dm/M for center cell
+    max_dq_surface::Float64 = 1e-5 # maximum dm/M for surface cell
+
+    delta_log10P_merge = 0.001 # merge two cells if difference in log10P is smaller than this, and all other conditions are satisfied
+    delta_log10r_merge = 0.001 # merge two cells if difference in log10P is smaller than this, and all other conditions are satisfied
+    delta_xa_merge = 1e-5 # merge two cells if difference in any isotope abundance is smaller than this, and all other conditions are satisfied
+
+    do_remesh::Bool = false
+end
+
+"""
     mutable struct SolverOptions
 
 Substructure of Options containing controls relating to the Newton solver
@@ -26,6 +44,7 @@ Substructure of Options containing controls relating to timestepping
     delta_Xc_limit::Float64 = 0.005
 
     dt_max_increase::Float64 = 2
+    dt_max_decrease::Float64 = 0.5
     dt_retry_decrease::Float64 = 2
 end
 
@@ -61,7 +80,7 @@ Substructure of Options containing controls relating to input/output of data
                                       "P_surf", "ρ_surf", "X_surf", "Y_surf", "T_center", "P_center", "ρ_center",
                                       "X_center", "Y_center"]
 
-    profile_values::Vector{String} = ["zone", "mass", "dm", "log10_ρ", "log10_P", "log10_T", "luminosity", "X", "Y"]
+    profile_values::Vector{String} = ["zone", "mass", "dm", "log10_ρ", "log10_r", "log10_P", "log10_T", "luminosity", "X", "Y"]
 end
 
 @kwdef mutable struct PlottingOptions
@@ -74,6 +93,7 @@ end
 Structure containing tweakable controls of Jems.
 """
 mutable struct Options
+    remesh::RemeshOptions
     solver::SolverOptions
     timestep::TimestepOptions
     termination::TerminationOptions
@@ -81,7 +101,8 @@ mutable struct Options
     plotting::PlottingOptions
 
     function Options()
-        new(SolverOptions(), TimestepOptions(), TerminationOptions(), IOOptions(), PlottingOptions())
+        new(RemeshOptions(), SolverOptions(), TimestepOptions(),
+            TerminationOptions(), IOOptions())
     end
 end
 
@@ -98,7 +119,7 @@ function set_options!(opt::Options, toml_path::String)
     # Do this before anything is changed, in that way if the load will fail the
     # input is unmodified
     for key in keys(options_file)
-        if !(key in ["solver", "timestep", "termination", "io"])
+        if !(key in ["remesh", "solver", "timestep", "termination", "io"])
             throw(ArgumentError("Error while reading $toml_path. 
                     One of the sections on the TOML file provided ([$key]) is not valid."))
         end
