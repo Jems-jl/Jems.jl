@@ -59,7 +59,7 @@ jobs:
           DISPLAY: ":0"
             #with:
             #  prefix: xvfb-run -s '-screen 0 1024x768x24'
-        env:
+            #env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: |
           julia --project=docs -e '
