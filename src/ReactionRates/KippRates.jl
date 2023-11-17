@@ -31,7 +31,7 @@ reaction_list[:kipp_rates] = Dict(
 )
 
 
-function ReactionRates.get_reaction_rate(reaction::ToyReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT}, xa_index::Dict{Symbol,Int})::TT where{TT}
+function get_reaction_rate(reaction::KippReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT}, xa_index::Dict{Symbol,Int})::TT where{TT}
     
     """
     Input:
