@@ -55,7 +55,7 @@ jobs:
             Pkg.instantiate()' && echo "TESTS_SUCCESSFUL=true" >> $GITHUB_ENV
       - uses: julia-actions/julia-buildpkg@v1
       - name: Install Julia dependencies
-        shell: julia --project=docs/ {0}
+        #shell: julia --project=docs/ {0}
         run: |
           DISPLAY=:0 xvfb-run -s '-screen 0 1024x768x24' julia --color=yes --project=docs/ -e '
           using Pkg;
