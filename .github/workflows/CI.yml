@@ -57,9 +57,10 @@ jobs:
       - name: Install Julia dependencies
         shell: julia --project=docs/ {0}
         run: |
+          DISPLAY=:0 xvfb-run -s '-screen 0 1024x768x24' julia --color=yes --project=docs/ -e '
           using Pkg;
           # dev mono repo versions
-          pkg"dev . ./MakieCore ./GLMakie" # ./ReferenceTests"
+          pkg"dev . ./MakieCore ./GLMakie"' # ./ReferenceTests"
       - uses: julia-actions/julia-docdeploy@v1
         env: 
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
