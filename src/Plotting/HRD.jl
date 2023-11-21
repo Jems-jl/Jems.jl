@@ -1,9 +1,9 @@
 """
     create_HR_observables!(sm::StellarModel, plot::StellarModels.JemsPlot)
 
-creates teff and L observables and adds them to the observable list of the given plot
+Creates teff and L observables and adds them to the observable list of the given plot
 """
-function create_HR_observables!(sm::StellarModel, plot::StellarModels.JemsPlot)
+function create_HR_observables!(plot::StellarModels.JemsPlot, sm::StellarModel)
     teff = exp(sm.esi.lnT[sm.nz])
     plot.x_obs[:Teff_now] = Observable{Float64}(teff)
     plot.x_obs[:Teff] = Observable(Float64[])
@@ -28,6 +28,11 @@ function make_HR_plot!(ax::Axis, Teff::Observable, L::Observable, Teff_now::Obse
     scatter!(ax, Teff_now, L_now; scatter_kwargs...)
 end
 
+"""
+    function update_HR_plot!(plot::StellarModels.JemsPlot, sm::StellarModel)
+
+Updates the given `plot` with the relevant HR data from the stellar model `sm`.
+"""
 function update_HR_plot!(plot::StellarModels.JemsPlot, sm::StellarModel)
     push!(plot.x_obs[:Teff].val, exp(sm.esi.lnT[sm.nz]))
     plot.x_obs[:Teff_now].val = exp(sm.esi.lnT[sm.nz])

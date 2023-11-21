@@ -29,7 +29,7 @@ function init_plots!(sm::StellarModel)
         plot.y_obs = Dict{Symbol,Observable}()
         plot.alt_y_obs = Dict{Symbol,Observable}()
         if plot.type == :HR
-            create_HR_observables!(sm, plot)
+            create_HR_observables!(plot, sm)
             make_HR_plot!(plot.ax, plot.x_obs[:Teff], plot.y_obs[:L], plot.x_obs[:Teff_now],
                           plot.y_obs[:L_now]; scatter_kwargs=Dict(:color => "red", :markersize => 20))
         elseif plot.type == :profile

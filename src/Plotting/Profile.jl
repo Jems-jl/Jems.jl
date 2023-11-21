@@ -1,3 +1,10 @@
+"""
+    function create_profile_observables!(plot::StellarModels.JemsPlot, xvals::Dict, yvals::Dict;
+                                         alt_yvals::Dict=nothing)
+
+Creates relevant profile observables for this `plot` given `xvals`, `yvals` and 
+optionally `alt_yvals` for the right hand axis.
+"""
 function create_profile_observables!(plot::StellarModels.JemsPlot, xvals::Dict, yvals::Dict; alt_yvals::Dict=nothing)
     for (name, vals) in pairs(xvals)
         plot.x_obs[name] = Observable{Vector{Float64}}(vals)
@@ -13,10 +20,14 @@ function create_profile_observables!(plot::StellarModels.JemsPlot, xvals::Dict, 
 end
 
 """
-    function make_profile_plot!(ax::Axis, xvals::Observable, yvals::Observable, 
-                            xlabel::AbstractString="", ylabels::Dict{Symbol, <:AbstractString}=Dict(); line_kwargs=Dict())
+    function make_profile_plot!(ax::Axis, xvals::Observable, yvals::Dict{Symbol,Observable};
+                                xlabel::AbstractString="", ylabels::Dict{Symbol,<:AbstractString}=Dict(),
+                                alt_ax::Axis=nothing, alt_yvals::Dict{Symbol,Observable}=nothing,
+                                alt_ylabels::Dict{Symbol,<:AbstractString}=nothing,
+                                line_kwargs=Dict())
 
-Plot a line for each entry in the 'yvals' observable, and put the given 'ylabels' in a legend.
+Plots a line for each entry in the `yvals` dict, and puts the given `ylabels` in a legend.
+The `alt_ax` is optional for the right hand side axis.
 """
 function make_profile_plot!(ax::Axis, xvals::Observable, yvals::Dict{Symbol,Observable};
                             xlabel::AbstractString="", ylabels::Dict{Symbol,<:AbstractString}=Dict(),
@@ -41,6 +52,12 @@ function make_profile_plot!(ax::Axis, xvals::Observable, yvals::Dict{Symbol,Obse
     end
 end
 
+"""
+
+    update_profile_plot!(plot::StellarModels.JemsPlot, sm::StellarModel)
+
+updates the observables of this `plot` with relevant data of the stellar model `sm`.
+"""
 function update_profile_plot!(plot::StellarModels.JemsPlot, sm::StellarModel)
     for (key, obs) in pairs(plot.x_obs)
         obs.val = StellarModels.profile_output_options[String(key)][2].((sm,), 1:(sm.nz))

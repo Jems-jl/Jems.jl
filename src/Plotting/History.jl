@@ -47,6 +47,11 @@ function make_history_plot!(ax::Axis, xval::Observable, yvals::Dict{Symbol,Obser
     end
 end
 
+"""
+    function update_history_plot!(plot::StellarModels.JemsPlot, sm::StellarModel)
+
+Updates the given `plot` with relevant history data from the stellar model `sm`.
+"""
 function update_history_plot!(plot::StellarModels.JemsPlot, sm::StellarModel)
     for (key, obs) in pairs(plot.x_obs)
         push!(obs.val, StellarModels.history_output_options[String(key)][2](sm))
