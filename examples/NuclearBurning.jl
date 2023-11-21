@@ -124,15 +124,15 @@ open("example_options.toml", "w") do file
 
           [timestep]
           dt_max_increase = 10.0
-          delta_R_limit = 0.02
-          delta_Tc_limit = 0.02
+          delta_R_limit = 0.01
+          delta_Tc_limit = 0.01
 
           [termination]
           max_model_number = 2000
           max_center_T = 4e7
 
           [plotting]
-          do_plotting = false
+          do_plotting = true
           wait_at_termination = false
           plotting_interval = 1
 
