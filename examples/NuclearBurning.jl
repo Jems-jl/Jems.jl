@@ -32,7 +32,7 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
-net = NuclearNetwork([:H1,:He4], [(:toy_rates, :toy_pp), (:toy_rates, :toy_cno)])
+net = NuclearNetwork([:H1,:He4,:C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(false)
@@ -123,7 +123,9 @@ open("example_options.toml", "w") do file
           newton_max_iter = 200
 
           [timestep]
-          dt_max_increase = 2.0
+          dt_max_increase = 10.0
+          delta_R_limit = 0.02
+          delta_Tc_limit = 0.02
 
           [termination]
           max_model_number = 2000
