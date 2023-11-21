@@ -46,18 +46,16 @@ jobs:
         with:
           version: '1'
       - run: sudo apt-get update && sudo apt-get install -y xorg-dev mesa-utils xvfb libgl1 freeglut3-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev xsettingsd x11-xserver-utils
-      - run: shopt -s expand_aliases
-      - run: alias glmakie_prereq="DISPLAY=:0 xvfb-run -s '-screen 0 1024x768x24'"
       - name: Configure doc environment
         run: |
-          glmakie_prereq julia --project=docs/ -e '
+          DISPLAY=:0 xvfb-run -s '-screen 0 1024x768x24' julia --project=docs/ -e '
             using Pkg
             Pkg.develop(PackageSpec(path=pwd()))
             Pkg.instantiate()'
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-docdeploy@v1
         with:
-          prefix: glmakie_prereq
+          prefix: DISPLAY=:0 xvfb-run -s '-screen 0 1024x768x24'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: >
