@@ -123,26 +123,30 @@ open("example_options.toml", "w") do file
           newton_max_iter = 200
 
           [timestep]
-          dt_max_increase = 2.0
+          dt_max_increase = 5.0
 
           [termination]
           max_model_number = 2000
           max_center_T = 4e7
 
           [plotting]
-          do_plotting = true
+          do_plotting = false
           wait_at_termination = false
           plotting_interval = 1
 
-          window_specs = ["HR", "profile"]
+          window_specs = ["HR", "profile", "history"]
           window_layouts = [[1, 1],  # arrangement of plots
                             [2, 1],
+                            [3, 1]
                             ]
-                            
 
           profile_xaxis = 'zone'
           profile_yaxes = ['log10_T']
           profile_alt_yaxes = ['X']
+
+          history_xaxis = 'star_age'
+          history_yaxes = ['R_surf']
+          history_alt_yaxes = ['T_center']
 
           [io]
           profile_interval = 50
@@ -153,7 +157,7 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 StellarModels.n1_polytrope_initial_condition!(sm, 1 * MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
-@time sm = Evolution.do_evolution_loop(sm);
+@time Evolution.do_evolution_loop(sm);
 
 ##
 #=

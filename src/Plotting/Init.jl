@@ -6,7 +6,7 @@ Sets up all observables to be traced this run, and creates the figure and axis w
 function init_plots!(sm::StellarModel)
     basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                                italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
-                        fontsize=30, resolution=(1000, 750), linewidth=7,
+                        fontsize=50, resolution=(1000, 750), linewidth=7,
                         Axis=(xlabelsize=40, ylabelsize=40, titlesize=40, xgridvisible=false, ygridvisible=false,
                               spinewidth=2.5, xminorticksvisible=true, yminorticksvisible=true, xtickalign=1,
                               ytickalign=1,
@@ -101,10 +101,16 @@ function init_figure!(sm::StellarModel)
         this_axis = Axis(sm.plt.fig[sm.opt.plotting.window_layouts[j]...])
         this_type = Symbol(sm.opt.plotting.window_specs[j])
         sm.plt.plots[j] = StellarModels.JemsPlot(this_axis, this_type)
+        
         if (sm.plt.plots[j].type == :profile && length(sm.opt.plotting.profile_alt_yaxes) > 0) || 
             (sm.plt.plots[j].type == :history && length(sm.opt.plotting.history_alt_yaxes) > 0)
-            sm.plt.plots[j].alt_ax = Axis(sm.plt.fig[sm.opt.plotting.window_layouts[j]...])
-            sm.plt.plots[j].alt_ax.yaxisposition = :right
+            # modifications if we have an alt axis
+            sm.plt.plots[j].alt_ax = Axis(sm.plt.fig[sm.opt.plotting.window_layouts[j]...], yaxisposition = :right)
+            hidespines!(sm.plt.plots[j].alt_ax, :l, :t, :b)
+            hidexdecorations!(sm.plt.plots[j].alt_ax)
+            hidespines!(sm.plt.plots[j].ax, :r)
+            sm.plt.plots[j].ax.yticksmirrored = false
+            sm.plt.plots[j].alt_ax.yticksmirrored = false
             linkxaxes!(sm.plt.plots[j].ax, sm.plt.plots[j].alt_ax)
         end
     end
