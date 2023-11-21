@@ -93,6 +93,7 @@ Options relating to the live plotting of the simulation
     do_plotting::Bool = false
     wait_at_termination::Bool = false
     plotting_interval::Int = 10
+    data_interval::Int = 1
 
     window_specs::Vector{String} = []
     window_layouts::Vector{Vector{Int}} = [[]]
@@ -100,6 +101,10 @@ Options relating to the live plotting of the simulation
     profile_xaxis::String = ""
     profile_yaxes::Vector{String} = []
     profile_alt_yaxes::Vector{String} = []
+
+    history_xaxis::String = ""
+    history_yaxes::Vector{String} = []
+    history_alt_yaxes::Vector{String} = []
 end
 
 """
