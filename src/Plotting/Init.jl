@@ -18,7 +18,7 @@ function init_plots!(sm::StellarModel)
 
     GLMakie.set_theme!(basic_theme)
     GLMakie.activate!()
-    # GLMakie.set_window_config!(; float=true)  # place windows on top
+    GLMakie.set_window_config!(; float=true)  # place windows on top
 
     # create figure/axes objects
     init_figure!(sm)
