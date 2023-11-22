@@ -8,6 +8,9 @@ using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
 using Interpolations
+using ForwardDiff
+using Roots
+
 ###My code
 
 
@@ -33,8 +36,8 @@ function RungeKutta(n)
         return (newxvals,yvals[1:endIndex+1],zvals[1:endIndex+1])
     end
 
-    Δx = 1e-4
-    nsteps = 200_000 #maximum number of steps
+    Δx = 1e-6
+    nsteps = 9000_000 #maximum number of steps
     #initialize first value of y and z using series approximation
     xvals = LinRange(Δx,nsteps*Δx,nsteps)
     yvals = zeros(nsteps); zvals = zeros(nsteps)
@@ -61,6 +64,8 @@ function RungeKutta(n)
             break
         end
         k₄ = Δx*dydx(x+Δx,ynew,z+l₃,n);l₄ = Δx*dzdx(x+Δx,ynew,z+l₃,n)
+
+
         yvals[i] = y+k₁/6+k₂/3+k₃/3+k₄/6 #new y value
         zvals[i] = z+l₁/6+l₂/3+l₃/3+l₄/6 #new z value
         #trycatch #still to do
@@ -91,10 +96,10 @@ function get_logdq(k::Int, nz::Int, logdq_center::TT, logdq_mid::TT, logdq_surf:
     end
 end
 
-function n_polytrope_initial_condition!(sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
-    n=1 #remove this 
+function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
     xvals, yvals, zvals = RungeKutta(n)
     (θ_n, ξ_1, derivative_θ_n) = (linear_interpolation(xvals,yvals), xvals[end],linear_interpolation(xvals,zvals))
+    #@show ξ_1, derivative_θ_n(ξ_1), θ_n(ξ_1)
     logdqs = zeros(length(sm.dm))
     for i in 1:sm.nz
         logdqs[i] = get_logdq(i, sm.nz, -10.0, 0.0, -6.0, 200)
@@ -117,10 +122,10 @@ function n_polytrope_initial_condition!(sm::StellarModel, M::Real, R::Real; init
     
     rn = R / ξ_1 # ξ is defined as r/rn, where rn^2=(n+1)Pc/(4π G ρc^2)
 
-    #ρc = M / (4π * rn^3 * (-π^2 * ForwardDiff.derivative(θ_n, π)))
+
     ρc = M / (4π * rn^3 * (-ξ_1^2 * derivative_θ_n(ξ_1)))
     Pc = 4π * CGRAV * rn^2 * ρc^2 / (n + 1)
-
+    @show ρc, Pc
     ξ_cell = zeros(sm.nz)
     ξ_face = zeros(sm.nz)
     function mfunc(ξ, m)
@@ -210,7 +215,7 @@ using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
 ##
-varnames = [:lnρ, :lnT, :lnr, :lum]
+varnames = [:lnρ, :lnT, :lnr, :lum] #1,2,3,4
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
@@ -220,35 +225,50 @@ nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
-sm = StellarModel(varnames, structure_equations, nz, nextra,
+sm  = StellarModel(varnames, structure_equations, nz, nextra,
                   remesh_split_functions, net, eos, opacity);
-
-n_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-#StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+n_polytrope_initial_condition!(1,sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 Evolution.set_step_info!(sm, sm.esi)
 Evolution.cycle_step_info!(sm);
 Evolution.set_step_info!(sm, sm.ssi)
 Evolution.eval_jacobian_eqs!(sm)
-##
-sm.ssi.lnP[1:1000]
-sm.ssi.lnρ[1:1000]
-sm.ssi.L[1:1000]
-sm.ssi.lnT[1:1000]
-sm.dm[1:1000]
 
-#[sm.ind_vars[sm.nvars*(i-1)+4] for i in 1:nz]
+#comparing with the original Lane-Emden solution for n=1
+sm_original = StellarModel(varnames, structure_equations, nz, nextra,
+                  remesh_split_functions, net, eos, opacity);
+StellarModels.n1_polytrope_initial_condition!(sm_original, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+Evolution.set_step_info!(sm_original, sm_original.esi)
+Evolution.cycle_step_info!(sm_original);
+Evolution.set_step_info!(sm_original, sm_original.ssi)
+Evolution.eval_jacobian_eqs!(sm_original)
 
-
-##
-using ForwardDiff
-using Roots
 
 ##
-n=3
-xvals, yvals, zvals = RungeKutta(n)
-(θ_n, ξ_1, derivative_θ_n) = (linear_interpolation(xvals,yvals), xvals[end],linear_interpolation(xvals,zvals))
+#compare to the original function n=1, make second model with; plot model1-model2; differences should be small ~10^-12
+#sm.ssi.lnP[1:1000]
+#sm.ssi.lnρ[1:1000]
+#sm.ssi.L[1:1000]
+#sm.ssi.lnT[1:1000]
+#sm.dm[1:1000]
+
 ##
-xvals
+#:lnρ, :lnT, :lnr, :lum
+using CairoMakie
+f=Figure()
+ax = Axis(f[1,1])
+number = 1 
+testvariable_mycode = [sm.ind_vars[sm.nvars*(i-1)+number] for i in 1:nz]
+testvariable_original = [sm_original.ind_vars[sm_original.nvars*(i-1)+number] for i in 1:nz]
+scatter!(ax,1:1000, log10.(abs.((testvariable_mycode-testvariable_original)./testvariable_original)))
+#lines!(ax, 1:1000, testvariable_mycode)
+#lines!(ax, 1:1000, testvariable_original)
+ax.ylabel = "log(relative difference)"
+ax.xlabel = "Index"
+#title 
+ax.title = "lnρ"
+
+f
+
 ##
 open("example_options.toml", "w") do file
     write(file,
@@ -274,25 +294,33 @@ end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
-n_polytrope_initial_condition!(sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
+StellarModels.n1_polytrope_initial_condition!(sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
 @time sm = Evolution.do_evolution_loop(sm);
 
 
+##
+n=1
+xvals, yvals, zvals = RungeKutta(n)
+(θ_n, ξ_1, derivative_θ_n) = (linear_interpolation(xvals,yvals), xvals[end],linear_interpolation(xvals,zvals))
 
-
-
-
+#define the analytic solution
+analytic_solution(x) = sin(x)/x
 
 using CairoMakie
 f=Figure()
 ax = Axis(f[1,1])
-#lines!(ax,xvals, zvals)
-lines!(ax, xvals, derivative_θ_n.(xvals))
+lines!(ax,xvals, zvals)
+lines!(ax,xvals, derivative_θ_n.(xvals))
 lines!(ax,xvals, yvals)
+lines!(ax,xvals, sin.(xvals)./xvals)
+lines!(ax,xvals,zvals)
+lines!(ax,xvals,cos.(xvals)./xvals - sin.(xvals)./xvals.^2)
 lines!(ax,xvals, θ_n.(xvals))
 
 f
 ##
-println(θ_n(0.00001))
+println(θ_n(3.0))
+println(analytic_solution(3.0))
+println(derivative_θ_n(xvals[end]))
 ##
 xvals[1]
