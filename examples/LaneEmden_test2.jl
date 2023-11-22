@@ -36,8 +36,8 @@ function RungeKutta(n)
         return (newxvals,yvals[1:endIndex+1],zvals[1:endIndex+1])
     end
 
-    Δx = 1e-6
-    nsteps = 9000_000 #maximum number of steps
+    Δx = 1e-7
+    nsteps = 90000_000 #maximum number of steps
     #initialize first value of y and z using series approximation
     xvals = LinRange(Δx,nsteps*Δx,nsteps)
     yvals = zeros(nsteps); zvals = zeros(nsteps)
@@ -259,12 +259,15 @@ ax = Axis(f[1,1])
 number = 1 
 testvariable_mycode = [sm.ind_vars[sm.nvars*(i-1)+number] for i in 1:nz]
 testvariable_original = [sm_original.ind_vars[sm_original.nvars*(i-1)+number] for i in 1:nz]
+
+###plot the logarithmic relative difference
 scatter!(ax,1:1000, log10.(abs.((testvariable_mycode-testvariable_original)./testvariable_original)))
+###
+
 #lines!(ax, 1:1000, testvariable_mycode)
 #lines!(ax, 1:1000, testvariable_original)
 ax.ylabel = "log(relative difference)"
 ax.xlabel = "Index"
-#title 
 ax.title = "lnρ"
 
 f
