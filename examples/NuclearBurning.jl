@@ -36,7 +36,8 @@ net = NuclearNetwork([:H1,:He4,:C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:ki
 nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(false)
-opacity = Opacity.SimpleElectronScatteringOpacity()
+# opacity = Opacity.SimpleElectronScatteringOpacity()
+opacity = Opacity.KramerPrescripted()
 sm = StellarModel(varnames, structure_equations, nz, nextra,
                   remesh_split_functions, net, eos, opacity);
 
@@ -165,6 +166,23 @@ StellarModels.n_polytrope_initial_condition!(n, sm, 1*MSUN, 100 * RSUN; initial_
 @time sm = Evolution.do_evolution_loop(sm);
 
 ##
+
+# TRYING TO PLOT STUFF
+# ANNACHIARA
+i_lnρ = 1
+lnρ = [sm.ind_vars[(i-1)*sm.nvars+i_lnρ] for i=1:sm.nz]
+i_lnT = 2
+lnT = [sm.ind_vars[(i-1)*sm.nvars+i_lnT] for i=1:sm.nz]
+
+opacity = Opacity.KramerPrescripted()
+κ = get_opacity_resultsTρ.(Ref(opacity), lnT, lnρ, Ref([1.0,0.0]),Ref([:H1, :He4]))
+
+f = Figure();
+ax = Axis(f[1, 1]; xlabel=L"\log_{10}(T/[K])", ylabel=L"\log_{10}(\kappa/[\mathrm{cm^2\,g^{-1}}])", xreversed=true)
+lines!(ax, lnT/log(10), log10.(κ))
+f
+
+
 #=
 ### Plotting with Makie
 
