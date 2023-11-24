@@ -6,10 +6,8 @@ const width = 9
 const decimals = 4
 const floatstr = "%#$width.$decimals" * "g "
 const intstr = "%$width" * "i "
-const line1fmt = intstr * floatstr^6 * intstr * "\n"
-const line2fmt = floatstr^7 * intstr * "\n"
-line1(args...) = @eval @printf($line1fmt, $(args...))
-line2(args...) = @eval @printf($line2fmt, $(args...))
+const line1fmt = Printf.Format(intstr * floatstr^6 * intstr * "\n")
+const line2fmt = Printf.Format(floatstr^7 * intstr * "\n")
 const header = """
         model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
          mass       age      logR     logTc     logPc     logρc   He_cntr     zones
@@ -186,10 +184,11 @@ function write_terminal_info(sm::StellarModel)
         print(header)
     end
     if sm.esi.model_number % sm.opt.io.terminal_info_interval == 0
-        line1(sm.esi.model_number, log10(sm.dt), log10(sm.esi.L[sm.nz]), log10_e * sm.esi.lnT[sm.nz],
-              log10_e * sm.esi.lnP[sm.nz], log10_e * sm.esi.lnρ[sm.nz], sm.esi.X[1], sm.newton_iters)
-        line2(sm.esi.mstar / MSUN, sm.esi.time / SECYEAR, log10_e * sm.esi.lnr[sm.nz], log10_e * sm.esi.lnT[1],
-              log10_e * sm.esi.lnP[1], log10_e*sm.esi.lnρ[1], sm.esi.Y[1], sm.esi.nz)
+        Printf.format(stdout, line1fmt, sm.esi.model_number, log10(sm.dt), log10(sm.esi.L[sm.nz]),
+                      log10_e * sm.esi.lnT[sm.nz], log10_e * sm.esi.lnP[sm.nz], log10_e * sm.esi.lnρ[sm.nz],
+                      sm.esi.X[1], sm.newton_iters)
+        Printf.format(stdout, line2fmt, sm.esi.mstar / MSUN, sm.esi.time / SECYEAR, log10_e * sm.esi.lnr[sm.nz],
+                      log10_e * sm.esi.lnT[1], log10_e * sm.esi.lnP[1], log10_e*sm.esi.lnρ[1], sm.esi.Y[1], sm.esi.nz)
         println()
     end
 end
