@@ -1,5 +1,20 @@
 using HDF5
 using DataFrames
+using Printf
+
+const width = 9
+const decimals = 4
+const floatstr = "%#$width.$decimals" * "g "
+const intstr = "%$width" * "i "
+const line1fmt = intstr * floatstr^6 * intstr * "\n"
+const line2fmt = floatstr^7 * intstr * "\n"
+line1(args...) = @eval @printf($line1fmt, $(args...))
+line2(args...) = @eval @printf($line2fmt, $(args...))
+const header = """
+        model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
+         mass       age      logR     logTc     logPc     logρc   He_cntr     zones
+    -------------------------------------------------------------------------------
+    """
 
 """
     history_get_ind_vars_edge_value(sm::StellarModel, var_symbol::Symbol, edge::Symbol)
@@ -63,10 +78,10 @@ profile_output_options = Dict(
                               "dm" => ("Msun", (sm, k) -> sm.esi.dm[k] / MSUN),
 
                               #thermodynamic properties
-                              "log10_r" => ("log10(Rsun)", (sm, k) -> sm.esi.lnr[k] / RSUN / log(10)),
-                              "log10_P" => ("log10(dyne)", (sm, k) -> sm.esi.lnP[k] / log(10)),
-                              "log10_T" => ("log10(K)", (sm, k) -> sm.esi.lnT[k] / log(10)),
-                              "log10_ρ" => ("log10_(g*cm^-3)", (sm, k) -> log10(sm.esi.eos_res[k].ρ)),
+                              "log10_r" => ("log10(Rsun)", (sm, k) -> sm.esi.lnr[k] / RSUN * log10_e),
+                              "log10_P" => ("log10(dyne)", (sm, k) -> sm.esi.lnP[k] * log10_e),
+                              "log10_T" => ("log10(K)", (sm, k) -> sm.esi.lnT[k] * log10_e),
+                              "log10_ρ" => ("log10_(g*cm^-3)", (sm, k) -> sm.esi.lnρ[k] * log10_e),
                               "luminosity" => ("Lsun", (sm, k) -> sm.esi.L[k]),
 
                               #abundance
@@ -165,6 +180,20 @@ function write_data(sm::StellarModel)
         end
     end
 end
+
+function write_terminal_info(sm::StellarModel)
+    if sm.esi.model_number == 1 || sm.esi.model_number % sm.opt.io.terminal_header_interval == 0
+        print(header)
+    end
+    if sm.esi.model_number % sm.opt.io.terminal_info_interval == 0
+        line1(sm.esi.model_number, log10(sm.dt), log10(sm.esi.L[sm.nz]), log10_e * sm.esi.lnT[sm.nz],
+              log10_e * sm.esi.lnP[sm.nz], log10_e * sm.esi.lnρ[sm.nz], sm.esi.X[1], sm.newton_iters)
+        line2(sm.esi.mstar / MSUN, sm.esi.time / SECYEAR, log10_e * sm.esi.lnr[sm.nz], log10_e * sm.esi.lnT[1],
+              log10_e * sm.esi.lnP[1], log10_e*sm.esi.lnρ[1], sm.esi.Y[1], sm.esi.nz)
+        println()
+    end
+end
+
 
 """
     get_history_dataframe_from_hdf5(hdf5_filename)
