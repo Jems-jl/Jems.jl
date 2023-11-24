@@ -13,6 +13,7 @@ Abstract supertype from which all defined opacity laws must derive, _ie_:
 """
 abstract type AbstractOpacity end
 
-include("SimpleElectronScattering.jl")
+# include("SimpleElectronScattering.jl")
+include("KramerPrescripted.jl")
 
 end # module Opacity
