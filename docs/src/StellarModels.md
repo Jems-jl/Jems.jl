@@ -36,3 +36,10 @@ Pages = ["StellarModels/IO.jl"]
 Modules = [Jems.StellarModels]
 Pages = ["StellarModels/Remesher.jl"]
 ```
+
+## PlotterInterface.jl
+
+```@autodocs
+Modules = [Jems.StellarModels]
+Pages = ["StellarModels/PlotterInterface.jl"]
+```

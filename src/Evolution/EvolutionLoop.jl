@@ -199,6 +199,12 @@ function do_evolution_loop(sm::StellarModel)
         set_step_info!(sm, sm.esi)
         StellarModels.write_data(sm)
 
+        if sm.opt.plotting.do_plotting && sm.model_number == 1
+            Plotting.init_plots!(sm)
+        elseif sm.opt.plotting.do_plotting && sm.model_number % sm.opt.plotting.plotting_interval == 0
+            Plotting.update_plotting!(sm)
+        end
+
         #@show sm.model_number, sm.esi.lnP[1], sm.esi.lnP[2], sm.esi.lnP[sm.nz-1], sm.esi.lnP[sm.nz]
         #@show sm.model_number, sm.esi.lnT[1], sm.esi.lnT[2], sm.esi.lnT[sm.nz-1], sm.esi.lnT[sm.nz]
         #@show sm.dm[1], sm.dm[2], sm.dm[3]
@@ -214,5 +220,8 @@ function do_evolution_loop(sm::StellarModel)
             break
         end
     end
-    return sm
+    if sm.opt.plotting.do_plotting
+        Plotting.end_of_evolution(sm)
+    end
+
 end

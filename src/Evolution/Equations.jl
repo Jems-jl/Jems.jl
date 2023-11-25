@@ -146,7 +146,7 @@ function equationLuminosity(sm::StellarModel, k::Int,
 
     ϵnuc::TT = 0
     for i in eachindex(sm.network.reactions)
-        ϵnuc = ϵnuc + rates[k,i]*sm.network.reactions[i].Qvalue
+        ϵnuc += rates[k, i]*sm.network.reactions[i].Qvalue
     end
     return ((L₀ - L₋) / sm.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)  # no neutrinos
 end

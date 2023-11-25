@@ -24,8 +24,8 @@ makedocs(modules=[Jems],
                                 assets=String[]),
          pages=["Home" => "index.md",
                 "Examples" => ["NuclearBurning.md"],
-                "Modules" => ["Chem.md", "Constants.md", "EOS.md",
-                              "StellarModels.md", "Evolution.md", "Opacity.md"],
+                "Modules" => ["Chem.md", "Constants.md", "EOS.md", "Opacity.md",
+                              "StellarModels.md", "Evolution.md", "Plotting.md"],
                 "Developing" => ["style.md"]])
 
 deploydocs(repo="github.com/orlox/Jems.jl", devbranch="main")
