@@ -180,14 +180,16 @@ function write_data(sm::StellarModel)
 end
 
 function write_terminal_info(sm::StellarModel)
-    if sm.esi.model_number == 1 || sm.esi.model_number % sm.opt.io.terminal_header_interval == 0
+    if sm.esi.model_number == 1 || 
+            sm.esi.model_number % sm.opt.io.terminal_header_interval == 0
         print(header)
     end
-    if sm.esi.model_number % sm.opt.io.terminal_info_interval == 0
-        Printf.format(stdout, line1fmt, sm.esi.model_number, log10(sm.dt), log10(sm.esi.L[sm.nz]),
+    if sm.esi.model_number == 1 ||
+            sm.esi.model_number % sm.opt.io.terminal_info_interval == 0
+        Printf.format(stdout, line1fmt, sm.esi.model_number, log10(sm.dt/SECYEAR), log10(sm.esi.L[sm.nz]),
                       log10_e * sm.esi.lnT[sm.nz], log10_e * sm.esi.lnP[sm.nz], log10_e * sm.esi.lnρ[sm.nz],
                       sm.esi.X[1], sm.newton_iters)
-        Printf.format(stdout, line2fmt, sm.esi.mstar / MSUN, sm.esi.time / SECYEAR, log10_e * sm.esi.lnr[sm.nz],
+        Printf.format(stdout, line2fmt, sm.esi.mstar / MSUN, sm.esi.time / SECYEAR, log10_e * sm.esi.lnr[sm.nz] / RSUN,
                       log10_e * sm.esi.lnT[1], log10_e * sm.esi.lnP[1], log10_e*sm.esi.lnρ[1], sm.esi.Y[1], sm.esi.nz)
         println()
     end

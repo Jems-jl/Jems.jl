@@ -73,7 +73,7 @@ Substructure of Options containing controls relating to input/output of data
     hdf5_profile_compression_level::Int = 9
     hdf5_profile_dataset_name_zero_padding::Int = 10
 
-    terminal_header_interval::Int = 100
+    terminal_header_interval::Int = 10
     terminal_info_interval::Int = 10
     history_interval::Int = 1
     profile_interval::Int = 10

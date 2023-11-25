@@ -142,9 +142,9 @@ open("example_options.toml", "w") do file
                             [3, 1]
                             ]
 
-          profile_xaxis = 'zone'
+          profile_xaxis = 'mass'
           profile_yaxes = ['log10_T']
-          profile_alt_yaxes = ['X']
+          profile_alt_yaxes = ['X','Y']
 
           history_xaxis = 'star_age'
           history_yaxes = ['R_surf']
