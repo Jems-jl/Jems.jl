@@ -16,10 +16,10 @@ DocMeta.setdocmeta!(Jems, :DocTestSetup, :(using Jems); recursive=true)
 
 makedocs(modules=[Jems],
          authors="Pablo Marchant <pablo.marchant@kuleuven.be>, Matthias Fabry <matthias.fabry@kuleuven.be>",
-         repo="https://github.com/orlox/Jems.jl/blob/{commit}{path}#{line}",
+         repo="https://github.com/Jems-jl/Jems.jl/blob/{commit}{path}#{line}",
          sitename="Jems.jl",
          format=Documenter.HTML(prettyurls=get(ENV, "CI", "false") == "true",
-                                canonical="https://orlox.github.io/Jems.jl",
+                                canonical="https://Jems-jl.github.io",
                                 edit_link="main",
                                 assets=String[]),
          pages=["Home" => "index.md",
@@ -28,4 +28,4 @@ makedocs(modules=[Jems],
                               "StellarModels.md", "Evolution.md", "Plotting.md"],
                 "Developing" => ["style.md"]])
 
-deploydocs(repo="github.com/orlox/Jems.jl", devbranch="main")
+deploydocs(repo="github.com/Jems-jl/Jems.jl", devbranch="main")
