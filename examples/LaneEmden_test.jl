@@ -46,7 +46,7 @@ z_smallx(x,n) = - 1/3*x + n/30*x^3 -3*n*(8*n-5)/760*x^5;
 
 #set up grid in x 
 Δx = 1e-4
-n = 3/2
+n = 1
 println("n=$n")
 nsteps = 200000 #putting a maximum on the number of steps
 xvals = LinRange(Δx,nsteps*Δx,nsteps)

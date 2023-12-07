@@ -12,10 +12,20 @@ using ForwardDiff
 using Roots
 
 ###My code
-function RungeKutta(n)
+"""
+    RungeKutta_LaneEmden(n)
 
-    dydx(x,y,z,n) = z 
+Computes the solution of the Lane-Emden equation for polytropic index `n` until the first zero by returning
+`xvals`, containing ξ values; `yvals`, containing the corresponding function values θ_n; and `zvals`, containing the derivative.
+This naming convention for x (=independent variable), y (=corresponding solution values) and z (=corresponding derivative values) is used throughout this function.
+The Lane-Emden equation is solved by performing the Runge-Kutta method of order 4. The stepsize is allowed to decrease as the function reaches the first zero. 
+
+"""
+function RungeKutta_LaneEmden(n)
+    #defining the Lane-Emden equation
+    dydx(x,y,z,n) = z
     dzdx(x,y,z,n) = -y^n -2*z/x 
+    #defining the approximation for small x
     y_smallx(x,n) = 1 - 1/6*x^2 + n/120*x^4 -n*(8*n-5)/1520*x^6
     z_smallx(x,n) = - 1/3*x + n/30*x^3 -3*n*(8*n-5)/760*x^5;
 
@@ -27,7 +37,7 @@ function RungeKutta(n)
         xvals[endIndex] = xlast
         yvals[endIndex] = 0.0
         zvals[endIndex] = zvals[endIndex-1]
-        #put first entry (core boundary conditions)
+        #manually adding the core boundary conditions
         pushfirst!(yvals,1.0)
         pushfirst!(xvals,0.0)
         pushfirst!(zvals,0.0)
@@ -37,10 +47,7 @@ function RungeKutta(n)
     Δx = 1e-5
     Δx_min = 1e-11
     nsteps = 10_000_000 #maximum number of steps
-    #initialize first value of y and z using series approximation
-    xvals = LinRange(Δx,nsteps*Δx,nsteps)
-    #make a mutable array of xvals
-    xvals = collect(xvals) ####changed
+    xvals = LinRange(Δx,nsteps*Δx,nsteps); xvals = collect(xvals) #making xvals a mutable array
     yvals = zeros(nsteps); zvals = zeros(nsteps)
     yvals[1] = y_smallx(Δx,n); zvals[1] = z_smallx(Δx,n)
 
@@ -51,27 +58,25 @@ function RungeKutta(n)
             k₁ = Δx*dydx(x,y,z,n); l₁ = Δx*dzdx(x,y,z,n)
             ynew = y + k₁/2
             if ynew < 0.0
-                throw(ErrorException("ynew turned negative"))
+                throw(ErrorException("negative value"))
             end
             k₂ = Δx*dydx(x+Δx/2,ynew,z+l₁/2,n); l₂ = Δx*dzdx(x+Δx/2,ynew,z+l₁/2,n)
             ynew = y+k₂/2
             if ynew < 0.0
-                throw(ErrorException("ynew turned negative"))
+                throw(ErrorException("negative value"))
             end
             k₃ = Δx*dydx(x+Δx/2,ynew,z+l₂/2,n); l₃ = Δx*dzdx(x+Δx/2,ynew,z+l₂/2,n)
             ynew = y+k₃
             if ynew < 0.0
-                throw(ErrorException("ynew turned negative"))
+                throw(ErrorException("negative value"))
             end
             k₄ = Δx*dydx(x+Δx,ynew,z+l₃,n);l₄ = Δx*dzdx(x+Δx,ynew,z+l₃,n)
             ynew = y+k₁/6+k₂/3+k₃/3+k₄/6
             if ynew < 0.0
-                throw(ErrorException("ynew turned negative"))
+                throw(ErrorException("negative value"))
             end
-
             yvals[i] = ynew #new y value
             zvals[i] = z+l₁/6+l₂/3+l₃/3+l₄/6 #new z value
-
             i = i+1
         catch e
             if isa(e, ErrorException)
@@ -88,6 +93,48 @@ function RungeKutta(n)
         end
     end
     return xvals, yvals, zvals
+end
+
+"""
+    getlnT_NewtonRhapson(lnT_initial, lnρ, P, xa, species, eos)
+
+Computes the temperature lnT starting from a density `lnρ`, a pressure `P`, a composition `xa`,
+a species `species` and an equation of state `eos`. The equation of state gives us the pressure, 
+given a certain temperature and density. The idea is to match this pressure with the given pressure `P`
+by fitting the temperature. Starting from an initial guess `lnT_initial`, 
+the Newton-Rhapson method is used to converge to the final temperature in an interative way.
+Each iteration, a new lnT is computed according to the Newton-Rhapson formula using the derivative dlnP/dlnT.
+Next, based on this new lnT, the equation of state returns a new pressure. The algorithm stops when
+the difference between the calculated pressure and the given pressure is smaller than a certain threshold.
+The temperature at which this occurs is returned.
+
+"""
+
+function getlnT_NewtonRhapson(lnT_initial, lnρ, P, xa, species,eos)
+    ΔlnPmin = 1e-4
+    lnT = lnT_initial
+    lnT_dual = ForwardDiff.Dual(lnT_initial,1.0)
+    lnρ_dual = ForwardDiff.Dual(lnρ,0.0)
+    xa_dual = [ForwardDiff.Dual(xa[i],0.0) for i in eachindex(xa)]
+    r = EOSResults{typeof(lnT_dual)}()
+    set_EOS_resultsTρ!(eos,r,lnT_dual,lnρ_dual,xa_dual,species)
+    lnP = log(r.P)
+    dlnPdlnT = lnP.partials[1]
+    @show dlnPdlnT, lnT, lnρ, lnP, r.P.value
+    i = 0
+    while abs(log(P) - lnP.value) > ΔlnPmin
+        @show dlnPdlnT, lnT, lnρ, log(P), log(r.P.value)
+        lnT = lnT + (log(P) - lnP.value) / dlnPdlnT #go to the next guess
+        lnT_dual = ForwardDiff.Dual(lnT,1.0) #setting new lnT_dual
+        set_EOS_resultsTρ!(sm.eos,r,lnT_dual,lnρ_dual,xa_dual,[:H1,:He4])
+        lnP = log(r.P)
+        dlnPdlnT = lnP.partials[1]
+        i = i+1
+        if i>100
+            throw(ArgumentError("not able to converge to equation of state temperature"))
+        end
+    end
+    return lnT
 end
 
 function RungeKutta_myOriginal(n)
@@ -140,26 +187,12 @@ function RungeKutta_myOriginal(n)
             break
         end
         k₄ = Δx*dydx(x+Δx,ynew,z+l₃,n);l₄ = Δx*dzdx(x+Δx,ynew,z+l₃,n)
-
-
         yvals[i] = y+k₁/6+k₂/3+k₃/3+k₄/6 #new y value
         zvals[i] = z+l₁/6+l₂/3+l₃/3+l₄/6 #new z value
         #trycatch #still to do
     end
     return xvals, yvals, zvals
 end
-
-#function linear_interpolation(xvalues, yvalues)
-#    function θ_n(x)
-#        for i in 1:length(xvalues)-1
-#            if xvalues[i] <= x <= xvalues[i+1]
-#                return yvalues[i] + (yvalues[i+1] - yvalues[i]) / (xvalues[i+1] - xvalues[i]) * (x - xvalues[i])
-#            end
-#        end
-#    end
-#    return θ_n
-#end
-
 
 
 function get_logdq(k::Int, nz::Int, logdq_center::TT, logdq_mid::TT, logdq_surf::TT, numregion::Int)::TT where {TT<:Real}
@@ -172,8 +205,16 @@ function get_logdq(k::Int, nz::Int, logdq_center::TT, logdq_mid::TT, logdq_surf:
     end
 end
 
+"""
+    n_polytrope_initial_condition(n,sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
+
+Initializes a stellar model `sm` with values corresponding to a polytrope of index `n`, setting the independent variables
+`sm.ind_vars`, etc. accordingly. Also sets the initial timestep to be taken, `initial_dt`. The function first
+calls the solution to the Lane-Emden equation for index `n` and then sets radii, densities, pressures
+and luminosities.
+"""
 function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
-    xvals, yvals, zvals = RungeKutta(n)
+    xvals, yvals, zvals = RungeKutta_LaneEmden(n)
     (θ_n, ξ_1, derivative_θ_n) = (linear_interpolation(xvals,yvals), xvals[end],linear_interpolation(xvals,zvals))
     #@show ξ_1, derivative_θ_n(ξ_1), θ_n(ξ_1)
     logdqs = zeros(length(sm.dm))
@@ -227,7 +268,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
     end
     mfunc_anon = ξ -> mfunc(ξ, 0.99999*M)
 
-    # set radii, pressure and temperature, assuming ideal gas without Prad
+    # set radii, pressure and temperature
     for i = 1:(sm.nz)
         μ = 0.5
         XH = 1.0
@@ -239,13 +280,12 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
             P = Pc
             ρ = ρc
         end
-        lnT_initial = log(P * μ / (CGAS * ρ))
-        lnT = NewtonRhapson(lnT_initial, log(ρ),P,[1.0,0],[:H1,:He4],sm.eos)
+        lnT_initial = log(P * μ / (CGAS * ρ)) #ideal gas temperature as intial guess
+        #fit the temperature using the equation of state
+        lnT = getlnT_NewtonRhapson(lnT_initial, log(ρ),P,[1.0,0],[:H1,:He4],sm.eos)
 
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]] = log(ρ)
-        
-        sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = lnT #first guess on lnT
-        
+        sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = lnT
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:H1]] = 1.0
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:He4]] = 0
 
@@ -262,7 +302,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
         Pface = Pc * (θ_n(ξ_face[i]))^(n + 1)
         ρface = ρc * (θ_n(ξ_face[i]))^(n)
         Tfaceinit = Pface * μ / (CGAS * ρface)
-        lnTface = NewtonRhapson(log(Tfaceinit),log(ρface), Pface, [1.0,0.0],[:H1,:He4],sm.eos)
+        lnTface = getlnT_NewtonRhapson(log(Tfaceinit),log(ρface), Pface, [1.0,0.0],[:H1,:He4],sm.eos)
         Tface = exp(lnTface)
        
         dlnT = sm.ind_vars[(i) * sm.nvars + sm.vari[:lnT]] - sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
@@ -271,7 +311,6 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
         else
             dlnP = log(Pc * (θ_n(ξ_cell[i+1]))^(n + 1)) - log(Pc)
         end
-        #κ = 0.4
         κ = get_opacity_resultsTρ(sm.opacity, lnTface, log(ρface) ,[1.0,0.0], [:H1,:He4])
 
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (dlnT / dlnP) *
@@ -364,36 +403,6 @@ r.P.partials[1] #this is dP/dT!
 println(lnT_dual^2)
 
 ##
-
-function NewtonRhapson(lnT_initial, lnρ, P, xa, species,eos)
-    ΔlnPmin = 1e-4
-    lnT = lnT_initial
-    lnT_dual = ForwardDiff.Dual(lnT_initial,1.0)
-    lnρ_dual = ForwardDiff.Dual(lnρ,0.0)
-    xa_dual = [ForwardDiff.Dual(xa[i],0.0) for i in eachindex(xa)]
-    r = EOSResults{typeof(lnT_dual)}()
-    set_EOS_resultsTρ!(eos,r,lnT_dual,lnρ_dual,xa_dual,species)
-    lnP = log(r.P)
-    dlnPdlnT = lnP.partials[1]
-    @show dlnPdlnT, lnT, lnρ, lnP, r.P.value
-    i = 0
-    while abs(log(P) - lnP.value) > ΔlnPmin
-        @show dlnPdlnT, lnT, lnρ, log(P), log(r.P.value)
-        lnT = lnT + (log(P) - lnP.value) / dlnPdlnT #go to the next guess
-        lnT_dual = ForwardDiff.Dual(lnT,1.0) #setting new lnT_dual
-        set_EOS_resultsTρ!(sm.eos,r,lnT_dual,lnρ_dual,xa_dual,[:H1,:He4])
-        lnP = log(r.P)
-        dlnPdlnT = lnP.partials[1]
-        i = i+1
-        if i>100
-            throw(ArgumentError("not able to converge to temperature"))
-        end
-    end
-    return lnT
-end
-
-NewtonRhapson(20.1,5.0,1e19,[0.5,0.5],sm)
-
 
 
 
