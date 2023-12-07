@@ -12,5 +12,5 @@ of length `nspecies`), the natural log of temperature and pressure `lnT`, `lnP`,
 function get_opacity_resultsTρ(opacity::SimpleElectronScatteringOpacity, lnT::TT, lnρ::TT,
                                xa::AbstractVector{<:TT}, species::Vector{Symbol})::TT where {TT<:Real}
     iH1 = findfirst(==(:H1), species)
-    return 0.2 * (1 + xa[iH1])  # in cm^2/g
+    return 0.2 * (1 + xa[iH1])  # in cm^2 /g
 end
