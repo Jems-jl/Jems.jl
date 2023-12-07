@@ -73,6 +73,8 @@ Substructure of Options containing controls relating to input/output of data
     hdf5_profile_compression_level::Int = 9
     hdf5_profile_dataset_name_zero_padding::Int = 10
 
+    terminal_header_interval::Int = 10
+    terminal_info_interval::Int = 10
     history_interval::Int = 1
     profile_interval::Int = 10
 
@@ -80,7 +82,31 @@ Substructure of Options containing controls relating to input/output of data
                                       "P_surf", "ρ_surf", "X_surf", "Y_surf", "T_center", "P_center", "ρ_center",
                                       "X_center", "Y_center"]
 
-    profile_values::Vector{String} = ["zone", "mass", "dm", "log10_ρ", "log10_r", "log10_P", "log10_T", "luminosity", "X", "Y"]
+    profile_values::Vector{String} = ["zone", "mass", "dm", "log10_ρ", "log10_r", "log10_P", "log10_T", "luminosity",
+                                      "X", "Y"]
+end
+
+"""
+    mutable struct PlottingOptions
+
+Options relating to the live plotting of the simulation
+"""
+@kwdef mutable struct PlottingOptions
+    do_plotting::Bool = false
+    wait_at_termination::Bool = false
+    plotting_interval::Int = 10
+    data_interval::Int = 1
+
+    window_specs::Vector{String} = []
+    window_layouts::Vector{Vector{Int}} = [[]]
+
+    profile_xaxis::String = ""
+    profile_yaxes::Vector{String} = []
+    profile_alt_yaxes::Vector{String} = []
+
+    history_xaxis::String = ""
+    history_yaxes::Vector{String} = []
+    history_alt_yaxes::Vector{String} = []
 end
 
 """
@@ -93,11 +119,12 @@ mutable struct Options
     solver::SolverOptions
     timestep::TimestepOptions
     termination::TerminationOptions
+    plotting::PlottingOptions
     io::IOOptions
 
     function Options()
         new(RemeshOptions(), SolverOptions(), TimestepOptions(),
-            TerminationOptions(), IOOptions())
+            TerminationOptions(), PlottingOptions(), IOOptions())
     end
 end
 
@@ -114,7 +141,7 @@ function set_options!(opt::Options, toml_path::String)
     # Do this before anything is changed, in that way if the load will fail the
     # input is unmodified
     for key in keys(options_file)
-        if !(key in ["remesh", "solver", "timestep", "termination", "io"])
+        if !(key in ["remesh", "solver", "timestep", "termination", "plotting", "io"])
             throw(ArgumentError("Error while reading $toml_path. 
                     One of the sections on the TOML file provided ([$key]) is not valid."))
         end
@@ -147,5 +174,3 @@ function set_options!(opt::Options, toml_path::String)
         end
     end
 end
-
-opt = Options()
