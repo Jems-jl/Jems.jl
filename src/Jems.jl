@@ -8,6 +8,8 @@ include("ReactionRates/ReactionRates.jl")
 include("NuclearNetworks/NuclearNetworks.jl")
 include("Opacity/Opacity.jl")
 include("StellarModels/StellarModels.jl")
+include("Plotting/Plotting.jl")
 include("Evolution/Evolution.jl")
+
 
 end

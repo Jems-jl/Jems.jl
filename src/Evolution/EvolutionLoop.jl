@@ -10,6 +10,7 @@ function set_step_info!(sm::StellarModel, si::StellarModels.StellarStepInfo)
 
     si.nz = sm.nz
     si.mstar = sm.mstar
+
     Threads.@threads for i = 1:(sm.nz)
         si.m[i] = sm.m[i]
         si.dm[i] = sm.dm[i]
@@ -19,11 +20,11 @@ function set_step_info!(sm::StellarModel, si::StellarModels.StellarStepInfo)
         si.lnρ[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]]
         si.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]]
 
-        species_names = sm.var_names[(sm.nvars - sm.network.nspecies + 1):end]
-
         xa = view(sm.ind_vars, (i * sm.nvars - sm.network.nspecies + 1):(i * sm.nvars))
+        si.X[i] = xa[sm.network.xa_index[:H1]]  # can later include H2 as well.
+        si.Y[i] = xa[sm.network.xa_index[:He4]]  # can later include He3 as well.
 
-        set_EOS_resultsTρ!(sm.eos, si.eos_res[i], si.lnT[i], si.lnρ[i], xa, species_names)
+        set_EOS_resultsTρ!(sm.eos, si.eos_res[i], si.lnT[i], si.lnρ[i], xa, sm.network.species_names)
 
         si.lnP[i] = log(si.eos_res[i].P)
         for k = 1:sm.nvars
@@ -114,10 +115,11 @@ function do_evolution_loop(sm::StellarModel)
             sm = StellarModels.remesher!(sm)
         end
 
-        set_step_info!(sm, sm.ssi)  # set info before we attempt any newton solver
+        set_step_info!(sm, sm.ssi)  # set start step info before we attempt any newton solver
 
         sm.ssi.dt = dt_next
         sm.dt = dt_next
+        sm.newton_iters = 0
 
         max_steps = sm.opt.solver.newton_max_iter
         if (sm.model_number == 0)
@@ -128,8 +130,8 @@ function do_evolution_loop(sm::StellarModel)
         retry_step = false
         # step loop
         for i = 1:max_steps
-            eval_jacobian_eqs!(sm)
-            thomas_algorithm!(sm)
+            eval_jacobian_eqs!(sm)  # heavy lifting happens here!
+            thomas_algorithm!(sm)  # here as well
             corr = @view sm.solver_corr[1:sm.nvars*sm.nz]
 
             real_max_corr = maximum(corr)
@@ -159,10 +161,7 @@ function do_evolution_loop(sm::StellarModel)
                 if sm.model_number == 0
                     println("Found first model")
                 end
-                if sm.model_number % 100 == 0
-                    @show sm.model_number, i, real_max_corr, maximum(sm.eqs_numbers), dt_next / SECYEAR, sm.time / SECYEAR
-                end
-                break
+                break  # successful, break the step loop
             end
             if i == max_steps
                 if retry_count > 10
@@ -174,6 +173,7 @@ function do_evolution_loop(sm::StellarModel)
                     println("Failed to converge step $(sm.model_number) with timestep $(dt_next/SECYEAR), retrying")
                 end
             end
+            sm.newton_iters = i
         end
 
         if retry_step
@@ -198,6 +198,13 @@ function do_evolution_loop(sm::StellarModel)
         # write state in sm.esi and potential history/profiles.
         set_step_info!(sm, sm.esi)
         StellarModels.write_data(sm)
+        StellarModels.write_terminal_info(sm)
+
+        if sm.opt.plotting.do_plotting && sm.model_number == 1
+            Plotting.init_plots!(sm)
+        elseif sm.opt.plotting.do_plotting && sm.model_number % sm.opt.plotting.plotting_interval == 0
+            Plotting.update_plotting!(sm)
+        end
 
         #@show sm.model_number, sm.esi.lnP[1], sm.esi.lnP[2], sm.esi.lnP[sm.nz-1], sm.esi.lnP[sm.nz]
         #@show sm.model_number, sm.esi.lnT[1], sm.esi.lnT[2], sm.esi.lnT[sm.nz-1], sm.esi.lnT[sm.nz]
@@ -214,5 +221,8 @@ function do_evolution_loop(sm::StellarModel)
             break
         end
     end
-    return sm
+    if sm.opt.plotting.do_plotting
+        Plotting.end_of_evolution(sm)
+    end
+
 end
