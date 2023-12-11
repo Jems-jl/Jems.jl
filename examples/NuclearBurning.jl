@@ -165,6 +165,9 @@ StellarModels.n_polytrope_initial_condition!(n, sm, 1*MSUN, 100 * RSUN; initial_
 @time sm = Evolution.do_evolution_loop(sm);
 
 ##
+typeof(sm.jacobian_D)
+
+##
 #=
 ### Plotting with Makie
 
