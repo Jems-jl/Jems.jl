@@ -98,7 +98,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     jacobian_D::Vector{TSM}
     jacobian_U::Vector{TSM}
     jacobian_L::Vector{TSM}
-    solver_LU::Vector{LU{Float64, Matrix{Float64}, Vector{Int64}}}
+    solver_LU::Vector{LU{TN, Matrix{TN}, Vector{Int64}}}
     solver_tmp1::Vector{TSM}
     solver_tmp2::Vector{TSM}
     solver_β::Vector{TSV}
