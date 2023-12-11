@@ -13,8 +13,6 @@ using Jems.NuclearNetworks
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
-using LinearAlgebra
-LinearAlgebra.BLAS.set_num_threads(1) # this allows for a faster linear solve
 
 ##
 #=
@@ -164,6 +162,9 @@ rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 StellarModels.n1_polytrope_initial_condition!(sm, 1 * MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
 @time Evolution.do_evolution_loop(sm);
+
+##
+typeof(sm.jacobian_D)
 
 ##
 #=
