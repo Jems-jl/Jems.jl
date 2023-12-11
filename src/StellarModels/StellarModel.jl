@@ -1,6 +1,7 @@
 using PreallocationTools
 using FunctionWrappers
 using StaticArrays
+using LinearAlgebra
 
 """
     struct TypeStableEquation{TS,TD<:Real}
@@ -77,7 +78,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
 """
 @kwdef mutable struct StellarModel{TN<:Real,TD<:Real,
                                    TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,TR,
-                                   TSM<:AbstractMatrix,TSV<:AbstractVector}
+                                   TSM<:AbstractMatrix, TSV<:AbstractVector}
     # Properties that define the model
     ind_vars::Vector{TN}  # List of independent variables
     nvars::Int  # This is the sum of hydro vars and species
@@ -97,7 +98,9 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     jacobian_D::Vector{TSM}
     jacobian_U::Vector{TSM}
     jacobian_L::Vector{TSM}
-    jacobian_tmp::Vector{TSM}
+    solver_LU::Vector{LU{Float64, Matrix{Float64}, Vector{Int64}}}
+    solver_tmp1::Vector{TSM}
+    solver_tmp2::Vector{TSM}
     solver_β::Vector{TSV}
     solver_x::Vector{TSV}
     solver_corr::Vector{TN}
@@ -189,12 +192,14 @@ function StellarModel(var_names::Vector{Symbol},
     # create jacobian matrix (we have the diagonal and the upper and lower blocks)
     # we use static arrays, provided by StaticArrays. These are faster than regular
     # arrays for small nvars
-    jacobian_D = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
-    jacobian_U = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
-    jacobian_L = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
-    jacobian_tmp = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
-    solver_β = [(@MVector zeros(nvars)) for i=1:(nz+nextra)]
-    solver_x = [(@MVector zeros(nvars)) for i=1:(nz+nextra)]
+    jacobian_D = [(zeros(nvars,nvars)) for i=1:(nz+nextra)]
+    jacobian_U = [(zeros(nvars,nvars)) for i=1:(nz+nextra)]
+    jacobian_L = [(zeros(nvars,nvars)) for i=1:(nz+nextra)]
+    solver_LU = Vector{LU{Float64, Matrix{Float64}, Vector{Int64}}}(undef,nz+nextra)
+    solver_tmp1 = [(zeros(nvars,nvars)) for i=1:(nz+nextra)]
+    solver_tmp2 = [(zeros(nvars,nvars)) for i=1:(nz+nextra)]
+    solver_β = [(zeros(nvars)) for i=1:(nz+nextra)]
+    solver_x = [(zeros(nvars)) for i=1:(nz+nextra)]
     solver_corr = zeros(nvars*(nz+nextra))
 
     # create the equation results vector for the solver (holds plain numbers instead of duals)
@@ -264,7 +269,8 @@ function StellarModel(var_names::Vector{Symbol},
                       varm1=Matrix{typeof(dual_sample)}(undef, nz+nextra, nvars),
                       eos=eos, opacity=opacity, network=network,
                       jacobian_D=jacobian_D, jacobian_U=jacobian_U, jacobian_L=jacobian_L,
-                      jacobian_tmp=jacobian_tmp, solver_β=solver_β,
+                      solver_LU = solver_LU,
+                      solver_tmp1=solver_tmp1, solver_tmp2=solver_tmp2, solver_β=solver_β,
                       solver_x=solver_x, solver_corr=solver_corr, newton_iters=0,
                       eos_res=eos_res, rates_res = rates_res,
                       psi=psi, ssi=ssi, esi=esi, opt=opt, plt=plt)

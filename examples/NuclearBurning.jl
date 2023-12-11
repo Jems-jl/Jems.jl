@@ -13,6 +13,8 @@ using Jems.NuclearNetworks
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
+using LinearAlgebra
+LinearAlgebra.BLAS.set_num_threads(1) # this allows for a faster linear solve
 
 ##
 #=
@@ -152,6 +154,8 @@ open("example_options.toml", "w") do file
 
           [io]
           profile_interval = 50
+          terminal_header_interval = 100
+          terminal_info_interval = 100
 
           """)
 end
