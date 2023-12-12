@@ -1,6 +1,7 @@
 using PreallocationTools
 using FunctionWrappers
 using StaticArrays
+using LinearAlgebra
 
 """
     struct TypeStableEquation{TS,TD<:Real}
@@ -77,7 +78,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
 """
 @kwdef mutable struct StellarModel{TN<:Real,TD<:Real,
                                    TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,TR,
-                                   TSM<:AbstractMatrix,TSV<:AbstractVector}
+                                   TSM<:AbstractMatrix, TSV<:AbstractVector, TLU}
     # Properties that define the model
     ind_vars::Vector{TN}  # List of independent variables
     nvars::Int  # This is the sum of hydro vars and species
@@ -89,7 +90,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     # We keep the original input for when we resize the stellar model.
     structure_equations_original::Vector{Function}
     # List of equations to be solved.
-    structure_equations::Vector{TypeStableEquation{StellarModel{TN,TD,TEOS,TKAP,TR,TSM,TSV},TD}}
+    structure_equations::Vector{TypeStableEquation{StellarModel{TN,TD,TEOS,TKAP,TR,TSM,TSV,TLU},TD}}
     eqs_numbers::Vector{TN}  # Stores the results of the equation evaluations (as numbers), size nz * nvars
     eqs_duals::Matrix{TD}  # Stores the dual results of the equation evaluation, shape (nz, nvars)
     # Allocates space for when automatic differentiation needs to happen
@@ -97,7 +98,9 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     jacobian_D::Vector{TSM}
     jacobian_U::Vector{TSM}
     jacobian_L::Vector{TSM}
-    jacobian_tmp::Vector{TSM}
+    solver_LU::Vector{TLU}
+    solver_tmp1::Vector{TSM}
+    solver_tmp2::Vector{TSM}
     solver_β::Vector{TSV}
     solver_x::Vector{TSV}
     solver_corr::Vector{TN}
@@ -162,7 +165,8 @@ number of zones in the model `nz` and an iterface to the EOS and Opacity laws.
 function StellarModel(var_names::Vector{Symbol},
                       structure_equations::Vector{Function}, nz::Int, nextra::Int,
                       remesh_split_functions::Vector{Function},
-                      network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity)
+                      network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity;
+                      use_static_arrays=true)
     nvars = length(var_names) + network.nspecies
 
     # create the vector containing the independent variables
@@ -189,12 +193,29 @@ function StellarModel(var_names::Vector{Symbol},
     # create jacobian matrix (we have the diagonal and the upper and lower blocks)
     # we use static arrays, provided by StaticArrays. These are faster than regular
     # arrays for small nvars
-    jacobian_D = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
-    jacobian_U = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
-    jacobian_L = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
-    jacobian_tmp = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
-    solver_β = [(@MVector zeros(nvars)) for i=1:(nz+nextra)]
-    solver_x = [(@MVector zeros(nvars)) for i=1:(nz+nextra)]
+    if use_static_arrays
+        jacobian_D = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        jacobian_U = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        jacobian_L = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        solver_LU = Vector{LU{Float64, MMatrix{nvars, nvars, Float64, nvars^2}, Vector{Int64}}}(undef,nz+nextra)
+        solver_tmp1 = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        solver_tmp2 = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        solver_β = [(@MVector zeros(nvars)) for i=1:(nz+nextra)]
+        solver_x = [(@MVector zeros(nvars)) for i=1:(nz+nextra)]
+    else
+        jacobian_D = [(zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        jacobian_U = [(zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        jacobian_L = [(zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        solver_LU = Vector{LU{Float64, Matrix{Float64}, Vector{Int64}}}(undef,nz+nextra)
+        solver_tmp1 = [(zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        solver_tmp2 = [(zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        solver_β = [(zeros(nvars)) for i=1:(nz+nextra)]
+        solver_x = [(zeros(nvars)) for i=1:(nz+nextra)]
+        #When using regulars arrays one gets better performance by setting the BLAS
+        #threads to one like this:
+        #using LinearAlgebra
+        #LinearAlgebra.BLAS.set_num_threads(1) # this allows for a faster linear solve
+    end
     solver_corr = zeros(nvars*(nz+nextra))
 
     # create the equation results vector for the solver (holds plain numbers instead of duals)
@@ -212,12 +233,12 @@ function StellarModel(var_names::Vector{Symbol},
     # create type stable function objects
     tpe_stbl_funcs = Vector{TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample),
                                                             typeof(eos), typeof(opacity), typeof(network.reactions),
-                                                            eltype(jacobian_D), eltype(solver_x)},
+                                                            eltype(jacobian_D), eltype(solver_x), eltype(solver_LU)},
                                      typeof(dual_sample)}}(undef, length(structure_equations))
     for i in eachindex(structure_equations)
         tpe_stbl_funcs[i] = TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample),
                                                             typeof(eos), typeof(opacity), typeof(network.reactions),
-                                                            eltype(jacobian_D), eltype(solver_x)},
+                                                            eltype(jacobian_D), eltype(solver_x), eltype(solver_LU)},
                                      typeof(dual_sample)}(structure_equations[i])
     end
 
@@ -264,7 +285,8 @@ function StellarModel(var_names::Vector{Symbol},
                       varm1=Matrix{typeof(dual_sample)}(undef, nz+nextra, nvars),
                       eos=eos, opacity=opacity, network=network,
                       jacobian_D=jacobian_D, jacobian_U=jacobian_U, jacobian_L=jacobian_L,
-                      jacobian_tmp=jacobian_tmp, solver_β=solver_β,
+                      solver_LU = solver_LU,
+                      solver_tmp1=solver_tmp1, solver_tmp2=solver_tmp2, solver_β=solver_β,
                       solver_x=solver_x, solver_corr=solver_corr, newton_iters=0,
                       eos_res=eos_res, rates_res = rates_res,
                       psi=psi, ssi=ssi, esi=esi, opt=opt, plt=plt)
