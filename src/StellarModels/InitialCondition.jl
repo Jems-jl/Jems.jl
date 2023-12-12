@@ -4,8 +4,6 @@ using Roots
 using Interpolations
 
 
-
-# create a profile for composition that better resolves edges
 """
     get_logdq(k::Int, nz::Int, logdq_low::TT, logdq_high::TT, numregion::Int)::TT where {TT<:Real}
 
@@ -26,12 +24,13 @@ end
 """
     RungeKutta_LaneEmden(n)
 
-Computes the solution of the Lane-Emden equation for polytropic index `n` until the first zero by returning
-`xvals`, containing ξ values; `yvals`, containing the corresponding function values θ_n; and `zvals`, containing the derivative.
-This naming convention for x (=independent variable), y (=corresponding solution values) and z (=corresponding derivative values) is used throughout this function.
-The Lane-Emden equation is solved by performing the Runge-Kutta method of order 4. The stepsize is allowed to decrease as the function reaches the first zero. 
-The function takes care of the core boundary conditions at ξ=0. The last ξ value (i.e. the first zero of the Lane-Emden solution) is calculated by 
-linearly extrapolating the last two points of the solution. This first zero ξ_1 can be found as `xvals`[end].
+Computes the solution of the Lane-Emden equation for polytropic index `n` until the first zero by returning `xvals`,
+containing ξ values; `yvals`, containing the corresponding function values θ_n; and `zvals`, containing the derivative.
+This naming convention for x (=independent variable), y (=corresponding solution values) and z (=corresponding
+derivative values) is used throughout this function. The Lane-Emden equation is solved by performing the Runge-Kutta
+method of order 4. The stepsize is allowed to decrease as the function reaches the first zero. The function takes care
+of the core boundary conditions at ξ=0. The last ξ value (i.e. the first zero of the Lane-Emden solution) is calculated
+by linearly extrapolating the last two points of the solution. This first zero ξ_1 can be found as `xvals`[end].
 """
 function RungeKutta_LaneEmden(n)
     # defining the Lane-Emden equation
@@ -59,7 +58,7 @@ function RungeKutta_LaneEmden(n)
     Δx = 1e-5
     Δx_min = 1e-11
     nsteps = 10_000_000  # maximum number of steps
-    xvals = LinRange(Δx,nsteps*Δx,nsteps); xvals = collect(xvals) # making xvals a mutable array
+    xvals = LinRange(Δx,nsteps*Δx,nsteps); xvals = collect(xvals)  # making xvals a mutable array
     yvals = zeros(nsteps); zvals = zeros(nsteps)
     yvals[1] = y_smallx(Δx,n); zvals[1] = z_smallx(Δx,n)
 
@@ -87,13 +86,13 @@ function RungeKutta_LaneEmden(n)
             if ynew < 0.0
                 throw(ErrorException("negative value"))
             end
-            yvals[i] = ynew #new y value
-            zvals[i] = z+l₁/6+l₂/3+l₃/3+l₄/6 #new z value
+            yvals[i] = ynew  # new y value
+            zvals[i] = z+l₁/6+l₂/3+l₃/3+l₄/6  # new z value
             i = i+1
         catch e
             if isa(e, ErrorException)
                 Δx = Δx/2
-                xvals[i] = xvals[i-1] + Δx # next xvalue is now at a smaller distance from the previous one
+                xvals[i] = xvals[i-1] + Δx  # next xvalue is now at a smaller distance from the previous one
                 if Δx < Δx_min
                     xvals, yvals, zvals = endOfLoop!(xvals,yvals,zvals,i)
                     break
@@ -110,7 +109,6 @@ function RungeKutta_LaneEmden(n)
 end
 
 """
-
     getlnT_NewtonRhapson(lnT_initial, lnρ, P, xa, species, eos)
 
 Computes the temperature lnT starting from a density `lnρ`, a pressure `P`, a composition `xa`,
@@ -124,8 +122,7 @@ the difference between the calculated pressure and the given pressure is smaller
 The temperature at which this occurs is returned.
 
 """
-
-function getlnT_NewtonRhapson(lnT_initial, lnρ, P, xa, species,eos)
+function getlnT_NewtonRhapson(lnT_initial, lnρ, P, xa, species, eos)
     ΔlnPmin = 1e-4
     lnT = lnT_initial
     lnT_dual = ForwardDiff.Dual(lnT_initial,1.0)
@@ -155,8 +152,8 @@ end
 """
     n_polytrope_initial_condition(n,sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
 
-Initializes a stellar model `sm` with values corresponding to a polytrope of index `n`, setting the independent variables
-`sm.ind_vars`, etc. accordingly. Also sets the initial timestep to be taken, `initial_dt`. The function first
+Initializes a stellar model `sm` with values corresponding to a polytrope of index `n`, setting the independent
+variables `sm.ind_vars`, etc. accordingly. Also sets the initial timestep to be taken, `initial_dt`. The function first
 calls the solution to the Lane-Emden equation for index `n` and then sets radii, densities, pressures
 and luminosities.
 """
@@ -169,7 +166,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
         logdqs[i] = get_logdq(i, sm.nz, -10.0, 0.0, -6.0, 200)
     end
     dqs = 10 .^ logdqs
-    dqs[sm.nz+1:end] .= 0 # extra entries beyond nz have no mass
+    dqs[sm.nz+1:end] .= 0  # extra entries beyond nz have no mass
     dqs = dqs ./ sum(dqs)
     dms = dqs .* M
     m_face = cumsum(dms)
@@ -183,10 +180,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
         end
     end
 
-    
     rn = R / ξ_1  # ξ is defined as r/rn, where rn^2=(n+1)Pc/(4π G ρc^2)
-
-
     ρc = M / (4π * rn^3 * (-ξ_1^2 * derivative_θ_n(ξ_1)))
     Pc = 4π * CGRAV * rn^2 * ρc^2 / (n + 1)
     ξ_cell = zeros(sm.nz)
@@ -225,15 +219,14 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
             P = Pc
             ρ = ρc
         end
-        lnT_initial = log(P * μ / (CGAS * ρ)) #ideal gas temperature as intial guess
-        #fit the temperature using the equation of state
+        lnT_initial = log(P * μ / (CGAS * ρ))  # ideal gas temperature as intial guess
+        # fit the temperature using the equation of state
         lnT = getlnT_NewtonRhapson(lnT_initial, log(ρ),P,[1.0,0],[:H1,:He4],sm.eos)
 
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]] = log(ρ)
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = lnT
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:H1]] = 1.0
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:He4]] = 0
-
     end
 
     # set m and dm
@@ -266,7 +259,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
     # special cases, just copy values at edges
     sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lnρ]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lnρ]]
     sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lnT]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lnT]]
-    #sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lum]]
+    # sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lum]]
     sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 3) * sm.nvars + sm.vari[:lum]]
     sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 3) * sm.nvars + sm.vari[:lum]]
 
