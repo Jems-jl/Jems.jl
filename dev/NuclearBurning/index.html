@@ -18,39 +18,40 @@ nextra = 100
 eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 sm = StellarModel(varnames, structure_equations, nz, nextra,
-                  remesh_split_functions, net, eos, opacity);</code></pre><h2 id="Initialize-StellarModel-and-evaluate-equations-and-jacobian"><a class="docs-heading-anchor" href="#Initialize-StellarModel-and-evaluate-equations-and-jacobian">Initialize StellarModel and evaluate equations and jacobian</a><a id="Initialize-StellarModel-and-evaluate-equations-and-jacobian-1"></a><a class="docs-heading-anchor-permalink" href="#Initialize-StellarModel-and-evaluate-equations-and-jacobian" title="Permalink"></a></h2><p>We do not have a working initial condition yet. We require pressure, temperature profiles. One simple available initial condition is that of an n=1 polytrope. This sets the pressure and density and computes the temperature from the EOS. The luminosity is initialized by assuming pure radiative transport for the temperature gradient produced by the polytrope.</p><p>The normal evolution loop will store the information at the end of the step into an attribute of type <code>StellarStepInfo</code>, stored at <code>sm.esi</code> (<em>end step info</em>). After initializing our polytrope we can mimic that behavior by calling <code>set_end_step_info!(sm)</code>. We then &#39;cycle&#39; this info into the information of a hypothetical previous step with <code>cycle_step_info</code>, so now <code>sm.psi</code> contains our initial condition. Finally we call <code>set_start_step_info</code> to use <code>sm.psi</code> (<em>previous step info</em>) to populate the information needed before the Newton solver in <code>sm.ssi</code> (<em>start step info</em>). At last we are in position to evaluate the equations and compute the Jacobian.</p><pre><code class="language-julia hljs">StellarModels.n1_polytrope_initial_condition!(sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+                  remesh_split_functions, net, eos, opacity);</code></pre><h2 id="Initialize-StellarModel-and-evaluate-equations-and-jacobian"><a class="docs-heading-anchor" href="#Initialize-StellarModel-and-evaluate-equations-and-jacobian">Initialize StellarModel and evaluate equations and jacobian</a><a id="Initialize-StellarModel-and-evaluate-equations-and-jacobian-1"></a><a class="docs-heading-anchor-permalink" href="#Initialize-StellarModel-and-evaluate-equations-and-jacobian" title="Permalink"></a></h2><p>We do not have a working initial condition yet. We require pressure, temperature profiles. One simple available initial condition is that of an n=1 polytrope. This sets the pressure and density and computes the temperature from the EOS. The luminosity is initialized by assuming pure radiative transport for the temperature gradient produced by the polytrope.</p><p>The normal evolution loop will store the information at the end of the step into an attribute of type <code>StellarStepInfo</code>, stored at <code>sm.esi</code> (<em>end step info</em>). After initializing our polytrope we can mimic that behavior by calling <code>set_end_step_info!(sm)</code>. We then &#39;cycle&#39; this info into the information of a hypothetical previous step with <code>cycle_step_info</code>, so now <code>sm.psi</code> contains our initial condition. Finally we call <code>set_start_step_info</code> to use <code>sm.psi</code> (<em>previous step info</em>) to populate the information needed before the Newton solver in <code>sm.ssi</code> (<em>start step info</em>). At last we are in position to evaluate the equations and compute the Jacobian.</p><pre><code class="language-julia hljs">n=3
+StellarModels.n_polytrope_initial_condition!(n, sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 Evolution.set_step_info!(sm, sm.esi)
 Evolution.cycle_step_info!(sm);
 Evolution.set_step_info!(sm, sm.ssi)
 Evolution.eval_jacobian_eqs!(sm)</code></pre><h2 id="Benchmarking"><a class="docs-heading-anchor" href="#Benchmarking">Benchmarking</a><a id="Benchmarking-1"></a><a class="docs-heading-anchor-permalink" href="#Benchmarking" title="Permalink"></a></h2><p>The previous code leaves everything ready to solve the linearized system. For now we make use of a the serial Thomas algorithm for tridiagonal block matrices. We first show how long it takes to evaluate one row (meaning, one set of lower, diagonal and upper block) of the Jacobian matrix.</p><pre><code class="language-julia hljs">@benchmark Evolution.eval_jacobian_eqs_row!(sm, 2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BenchmarkTools.Trial: 10000 samples with 6 evaluations.
- Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1">5.308 μs</span></span> … <span class="sgr35"> 10.398 μs</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 0.00%
- Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">5.370 μs               </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
- Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">5.393 μs</span></span> ± <span class="sgr32">191.079 ns</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>0.00% ± 0.00%
+ Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1">5.301 μs</span></span> … <span class="sgr35">  9.900 μs</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 0.00%
+ Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">5.373 μs               </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
+ Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">5.396 μs</span></span> ± <span class="sgr32">202.516 ns</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>0.00% ± 0.00%
 
-   ▂▅▇█<span class="sgr34">█</span>█<span class="sgr32">▆</span>▅▃                                                  ▂
-  ▆████<span class="sgr34">█</span>█<span class="sgr32">█</span>███▆▅▃▇▇███▅▅▅▁▁▄▄▄▃▁▁▄▃▅▆▆▅▅▅▄▄▄▅▄▃▄▄▄▃▄▁▁▄▁▁▁▁▁▁▄ █
-  5.31 μs<span class="sgr90">      Histogram: <span class="sgr1">log(</span>frequency<span class="sgr1">)</span> by time</span>      5.97 μs <span class="sgr1">&lt;</span>
+    █<span class="sgr34">▆</span><span class="sgr32"> </span>                                                        
+  ▂▅█<span class="sgr34">█</span><span class="sgr32">▄</span>▂▂▂▂▂▂▂▁▂▁▁▂▂▂▂▂▂▂▂▁▂▂▁▁▁▁▁▂▁▁▁▁▂▂▁▁▁▂▁▁▁▁▁▁▁▁▁▁▂▁▁▁▁▂ ▂
+  5.3 μs<span class="sgr90">          Histogram: frequency by time</span>        6.77 μs <span class="sgr1">&lt;</span>
 
- Memory estimate<span class="sgr90">: </span><span class="sgr33">0 bytes</span>, allocs estimate<span class="sgr90">: </span><span class="sgr33">0</span>.</code></pre><p>On my machine, this takes <span>$\sim 3\;\mathrm{\mu s}$</span>. This is a short amount of time, but we have a thousand cells to compute. Let&#39;s benchmark the calculation of the full jacobian.</p><pre><code class="language-julia hljs">@benchmark Evolution.eval_jacobian_eqs!(sm)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BenchmarkTools.Trial: 695 samples with 1 evaluation.
- Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1">6.685 ms</span></span> … <span class="sgr35"> 12.138 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 0.00%
- Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">6.980 ms               </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
- Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">7.197 ms</span></span> ± <span class="sgr32">608.284 μs</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>0.00% ± 0.00%
+ Memory estimate<span class="sgr90">: </span><span class="sgr33">0 bytes</span>, allocs estimate<span class="sgr90">: </span><span class="sgr33">0</span>.</code></pre><p>On my machine, this takes <span>$\sim 3\;\mathrm{\mu s}$</span>. This is a short amount of time, but we have a thousand cells to compute. Let&#39;s benchmark the calculation of the full jacobian.</p><pre><code class="language-julia hljs">@benchmark Evolution.eval_jacobian_eqs!(sm)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BenchmarkTools.Trial: 679 samples with 1 evaluation.
+ Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1">6.906 ms</span></span> … <span class="sgr35">  8.474 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 0.00%
+ Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">7.316 ms               </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
+ Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">7.364 ms</span></span> ± <span class="sgr32">233.472 μs</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>0.00% ± 0.00%
 
-   ▂▅▅██▂<span class="sgr34">▃</span>▂   <span class="sgr32"> </span>                                                
-  ▄██████<span class="sgr34">█</span>█▆▆▅<span class="sgr32">▅</span>▅▅▃▃▃▃▃▄▃▅▄▂▃▄▄▃▃▃▂▃▃▃▂▃▃▂▂▂▂▃▃▂▃▂▂▂▁▂▁▂▂▁▂▂▁▂ ▃
-  6.68 ms<span class="sgr90">         Histogram: frequency by time</span>        9.18 ms <span class="sgr1">&lt;</span>
+           ▁ ▄▁▆▇▅█▅█▄▆<span class="sgr34">▆</span>▅▆<span class="sgr32">▃</span>▂▃    ▁                             
+  ▃▂▃▁▂▃▅▄▆█▆██████████<span class="sgr34">█</span>██<span class="sgr32">█</span>██▇▇▆▇█▆▅▇▅▃▆▅▄▄▄▃▄▃▄▂▃▄▅▄▄▂▃▃▃▃▂▂ ▄
+  6.91 ms<span class="sgr90">         Histogram: frequency by time</span>        8.05 ms <span class="sgr1">&lt;</span>
 
  Memory estimate<span class="sgr90">: </span><span class="sgr33">656 bytes</span>, allocs estimate<span class="sgr90">: </span><span class="sgr33">7</span>.</code></pre><p>And on my computer, this took about <span>$1\;\mathrm{ms}$</span>. Even though we have a thousand cells, the computation time was not a thousand times longer than computing the components of the jacobian for a single cell. The reason for this is that the calculation is parallelized so cells are done independently. However, I used 8 cores for my calculations, so the scaling is less than ideal. One of the main culprits here is the garbage collector. Current versions of julia can only perform garbage collection in a serial way, so it does not take advantage of all threads. Starting with julia 1.10, the garbage collector will be able to run in multiple threads, so that should alleviate issues with performance scaling.</p><p>To get an idea of how much a complete iteration of the solver takes, we need to benchmark both the calculation of the Jacobian and the matrix solver. This is because the matrix solver is destructive, as it uses the allocated Jacobian to store intermediate results. The time it takes to run only the matrix solver can be determined by substracting the previous benchmark from this one.</p><pre><code class="language-julia hljs">@benchmark begin
     Evolution.eval_jacobian_eqs!($sm)
     Evolution.thomas_algorithm!($sm)
 end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BenchmarkTools.Trial: 470 samples with 1 evaluation.
- Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1"> 9.328 ms</span></span> … <span class="sgr35">21.157 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 23.62%
- Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">10.045 ms              </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
- Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">10.642 ms</span></span> ± <span class="sgr32"> 1.550 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>2.26% ±  5.94%
+ Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1"> 9.592 ms</span></span> … <span class="sgr35">16.420 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 28.99%
+ Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">10.059 ms              </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
+ Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">10.636 ms</span></span> ± <span class="sgr32"> 1.403 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>2.77% ±  7.39%
 
-   ▃▆▅█▆▆<span class="sgr34">▂</span>     <span class="sgr32"> </span>                                               
-  ▇██████<span class="sgr34">█</span>██▇▆▅<span class="sgr32">▄</span>▅▆▆▃▄▄▄▃▃▂▃▁▂▂▃▁▂▃▂▁▂▄▂▁▁▃▂▃▃▃▂▄▂▃▂▃▁▂▃▂▁▃▃▂▃ ▃
-  9.33 ms<span class="sgr90">         Histogram: frequency by time</span>        15.4 ms <span class="sgr1">&lt;</span>
+   ▄▆█<span class="sgr34">▃</span>     <span class="sgr32"> </span>                                                  
+  ▇███<span class="sgr34">█</span>█▅▄▃▂<span class="sgr32">▄</span>▃▃▃█▇▄▄▃▃▂▂▂▁▁▁▁▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▂▃▂▂▃▃▂▁▃ ▃
+  9.59 ms<span class="sgr90">         Histogram: frequency by time</span>          16 ms <span class="sgr1">&lt;</span>
 
  Memory estimate<span class="sgr90">: </span><span class="sgr33">4.69 MiB</span>, allocs estimate<span class="sgr90">: </span><span class="sgr33">24007</span>.</code></pre><h2 id="Evolving-our-model"><a class="docs-heading-anchor" href="#Evolving-our-model">Evolving our model</a><a id="Evolving-our-model-1"></a><a class="docs-heading-anchor-permalink" href="#Evolving-our-model" title="Permalink"></a></h2><p>We can now evolve our star! We will initiate a <span>$1M_\odot$</span> star with a radius of <span>$100R_\odot$</span> using an n=1 polytrope (it would be much better to use n=3 or n=3/2 polytropes, for now I only use this because there is a simple analytical solution). The star is expected to contract until it ignites hydrogen. We set a few options for the simulation with a toml file, which we generate dynamically. These simulation should complete in about a thousand steps once it reaches the <code>max_center_T</code> limit.</p><p>Output is stored in HDF5 files, and easy to use functions are provided with the Evolution module to turn these HDF5 files into DataFrame objects. HDF5 output is compressed by default.</p><pre><code class="language-julia hljs">open(&quot;example_options.toml&quot;, &quot;w&quot;) do file
     write(file,
@@ -98,415 +99,370 @@ end
 StellarModels.set_options!(sm.opt, &quot;./example_options.toml&quot;)
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
-StellarModels.n1_polytrope_initial_condition!(sm, 1 * MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
-@time Evolution.do_evolution_loop(sm);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(i, maximum(corr), real_max_corr, maximum(sm.eqs_numbers)) = (50, 0.050257952037296424, 1.3033146550107524, 62.21439219540352)
-(i, maximum(corr), real_max_corr, maximum(sm.eqs_numbers)) = (100, 2.376662750767359, 2.376662750767359, 42.56333480814986)
-(i, maximum(corr), real_max_corr, maximum(sm.eqs_numbers)) = (150, 1.015731834666432, 1.015731834666432, 10.991917914474755)
-Found first model
+StellarModels.n_polytrope_initial_condition!(n, sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
+@time sm = Evolution.do_evolution_loop(sm);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Found first model
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-        1     3.000   -0.4575     2.608    0.5024    -10.32     1.000       163
-    1.000     1000. 1.857e-10     4.743     7.737    -5.224 1.494e-45      1004
+        1     3.000    0.7689     2.968    0.7152    -10.47     1.000         7
+    1.000     1000. 1.841e-10     5.007     9.138    -4.086 1.623e-37      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-       10     1.885    0.2365     2.748    0.3697    -10.60     1.000         3
-    1.000     2266. 1.866e-10     4.739     7.799    -5.158 3.175e-45      1004
+       10     2.570    0.7394     2.981    0.7969    -10.40     1.000         3
+    1.000     4185. 1.835e-10     5.040     9.256    -4.002 2.016e-36      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-       20     2.279    0.4481     2.788    0.3172    -10.69     1.000         3
-    1.000     3559. 1.870e-10     4.744     7.871    -5.090 5.401e-45      1004
+       20     2.660    0.7222     2.998    0.8816    -10.33     1.000         3
+    1.000     8381. 1.829e-10     5.079     9.397    -3.900 2.340e-35      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-       30     2.627    0.6050     2.828    0.3222    -10.72     1.000         3
-    1.000     6711. 1.870e-10     4.776     8.066    -4.927 3.800e-44      1004
+       30     2.728    0.7117     3.016    0.9667    -10.27     1.000         3
+    1.000 1.338e+04 1.823e-10     5.120     9.549    -3.789 2.778e-34      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-       40     2.589    0.6600     2.864    0.4085    -10.67     1.000         3
-    1.000 1.101e+04 1.863e-10     4.830     8.324    -4.723 1.718e-42      1004
+       40     2.786    0.7051     3.036     1.052    -10.20     1.000         3
+    1.000 1.915e+04 1.817e-10     5.163     9.708    -3.672 3.251e-33      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-       50     2.578    0.6762     2.889    0.4950    -10.61     1.000         3
-    1.000 1.479e+04 1.857e-10     4.877     8.527    -4.567 4.530e-41      1004
+       50     2.839    0.7008     3.056     1.137    -10.14     1.000         3
+    1.000 2.570e+04 1.811e-10     5.205     9.872    -3.550 3.652e-32      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-       60     2.600    0.6838     2.913    0.5809    -10.55     1.000         3
-    1.000 1.868e+04 1.851e-10     4.922     8.715    -4.425 9.664e-40      1004
+       60     2.888    0.6981     3.077     1.223    -10.07     1.000         3
+    1.000 3.305e+04 1.805e-10     5.248     10.04    -3.426 3.888e-31      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-       70     2.633    0.6877     2.935    0.6667    -10.49     1.000         3
-    1.000 2.283e+04 1.845e-10     4.966     8.896    -4.288 1.805e-38      1004
+       70     2.935    0.6964     3.098     1.308    -10.01     1.000         3
+    1.000 4.126e+04 1.799e-10     5.291     10.21    -3.300 3.904e-30      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-       80     2.671    0.6900     2.957    0.7524    -10.42     1.000         3
-    1.000 2.733e+04 1.839e-10     5.009     9.073    -4.154 3.034e-37      1004
+       80     2.981    0.6953     3.119     1.394    -9.943     1.000         3
+    1.000 5.039e+04 1.793e-10     5.334     10.38    -3.173 3.693e-29      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-       90     2.710    0.6913     2.979    0.8380    -10.36     1.000         3
-    1.000 3.226e+04 1.832e-10     5.053     9.249    -4.021 4.655e-36      1004
+       90     3.025    0.6946     3.140     1.479    -9.878     1.000         3
+    1.000 6.051e+04 1.786e-10     5.377     10.55    -3.045 3.290e-28      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      100     2.752    0.6921     3.001    0.9236    -10.29     1.000         3
-    1.000 3.767e+04 1.826e-10     5.096     9.423    -3.890 6.568e-35      1004
+      100     3.069    0.6941     3.161     1.565    -9.814     1.000         3
+    1.000 7.172e+04 1.780e-10     5.420     10.72    -2.916 2.763e-27      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      110     2.794    0.6926     3.022     1.009    -10.23     1.000         3
-    1.000 4.362e+04 1.820e-10     5.139     9.597    -3.760 8.566e-34      1004
+      110     3.113    0.6939     3.183     1.651    -9.750     1.000         3
+    1.000 8.412e+04 1.774e-10     5.463     10.89    -2.787 2.192e-26      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      120     2.836    0.6929     3.044     1.095    -10.17     1.000         3
-    1.000 5.018e+04 1.814e-10     5.183     9.771    -3.629 1.037e-32      1004
+      120     3.156    0.6937     3.204     1.736    -9.685     1.000         3
+    1.000 9.782e+04 1.768e-10     5.506     11.06    -2.658 1.644e-25      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      130     2.878    0.6931     3.065     1.180    -10.10     1.000         3
-    1.000 5.741e+04 1.808e-10     5.226     9.944    -3.500 1.168e-31      1004
+      130     3.199    0.6936     3.226     1.822    -9.621     1.000         3
+    1.000 1.130e+05 1.762e-10     5.549     11.24    -2.529 1.168e-24      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      140     2.921    0.6932     3.087     1.266    -10.04     1.000         3
-    1.000 6.540e+04 1.802e-10     5.269     10.12    -3.370 1.228e-30      1004
+      140     3.242    0.6935     3.247     1.907    -9.557     1.000         3
+    1.000 1.297e+05 1.756e-10     5.592     11.41    -2.400 7.871e-24      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      150     2.964    0.6933     3.108     1.352    -9.974     1.000         3
-    1.000 7.420e+04 1.796e-10     5.312     10.29    -3.240 1.208e-29      1004
+      150     3.285    0.6935     3.268     1.993    -9.493     1.000         3
+    1.000 1.481e+05 1.749e-10     5.635     11.58    -2.271 5.042e-23      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      160     3.007    0.6933     3.129     1.437    -9.910     1.000         3
-    1.000 8.392e+04 1.789e-10     5.355     10.46    -3.111 1.115e-28      1004
+      160     3.328    0.6935     3.290     2.079    -9.429     1.000         3
+    1.000 1.685e+05 1.743e-10     5.678     11.75    -2.142 3.075e-22      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      170     3.050    0.6934     3.151     1.523    -9.845     1.000         3
-    1.000 9.465e+04 1.783e-10     5.398     10.63    -2.981 9.677e-28      1004
+      170     3.371    0.6934     3.311     2.164    -9.364     1.000         3
+    1.000 1.910e+05 1.737e-10     5.721     11.93    -2.013 1.788e-21      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      180     3.093    0.6934     3.172     1.608    -9.781     1.000         3
-    1.000 1.065e+05 1.777e-10     5.442     10.81    -2.852 7.912e-27      1004
+      180     3.414    0.6934     3.332     2.250    -9.300     1.000         3
+    1.000 2.158e+05 1.731e-10     5.764     12.10    -1.884 9.927e-21      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      190     3.136    0.6934     3.194     1.694    -9.717     1.000         3
-    1.000 1.196e+05 1.771e-10     5.485     10.98    -2.723 6.107e-26      1004
+      190     3.457    0.6934     3.354     2.335    -9.236     1.000         3
+    1.000 2.432e+05 1.725e-10     5.807     12.27    -1.755 5.272e-20      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      200     3.178    0.6934     3.215     1.780    -9.653     1.000         3
-    1.000 1.340e+05 1.765e-10     5.528     11.15    -2.594 4.459e-25      1004
+      200     3.500    0.6934     3.375     2.421    -9.172     1.000         3
+    1.000 2.735e+05 1.719e-10     5.850     12.44    -1.626 2.682e-19      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      210     3.221    0.6934     3.236     1.865    -9.589     1.000         3
-    1.000 1.499e+05 1.759e-10     5.571     11.32    -2.464 3.086e-24      1004
+      210     3.543    0.6934     3.397     2.506    -9.108     1.000         3
+    1.000 3.069e+05 1.713e-10     5.893     12.61    -1.497 1.309e-18      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      220     3.264    0.6934     3.258     1.951    -9.525     1.000         3
-    1.000 1.675e+05 1.753e-10     5.614     11.50    -2.335 2.027e-23      1004
+      220     3.583    0.6934     3.417     2.588    -9.047     1.000         3
+    1.000 3.420e+05 1.707e-10     5.934     12.78    -1.375 5.689e-18      1005
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      230     3.307    0.6934     3.279     2.036    -9.460     1.000         3
-    1.000 1.869e+05 1.746e-10     5.657     11.67    -2.206 1.267e-22      1004
+      230     3.627    0.6934     3.438     2.673    -8.982     1.000         3
+    1.000 3.825e+05 1.701e-10     5.977     12.95    -1.246 2.571e-17      1005
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      240     3.350    0.6934     3.301     2.122    -9.396     1.000         3
-    1.000 2.084e+05 1.740e-10     5.700     11.84    -2.077 7.539e-22      1004
+      240     3.668    0.6934     3.459     2.755    -8.921     1.000         3
+    1.000 4.250e+05 1.695e-10     6.018     13.11    -1.123 1.041e-16      1006
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      250     3.393    0.6934     3.322     2.207    -9.332     1.000         3
-    1.000 2.320e+05 1.734e-10     5.743     12.01    -1.948 4.282e-21      1004
+      250     3.710    0.6934     3.480     2.841    -8.857     1.000         3
+    1.000 4.741e+05 1.689e-10     6.061     13.28   -0.9944 4.374e-16      1006
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      260     3.436    0.6934     3.343     2.293    -9.268     1.000         3
-    1.000 2.581e+05 1.728e-10     5.786     12.18    -1.819 2.324e-20      1004
+      260     3.751    0.6934     3.501     2.922    -8.796     1.000         3
+    1.000 5.256e+05 1.683e-10     6.102     13.45   -0.8718 1.657e-15      1007
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      270     3.479    0.6934     3.365     2.379    -9.204     1.000         3
-    1.000 2.870e+05 1.722e-10     5.829     12.36    -1.690 1.208e-19      1004
+      270     3.794    0.6934     3.522     3.008    -8.732     1.000         3
+    1.000 5.851e+05 1.677e-10     6.145     13.62   -0.7430 6.499e-15      1007
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      280     3.522    0.6934     3.386     2.464    -9.139     1.000         3
-    1.000 3.188e+05 1.716e-10     5.872     12.53    -1.561 6.014e-19      1004
+      280     3.844    0.6934     3.541     3.085    -8.674     1.000         3
+    1.000 6.443e+05 1.671e-10     6.183     13.77   -0.6268 2.167e-14      1009
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      290     3.565    0.6934     3.407     2.550    -9.075     1.000         3
-    1.000 3.539e+05 1.709e-10     5.915     12.70    -1.432 2.875e-18      1004
+      290     3.876    0.6934     3.563     3.170    -8.610     1.000         3
+    1.000 7.161e+05 1.665e-10     6.226     13.95   -0.4980 7.992e-14      1009
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      300     3.606    0.6934     3.428     2.631    -9.014     1.000         3
-    1.000 3.907e+05 1.704e-10     5.956     12.86    -1.310 1.227e-17      1005
+      300     3.916    0.6934     3.583     3.252    -8.549     1.000         3
+    1.000 7.914e+05 1.659e-10     6.267     14.11   -0.3756 2.685e-13      1010
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      310     3.649    0.6934     3.449     2.717    -8.950     1.000         4
-    1.000 4.333e+05 1.697e-10     5.999     13.04    -1.181 5.438e-17      1006
+      310     3.959    0.6934     3.604     3.338    -8.484     1.000         3
+    1.000 8.786e+05 1.653e-10     6.310     14.28   -0.2469 9.325e-13      1010
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      320     3.689    0.6934     3.470     2.798    -8.889     1.000         3
-    1.000 4.780e+05 1.692e-10     6.040     13.20    -1.058 2.163e-16      1006
+      320     4.000    0.6934     3.625     3.419    -8.423     1.000         3
+    1.000 9.699e+05 1.647e-10     6.351     14.44   -0.1244 2.965e-12      1011
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      330     3.732    0.6934     3.491     2.884    -8.825     1.000         3
-    1.000 5.296e+05 1.685e-10     6.082     13.37   -0.9291 8.923e-16      1007
+      330     4.052    0.6934     3.645     3.500    -8.362     1.000         3
+    1.000 1.070e+06 1.641e-10     6.392     14.61 -0.001979 9.191e-12      1012
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      340     3.773    0.6934     3.511     2.965    -8.763     1.000         3
-    1.000 5.837e+05 1.680e-10     6.123     13.53   -0.8066 3.324e-15      1007
+      340     4.084    0.6934     3.667     3.586    -8.298     1.000         3
+    1.000 1.186e+06 1.635e-10     6.434     14.78    0.1267 2.940e-11      1012
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      350     3.825    0.6934     3.532     3.047    -8.702     1.000         3
-    1.000 6.432e+05 1.674e-10     6.164     13.70   -0.6841 1.201e-14      1008
+      350     4.121    0.6934     3.685     3.661    -8.242     1.000         3
+    1.000 1.298e+06 1.630e-10     6.472     14.93    0.2394 7.968e-11      1015
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      360     3.854    0.6934     3.552     3.128    -8.641     1.000         3
-    1.000 7.085e+05 1.668e-10     6.205     13.86   -0.5616 4.213e-14      1009
+      360     4.162    0.6934     3.706     3.742    -8.181     1.000         3
+    1.000 1.430e+06 1.624e-10     6.513     15.09    0.3618 2.300e-10      1015
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      370     3.895    0.6934     3.572     3.210    -8.580     1.000         3
-    1.000 7.803e+05 1.662e-10     6.246     14.02   -0.4391 1.436e-13      1010
+      370     4.199    0.6934     3.724     3.817    -8.124     1.000         3
+    1.000 1.564e+06 1.618e-10     6.550     15.24    0.4746 5.986e-10      1017
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      380     3.938    0.6934     3.594     3.295    -8.516     1.000         3
-    1.000 8.632e+05 1.656e-10     6.289     14.20   -0.3104 5.062e-13      1010
+      380     4.242    0.6934     3.746     3.903    -8.060     1.000         3
+    1.000 1.731e+06 1.612e-10     6.593     15.41    0.6032 1.744e-09      1017
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      390     3.990    0.6934     3.614     3.377    -8.455     1.000         3
-    1.000 9.502e+05 1.650e-10     6.330     14.36   -0.1880 1.632e-12      1011
+      390     4.292    0.6934     3.765     3.980    -8.002     1.000         3
+    1.000 1.897e+06 1.607e-10     6.632     15.57    0.7193 4.484e-09      1019
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      400     4.022    0.6934     3.636     3.462    -8.391     1.000         3
-    1.000 1.051e+06 1.644e-10     6.372     14.53  -0.05926 5.432e-12      1011
+      400     4.322    0.6934     3.785     4.062    -7.941     1.000         3
+    1.000 2.089e+06 1.601e-10     6.673     15.73    0.8416 1.189e-08      1020
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      410     4.062    0.6934     3.656     3.544    -8.330     1.000         3
-    1.000 1.156e+06 1.638e-10     6.413     14.69   0.06315 1.661e-11      1012
+      410     4.362    0.6934     3.806     4.143    -7.880     1.000         3
+    1.000 2.299e+06 1.595e-10     6.714     15.89    0.9639 3.093e-08      1021
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      420     4.116    0.6934     3.675     3.619    -8.273     1.000         3
-    1.000 1.263e+06 1.633e-10     6.451     14.84    0.1759 4.555e-11      1014
+      420     4.414    0.6934     3.826     4.225    -7.819     1.000         3
+    1.000 2.530e+06 1.589e-10     6.754     16.06     1.086 7.890e-08      1022
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      430     4.141    0.6934     3.695     3.700    -8.212     1.000         3
-    1.000 1.389e+06 1.627e-10     6.492     15.01    0.2983 1.330e-10      1015
+      430     4.444    0.6933     3.847     4.306    -7.758     1.000         3
+    1.000 2.784e+06 1.583e-10     6.795     16.22     1.208 1.976e-07      1023
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      440     4.184    0.6934     3.717     3.786    -8.148     1.000         3
-    1.000 1.535e+06 1.621e-10     6.535     15.18    0.4270 4.007e-10      1017
+      440     4.485    0.6932     3.867     4.387    -7.697     1.000         3
+    1.000 3.063e+06 1.577e-10     6.836     16.38     1.330 4.859e-07      1024
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      450     4.224    0.6934     3.737     3.867    -8.087     1.000         3
-    1.000 1.688e+06 1.615e-10     6.575     15.34    0.5493 1.117e-09      1017
+      450     4.527    0.6929     3.887     4.469    -7.636     1.000         3
+    1.000 3.370e+06 1.572e-10     6.877     16.55     1.452 1.174e-06      1025
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      460     4.265    0.6934     3.757     3.949    -8.026     1.000         3
-    1.000 1.856e+06 1.609e-10     6.616     15.51    0.6716 3.050e-09      1018
+      460     4.566    0.6924     3.906     4.544    -7.579     1.000         3
+    1.000 3.680e+06 1.566e-10     6.914     16.69     1.563 2.610e-06      1027
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      470     4.306    0.6934     3.778     4.030    -7.965     1.000         3
-    1.000 2.041e+06 1.603e-10     6.657     15.67    0.7940 8.156e-09      1020
+      470     4.610    0.6912     3.926     4.625    -7.518    1.0000         3
+    1.000 4.051e+06 1.560e-10     6.955     16.85     1.681 6.117e-06      1028
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      480     4.355    0.6934     3.797     4.107    -7.907     1.000         3
-    1.000 2.233e+06 1.598e-10     6.696     15.82    0.9100 2.035e-08      1021
+      480     4.669    0.6887     3.945     4.706    -7.457    1.0000         3
+    1.000 4.463e+06 1.555e-10     6.997     17.01     1.796 1.413e-05      1029
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      490     4.387    0.6934     3.818     4.193    -7.843     1.000         3
-    1.000 2.466e+06 1.591e-10     6.738     15.99     1.039 5.493e-08      1021
+      490     4.717    0.6830     3.965     4.792    -7.391    1.0000         3
+    1.000 4.953e+06 1.548e-10     7.040     17.17     1.909 3.361e-05      1029
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      500     4.123    0.6933     3.838     4.270    -7.785     1.000         3
-    1.000 2.698e+06 1.586e-10     6.777     16.15     1.154 1.318e-07      1023
+      500     4.785    0.6732     3.981     4.866    -7.333    0.9999         3
+    1.000 5.450e+06 1.543e-10     7.079     17.29     1.994 7.119e-05      1032
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      510     4.467    0.6933     3.858     4.352    -7.724     1.000         3
-    1.000 2.966e+06 1.580e-10     6.818     16.31     1.276 3.276e-07      1024
+      510     4.892    0.6521     3.996     4.946    -7.268    0.9998         4
+    1.000 6.110e+06 1.537e-10     7.121     17.40     2.065 0.0001604      1032
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      520     4.508    0.6931     3.878     4.433    -7.663     1.000         3
-    1.000 3.260e+06 1.574e-10     6.859     16.47     1.398 7.978e-07      1025
+      520     5.088    0.6101     4.005     5.024    -7.199    0.9996         3
+    1.000 7.044e+06 1.532e-10     7.153     17.48     2.107 0.0003635      1033
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      530     4.552    0.6926     3.899     4.518    -7.598     1.000         3
-    1.000 3.601e+06 1.568e-10     6.902     16.64     1.525 1.997e-06      1027
+      530     5.989    0.5309     4.002     5.090    -7.129    0.9987         3
+    1.000 1.028e+07 1.527e-10     7.166     17.50     2.112  0.001280      1033
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      540     4.594    0.6917     3.919     4.596    -7.540     1.000         3
-    1.000 3.941e+06 1.562e-10     6.941     16.80     1.639 4.502e-06      1028
+      540     8.286    0.6593     4.016     5.018    -7.215    0.4358         3
+    1.000 2.066e+09 1.532e-10     7.253     17.72     2.441    0.5642      1033
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      550     4.643    0.6897     3.939     4.681    -7.476    1.0000         3
-    1.000 4.358e+06 1.556e-10     6.984     16.96     1.761 1.091e-05      1028
+      550     7.954    0.7976     4.027     4.924    -7.321    0.1608         3
+    1.000 3.354e+09 1.539e-10     7.336     18.09     2.856    0.8392      1033
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      560     4.696    0.6855     3.959     4.762    -7.414    1.0000         3
-    1.000 4.805e+06 1.551e-10     7.025     17.11     1.871 2.497e-05      1029
+      560     7.661    0.9006     4.030     4.831    -7.416   0.06755         3
+    1.000 3.982e+09 1.546e-10     7.410     18.46     3.211    0.9325      1033
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      570     4.755    0.6778     3.975     4.837    -7.356    0.9999         3
-    1.000 5.274e+06 1.545e-10     7.064     17.24     1.963 5.304e-05      1031
+      570     7.400    0.9779     4.026     4.738    -7.505   0.03181         3
+    1.000 4.315e+09 1.552e-10     7.478     18.82     3.525    0.9682      1033
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      580     4.847    0.6614     3.991     4.917    -7.292    0.9999         3
-    1.000 5.880e+06 1.539e-10     7.106     17.37     2.042 0.0001195      1032
+      580     7.162     1.036     4.017     4.646    -7.589   0.01629         3
+    1.000 4.503e+09 1.559e-10     7.543     19.16     3.812    0.9837      1033
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      590     4.688    0.6288     4.003     4.996    -7.224    0.9997         4
-    1.000 6.680e+06 1.534e-10     7.143     17.45     2.095 0.0002689      1033
-
-    model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
-     mass       age      logR     logTc     logPc     logρc   He_cntr     zones
--------------------------------------------------------------------------------
-      600     5.419    0.5597     4.005     5.073    -7.149    0.9993         3
-    1.000 8.271e+06 1.528e-10     7.165     17.50     2.116 0.0006937      1033
-
-    model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
-     mass       age      logR     logTc     logPc     logρc   He_cntr     zones
--------------------------------------------------------------------------------
-      610     8.445    0.6015     4.010     5.051    -7.176    0.6284         4
-    1.000 1.326e+09 1.530e-10     7.221     17.61     2.282    0.3716      1033
-
-    model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
-     mass       age      logR     logTc     logPc     logρc   He_cntr     zones
--------------------------------------------------------------------------------
-      620     8.061    0.7553     4.024     4.956    -7.286    0.2221         3
-    1.000 3.022e+09 1.537e-10     7.309     17.96     2.724    0.7779      1033
-
-    model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
-     mass       age      logR     logTc     logPc     logρc   He_cntr     zones
--------------------------------------------------------------------------------
-      630     7.756    0.8691     4.030     4.862    -7.385   0.08924         3
-    1.000 3.815e+09 1.543e-10     7.386     18.34     3.097    0.9108      1033
-
-    model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
-     mass       age      logR     logTc     logPc     logρc   He_cntr     zones
--------------------------------------------------------------------------------
-      640     7.486    0.9542     4.028     4.769    -7.476   0.04058         3
-    1.000 4.224e+09 1.550e-10     7.455     18.70     3.422    0.9594      1033
-
-    model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
-     mass       age      logR     logTc     logPc     logρc   He_cntr     zones
--------------------------------------------------------------------------------
-      650     7.241     1.018     4.020     4.677    -7.561   0.02026         3
-    1.000 4.450e+09 1.557e-10     7.521     19.05     3.717    0.9797      1033
-
-    model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
-     mass       age      logR     logTc     logPc     logρc   He_cntr     zones
--------------------------------------------------------------------------------
-      660     7.014     1.067     4.010     4.585    -7.642   0.01084         3
-    1.000 4.582e+09 1.563e-10     7.585     19.38     3.990    0.9892      1033
+      590     6.940     1.081     4.005     4.554    -7.669  0.008887         3
+    1.000 4.613e+09 1.565e-10     7.606     19.48     4.077    0.9911      1033
 
 Reached maximum central temperature
- 43.096892 seconds (230.57 M allocations: 16.206 GiB, 4.02% gc time, 13.05% compilation time: &lt;1% of which was recompilation)</code></pre><h2 id="Plotting-with-Makie"><a class="docs-heading-anchor" href="#Plotting-with-Makie">Plotting with Makie</a><a id="Plotting-with-Makie-1"></a><a class="docs-heading-anchor-permalink" href="#Plotting-with-Makie" title="Permalink"></a></h2><p>Now that our simulation is complete we can analyze the results. We make use of the Makie package for this. I&#39;m not a fan of the Makie defaults, so I adjust them. I normally also adjust the fonts to be consistent with \LaTeX, but I avoid that here so we don&#39;t need to distribute those fonts together with Jems.</p><pre><code class="language-julia hljs">using CairoMakie, LaTeXStrings, MathTeXEngine
+ 37.828270 seconds (195.40 M allocations: 13.718 GiB, 4.50% gc time, 14.58% compilation time: &lt;1% of which was recompilation)</code></pre><h2 id="Plotting-with-Makie"><a class="docs-heading-anchor" href="#Plotting-with-Makie">Plotting with Makie</a><a id="Plotting-with-Makie-1"></a><a class="docs-heading-anchor-permalink" href="#Plotting-with-Makie" title="Permalink"></a></h2><p>Now that our simulation is complete we can analyze the results. We make use of the Makie package for this. I&#39;m not a fan of the Makie defaults, so I adjust them. I normally also adjust the fonts to be consistent with \LaTeX, but I avoid that here so we don&#39;t need to distribute those fonts together with Jems.</p><pre><code class="language-julia hljs">using CairoMakie, LaTeXStrings, MathTeXEngine
 basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                            italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
                     fontsize=30, resolution=(1000, 750), linewidth=7,
@@ -566,6 +522,6 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 ax = Axis(f[1, 1]; xlabel=L&quot;\log_{10}(T_\mathrm{eff}/[K])&quot;, ylabel=L&quot;\log_{10}(L/L_\odot)&quot;, xreversed=true)
 history = StellarModels.get_history_dataframe_from_hdf5(&quot;history.hdf5&quot;)
 lines!(ax, log10.(history[!, &quot;T_surf&quot;]), log10.(history[!, &quot;L_surf&quot;]))
-f</code></pre><img src="511024d6.png" alt="Example block output"/><h2 id="Perform-some-cleanup"><a class="docs-heading-anchor" href="#Perform-some-cleanup">Perform some cleanup</a><a id="Perform-some-cleanup-1"></a><a class="docs-heading-anchor-permalink" href="#Perform-some-cleanup" title="Permalink"></a></h2><p>Internally we want to prevent storing any of the hdf5 files into our git repos, so I remove them. You can also take advantage of <code>julia</code> as a scripting language to post-process your simulation output in a similar way.</p><pre><code class="language-julia hljs">rm(&quot;history.hdf5&quot;)
+f</code></pre><img src="07525421.png" alt="Example block output"/><h2 id="Perform-some-cleanup"><a class="docs-heading-anchor" href="#Perform-some-cleanup">Perform some cleanup</a><a id="Perform-some-cleanup-1"></a><a class="docs-heading-anchor-permalink" href="#Perform-some-cleanup" title="Permalink"></a></h2><p>Internally we want to prevent storing any of the hdf5 files into our git repos, so I remove them. You can also take advantage of <code>julia</code> as a scripting language to post-process your simulation output in a similar way.</p><pre><code class="language-julia hljs">rm(&quot;history.hdf5&quot;)
 rm(&quot;profiles.hdf5&quot;)
-rm(&quot;example_options.toml&quot;)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../Chem/">Chem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Wednesday 6 December 2023 10:01">Wednesday 6 December 2023</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+rm(&quot;example_options.toml&quot;)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../Chem/">Chem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Tuesday 12 December 2023 17:30">Tuesday 12 December 2023</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
