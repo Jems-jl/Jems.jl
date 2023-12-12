@@ -97,7 +97,7 @@ to run only the matrix solver can be determined by substracting the previous ben
 
 @benchmark begin
     Evolution.eval_jacobian_eqs!($sm)
-    Evolution.thomas_algorithm!($sm) 
+    Evolution.thomas_algorithm!($sm)
 end
 
 ##
