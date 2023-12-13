@@ -162,7 +162,7 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 StellarModels.n_polytrope_initial_condition!(n, sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
-@time sm = Evolution.do_evolution_loop(sm);
+@time Evolution.do_evolution_loop!(sm);
 
 ##
 #=
@@ -175,7 +175,7 @@ here so we don't need to distribute those fonts together with Jems.
 using CairoMakie, LaTeXStrings, MathTeXEngine
 basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                            italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
-                    fontsize=30, resolution=(1000, 750), linewidth=7,
+                    fontsize=30, size=(1000, 750), linewidth=7,
                     Axis=(xlabelsize=40, ylabelsize=40, titlesize=40, xgridvisible=false, ygridvisible=false,
                           spinewidth=2.5, xminorticksvisible=true, yminorticksvisible=true, xtickalign=1, ytickalign=1,
                           xminortickalign=1, yminortickalign=1, xticksize=14, xtickwidth=2.5, yticksize=14,
