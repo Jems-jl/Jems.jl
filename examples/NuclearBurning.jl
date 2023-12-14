@@ -5,7 +5,7 @@ This notebook provides a simple example of a star with simplified microphysics u
 Import all necessary Jems modules. We will also do some benchmarks, so we import BenchmarkTools as well.
 =#
 using BenchmarkTools
-using Jems.Chem
+using Jems.Chem 
 using Jems.Constants
 using Jems.EOS
 using Jems.Opacity
@@ -14,7 +14,7 @@ using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
 
-##
+
 #=
 ### Model creation
 
@@ -169,6 +169,8 @@ StellarModels.n_polytrope_initial_condition!(n, sm, 1*MSUN, 100 * RSUN; initial_
 
 # TRYING TO PLOT STUFF
 # ANNACHIARA
+using CairoMakie, LaTeXStrings, MathTeXEngine
+using Jems.Opacity
 i_lnρ = 1
 lnρ = [sm.ind_vars[(i-1)*sm.nvars+i_lnρ] for i=1:sm.nz]
 i_lnT = 2
@@ -178,10 +180,12 @@ opacity = Opacity.KramerPrescripted()
 κ = get_opacity_resultsTρ.(Ref(opacity), lnT, lnρ, Ref([1.0,0.0]),Ref([:H1, :He4]))
 
 f = Figure();
-ax = Axis(f[1, 1]; xlabel=L"\log_{10}(T/[K])", ylabel=L"\log_{10}(\kappa/[\mathrm{cm^2\,g^{-1}}])", xreversed=true)
+ax = Axis(f[1, 1]; xlabel=L"\log_{10}(T/[K])", ylabel=L"\log_{10}(\kappa/[\mathrm{cm^2\,g^{-1}}])", xreversed=false)
 lines!(ax, lnT/log(10), log10.(κ))
 f
-
+lnT
+lnρ
+κ
 
 #=
 ### Plotting with Makie
