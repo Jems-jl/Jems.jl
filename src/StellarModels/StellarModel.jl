@@ -1,6 +1,7 @@
 using PreallocationTools
 using FunctionWrappers
 using StaticArrays
+using LinearAlgebra
 
 """
     struct TypeStableEquation{TS,TD<:Real}
@@ -59,6 +60,8 @@ will not be used in automatic differentiation routines.
     lnP::Vector{TN}
     lnρ::Vector{TN}
     lnr::Vector{TN}
+    X::Vector{TN}
+    Y::Vector{TN}
 
     #eos results
     eos_res::Vector{EOSResults{TN}}
@@ -74,30 +77,34 @@ The struct has four parametric types, `TN` for 'normal' numbers, `TD` for dual n
 differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type of opacity law being used.
 """
 @kwdef mutable struct StellarModel{TN<:Real,TD<:Real,
-                                   TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,
-                                   TSM<:AbstractMatrix,TSV<:AbstractVector}
+                                   TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,TR,
+                                   TSM<:AbstractMatrix, TSV<:AbstractVector, TLU}
     # Properties that define the model
     ind_vars::Vector{TN}  # List of independent variables
     nvars::Int  # This is the sum of hydro vars and species
-    var_names::Vector{Symbol}  # List of variable namesv
+    var_names::Vector{Symbol}  # List of variable names
     vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector
 
-    nspecies::Int  # Just the number of species in the network
-    species_names::Vector{Symbol}  # just the species names
-
-    # Properties related to the solver
-    structure_equations::Vector{TypeStableEquation{StellarModel{TN,TD,TEOS,TKAP},TD}}  # List of equations to be solved.
+    ## Properties related to the solver ##
+    # original vector of functions that are solved. These are turned into TypeStableEquations.
+    # We keep the original input for when we resize the stellar model.
+    structure_equations_original::Vector{Function}
+    # List of equations to be solved.
+    structure_equations::Vector{TypeStableEquation{StellarModel{TN,TD,TEOS,TKAP,TR,TSM,TSV,TLU},TD}}
     eqs_numbers::Vector{TN}  # Stores the results of the equation evaluations (as numbers), size nz * nvars
     eqs_duals::Matrix{TD}  # Stores the dual results of the equation evaluation, shape (nz, nvars)
-    diff_caches::Matrix{DiffCache{Vector{TN},Vector{TN}}}  # Allocates space for when automatic differentiation needs
-    # to happen
+    # Allocates space for when automatic differentiation needs to happen
+    diff_caches::Matrix{DiffCache{Vector{TN},Vector{TN}}}
     jacobian_D::Vector{TSM}
     jacobian_U::Vector{TSM}
     jacobian_L::Vector{TSM}
-    jacobian_tmp::Vector{TSM}
+    solver_LU::Vector{TLU}
+    solver_tmp1::Vector{TSM}
+    solver_tmp2::Vector{TSM}
     solver_β::Vector{TSV}
     solver_x::Vector{TSV}
     solver_corr::Vector{TN}
+    newton_iters::Int
 
     # Grid properties
     nz::Int  # Number of zones in the model
@@ -105,6 +112,9 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     m::Vector{TN}  # Mass coordinate of each cell (g)
     dm::Vector{TN}  # Mass contained in each cell (g)
     mstar::TN  # Total model mass (g)
+
+    # Remeshing functions
+    remesh_split_functions::Vector{Function}
 
     # Unique valued properties (ie not cell dependent)
     time::TN  # Age of the model (s)
@@ -114,7 +124,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     # Some basic info
     eos::TEOS
     opacity::TKAP
-    network::NuclearNetwork
+    network::NuclearNetwork{TR}
 
     # cache for the EOS
     eos_res::Matrix{EOSResults{TD}}
@@ -139,6 +149,9 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
 
     # Space for used defined options, defaults are in Options.jl
     opt::Options
+
+    # object holding plotting things, ie figures, data to plot.
+    plt::Plotter
 end
 
 """
@@ -149,12 +162,15 @@ Constructor for a `StellarModel` instance, using `varnames` for the independent 
 `structure_equations` to be solved, number of independent variables `nvars`, number of species in the network `nspecies`
 number of zones in the model `nz` and an iterface to the EOS and Opacity laws.
 """
-function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Function}, nvars::Int, nspecies::Int,
-                      nz::Int, nextra::Int, network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity)
+function StellarModel(var_names::Vector{Symbol},
+                      structure_equations::Vector{Function}, nz::Int, nextra::Int,
+                      remesh_split_functions::Vector{Function},
+                      network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity;
+                      use_static_arrays=true)
+    nvars = length(var_names) + network.nspecies
+
     # create the vector containing the independent variables
-    ind_vars = zeros(nvars * (nz))
-    # extract the species names from var_names (assumed at the end)
-    species_names = var_names[(nvars - nspecies + 1):end]
+    ind_vars = zeros(nvars * (nz + nextra))
 
     # create the equation results matrix, holding dual numbers (for automatic differentiation, AD)
     dual_sample = ForwardDiff.Dual(0.0, (zeros(3 * nvars)...))
@@ -177,28 +193,52 @@ function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Fun
     # create jacobian matrix (we have the diagonal and the upper and lower blocks)
     # we use static arrays, provided by StaticArrays. These are faster than regular
     # arrays for small nvars
-    jacobian_D = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
-    jacobian_U = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
-    jacobian_L = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
-    jacobian_tmp = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
-    solver_β = [(@MVector zeros(nvars)) for i=1:(nz+nextra)]
-    solver_x = [(@MVector zeros(nvars)) for i=1:(nz+nextra)]
+    if use_static_arrays
+        jacobian_D = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        jacobian_U = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        jacobian_L = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        solver_LU = Vector{LU{Float64, MMatrix{nvars, nvars, Float64, nvars^2}, Vector{Int64}}}(undef,nz+nextra)
+        solver_tmp1 = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        solver_tmp2 = [(@MMatrix zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        solver_β = [(@MVector zeros(nvars)) for i=1:(nz+nextra)]
+        solver_x = [(@MVector zeros(nvars)) for i=1:(nz+nextra)]
+    else
+        jacobian_D = [(zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        jacobian_U = [(zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        jacobian_L = [(zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        solver_LU = Vector{LU{Float64, Matrix{Float64}, Vector{Int64}}}(undef,nz+nextra)
+        solver_tmp1 = [(zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        solver_tmp2 = [(zeros(nvars,nvars)) for i=1:(nz+nextra)]
+        solver_β = [(zeros(nvars)) for i=1:(nz+nextra)]
+        solver_x = [(zeros(nvars)) for i=1:(nz+nextra)]
+        #When using regulars arrays one gets better performance by setting the BLAS
+        #threads to one like this:
+        #using LinearAlgebra
+        #LinearAlgebra.BLAS.set_num_threads(1) # this allows for a faster linear solve
+    end
     solver_corr = zeros(nvars*(nz+nextra))
 
     # create the equation results vector for the solver (holds plain numbers instead of duals)
-    eqs_numbers = ones(nvars * nz)
+    eqs_numbers = ones(nvars * (nz+nextra))
+
+    # var_names should also contain the name of species, we get them from the network
+    var_names_full = vcat(var_names, network.species_names)
 
     # link var_names to the correct index so you can do ind_var[vari[:lnT]] = 'some temperature'
     vari::Dict{Symbol,Int} = Dict()
-    for i in eachindex(var_names)
-        vari[var_names[i]] = i
+    for i in eachindex(var_names_full)
+        vari[var_names_full[i]] = i
     end
 
     # create type stable function objects
-    tsfs = Vector{TypeStableEquation{StellarModel{eltype(ind_vars),typeof(dual_sample),typeof(eos),typeof(opacity)},
+    tpe_stbl_funcs = Vector{TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample),
+                                                            typeof(eos), typeof(opacity), typeof(network.reactions),
+                                                            eltype(jacobian_D), eltype(solver_x), eltype(solver_LU)},
                                      typeof(dual_sample)}}(undef, length(structure_equations))
     for i in eachindex(structure_equations)
-        tsfs[i] = TypeStableEquation{StellarModel{eltype(ind_vars),typeof(dual_sample),typeof(eos),typeof(opacity)},
+        tpe_stbl_funcs[i] = TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample),
+                                                            typeof(eos), typeof(opacity), typeof(network.reactions),
+                                                            eltype(jacobian_D), eltype(solver_x), eltype(solver_LU)},
                                      typeof(dual_sample)}(structure_equations[i])
     end
 
@@ -214,32 +254,118 @@ function StellarModel(var_names::Vector{Symbol}, structure_equations::Vector{Fun
 
     # create stellar step info objects
     psi = StellarStepInfo(nz=nz, m=zeros(nz+nextra), dm=zeros(nz+nextra), mstar=0.0, time=0.0, dt=0.0, model_number=0,
-                          ind_vars=zeros(nvars * (nz+nextra)), lnT=zeros(nz+nextra), L=zeros(nz+nextra), lnP=zeros(nz+nextra), lnρ=zeros(nz+nextra),
-                          lnr=zeros(nz+nextra), eos_res=[EOSResults{Float64}() for i = 1:(nz+nextra)])
+                          ind_vars=zeros(nvars * (nz+nextra)), lnT=zeros(nz+nextra), L=zeros(nz+nextra),
+                          lnP=zeros(nz+nextra), lnρ=zeros(nz+nextra), lnr=zeros(nz+nextra), X=zeros(nz+nextra),
+                          Y=zeros(nz+nextra), eos_res=[EOSResults{Float64}() for i = 1:(nz+nextra)])
     ssi = StellarStepInfo(nz=nz, m=zeros(nz+nextra), dm=zeros(nz+nextra), mstar=0.0, time=0.0, dt=0.0, model_number=0,
-                          ind_vars=zeros(nvars * (nz+nextra)), lnT=zeros(nz+nextra), L=zeros(nz+nextra), lnP=zeros(nz+nextra), lnρ=zeros(nz+nextra),
-                          lnr=zeros(nz+nextra), eos_res=[EOSResults{Float64}() for i = 1:(nz+nextra)])
+                          ind_vars=zeros(nvars * (nz+nextra)), lnT=zeros(nz+nextra), L=zeros(nz+nextra),
+                          lnP=zeros(nz+nextra), lnρ=zeros(nz+nextra), lnr=zeros(nz + nextra), X=zeros(nz + nextra),
+                          Y=zeros(nz + nextra), eos_res=[EOSResults{Float64}() for i = 1:(nz + nextra)])
     esi = StellarStepInfo(nz=nz, m=zeros(nz+nextra), dm=zeros(nz+nextra), mstar=0.0, time=0.0, dt=0.0, model_number=0,
-                          ind_vars=zeros(nvars * (nz+nextra)), lnT=zeros(nz+nextra), L=zeros(nz+nextra), lnP=zeros(nz+nextra), lnρ=zeros(nz+nextra),
-                          lnr=zeros(nz+nextra), eos_res=[EOSResults{Float64}() for i = 1:(nz+nextra)])
+                          ind_vars=zeros(nvars * (nz+nextra)), lnT=zeros(nz+nextra), L=zeros(nz+nextra),
+                          lnP=zeros(nz+nextra), lnρ=zeros(nz+nextra), lnr=zeros(nz + nextra), X=zeros(nz + nextra),
+                          Y=zeros(nz + nextra), eos_res=[EOSResults{Float64}() for i = 1:(nz + nextra)])
 
     # create options object
     opt = Options()
 
+    plt = Plotter()
+
+
     # create the stellar model
-    sm = StellarModel(ind_vars=ind_vars, var_names=var_names, species_names=species_names, eqs_numbers=eqs_numbers,
-                      eqs_duals=eqs_duals, nvars=nvars, nspecies=nspecies, structure_equations=tsfs,
-                      diff_caches=diff_caches, vari=vari, nz=nz, nextra=nextra, m=m, dm=dm, mstar=0.0, time=0.0, dt=0.0,
-                      model_number=0, varp1=Matrix{typeof(dual_sample)}(undef, nz, nvars),
-                      var00=Matrix{typeof(dual_sample)}(undef, nz, nvars),
-                      varm1=Matrix{typeof(dual_sample)}(undef, nz, nvars),
+    sm = StellarModel(ind_vars=ind_vars, var_names=var_names_full,
+                      eqs_numbers=eqs_numbers, eqs_duals=eqs_duals, nvars=nvars,
+                      structure_equations_original=structure_equations,
+                      structure_equations=tpe_stbl_funcs,
+                      diff_caches=diff_caches, vari=vari, nz=nz, nextra=nextra,
+                      m=m, dm=dm, mstar=0.0, remesh_split_functions=remesh_split_functions,
+                      time=0.0, dt=0.0, model_number=0,
+                      varp1=Matrix{typeof(dual_sample)}(undef, nz+nextra, nvars),
+                      var00=Matrix{typeof(dual_sample)}(undef, nz+nextra, nvars),
+                      varm1=Matrix{typeof(dual_sample)}(undef, nz+nextra, nvars),
                       eos=eos, opacity=opacity, network=network,
                       jacobian_D=jacobian_D, jacobian_U=jacobian_U, jacobian_L=jacobian_L,
-                      jacobian_tmp=jacobian_tmp, solver_β=solver_β, solver_x=solver_x, solver_corr=solver_corr,
+                      solver_LU = solver_LU,
+                      solver_tmp1=solver_tmp1, solver_tmp2=solver_tmp2, solver_β=solver_β,
+                      solver_x=solver_x, solver_corr=solver_corr, newton_iters=0,
                       eos_res=eos_res, rates_res = rates_res,
-                      psi=psi, ssi=ssi, esi=esi, opt=opt)
+                      psi=psi, ssi=ssi, esi=esi, opt=opt, plt=plt)
     init_diff_cache!(sm)
     return sm
+end
+
+"""
+    adjusted_stellar_model_data(sm, new_nz::Int, new_nextra::Int)
+
+Returns a new copy of sm with an adjusted allocated size. This creates a full duplicate
+without removing the old stellar model, which is not very memory friendly. One
+possible optimization for the future. The new model is created to have `new_nz`
+zones with an extra padding of `new_nextra` zones to allow for remeshing.
+The new model will copy the contents of
+- ind_vars
+- mstar
+- m
+- dm
+- time
+- dt
+- model_number
+- psi, ssi, esi
+- opt
+As well as the nuclear network, opacity and EOS.
+"""
+function adjusted_stellar_model_data(sm, new_nz::Int, new_nextra::Int)
+    # verify that new size can contain old sm
+    if sm.nz > new_nz+new_nextra
+        throw(ArgumentError("Can't fit model of size nz=$(sm.nz) using new_nz=$(new_nz) and new_nextra=$(new_nextra)."))
+    end
+    #get var_names without species
+    var_names = sm.var_names[1:sm.nvars-sm.network.nspecies]
+
+    new_sm = StellarModel(var_names, sm.structure_equations_original,
+                      new_nz, new_nextra, sm.remesh_split_functions,
+                      sm.network, sm.eos, sm.opacity)
+    new_sm.nz = sm.nz # If this needs to be adjusted it will be done by remeshing routines
+    new_sm.opt = sm.opt
+
+    # backup scalar quantities
+    new_sm.time = sm.time
+    new_sm.dt = sm.dt
+    new_sm.model_number = sm.model_number
+    new_sm.mstar = sm.mstar
+
+    # copy arrays
+    for i in 1:sm.nz
+        for j in 1:sm.nvars
+            new_sm.ind_vars[(i-1)*sm.nvars + j] = sm.ind_vars[(i-1)*sm.nvars + j]
+        end
+        new_sm.m[i] = sm.m[i]
+        new_sm.dm[i] = sm.dm[i]
+    end
+
+    # Copy StellarStepInfo objects
+    for (new_ssi, old_ssi) in [(new_sm.psi, sm.psi), (new_sm.ssi, sm.ssi), (new_sm.esi, sm.esi)]
+        new_ssi.nz = old_ssi.nz
+        new_ssi.time = old_ssi.time
+        new_ssi.dt = old_ssi.dt
+        new_ssi.model_number = old_ssi.model_number
+        new_ssi.mstar = old_ssi.mstar
+        for i in 1:sm.nz
+            for j in 1:sm.nvars
+                new_ssi.ind_vars[(i-1)*sm.nvars + j] = old_ssi.ind_vars[(i-1)*sm.nvars + j]
+            end
+            new_ssi.m[i] = old_ssi.m[i]
+            new_ssi.dm[i] = old_ssi.dm[i]
+            new_ssi.lnT[i] = old_ssi.lnT[i]
+            new_ssi.L[i] = old_ssi.L[i]
+            new_ssi.lnP[i] = old_ssi.lnP[i]
+            new_ssi.lnρ[i] = old_ssi.lnρ[i]
+            new_ssi.lnr[i] = old_ssi.lnr[i]
+            new_ssi.X[i] == old_ssi.X[i]
+            new_ssi.Y[i] == old_ssi.Y[i]
+        end
+    end
+
+    return new_sm
 end
 
 """
@@ -250,7 +376,7 @@ dx_i^k/dx_i^k entries lie.
 """
 function init_diff_cache!(sm::StellarModel)
     for k = 1:(sm.nz)
-        # set all partials to 0 for the moment
+        # initialize all partials to 0
         sm.diff_caches[k, 1].dual_du[:] .= 0.0
         sm.diff_caches[k, 2].dual_du[:] .= 0.0
         sm.diff_caches[k, 3].dual_du[:] .= 0.0
@@ -267,15 +393,15 @@ function init_diff_cache!(sm::StellarModel)
             if k != 1
                 sm.diff_caches[k, 1].du[i] = sm.ind_vars[sm.nvars * (k - 2) + i]
                 sm.diff_caches[k, 1].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * (k - 2) + i]
-                sm.diff_caches[k, 1].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1 + i] = 1.0  # dx^k-1_i/dx^k-1_i = 1!!
+                sm.diff_caches[k, 1].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1 + i] = 1.0  # dx^k-1_i/dx^k-1_i = 1
             end
             sm.diff_caches[k, 2].du[i] = sm.ind_vars[sm.nvars * (k - 1) + i]
             sm.diff_caches[k, 2].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * (k - 1) + i]
-            sm.diff_caches[k, 2].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1 + sm.nvars + i] = 1.0  # dx^k_i/dx^k_i = 1!!
+            sm.diff_caches[k, 2].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1 + sm.nvars + i] = 1.0  # dx^k_i/dx^k_i = 1
             if k != sm.nz
                 sm.diff_caches[k, 3].du[i] = sm.ind_vars[sm.nvars * k + i]
                 sm.diff_caches[k, 3].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * k + i]
-                sm.diff_caches[k, 3].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1 + 2 * sm.nvars + i] = 1.0  # dx^k+1_i/dx^k+1_i = 1!!
+                sm.diff_caches[k, 3].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1 + 2 * sm.nvars + i] = 1.0  # dx^k+1_i/dx^k+1_i = 1
             end
         end
     end

@@ -7,7 +7,7 @@ export NuclearNetwork, set_rates_for_network!
 @kwdef struct NuclearNetwork{TT}
     nspecies::Int  # Just the number of species in the network
     species_names::Vector{Symbol}  # just the species names
-    reactions::Vector{Union{ToyReactionRate{TT}}}
+    reactions::TT
     xa_index::Dict{Symbol,Int}
     species_reactions_in::Vector{Vector{Tuple{Int,Int}}}
     species_reactions_out::Vector{Vector{Tuple{Int,Int}}}
@@ -20,7 +20,7 @@ function NuclearNetwork(species_names, reaction_names::Vector{Tuple{Symbol, Symb
         xa_index[species_names[i]] = i
     end
 
-    reactions::Vector{Union{ToyReactionRate{Float64}}} = []
+    reactions = []
     species_reactions_in::Vector{Vector{Tuple{Int,Int}}} = [[] for i in eachindex(species_names)]
     species_reactions_out::Vector{Vector{Tuple{Int,Int}}} = [[] for i in eachindex(species_names)]
     for i in eachindex(reaction_names)
@@ -41,10 +41,15 @@ function NuclearNetwork(species_names, reaction_names::Vector{Tuple{Symbol, Symb
         end
     end
 
+    # At this point reactions is a Vector{Any}. For type stability we want to turn it into a vector with type
+    # Union{...}, where the Union containts all types of reactions
+
+    reactions_typed::Vector{Union{typeof.(reactions)...}} = [reactions...]
+
     return NuclearNetwork(
         nspecies = nspecies,
         species_names = species_names,
-        reactions = reactions,
+        reactions = reactions_typed,
         xa_index = xa_index,
         species_reactions_in = species_reactions_in,
         species_reactions_out = species_reactions_out,
@@ -58,7 +63,6 @@ function set_rates_for_network!(rates::AbstractArray{TT}, net::NuclearNetwork, e
     for i in eachindex(rates)
         rates[i] = ReactionRates.get_reaction_rate(net.reactions[i], eos00, xa, net.xa_index)
     end
-    return
 end
 
 end
