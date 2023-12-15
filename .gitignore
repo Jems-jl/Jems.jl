@@ -6,6 +6,8 @@ history.hdf5
 profiles.hdf5
 *.mp4
 *.gif
+*.png
+example_options.toml
 docs/build
 alloc-profile.pb.gz
 

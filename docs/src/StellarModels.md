@@ -29,3 +29,17 @@ Pages = ["StellarModels/InitialCondition.jl"]
 Modules = [Jems.StellarModels]
 Pages = ["StellarModels/IO.jl"]
 ```
+
+## Remesher.jl
+
+```@autodocs
+Modules = [Jems.StellarModels]
+Pages = ["StellarModels/Remesher.jl"]
+```
+
+## PlotterInterface.jl
+
+```@autodocs
+Modules = [Jems.StellarModels]
+Pages = ["StellarModels/PlotterInterface.jl"]
+```

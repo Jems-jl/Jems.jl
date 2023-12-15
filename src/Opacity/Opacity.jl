@@ -15,4 +15,4 @@ abstract type AbstractOpacity end
 
 include("SimpleElectronScattering.jl")
 
-end # module Opacity
+end  # module Opacity
