@@ -64,6 +64,12 @@ StellarModels.update_stellar_model_properties!(sm)
 Evolution.eval_jacobian_eqs!(sm)
 
 ##
+sm.jacobian_U[2]
+##
+using Jems.DualSupport
+@show sm.props.xa[1,1].diff_cache_00.dual_du
+
+##
 @benchmark StellarModels.update_stellar_model_properties!(sm)
 
 ##
@@ -75,7 +81,10 @@ For now we make use of a the serial Thomas algorithm for tridiagonal block matri
 We first show how long it takes to evaluate one row (meaning, one set of lower, diagonal
 and upper block) of the Jacobian matrix.
 =#
-@benchmark Evolution.eval_jacobian_eqs_row!(sm, 2)
+@benchmark begin
+    StellarModels.update_stellar_model_properties!(sm)
+    Evolution.eval_jacobian_eqs_row!(sm, 2)
+end
 
 ##
 #=
