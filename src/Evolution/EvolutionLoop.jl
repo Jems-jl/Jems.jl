@@ -130,6 +130,7 @@ function do_evolution_loop!(sm::StellarModel)
         retry_step = false
         # step loop
         for i = 1:max_steps
+            StellarModels.update_stellar_model_properties!(sm)
             eval_jacobian_eqs!(sm)  # heavy lifting happens here!
             thomas_algorithm!(sm)  # here as well
             corr = @view sm.solver_corr[1:sm.nvars*sm.nz]

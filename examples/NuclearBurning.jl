@@ -64,12 +64,6 @@ StellarModels.update_stellar_model_properties!(sm)
 Evolution.eval_jacobian_eqs!(sm)
 
 ##
-sm.jacobian_U[2]
-##
-using Jems.DualSupport
-@show sm.props.xa[1,1].diff_cache_00.dual_du
-
-##
 @benchmark StellarModels.update_stellar_model_properties!(sm)
 
 ##

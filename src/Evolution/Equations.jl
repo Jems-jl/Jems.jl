@@ -201,7 +201,10 @@ TBD
 Residual of comparing dX_i/dt with its computed reaction rate
 """
 function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
-    dXdt_nuc = 0
+    # Get mass fraction for this iso
+    X = get_00_dual(sm.props.xa[k, sm.network.xa_index[iso_name]])
+
+    dXdt_nuc::typeof(X) = 0
     reactions_in = sm.network.species_reactions_in[sm.network.xa_index[iso_name]]
     for reaction_in in reactions_in
         rate = get_00_dual(sm.props.rates[k,reaction_in[1]])
@@ -214,7 +217,6 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
     end
 
     Xi = sm.ssi.ind_vars[(k - 1) * sm.nvars + sm.vari[iso_name]]
-    X = get_00_dual(sm.props.xa[sm.network.xa_index[iso_name]])
 
     return (X - Xi) / sm.ssi.dt - dXdt_nuc
 end
