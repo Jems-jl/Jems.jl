@@ -156,8 +156,6 @@ end
 
 # function om de dubbele rates te identificeren
 
-### Nog kijken naar hoe het aan de gewone dictionary toe te voegen enzo --> wss op het einde lijn toevoegen
-
 function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReactionRate)
 
     # main_dict = de algemene dictionary met alle reaction rates in
@@ -184,8 +182,8 @@ function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReaction
             reaction_string_cur = "$(reaction)_$(cur_set_label)_$(cur_res_rate)_$(cur_char_flag)"
             reaction_string_new = "$(reaction)_$(new_set_label)_$(new_res_rate)_$(new_char_flag)"
 
-            reaction_symbol_cur = Symbol(replace(reaction_string_cur, ' ' => '/'))
-            reaction_symbol_new = Symbol(replace(reaction_string_new, ' ' => '/'))
+            reaction_symbol_cur = Symbol(replace(reaction_string_cur, ' ' => 'x'))
+            reaction_symbol_new = Symbol(replace(reaction_string_new, ' ' => 'x'))
 
             list = []
             push!(list, reaction_symbol_cur)
@@ -227,24 +225,6 @@ function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReaction
     
 end
 
-
-# als element al in de reference dict staat
-
-    # is de lijst leeg?
-    #   zoek naar element in dictionary
-    #   haal info op in dictionary
-    #   maak nieuwe naam aan met de extra info van de dictionary
-    #   herschrijf het element van de dictionary dat er al was
-    #   voeg nieuw element toe aan dict
-    #   voeg beide toe aan de lijst van de references
-
-
-    # is de lijst niet leeg?
-    #   haal de info op van het extra element
-    #   maak de nieuwe naam aan
-    #   voeg nieuw element toe aan de dictionary en aan de lijst van references
-
-# elseif references[element] = [] ## dus element een lege lijst geven in references
 
 ##
 
@@ -462,6 +442,11 @@ end
 
 
 ##
+
+# lijst niet leeg laten: ook de enkele rates erin zetten
+# definitie van reaction rate bekijken
+
+
 
 # Reaction Rates
 
