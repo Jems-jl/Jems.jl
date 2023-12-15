@@ -2,6 +2,9 @@ module DualSupport
 
 using ForwardDiff, PreallocationTools
 
+export CellDualData, update_cell_dual_data_value!, update_cell_dual_data!,
+        get_cell_dual, get_m1_dual, get_00_dual, get_p1_dual
+
 struct CellDualData{TDC<:DiffCache, TDSC<:ForwardDiff.Dual, TDSF<:ForwardDiff.Dual}
     nvars::Int
     diff_cache_cell::TDC

@@ -60,7 +60,11 @@ StellarModels.n_polytrope_initial_condition!(n, sm, MSUN, 100 * RSUN; initial_dt
 Evolution.set_step_info!(sm, sm.esi)
 Evolution.cycle_step_info!(sm);
 Evolution.set_step_info!(sm, sm.ssi)
+StellarModels.update_stellar_model_properties!(sm)
 Evolution.eval_jacobian_eqs!(sm)
+
+##
+@benchmark StellarModels.update_stellar_model_properties!(sm)
 
 ##
 #=
@@ -96,6 +100,7 @@ to run only the matrix solver can be determined by substracting the previous ben
 =#
 
 @benchmark begin
+    StellarModels.update_stellar_model_properties!(sm)
     Evolution.eval_jacobian_eqs!($sm)
     Evolution.thomas_algorithm!($sm)
 end
