@@ -64,40 +64,22 @@ StellarModels.update_stellar_model_properties!(sm)
 Evolution.eval_jacobian_eqs!(sm)
 
 ##
-using Jems.DualSupport
-DualSupport.get_cell_dual(sm.props.xa[10,4])
-
-##
-@benchmark StellarModels.update_stellar_model_properties!(sm)
-
-##
 #=
 ### Benchmarking
 
 The previous code leaves everything ready to solve the linearized system. 
 For now we make use of a the serial Thomas algorithm for tridiagonal block matrices.
-We first show how long it takes to evaluate one row (meaning, one set of lower, diagonal
-and upper block) of the Jacobian matrix.
+We first show how long it takes to evaluate the Jacobian matrix. This requires two
+steps, the first is to evaluate properties across the model (for example, the EOS)
+and then evaluate all differential equations.
 =#
 @benchmark begin
-    Evolution.eval_jacobian_eqs_row!(sm, 2)
+    StellarModels.update_stellar_model_properties!(sm)
+    Evolution.eval_jacobian_eqs!(sm)
 end
 
 ##
 #=
-On my machine, this takes $\sim 3\;\mathrm{\mu s}$. This is a short amount of time, but we have a thousand cells
-to compute. Let's benchmark the calculation of the full jacobian.
-=#
-@benchmark Evolution.eval_jacobian_eqs!(sm)
-
-##
-#=
-And on my computer, this took about $1\;\mathrm{ms}$. Even though we have a thousand cells, the computation time was
-not a thousand times longer than computing the components of the jacobian for a single cell. The reason for this is that
-the calculation is parallelized so cells are done independently. However, I used 8 cores for my calculations, so the
-scaling is less than ideal. One of the main culprits here is the garbage collector. Current versions of julia can only
-perform garbage collection in a serial way, so it does not take advantage of all threads. Starting with julia 1.10, the
-garbage collector will be able to run in multiple threads, so that should alleviate issues with performance scaling.
 
 To get an idea of how much a complete iteration of the solver takes, we need to benchmark
 both the calculation of the Jacobian and the matrix solver. This is because the matrix solver

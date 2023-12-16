@@ -251,7 +251,6 @@ function StellarModel(var_names::Vector{Symbol},
     plt = Plotter()
 
     # create the stellar model
-    @show typeof(props)
     sm = StellarModel(ind_vars=ind_vars, nvars=nvars,
                       var_names=var_names_full, vari=vari,
                       structure_equations_original=structure_equations,
