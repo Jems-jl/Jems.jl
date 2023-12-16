@@ -43,10 +43,21 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
         end
     end
     xa_dual = zeros(TDSC, nz+nextra, nspecies)
-
-    κ = zeros(CDDTYPE, nz+nextra)
-    rates = zeros(CDDTYPE, nz+nextra, nrates)
     rates_dual = zeros(TDSC, nz+nextra, nrates)
+
+    # for some reason using zeros just creates a bunch of instances of the same object
+    # so we just initialize a vector of undef
+    κ = Vector{CDDTYPE}(undef, nz+nextra)#zeros(CDDTYPE, nz+nextra)
+    for k in 1:(nz+nextra)
+        κ[k] = CellDualData(nvars, TN)
+    end
+
+    rates = Matrix{CDDTYPE}(undef,nz+nextra, nrates)
+    for k in 1:(nz+nextra)
+        for i in 1:nrates
+            rates[k,i] = CellDualData(nvars, TN)
+        end
+    end
 
     return StellarModelProperties(eos_res_dual=eos_res_dual, eos_res=eos_res,
                                   lnT=lnT, lnρ=lnρ, lnr=lnr, L=L, xa=xa, xa_dual=xa_dual,

@@ -14,9 +14,18 @@ function StarDiffCache(nvars::Int, ::Type{T}) where {T}
     StarDiffCache{nvars, T}(zeros(T, nvars+1))
 end
 
+# This uses reinterpret
 function get_dual(sdc::StarDiffCache{SIZE, TN}) where{SIZE,TN}
     reinterpret(ForwardDiff.Dual{Nothing, TN, SIZE}, sdc.dual_data)[1]
 end
+
+# kudos to user Mason Protter from discourse.julia.com
+# beware of caveats
+# https://discourse.julialang.org/t/reinterpret-vector-into-single-struct/107709
+#function get_dual(sdc::StarDiffCache{SIZE, Float64}) where {SIZE,Float64}
+#    p::Ptr{ForwardDiff.Dual{Nothing, Float64, SIZE}} = pointer(sdc.dual_data)
+#    unsafe_load(p)         # Load the first element from that pointer
+#end
 
 struct CellDualData{NVARS, THREENVARS, TN}
     diff_cache_cell::StarDiffCache{NVARS, TN}
