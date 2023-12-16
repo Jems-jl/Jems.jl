@@ -20,36 +20,32 @@ end
 
 function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                     nrates::Int, nspecies::Int, vari::Dict{Symbol, Int}, ::Type{TN}) where{TN<:Real}
-    TDC = typeof(DiffCache(zeros(TN,nvars), nvars))
-    #Maybe reutilizing these duals makes parallel performance suck?
-    dual_sample_cell = ForwardDiff.Dual(zero(TN), (zeros(TN,nvars)...))
-    TDSC = typeof(dual_sample_cell)
-    dual_sample_full = ForwardDiff.Dual(zero(TN), (zeros(TN,3 * nvars)...))
-    TDSF = typeof(dual_sample_full)
-    TCDD = CellDualData{TDC, TDSC, TDSF}
 
+    CDDTYPE = CellDualData{nvars,3*nvars,TN}
+    TDSC = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, nvars))...))
+    
     eos_res_dual = [EOSResults{TDSC}() for i in 1:(nz+nextra)]
-    eos_res = [EOSResults{TCDD}() for i in 1:(nz+nextra)]
+    eos_res = [EOSResults{CDDTYPE}() for i in 1:(nz+nextra)]
 
-    lnT = [CellDualData(dual_sample_cell, dual_sample_full;
+    lnT = [CellDualData(nvars, TN;
                             is_ind_var=true, ind_var_i=vari[:lnT]) for i in 1:(nz+nextra)]
-    lnρ = [CellDualData(dual_sample_cell, dual_sample_full;
+    lnρ = [CellDualData(nvars, TN;
                             is_ind_var=true, ind_var_i=vari[:lnρ]) for i in 1:(nz+nextra)]
-    lnr = [CellDualData(dual_sample_cell, dual_sample_full;
+    lnr = [CellDualData(nvars, TN;
                             is_ind_var=true, ind_var_i=vari[:lnr]) for i in 1:(nz+nextra)]
-    L = [CellDualData(dual_sample_cell, dual_sample_full;
+    L = [CellDualData(nvars, TN;
                             is_ind_var=true, ind_var_i=vari[:lum]) for i in 1:(nz+nextra)]
-    xa = Matrix{TCDD}(undef,nz+nextra, nspecies)
+    xa = Matrix{CDDTYPE}(undef,nz+nextra, nspecies)
     for k in 1:(nz+nextra)
         for i in 1:nspecies
-            xa[k,i] = CellDualData(dual_sample_cell, dual_sample_full;
+            xa[k,i] = CellDualData(nvars, TN;
                         is_ind_var=true, ind_var_i=4+i)
         end
     end
     xa_dual = zeros(TDSC, nz+nextra, nspecies)
 
-    κ = zeros(TCDD, nz+nextra)
-    rates = zeros(TCDD, nz+nextra, nrates)
+    κ = zeros(CDDTYPE, nz+nextra)
+    rates = zeros(CDDTYPE, nz+nextra, nrates)
     rates_dual = zeros(TDSC, nz+nextra, nrates)
 
     return StellarModelProperties(eos_res_dual=eos_res_dual, eos_res=eos_res,

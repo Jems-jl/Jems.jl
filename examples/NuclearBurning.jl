@@ -64,6 +64,10 @@ StellarModels.update_stellar_model_properties!(sm)
 Evolution.eval_jacobian_eqs!(sm)
 
 ##
+using Jems.DualSupport
+DualSupport.get_cell_dual(sm.props.xa[10,4])
+
+##
 @benchmark StellarModels.update_stellar_model_properties!(sm)
 
 ##
@@ -76,7 +80,6 @@ We first show how long it takes to evaluate one row (meaning, one set of lower, 
 and upper block) of the Jacobian matrix.
 =#
 @benchmark begin
-    StellarModels.update_stellar_model_properties!(sm)
     Evolution.eval_jacobian_eqs_row!(sm, 2)
 end
 
@@ -170,7 +173,7 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 StellarModels.n_polytrope_initial_condition!(n, sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
-@time Evolution.do_evolution_loop!(sm);
+@profview Evolution.do_evolution_loop!(sm);
 
 ##
 #=

@@ -1,5 +1,5 @@
-using PreallocationTools
 using FunctionWrappers
+using ForwardDiff
 using StaticArrays
 using LinearAlgebra
 using Jems.DualSupport
@@ -73,7 +73,7 @@ variables of the model and its equations.
 The struct has four parametric types, `TN` for 'normal' numbers, `TD` for dual numbers used in automatic
 differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type of opacity law being used.
 """
-@kwdef mutable struct StellarModel{TN<:Real,TDC<:Real, TDF<:Real, TCDD,
+@kwdef mutable struct StellarModel{TN<:Real,TDC<:ForwardDiff.Dual, TDF<:ForwardDiff.Dual, TCDD,
                                    TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,TR,
                                    TSM<:AbstractMatrix, TSV<:AbstractVector, TLU}
     # Properties that define the model
@@ -170,15 +170,6 @@ function StellarModel(var_names::Vector{Symbol},
         end
     end
 
-    # create the diff caches
-    dc_type = DiffCache(zeros(nvars), 3 * nvars)
-    diff_caches = Matrix{typeof(dc_type)}(undef, nz+nextra, 3)
-    for k = 1:(nz+nextra)
-        for i = 1:3
-            diff_caches[k, i] = DiffCache(zeros(nvars), 3 * nvars)
-        end
-    end
-
     # create jacobian matrix (we have the diagonal and the upper and lower blocks)
     # we use static arrays, provided by StaticArrays. These are faster than regular
     # arrays for small nvars
@@ -221,13 +212,13 @@ function StellarModel(var_names::Vector{Symbol},
 
     # create type stable function objects
     tpe_stbl_funcs = Vector{TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample_cell), typeof(dual_sample),
-                                                            CellDualData{typeof(DiffCache(zeros(1), nvars)), typeof(dual_sample_cell), typeof(dual_sample)},
+                                                            CellDualData{nvars, 3*nvars, eltype(ind_vars)},
                                                             typeof(eos), typeof(opacity), typeof(network.reactions),
                                                             eltype(jacobian_D), eltype(solver_x), eltype(solver_LU)},
                                      typeof(dual_sample)}}(undef, length(structure_equations))
     for i in eachindex(structure_equations)
         tpe_stbl_funcs[i] = TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample_cell), typeof(dual_sample),
-                                                            CellDualData{typeof(DiffCache(zeros(1), nvars)), typeof(dual_sample_cell), typeof(dual_sample)},
+                                                            CellDualData{nvars, 3*nvars, eltype(ind_vars)},
                                                             typeof(eos), typeof(opacity), typeof(network.reactions),
                                                             eltype(jacobian_D), eltype(solver_x), eltype(solver_LU)},
                                      typeof(dual_sample)}(structure_equations[i])
