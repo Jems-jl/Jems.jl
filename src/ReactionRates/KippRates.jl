@@ -53,7 +53,7 @@ function get_reaction_rate(reaction::KippReactionRate, eos00::EOSResults{TT}, xa
         X1   = xa[xa_index[:H1]]
 
         g_11 = (1 + 3.82 * T9 + 1.51 * T9^2 + 0.144 * T9^3 - 0.0114 * T9^4)
-        ϵnuc = 2.57 * 10^4 * chi * f_11 * g_11 * eos00.ρ * X1^2 * T9^(-2/3) * exp(-3.381 * T9^(-1/3))
+        ϵnuc = 2.57e4 * chi * f_11 * g_11 * eos00.ρ * X1^2 * cbrt(T9^(-2)) * exp(-3.381 * cbrt(T9^(-1)))
 
         return ϵnuc / reaction.Qvalue
 
@@ -64,8 +64,8 @@ function get_reaction_rate(reaction::KippReactionRate, eos00::EOSResults{TT}, xa
         X_CNO = xa[xa_index[:C12]] + xa[xa_index[:N14]] + xa[xa_index[:O16]]
 
         g_14  = (1 - 2 * T9 + 3.41 * T9^2 - 2.43 * T9^3 )
-        ϵnuc  = 8.24 * 10^(25) * g_14 * X_CNO * X1 * eos00.ρ * 
-                T9^(-2/3) * exp(-15.231 * T9^(-1/3) - (T9/0.8)^2)
+        ϵnuc  = 8.24e25 * g_14 * X_CNO * X1 * eos00.ρ * 
+                cbrt(T9^(-2)) * exp(-15.231 * cbrt(T9^(-1)) - (T9/0.8)^2)
 
         return ϵnuc / reaction.Qvalue
 

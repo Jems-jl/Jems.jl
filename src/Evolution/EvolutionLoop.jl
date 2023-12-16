@@ -99,7 +99,7 @@ end
 Performs the main evolutionary loop of the input StellarModel `sm`. It continues taking steps until one of the
 termination criteria is reached (defined in `sm.opt.termination`).
 """
-function do_evolution_loop(sm::StellarModel)
+function do_evolution_loop!(sm::StellarModel)
     set_step_info!(sm, sm.esi)
     # evolution loop, be sure to have sensible termination conditions or this will go on forever!
     dt_factor = 1.0 # this is changed during retries to lower the timestep
@@ -130,6 +130,7 @@ function do_evolution_loop(sm::StellarModel)
         retry_step = false
         # step loop
         for i = 1:max_steps
+            StellarModels.update_stellar_model_properties!(sm)
             eval_jacobian_eqs!(sm)  # heavy lifting happens here!
             thomas_algorithm!(sm)  # here as well
             corr = @view sm.solver_corr[1:sm.nvars*sm.nz]

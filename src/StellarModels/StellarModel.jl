@@ -1,7 +1,8 @@
-using PreallocationTools
 using FunctionWrappers
+using ForwardDiff
 using StaticArrays
 using LinearAlgebra
+using Jems.DualSupport
 
 """
     struct TypeStableEquation{TS,TD<:Real}
@@ -22,11 +23,7 @@ differentiation. The function must return an object of type TD, the result of th
 """
 struct TypeStableEquation{TS,TD<:Real}
     func::FunctionWrappers.FunctionWrapper{TD,
-                                           Tuple{TS,Int,
-                                                 Matrix{TD},Matrix{TD},Matrix{TD},
-                                                 EOSResults{TD},EOSResults{TD},EOSResults{TD},
-                                                 Matrix{TD},
-                                                 TD,TD,TD}}
+                                           Tuple{TS,Int}}
 end
 
 """
@@ -76,7 +73,7 @@ variables of the model and its equations.
 The struct has four parametric types, `TN` for 'normal' numbers, `TD` for dual numbers used in automatic
 differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type of opacity law being used.
 """
-@kwdef mutable struct StellarModel{TN<:Real,TD<:Real,
+@kwdef mutable struct StellarModel{TN<:Real,TDC<:ForwardDiff.Dual, TDF<:ForwardDiff.Dual, TCDD,
                                    TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,TR,
                                    TSM<:AbstractMatrix, TSV<:AbstractVector, TLU}
     # Properties that define the model
@@ -90,11 +87,9 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     # We keep the original input for when we resize the stellar model.
     structure_equations_original::Vector{Function}
     # List of equations to be solved.
-    structure_equations::Vector{TypeStableEquation{StellarModel{TN,TD,TEOS,TKAP,TR,TSM,TSV,TLU},TD}}
+    structure_equations::Vector{TypeStableEquation{StellarModel{TN,TDC,TDF,TCDD,TEOS,TKAP,TR,TSM,TSV,TLU},TDF}}
     eqs_numbers::Vector{TN}  # Stores the results of the equation evaluations (as numbers), size nz * nvars
-    eqs_duals::Matrix{TD}  # Stores the dual results of the equation evaluation, shape (nz, nvars)
-    # Allocates space for when automatic differentiation needs to happen
-    diff_caches::Matrix{DiffCache{Vector{TN},Vector{TN}}}
+    eqs_duals::Matrix{TDF}  # Stores the dual results of the equation evaluation, shape (nz, nvars)
     jacobian_D::Vector{TSM}
     jacobian_U::Vector{TSM}
     jacobian_L::Vector{TSM}
@@ -126,15 +121,8 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     opacity::TKAP
     network::NuclearNetwork{TR}
 
-    # cache for the EOS
-    eos_res::Matrix{EOSResults{TD}}
-
-    # cache for the rates
-    rates_res::Matrix{TD}
-
-    varp1::Matrix{TD}
-    var00::Matrix{TD}
-    varm1::Matrix{TD}
+    ##
+    props::StellarModelProperties{TDC, TCDD}
 
     # Here I want to preemt things that will be necessary once we have an adaptative
     # mesh. Idea is that psi contains the information from the previous step (or the
@@ -174,19 +162,11 @@ function StellarModel(var_names::Vector{Symbol},
 
     # create the equation results matrix, holding dual numbers (for automatic differentiation, AD)
     dual_sample = ForwardDiff.Dual(0.0, (zeros(3 * nvars)...))
+    dual_sample_cell = ForwardDiff.Dual(0.0, (zeros(nvars)...))
     eqs_duals = Matrix{typeof(dual_sample)}(undef, nz+nextra, nvars)
     for k = 1:(nz + nextra)
         for i = 1:nvars
             eqs_duals[k, i] = ForwardDiff.Dual(0.0, (zeros(3 * nvars)...))
-        end
-    end
-
-    # create the diff caches
-    dc_type = DiffCache(zeros(nvars), 3 * nvars)
-    diff_caches = Matrix{typeof(dc_type)}(undef, nz+nextra, 3)
-    for k = 1:(nz+nextra)
-        for i = 1:3
-            diff_caches[k, i] = DiffCache(zeros(nvars), 3 * nvars)
         end
     end
 
@@ -231,12 +211,14 @@ function StellarModel(var_names::Vector{Symbol},
     end
 
     # create type stable function objects
-    tpe_stbl_funcs = Vector{TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample),
+    tpe_stbl_funcs = Vector{TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample_cell), typeof(dual_sample),
+                                                            CellDualData{nvars, 3*nvars, eltype(ind_vars)},
                                                             typeof(eos), typeof(opacity), typeof(network.reactions),
                                                             eltype(jacobian_D), eltype(solver_x), eltype(solver_LU)},
                                      typeof(dual_sample)}}(undef, length(structure_equations))
     for i in eachindex(structure_equations)
-        tpe_stbl_funcs[i] = TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample),
+        tpe_stbl_funcs[i] = TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample_cell), typeof(dual_sample),
+                                                            CellDualData{nvars, 3*nvars, eltype(ind_vars)},
                                                             typeof(eos), typeof(opacity), typeof(network.reactions),
                                                             eltype(jacobian_D), eltype(solver_x), eltype(solver_LU)},
                                      typeof(dual_sample)}(structure_equations[i])
@@ -246,11 +228,8 @@ function StellarModel(var_names::Vector{Symbol},
     dm = zeros(nz+nextra)
     m = zeros(nz+nextra)
 
-    # eos results
-    eos_res = [EOSResults{typeof(dual_sample)}() for i = 1:(nz+nextra), j = 1:3]
-
-    # rates results
-    rates_res = Matrix{typeof(dual_sample)}(undef, (nz+nextra), length(network.reactions))
+    props = StellarModelProperties(nvars, nz, nextra, 
+                    length(network.reactions), network.nspecies, vari, Float64)
 
     # create stellar step info objects
     psi = StellarStepInfo(nz=nz, m=zeros(nz+nextra), dm=zeros(nz+nextra), mstar=0.0, time=0.0, dt=0.0, model_number=0,
@@ -271,26 +250,23 @@ function StellarModel(var_names::Vector{Symbol},
 
     plt = Plotter()
 
-
     # create the stellar model
-    sm = StellarModel(ind_vars=ind_vars, var_names=var_names_full,
-                      eqs_numbers=eqs_numbers, eqs_duals=eqs_duals, nvars=nvars,
+    sm = StellarModel(ind_vars=ind_vars, nvars=nvars,
+                      var_names=var_names_full, vari=vari,
                       structure_equations_original=structure_equations,
                       structure_equations=tpe_stbl_funcs,
-                      diff_caches=diff_caches, vari=vari, nz=nz, nextra=nextra,
-                      m=m, dm=dm, mstar=0.0, remesh_split_functions=remesh_split_functions,
-                      time=0.0, dt=0.0, model_number=0,
-                      varp1=Matrix{typeof(dual_sample)}(undef, nz+nextra, nvars),
-                      var00=Matrix{typeof(dual_sample)}(undef, nz+nextra, nvars),
-                      varm1=Matrix{typeof(dual_sample)}(undef, nz+nextra, nvars),
-                      eos=eos, opacity=opacity, network=network,
+                      eqs_numbers=eqs_numbers, eqs_duals=eqs_duals,
                       jacobian_D=jacobian_D, jacobian_U=jacobian_U, jacobian_L=jacobian_L,
                       solver_LU = solver_LU,
                       solver_tmp1=solver_tmp1, solver_tmp2=solver_tmp2, solver_β=solver_β,
                       solver_x=solver_x, solver_corr=solver_corr, newton_iters=0,
-                      eos_res=eos_res, rates_res = rates_res,
+                      nz=nz, nextra=nextra,
+                      m=m, dm=dm, mstar=0.0,
+                      remesh_split_functions=remesh_split_functions,
+                      time=0.0, dt=0.0, model_number=0,
+                      eos=eos, opacity=opacity, network=network, props=props,
                       psi=psi, ssi=ssi, esi=esi, opt=opt, plt=plt)
-    init_diff_cache!(sm)
+
     return sm
 end
 
@@ -366,43 +342,4 @@ function adjusted_stellar_model_data(sm, new_nz::Int, new_nextra::Int)
     end
 
     return new_sm
-end
-
-"""
-    init_diff_cache!(sm::StellarModel)
-
-Initializes the diff_caches to the values of the independent variables, and sets ones in the correct spots where the
-dx_i^k/dx_i^k entries lie.
-"""
-function init_diff_cache!(sm::StellarModel)
-    for k = 1:(sm.nz)
-        # initialize all partials to 0
-        sm.diff_caches[k, 1].dual_du[:] .= 0.0
-        sm.diff_caches[k, 2].dual_du[:] .= 0.0
-        sm.diff_caches[k, 3].dual_du[:] .= 0.0
-        #= these indices are headache inducing...
-        diff_caches[k, 2].dual_du has structure:
-        (x_1, dx_1^k/dx_1^k-1, ..., dx_1^k/dx_n^k-1, dx_1^k/dx_1^k, ..., dx_1^k/dx_n^k, dx_1^k/dx_1^k+1, ..., dx_1^k/dx_n^k+1,  # subsize 3*nvars+1
-         ...
-         x_n, dx_n^k/dx_1^k-1, ..., dx_n^k/dx_n^k-1, dx_n^k/dx_1^k, ..., dx_n^k/dx_n^k, dx_n^k/dx_1^k+1, ..., dx_n^k/dx_n^k+1)
-        diff_caches[k, 3].dual_du has numerators k -> k+1
-        diff_caches[k, 1].dual_du has numerators k -> k-1
-        =#
-        for i = 1:(sm.nvars)
-            # set variable values in du, dual_du and its corresponding non-zero derivative
-            if k != 1
-                sm.diff_caches[k, 1].du[i] = sm.ind_vars[sm.nvars * (k - 2) + i]
-                sm.diff_caches[k, 1].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * (k - 2) + i]
-                sm.diff_caches[k, 1].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1 + i] = 1.0  # dx^k-1_i/dx^k-1_i = 1
-            end
-            sm.diff_caches[k, 2].du[i] = sm.ind_vars[sm.nvars * (k - 1) + i]
-            sm.diff_caches[k, 2].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * (k - 1) + i]
-            sm.diff_caches[k, 2].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1 + sm.nvars + i] = 1.0  # dx^k_i/dx^k_i = 1
-            if k != sm.nz
-                sm.diff_caches[k, 3].du[i] = sm.ind_vars[sm.nvars * k + i]
-                sm.diff_caches[k, 3].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1] = sm.ind_vars[sm.nvars * k + i]
-                sm.diff_caches[k, 3].dual_du[(i - 1) * (3 * sm.nvars + 1) + 1 + 2 * sm.nvars + i] = 1.0  # dx^k+1_i/dx^k+1_i = 1
-            end
-        end
-    end
 end
