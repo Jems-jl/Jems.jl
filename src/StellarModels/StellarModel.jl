@@ -308,6 +308,7 @@ function adjusted_stellar_model_data(sm, new_nz::Int, new_nextra::Int)
     new_sm.dt = sm.dt
     new_sm.model_number = sm.model_number
     new_sm.mstar = sm.mstar
+    new_sm.plt = sm.plt
 
     # copy arrays
     for i in 1:sm.nz
