@@ -122,11 +122,11 @@ open("example_options.toml", "w") do file
           delta_Tc_limit = 0.01
 
           [termination]
-          max_model_number = 200000
-          max_center_T = 4e77
+          max_model_number = 2000
+          max_center_T = 4e7
 
           [plotting]
-          do_plotting = true
+          do_plotting = false
           wait_at_termination = false
           plotting_interval = 1
 

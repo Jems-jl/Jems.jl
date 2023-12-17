@@ -14,10 +14,10 @@ reaction_list[:kipp_rates] = Dict(
     :kipp_cno => KippReactionRate(:kipp_cno, [:H1], [4], [:He4], [1],
         ((4 * Chem.isotope_list[:H1].mass - Chem.isotope_list[:He4].mass) * AMU * CLIGHT^2)),
 
-    :kipp_3alphaCF88 => KippReactionRate(:kipp_3alpha, [:He4], [3], [:C12], [1],
+    :kipp_3alphaCF88 => KippReactionRate(:kipp_3alphaCF88, [:He4], [3], [:C12], [1],
         ((3 * Chem.isotope_list[:He4].mass - Chem.isotope_list[:C12].mass) * AMU * CLIGHT^2)),
 
-    :kipp_3alphaA99 => KippReactionRate(:kipp_3alpha, [:He4], [3], [:C12], [1],
+    :kipp_3alphaA99 => KippReactionRate(:kipp_3alphaA99, [:He4], [3], [:C12], [1],
         ((3 * Chem.isotope_list[:He4].mass - Chem.isotope_list[:C12].mass) * AMU * CLIGHT^2)),
 
     :kipp_C12alpha => KippReactionRate(:kipp_C12alpha, [:C12, :He4], [1,1], [:O16], [1],
