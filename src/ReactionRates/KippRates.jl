@@ -14,7 +14,10 @@ reaction_list[:kipp_rates] = Dict(
     :kipp_cno => KippReactionRate(:kipp_cno, [:H1], [4], [:He4], [1],
         ((4 * Chem.isotope_list[:H1].mass - Chem.isotope_list[:He4].mass) * AMU * CLIGHT^2)),
 
-    :kipp_3alpha => KippReactionRate(:kipp_3alpha, [:He4], [3], [:C12], [1],
+    :kipp_3alphaCF88 => KippReactionRate(:kipp_3alpha, [:He4], [3], [:C12], [1],
+        ((3 * Chem.isotope_list[:He4].mass - Chem.isotope_list[:C12].mass) * AMU * CLIGHT^2)),
+
+    :kipp_3alphaA99 => KippReactionRate(:kipp_3alpha, [:He4], [3], [:C12], [1],
         ((3 * Chem.isotope_list[:He4].mass - Chem.isotope_list[:C12].mass) * AMU * CLIGHT^2)),
 
     :kipp_C12alpha => KippReactionRate(:kipp_C12alpha, [:C12, :He4], [1,1], [:O16], [1],
@@ -69,7 +72,7 @@ function get_reaction_rate(reaction::KippReactionRate, eos00::EOSResults{TT}, xa
 
         return ϵnuc / reaction.Qvalue
 
-    elseif reaction.name == :kipp_3alpha
+    elseif reaction.name == :kipp_3alphaCF88
 
         f_3alpha = 1
         X4   = xa[xa_index[:He4]]
@@ -77,6 +80,19 @@ function get_reaction_rate(reaction::KippReactionRate, eos00::EOSResults{TT}, xa
 
         ϵnuc = 5.09e11 * f_3alpha * (eos00.ρ)^2 * X4^3 * 
                T8^-3 * exp(-44.027 / T8)
+
+    elseif reaction.name == :kipp_3alphaA99
+
+        f_3alpha = 1
+        X4   = xa[xa_index[:He4]]
+        T9   = eos00.T / 1e9
+
+        ϵnuc = 6.272*(eos00.ρ)^2*X4^3*(1+0.0158*T9^(-0.65))*
+                (2.43e9*cbrt(T9^(-2))*exp(-13.490*cbrt(T9^(-1))-(T9/0.15)^2)*(1+74.5*T9)
+                    + 6.09e5*sqrt(T9^(-3))*exp(-1.054/T9))*
+                (2.76e7*cbrt(T9^(-2))*exp(-23.570*cbrt(T9^(-1))-(T9/0.4)^2)
+                    * (1+5.47*T9+326*T9^2) + 130.7*sqrt(T9^(-3))*exp(-3.338/T9)
+                    + 2.51e4*sqrt(T9^(-3))*exp(-20.307/T9))
 
     elseif reaction.name == :kipp_C12alpha
 
