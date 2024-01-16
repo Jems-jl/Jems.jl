@@ -119,7 +119,7 @@ function do_evolution_loop!(sm::StellarModel)
 
         sm.ssi.dt = dt_next
         sm.dt = dt_next
-        sm.newton_iters = 0
+        sm.solver_data.newton_iters = 0
 
         max_steps = sm.opt.solver.newton_max_iter
         if (sm.model_number == 0)
@@ -133,7 +133,7 @@ function do_evolution_loop!(sm::StellarModel)
             StellarModels.update_stellar_model_properties!(sm)
             eval_jacobian_eqs!(sm)  # heavy lifting happens here!
             thomas_algorithm!(sm)  # here as well
-            corr = @view sm.solver_corr[1:sm.nvars*sm.nz]
+            corr = @view sm.solver_data.solver_corr[1:sm.nvars*sm.nz]
 
             real_max_corr = maximum(corr)
 
@@ -174,7 +174,7 @@ function do_evolution_loop!(sm::StellarModel)
                     println("Failed to converge step $(sm.model_number) with timestep $(dt_next/SECYEAR), retrying")
                 end
             end
-            sm.newton_iters = i
+            sm.solver_data.newton_iters = i
         end
 
         if retry_step
