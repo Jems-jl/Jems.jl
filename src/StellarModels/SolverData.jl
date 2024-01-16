@@ -1,6 +1,8 @@
 using StaticArrays
 
-@kwdef mutable struct SolverData{TNUMBER, TDUALFULL, TMATRIX, TLU, TVECTOR}
+abstract type AbstractSolverData end
+
+@kwdef mutable struct SolverData{TNUMBER, TDUALFULL, TMATRIX, TLU, TVECTOR} <: AbstractSolverData
     eqs_numbers::Vector{TNUMBER}  # Stores the results of the equation evaluations (as numbers), size nz * nvars
     eqs_duals::Matrix{TDUALFULL}  # Stores the dual results of the equation evaluation, shape (nz, nvars)
     jacobian_D::Vector{TMATRIX}

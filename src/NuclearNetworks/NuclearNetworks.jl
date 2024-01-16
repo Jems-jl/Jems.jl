@@ -4,7 +4,9 @@ using ..ReactionRates, ..EOS
 
 export NuclearNetwork, set_rates_for_network!
 
-@kwdef struct NuclearNetwork{TT}
+abstract type AbstractNuclearNetwork end
+
+@kwdef struct NuclearNetwork{TT} <: AbstractNuclearNetwork
     nspecies::Int  # Just the number of species in the network
     species_names::Vector{Symbol}  # just the species names
     reactions::TT

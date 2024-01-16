@@ -91,9 +91,9 @@ variables of the model and its equations.
 The struct has four parametric types, `TN` for 'normal' numbers, `TD` for dual numbers used in automatic
 differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type of opacity law being used.
 """
-@kwdef mutable struct StellarModel{TNUMBER<:Real, TDUALFULL<:ForwardDiff.Dual, TPROPS<:StellarModelProperties,
-                                   TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,TRATE,
-                                   TSOLVER<:SolverData}
+@kwdef mutable struct StellarModel{TNUMBER<:Real, TDUALFULL<:ForwardDiff.Dual, TPROPS<:AbstractStellarModelProperties,
+                                   TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,TNET<:NuclearNetworks.AbstractNuclearNetwork,
+                                   TSOLVER<:AbstractSolverData}
     # Properties that define the model
     ind_vars::Vector{TNUMBER}  # List of independent variables
     nvars::Int  # This is the sum of hydro vars and species
@@ -105,7 +105,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     # We keep the original input for when we resize the stellar model.
     structure_equations_original::Vector{Function}
     # List of equations to be solved.
-    structure_equations::Vector{TypeStableEquation{StellarModel{TNUMBER,TDUALFULL,TPROPS,TEOS,TKAP,TRATE,TSOLVER},TDUALFULL}}
+    structure_equations::Vector{TypeStableEquation{StellarModel{TNUMBER,TDUALFULL,TPROPS,TEOS,TKAP,TNET,TSOLVER},TDUALFULL}}
 
     solver_data::TSOLVER
 
@@ -127,7 +127,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     # Some basic info
     eos::TEOS
     opacity::TKAP
-    network::NuclearNetwork{TRATE}
+    network::TNET
 
     ##
     props::TPROPS
@@ -189,12 +189,12 @@ function StellarModel(var_names::Vector{Symbol},
     # create type stable function objects
     dual_sample = ForwardDiff.Dual(zero(number_type), (zeros(number_type, 3*nvars)...))
     tpe_stbl_funcs = Vector{TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample), typeof(props),
-                                                            typeof(eos), typeof(opacity), typeof(network.reactions),
+                                                            typeof(eos), typeof(opacity), typeof(network),
                                                             typeof(solver_data)},
                                      typeof(dual_sample)}}(undef, length(structure_equations))
     for i in eachindex(structure_equations)
         tpe_stbl_funcs[i] = TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample), typeof(props),
-                                                            typeof(eos), typeof(opacity), typeof(network.reactions),
+                                                            typeof(eos), typeof(opacity), typeof(network),
                                                             typeof(solver_data)},
                                      typeof(dual_sample)}(structure_equations[i])
     end
