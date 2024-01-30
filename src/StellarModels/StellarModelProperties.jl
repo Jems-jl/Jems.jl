@@ -1,9 +1,6 @@
 abstract type AbstractStellarModelProperties end
 
 @kwdef struct StellarModelProperties{TDual, TCellDualData} <: AbstractStellarModelProperties
-    eos_res_dual::Vector{EOSResults{TDual}}
-    eos_res::Vector{EOSResults{TCellDualData}}
-
     # independent variables
     lnT::Vector{TCellDualData}
     lnρ::Vector{TCellDualData}
@@ -12,12 +9,21 @@ abstract type AbstractStellarModelProperties end
     xa::Matrix{TCellDualData}
     xa_dual::Matrix{TDual}
 
+    # equation of state
+    eos_res_dual::Vector{EOSResults{TDual}}
+    eos_res::Vector{EOSResults{TCellDualData}}
+
     # opacity
     κ::Vector{TCellDualData}
 
     #rates
     rates::Matrix{TCellDualData}
     rates_dual::Matrix{TDual}
+
+    # turbulence (i.e. convection)
+    turb_res_dual::Vector{TurbResults{TDual}}
+    turb_res::Vector{TurbResults{TCellDualData}}
+
 end
 
 function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,

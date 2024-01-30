@@ -19,6 +19,11 @@ function get_dual(sdc::StarDiffCache{SIZE, TNUMBER}) where{SIZE,TNUMBER}
     reinterpret(ForwardDiff.Dual{Nothing, TNUMBER, SIZE}, sdc.dual_data)[1]
 end
 
+#function get_face_dual(sdc_cell::StarDiffCache{NVARS, TNUMBER},
+#                       sdc_full::StarDiffCache{THREENVARS, TNUMBER}) where{NVARS, THREENVARS, TNUMBER}
+#    reinterpret(ForwardDiff.Dual{Nothing, TNUMBER, 2*NVARS}, sdc_full.dual_data)[1]
+#end
+
 # kudos to user Mason Protter from discourse.julia.com
 # beware of caveats
 # https://discourse.julialang.org/t/reinterpret-vector-into-single-struct/107709
@@ -26,6 +31,15 @@ end
 #    p::Ptr{ForwardDiff.Dual{Nothing, TNUMBER, SIZE}} = pointer(sdc.dual_data)
 #    unsafe_load(p)         # Load the first element from that pointer
 #end
+
+# kudos to user Mason Protter from discourse.julia.com
+# beware of caveats
+# https://discourse.julialang.org/t/reinterpret-vector-into-single-struct/107709
+function get_face_dual(sdc_cell::StarDiffCache{NVARS, TNUMBER},
+                       sdc_full::StarDiffCache{THREENVARS, TNUMBER}) where {NVARS, THREENVARS, TNUMBER}
+    p::Ptr{ForwardDiff.Dual{Nothing, TNUMBER, 2*NVARS}} = pointer(sdc_full.dual_data)
+    unsafe_load(p)         # Load the first element from that pointer
+end
 
 struct CellDualData{NVARS, THREENVARS, TNUMBER}
     diff_cache_cell::StarDiffCache{NVARS, TNUMBER}
@@ -100,6 +114,14 @@ end
 
 function get_p1_dual(cd::CellDualData)
     return get_dual(cd.diff_cache_p1)
+end
+
+function get_face_00_dual(cd::CellDualData)
+    return get_face_dual(cd.diff_cache_cell, cd.diff_cache_m1)
+end
+
+function get_face_p1_dual(cd::CellDualData)
+    return get_face_dual(cd.diff_cache_cell, cd.diff_cache_00)
 end
 
 end
