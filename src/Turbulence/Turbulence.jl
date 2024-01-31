@@ -27,6 +27,6 @@ Structure that holds various results from the evaluation of the turbulence model
     Hₚ::T1 = 0 # pressure scale height
 end
 
-include("AdiabaticMLT.jl")
+include("BasicMLT.jl")
 
 end

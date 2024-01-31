@@ -152,20 +152,23 @@ function do_evolution_loop!(sm::StellarModel)
                 corr = corr * min(1, sm.opt.solver.scale_max_correction / maximum(corr))
             end
             if i % 50 == 0
-                @show i, maximum(corr), real_max_corr, maximum(sm.eqs_numbers)
+                worst_residual_index = findmax(sm.solver_data.eqs_numbers[1:sm.nz])[2]
+                worst_cell = worst_residual_index÷sm.nvars + 1
+                worst_equ = worst_residual_index%sm.nvars
+                @show i, sm.nz, maximum(corr), real_max_corr, maximum(sm.solver_data.eqs_numbers[1:sm.nz]), worst_cell, worst_equ
             end
             # first try applying correction and see if it would give negative luminosity
             for i=1:sm.nz*sm.nvars
                 sm.ind_vars[i] = sm.ind_vars[i] + corr[i]
             end
-            if real_max_corr < 1e-10
+            if real_max_corr < 1e-6
                 if sm.model_number == 0
                     println("Found first model")
                 end
                 break  # successful, break the step loop
             end
             if i == max_steps
-                if retry_count > 10
+                if retry_count > 20
                     exit_evolution = true
                     println("Too many retries, ending simulation")
                 else
@@ -226,4 +229,5 @@ function do_evolution_loop!(sm::StellarModel)
         Plotting.end_of_evolution(sm)
     end
 
+    return sm
 end

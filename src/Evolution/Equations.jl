@@ -84,33 +84,38 @@ function equationT(sm::StellarModel, k::Int)
         r₀ = exp(get_00_dual(sm.props.lnr[k]))
         return lnT₀ - log(L₀ / (BOLTZ_SIGMA * 4π * r₀^2)) / 4  # Eddington gray, ignoring radiation pressure term
     end
-    κ00 = get_00_dual(sm.props.κ[k])
-    κp1 = get_p1_dual(sm.props.κ[k+1])
-    κface = exp((sm.dm[k] * log(κ00) + sm.dm[k + 1] * log(κp1)) / (sm.dm[k] + sm.dm[k + 1]))
-    L₀ = get_00_dual(sm.props.L[k]) * LSUN
+    #κ00 = get_00_dual(sm.props.κ[k])
+    #κp1 = get_p1_dual(sm.props.κ[k+1])
+    #κface = exp((sm.dm[k] * log(κ00) + sm.dm[k + 1] * log(κp1)) / (sm.dm[k] + sm.dm[k + 1]))
+    #L₀ = get_00_dual(sm.props.L[k]) * LSUN
     r₀ = exp(get_00_dual(sm.props.lnr[k]))
 
     lnP₀ = get_00_dual(sm.props.eos_res[k].lnP)
     lnP₊ = get_p1_dual(sm.props.eos_res[k+1].lnP)
-    Pface = exp((sm.dm[k] * lnP₀ + sm.dm[k + 1] * lnP₊) /
+    Pface = exp((sm.dm[k+1] * lnP₀ + sm.dm[k] * lnP₊) /
                 (sm.dm[k] + sm.dm[k + 1]))
     lnT₊ = get_p1_dual(sm.props.eos_res[k+1].lnT)
-    Tface = exp((sm.dm[k] * lnT₀ + sm.dm[k + 1] * lnT₊) / (sm.dm[k] + sm.dm[k + 1]))
+    Tface = exp((sm.dm[k+1] * lnT₀ + sm.dm[k] * lnT₊) / (sm.dm[k] + sm.dm[k + 1]))
 
-    ∇ᵣ = 3κface * L₀ * Pface / (16π * CRAD * CLIGHT * CGRAV * sm.m[k] * Tface^4)
-    ∇ₐ_p1 = get_p1_dual(sm.props.eos_res[k+1].∇ₐ)
-    ∇ₐ_00 = get_00_dual(sm.props.eos_res[k].∇ₐ)
-    ∇ₐ = (sm.dm[k] * ∇ₐ_00 + sm.dm[k + 1] * ∇ₐ_p1) / (sm.dm[k] + sm.dm[k + 1])
+    #∇ᵣ = 3κface * L₀ * Pface / (16π * CRAD * CLIGHT * CGRAV * sm.m[k] * Tface^4)
+    #∇ₐ_p1 = get_p1_dual(sm.props.eos_res[k+1].∇ₐ)
+    #∇ₐ_00 = get_00_dual(sm.props.eos_res[k].∇ₐ)
+    #∇ₐ = (sm.dm[k] * ∇ₐ_00 + sm.dm[k + 1] * ∇ₐ_p1) / (sm.dm[k] + sm.dm[k + 1])
 
-    if (∇ᵣ < ∇ₐ)
-        return (Tface * (lnT₊ - lnT₀) / sm.dm[k] +
-                CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface) * ∇ᵣ) /
-               (CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
-    else  # should do convection here
-        return (Tface * (lnT₊ - lnT₀) / sm.dm[k] +
-                CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface) * ∇ₐ) /
-               (CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
-    end
+    #if (∇ᵣ < ∇ₐ)
+    #    return (Tface * (lnT₊ - lnT₀) / sm.dm[k] +
+    #            CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface) * ∇ᵣ) /
+    #           (CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
+    #else  # should do convection here
+    #    return (Tface * (lnT₊ - lnT₀) / sm.dm[k] +
+    #            CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface) * ∇ₐ) /
+    #           (CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
+    #end
+
+    ∇ = get_00_dual(sm.props.turb_res[k].∇)
+    return (Tface * (lnT₊ - lnT₀) / sm.dm[k] +
+            CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface) * ∇) /
+           (CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
 end
 
 """
@@ -202,9 +207,9 @@ Residual of comparing dX_i/dt with its computed reaction rate
 """
 function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
     # Get mass fraction for this iso
-    X = get_00_dual(sm.props.xa[k, sm.network.xa_index[iso_name]])
+    X00 = get_00_dual(sm.props.xa[k, sm.network.xa_index[iso_name]])
 
-    dXdt_nuc::typeof(X) = 0
+    dXdt_nuc::typeof(X00) = 0
     reactions_in = sm.network.species_reactions_in[sm.network.xa_index[iso_name]]
     for reaction_in in reactions_in
         rate = get_00_dual(sm.props.rates[k,reaction_in[1]])
@@ -216,7 +221,40 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
         dXdt_nuc = dXdt_nuc + rate*reaction_out[2]*Chem.isotope_list[iso_name].A*AMU
     end
 
-    Xi = sm.ssi.ind_vars[(k - 1) * sm.nvars + sm.vari[iso_name]]
+    #mixing terms
+    lnρ_00 = get_00_dual(sm.props.eos_res[k].lnρ)
 
-    return (X - Xi) / sm.ssi.dt - dXdt_nuc
+    flux_down::typeof(X00) = 0
+    flux_up::typeof(X00) = 0
+    Dnorm::typeof(X00) = 0
+
+    if k != sm.nz
+        Xp1 = get_p1_dual(sm.props.xa[k+1, sm.network.xa_index[iso_name]])
+        lnρ_p1 = get_p1_dual(sm.props.eos_res[k+1].lnρ)
+        ρface_up = exp((sm.dm[k+1] * lnρ_00 + sm.dm[k] * lnρ_p1) /
+                (sm.dm[k] + sm.dm[k + 1]))
+        rface_up = exp(get_00_dual(sm.props.lnr[k]))
+        Dface_up = get_00_dual(sm.props.turb_res[k].D_turb)
+        Dnorm = max(Dnorm, Dface_up)
+        flux_up = (4π*rface_up^2*ρface_up)^2*Dface_up*
+                    (Xp1-X00)/(0.5*(sm.dm[k]+sm.dm[k+1]))
+    end
+    if k != 1
+        Xm1 = get_m1_dual(sm.props.xa[k-1, sm.network.xa_index[iso_name]])
+        lnρ_m1 = get_m1_dual(sm.props.eos_res[k-1].lnρ)
+        ρface_down = exp((sm.dm[k] * lnρ_m1 + sm.dm[k-1] * lnρ_00) /
+                (sm.dm[k - 1] + sm.dm[k]))
+        rface_down = exp(get_m1_dual(sm.props.lnr[k-1]))
+        Dface_down = get_m1_dual(sm.props.turb_res[k-1].D_turb)
+        Dnorm = max(Dnorm, Dface_down)
+        flux_down = (4π*rface_down^2*ρface_down)^2*Dface_down*
+                    (X00-Xm1)/(0.5*(sm.dm[k-1]+sm.dm[k]))
+    end
+    dXdt_mix =  (flux_up - flux_down)/(sm.dm[k])
+
+    Dnorm = (4π*exp(get_00_dual(sm.props.lnr[k]))^2*exp(get_00_dual(sm.props.eos_res[k].lnρ)))^2*Dnorm
+    Dnorm = Dnorm/(sm.dm[k])^2
+
+    Xi = sm.ssi.ind_vars[(k - 1) * sm.nvars + sm.vari[iso_name]]
+    return ((X00 - Xi) / sm.ssi.dt - dXdt_nuc - dXdt_mix)/max(1/sm.ssi.dt, dXdt_nuc, Dnorm)
 end

@@ -2,7 +2,7 @@ module StellarModels
 
 export StellarModel, get_tmp
 
-using Jems.Constants, Jems.Chem, Jems.EOS, Jems.Opacity, Jems.NuclearNetworks
+using Jems.Constants, Jems.Chem, Jems.EOS, Jems.Opacity, Jems.NuclearNetworks, Jems.Turbulence
 
 include("Options.jl")
 include("PlotterInterface.jl")

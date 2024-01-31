@@ -93,7 +93,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
 """
 @kwdef mutable struct StellarModel{TNUMBER<:Real, TDUALFULL<:ForwardDiff.Dual, TPROPS<:AbstractStellarModelProperties,
                                    TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,TNET<:NuclearNetworks.AbstractNuclearNetwork,
-                                   TSOLVER<:AbstractSolverData}
+                                   TTURB<:Turbulence.AbstractTurb, TSOLVER<:AbstractSolverData}
     # Properties that define the model
     ind_vars::Vector{TNUMBER}  # List of independent variables
     nvars::Int  # This is the sum of hydro vars and species
@@ -105,7 +105,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     # We keep the original input for when we resize the stellar model.
     structure_equations_original::Vector{Function}
     # List of equations to be solved.
-    structure_equations::Vector{TypeStableEquation{StellarModel{TNUMBER,TDUALFULL,TPROPS,TEOS,TKAP,TNET,TSOLVER},TDUALFULL}}
+    structure_equations::Vector{TypeStableEquation{StellarModel{TNUMBER,TDUALFULL,TPROPS,TEOS,TKAP,TNET,TTURB,TSOLVER},TDUALFULL}}
 
     solver_data::TSOLVER
 
@@ -128,6 +128,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     eos::TEOS
     opacity::TKAP
     network::TNET
+    turbulence::TTURB
 
     ##
     props::TPROPS
@@ -161,7 +162,7 @@ number of zones in the model `nz` and an iterface to the EOS and Opacity laws.
 function StellarModel(var_names::Vector{Symbol},
                       structure_equations::Vector{Function}, nz::Int, nextra::Int,
                       remesh_split_functions::Vector{Function},
-                      network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity;
+                      network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity, turbulence::AbstractTurb;
                       use_static_arrays=true, number_type=Float64)
     nvars = length(var_names) + network.nspecies
 
@@ -189,12 +190,12 @@ function StellarModel(var_names::Vector{Symbol},
     # create type stable function objects
     dual_sample = ForwardDiff.Dual(zero(number_type), (zeros(number_type, 3*nvars)...))
     tpe_stbl_funcs = Vector{TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample), typeof(props),
-                                                            typeof(eos), typeof(opacity), typeof(network),
+                                                            typeof(eos), typeof(opacity), typeof(network), typeof(turbulence),
                                                             typeof(solver_data)},
                                      typeof(dual_sample)}}(undef, length(structure_equations))
     for i in eachindex(structure_equations)
         tpe_stbl_funcs[i] = TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample), typeof(props),
-                                                            typeof(eos), typeof(opacity), typeof(network),
+                                                            typeof(eos), typeof(opacity), typeof(network), typeof(turbulence),
                                                             typeof(solver_data)},
                                      typeof(dual_sample)}(structure_equations[i])
     end
@@ -219,7 +220,7 @@ function StellarModel(var_names::Vector{Symbol},
                       m=m, dm=dm, mstar=zero(number_type),
                       remesh_split_functions=remesh_split_functions,
                       time=zero(number_type), dt=zero(number_type), model_number=0,
-                      eos=eos, opacity=opacity, network=network, props=props,
+                      eos=eos, opacity=opacity, network=network, turbulence=turbulence, props=props,
                       psi=psi, ssi=ssi, esi=esi, opt=opt, plt=plt)
 
     return sm
@@ -254,7 +255,7 @@ function adjusted_stellar_model_data(sm, new_nz::Int, new_nextra::Int)
 
     new_sm = StellarModel(var_names, sm.structure_equations_original,
                       new_nz, new_nextra, sm.remesh_split_functions,
-                      sm.network, sm.eos, sm.opacity)
+                      sm.network, sm.eos, sm.opacity, sm.turbulence)
     new_sm.nz = sm.nz # If this needs to be adjusted it will be done by remeshing routines
     new_sm.opt = sm.opt
 

@@ -1,6 +1,6 @@
 abstract type AbstractStellarModelProperties end
 
-@kwdef struct StellarModelProperties{TDual, TCellDualData} <: AbstractStellarModelProperties
+@kwdef struct StellarModelProperties{TDual, TDualFace, TCellDualData} <: AbstractStellarModelProperties
     # independent variables
     lnT::Vector{TCellDualData}
     lnρ::Vector{TCellDualData}
@@ -21,7 +21,7 @@ abstract type AbstractStellarModelProperties end
     rates_dual::Matrix{TDual}
 
     # turbulence (i.e. convection)
-    turb_res_dual::Vector{TurbResults{TDual}}
+    turb_res_dual::Vector{TurbResults{TDualFace}}
     turb_res::Vector{TurbResults{TCellDualData}}
 
 end
@@ -31,9 +31,13 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
 
     CDDTYPE = CellDualData{nvars,3*nvars,TN}
     TDSC = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, nvars))...))
+    TDSF = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, 2*nvars))...))
     
     eos_res_dual = [EOSResults{TDSC}() for i in 1:(nz+nextra)]
     eos_res = [EOSResults{CDDTYPE}() for i in 1:(nz+nextra)]
+
+    turb_res_dual = [TurbResults{TDSF}() for i in 1:(nz+nextra)]
+    turb_res = [TurbResults{CDDTYPE}() for i in 1:(nz+nextra)]
 
     lnT = [CellDualData(nvars, TN;
                             is_ind_var=true, ind_var_i=vari[:lnT]) for i in 1:(nz+nextra)]
@@ -69,6 +73,8 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
 
     return StellarModelProperties(eos_res_dual=eos_res_dual,
                                   eos_res=eos_res,
+                                  turb_res_dual=turb_res_dual,
+                                  turb_res=turb_res,
                                   lnT=lnT,
                                   lnρ=lnρ,
                                   lnr=lnr,
@@ -143,5 +149,56 @@ function update_stellar_model_properties!(sm, props::StellarModelProperties)
         for j in eachindex(rates)
             update_cell_dual_data!(props.rates[i,j], rates[j])
         end
+    end
+    # Compute face properties
+    Threads.@threads for i in 1:sm.nz-1
+        lnP_00 = get_face_00_dual(sm.props.eos_res[i].lnP)
+        lnP_p1 = get_face_p1_dual(sm.props.eos_res[i+1].lnP)
+        Pface = exp((sm.dm[i+1] * lnP_00 + sm.dm[i] * lnP_p1) /
+                (sm.dm[i] + sm.dm[i + 1]))
+
+        lnT_00 = get_face_00_dual(sm.props.eos_res[i].lnT)
+        lnT_p1 = get_face_p1_dual(sm.props.eos_res[i+1].lnT)
+        Tface = exp((sm.dm[i+1] * lnT_00 + sm.dm[i] * lnT_p1) /
+                (sm.dm[i] + sm.dm[i + 1]))
+
+        lnρ_00 = get_face_00_dual(sm.props.eos_res[i].lnρ)
+        lnρ_p1 = get_face_p1_dual(sm.props.eos_res[i+1].lnρ)
+        ρface = exp((sm.dm[i+1] * lnρ_00 + sm.dm[i] * lnρ_p1) /
+                (sm.dm[i] + sm.dm[i + 1]))
+
+        δ_00 = get_face_00_dual(sm.props.eos_res[i].δ)
+        δ_p1 = get_face_p1_dual(sm.props.eos_res[i+1].δ)
+        δface = (sm.dm[i+1] * δ_00 + sm.dm[i] * δ_p1) /
+                (sm.dm[i] + sm.dm[i + 1])
+
+        cₚ_00 = get_face_00_dual(sm.props.eos_res[i].cₚ)
+        cₚ_p1 = get_face_p1_dual(sm.props.eos_res[i+1].cₚ)
+        cₚface = (sm.dm[i+1] * cₚ_00 + sm.dm[i] * cₚ_p1) /
+                (sm.dm[i] + sm.dm[i + 1])
+
+        ∇ₐ_00 = get_face_00_dual(sm.props.eos_res[i].∇ₐ)
+        ∇ₐ_p1 = get_face_p1_dual(sm.props.eos_res[i+1].∇ₐ)
+        ∇ₐface = (sm.dm[i+1] * ∇ₐ_00 + sm.dm[i] * ∇ₐ_p1) /
+                (sm.dm[i] + sm.dm[i + 1])
+
+        lnκ_00 = log(get_face_00_dual(sm.props.κ[i]))
+        lnκ_p1 = log(get_face_p1_dual(sm.props.κ[i+1]))
+        κface = exp((sm.dm[i+1] * lnκ_00 + sm.dm[i] * lnκ_p1) /
+                (sm.dm[i] + sm.dm[i + 1]))
+
+        Lface = get_face_00_dual(props.L[i])*LSUN
+        rface = exp(get_face_00_dual(props.lnr[i]))
+        mface = sm.m[i]
+
+        set_turb_results!(sm.turbulence, props.turb_res_dual[i],
+                          κface, Lface, ρface, Pface, Tface, rface,
+                          δface, cₚface, ∇ₐface, mface)
+        update_cell_dual_data_face!(props.turb_res[i].∇, props.turb_res_dual[i].∇)
+        update_cell_dual_data_face!(props.turb_res[i].∇ᵣ, props.turb_res_dual[i].∇ᵣ)
+        update_cell_dual_data_face!(props.turb_res[i].v_turb, props.turb_res_dual[i].v_turb)
+        update_cell_dual_data_face!(props.turb_res[i].D_turb, props.turb_res_dual[i].D_turb)
+        update_cell_dual_data_face!(props.turb_res[i].Γ, props.turb_res_dual[i].Γ)
+        update_cell_dual_data_face!(props.turb_res[i].Hₚ, props.turb_res_dual[i].Hₚ)
     end
 end

@@ -10,6 +10,7 @@ using Jems.Constants
 using Jems.EOS
 using Jems.Opacity
 using Jems.NuclearNetworks
+using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
@@ -32,13 +33,14 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
-net = NuclearNetwork([:H1,:He4,:C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+net = NuclearNetwork([:H1,:He4,:C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno), (:kipp_rates, :kipp_3alphaA99)])
 nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
+turbulence = Turbulence.BasicMLT(1.0)
 sm = StellarModel(varnames, structure_equations, nz, nextra,
-                  remesh_split_functions, net, eos, opacity);
+                  remesh_split_functions, net, eos, opacity, turbulence);
 
 ##
 #=
@@ -60,6 +62,45 @@ StellarModels.n_polytrope_initial_condition!(n, sm, MSUN, 100 * RSUN; initial_dt
 Evolution.set_step_info!(sm, sm.esi)
 Evolution.cycle_step_info!(sm);
 Evolution.set_step_info!(sm, sm.ssi)
+
+###
+#StellarModels.update_stellar_model_properties!(sm, sm.props)
+#Evolution.eval_jacobian_eqs!(sm)
+#
+###
+#∇ = zeros(sm.nz-1)
+#∇ₐ = zeros(sm.nz-1)
+#∇ᵣ = zeros(sm.nz-1)
+#vconv = zeros(sm.nz-1)
+#Dmix = zeros(sm.nz-1)
+#for i in 1:sm.nz-1
+#    ∇[i] = sm.props.turb_res_dual[i].∇.value
+#    ∇ₐ[i] = sm.props.eos_res_dual[i].∇ₐ.value
+#    ∇ᵣ[i] = sm.props.turb_res_dual[i].∇ᵣ.value
+#    vconv[i] = sm.props.turb_res_dual[i].v_turb.value
+#    Dmix[i] = sm.props.turb_res_dual[i].D_turb.value
+#end
+#
+###
+#f = Figure();
+#ax = Axis(f[1,1])
+#lines!(ax, collect(1:(sm.nz-1)),∇ₐ)
+#lines!(ax, collect(1:(sm.nz-1)),∇ᵣ)
+#lines!(ax, collect(1:(sm.nz-1)),∇)
+#f
+###
+#f = Figure();
+#ax = Axis(f[1,1])
+#lines!(ax, collect(1:(sm.nz-1)),vconv)
+#f
+###
+#f = Figure();
+#ax = Axis(f[1,1])
+#lines!(ax, collect(1:(sm.nz-1)),log10.(Dmix))
+#f
+###
+#
+#sm.props.turb_res_dual[1].∇ᵣ.value
 
 ##
 #=
@@ -153,7 +194,7 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 StellarModels.n_polytrope_initial_condition!(n, sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
-@time Evolution.do_evolution_loop!(sm);
+@time sm = Evolution.do_evolution_loop!(sm);
 
 ##
 #=

@@ -3,8 +3,8 @@ module DualSupport
 using ForwardDiff
 
 export CellDualData, update_cell_dual_data_value!, update_cell_dual_data!,
-        get_cell_dual, get_m1_dual, get_00_dual, get_p1_dual
-
+        get_cell_dual, get_m1_dual, get_00_dual, get_p1_dual,
+        get_face_00_dual, get_face_p1_dual, update_cell_dual_data_face!
 # Inspired by DiffCache from PreallocationTools (https://github.com/SciML/PreallocationTools.jl)
 struct StarDiffCache{SIZE, TNUMBER}
     dual_data::Vector{TNUMBER}
@@ -93,10 +93,25 @@ end
 function update_cell_dual_data!(cd::CellDualData{SIZE1, SIZE2, TNUMBER}, dual::TDSC) where {SIZE1, SIZE2, TNUMBER, TDSC}
     update_cell_dual_data_value!(cd, dual.value)
     for i in 1:SIZE1
-        cd.diff_cache_cell.dual_data[1+i] = dual.partials[i]
-        cd.diff_cache_m1.dual_data[1+i] = dual.partials[i]
-        cd.diff_cache_00.dual_data[1+SIZE1+i] = dual.partials[i]
-        cd.diff_cache_p1.dual_data[1+2*SIZE1+i] = dual.partials[i]
+        cd.diff_cache_cell.dual_data[1+i] = dual.partials.values[i]
+        cd.diff_cache_m1.dual_data[1+i] = dual.partials.values[i]
+        cd.diff_cache_00.dual_data[1+SIZE1+i] = dual.partials.values[i]
+        cd.diff_cache_p1.dual_data[1+2*SIZE1+i] = dual.partials.values[i]
+    end
+end
+
+function update_cell_dual_data_face!(cd::CellDualData{SIZE1, SIZE2, TNUMBER}, dual::TDSC) where {SIZE1, SIZE2, TNUMBER, TDSC}
+    update_cell_dual_data_value!(cd, dual.value)
+    for i in 1:SIZE1*2
+        cd.diff_cache_m1.dual_data[1+i] = dual.partials.values[i]
+        cd.diff_cache_00.dual_data[1+SIZE1+i] = dual.partials.values[i]
+    end
+    #safety NaNs
+    for i in 1:SIZE1
+        cd.diff_cache_cell.dual_data[1+i] = NaN
+    end
+    for i in 1:SIZE1*3
+        cd.diff_cache_p1.dual_data[1+i] = NaN
     end
 end
 
