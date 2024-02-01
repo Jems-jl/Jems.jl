@@ -163,7 +163,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
     
     logdqs = zeros(length(sm.dm))
     for i in 1:sm.nz
-        logdqs[i] = get_logdq(i, sm.nz, -10.0, 0.0, -6.0, 200)
+        logdqs[i] = get_logdq(i, sm.nz, -6.0, 0.0, -6.0, 200)
     end
     dqs = 10 .^ logdqs
     dqs[sm.nz+1:end] .= 0  # extra entries beyond nz have no mass

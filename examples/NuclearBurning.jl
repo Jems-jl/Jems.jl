@@ -33,7 +33,7 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
-net = NuclearNetwork([:H1,:He4,:C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno), (:kipp_rates, :kipp_3alphaA99)])
+net = NuclearNetwork([:H1,:He4,:C12, :N14, :O16], [(:toy_rates, :toy_pp), (:toy_rates, :toy_cno)])#, (:kipp_rates, :kipp_3alphaA99)])
 nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(false)
@@ -63,44 +63,44 @@ Evolution.set_step_info!(sm, sm.esi)
 Evolution.cycle_step_info!(sm);
 Evolution.set_step_info!(sm, sm.ssi)
 
-###
-#StellarModels.update_stellar_model_properties!(sm, sm.props)
-#Evolution.eval_jacobian_eqs!(sm)
-#
-###
-#∇ = zeros(sm.nz-1)
-#∇ₐ = zeros(sm.nz-1)
-#∇ᵣ = zeros(sm.nz-1)
-#vconv = zeros(sm.nz-1)
-#Dmix = zeros(sm.nz-1)
-#for i in 1:sm.nz-1
-#    ∇[i] = sm.props.turb_res_dual[i].∇.value
-#    ∇ₐ[i] = sm.props.eos_res_dual[i].∇ₐ.value
-#    ∇ᵣ[i] = sm.props.turb_res_dual[i].∇ᵣ.value
-#    vconv[i] = sm.props.turb_res_dual[i].v_turb.value
-#    Dmix[i] = sm.props.turb_res_dual[i].D_turb.value
-#end
-#
-###
-#f = Figure();
-#ax = Axis(f[1,1])
-#lines!(ax, collect(1:(sm.nz-1)),∇ₐ)
-#lines!(ax, collect(1:(sm.nz-1)),∇ᵣ)
-#lines!(ax, collect(1:(sm.nz-1)),∇)
-#f
-###
-#f = Figure();
-#ax = Axis(f[1,1])
-#lines!(ax, collect(1:(sm.nz-1)),vconv)
-#f
-###
-#f = Figure();
-#ax = Axis(f[1,1])
-#lines!(ax, collect(1:(sm.nz-1)),log10.(Dmix))
-#f
-###
-#
-#sm.props.turb_res_dual[1].∇ᵣ.value
+##
+StellarModels.update_stellar_model_properties!(sm, sm.props)
+Evolution.eval_jacobian_eqs!(sm)
+
+##
+∇ = zeros(sm.nz-1)
+∇ₐ = zeros(sm.nz-1)
+∇ᵣ = zeros(sm.nz-1)
+vconv = zeros(sm.nz-1)
+Dmix = zeros(sm.nz-1)
+for i in 1:sm.nz-1
+    ∇[i] = sm.props.turb_res_dual[i].∇.value
+    ∇ₐ[i] = sm.props.eos_res_dual[i].∇ₐ.value
+    ∇ᵣ[i] = sm.props.turb_res_dual[i].∇ᵣ.value
+    vconv[i] = sm.props.turb_res_dual[i].v_turb.value
+    Dmix[i] = sm.props.turb_res_dual[i].D_turb.value
+end
+
+##
+f = Figure();
+ax = Axis(f[1,1])
+lines!(ax, collect(1:(sm.nz-1)),∇ₐ)
+lines!(ax, collect(1:(sm.nz-1)),∇ᵣ)
+lines!(ax, collect(1:(sm.nz-1)),∇)
+f
+##
+f = Figure();
+ax = Axis(f[1,1])
+lines!(ax, collect(1:(sm.nz-1)),vconv)
+f
+##
+f = Figure();
+ax = Axis(f[1,1])
+lines!(ax, collect(1:(sm.nz-1)),log10.(Dmix))
+f
+##
+
+sm.props.turb_res_dual[1].∇ᵣ.value
 
 ##
 #=
@@ -153,21 +153,23 @@ open("example_options.toml", "w") do file
 
           [solver]
           newton_max_iter_first_step = 1000
-          newton_max_iter = 200
+          newton_max_iter = 20
+          scale_max_correction = 2.0
 
           [timestep]
           dt_max_increase = 10.0
+        
           delta_R_limit = 0.01
           delta_Tc_limit = 0.01
 
           [termination]
           max_model_number = 2000
-          max_center_T = 4e7
+          max_center_T = 4e77
 
           [plotting]
-          do_plotting = false
+          do_plotting = true
           wait_at_termination = false
-          plotting_interval = 1
+          plotting_interval = 10
 
           window_specs = ["HR", "profile", "history"]
           window_layouts = [[1, 1],  # arrangement of plots
@@ -186,7 +188,7 @@ open("example_options.toml", "w") do file
           [io]
           profile_interval = 50
           terminal_header_interval = 100
-          terminal_info_interval = 100
+          terminal_info_interval = 1
 
           """)
 end
@@ -195,6 +197,20 @@ rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 StellarModels.n_polytrope_initial_condition!(n, sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
 @time sm = Evolution.do_evolution_loop!(sm);
+
+##
+f = Figure();
+ax = Axis(f[1,1])
+for i in 1:sm.nvars
+    residuals = [sm.solver_data.solver_corr[(k-1)*sm.nvars + i] for k in 1:sm.nz]
+    #residuals = [sm.solver_data.eqs_numbers[(k-1)*sm.nvars + i] for k in 1:sm.nz]
+    lines!(ax, 1:sm.nz, residuals, label="$i")
+end
+axislegend(ax)
+f
+
+##
+@profview sm = Evolution.do_evolution_loop!(sm);
 
 ##
 #=

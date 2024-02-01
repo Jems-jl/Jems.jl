@@ -84,10 +84,10 @@ function equationT(sm::StellarModel, k::Int)
         r₀ = exp(get_00_dual(sm.props.lnr[k]))
         return lnT₀ - log(L₀ / (BOLTZ_SIGMA * 4π * r₀^2)) / 4  # Eddington gray, ignoring radiation pressure term
     end
-    #κ00 = get_00_dual(sm.props.κ[k])
-    #κp1 = get_p1_dual(sm.props.κ[k+1])
-    #κface = exp((sm.dm[k] * log(κ00) + sm.dm[k + 1] * log(κp1)) / (sm.dm[k] + sm.dm[k + 1]))
-    #L₀ = get_00_dual(sm.props.L[k]) * LSUN
+    κ00 = get_00_dual(sm.props.κ[k])
+    κp1 = get_p1_dual(sm.props.κ[k+1])
+    κface = exp((sm.dm[k+1] * log(κ00) + sm.dm[k] * log(κp1)) / (sm.dm[k] + sm.dm[k + 1]))
+    L₀ = get_00_dual(sm.props.L[k]) * LSUN
     r₀ = exp(get_00_dual(sm.props.lnr[k]))
 
     lnP₀ = get_00_dual(sm.props.eos_res[k].lnP)
@@ -97,25 +97,25 @@ function equationT(sm::StellarModel, k::Int)
     lnT₊ = get_p1_dual(sm.props.eos_res[k+1].lnT)
     Tface = exp((sm.dm[k+1] * lnT₀ + sm.dm[k] * lnT₊) / (sm.dm[k] + sm.dm[k + 1]))
 
-    #∇ᵣ = 3κface * L₀ * Pface / (16π * CRAD * CLIGHT * CGRAV * sm.m[k] * Tface^4)
-    #∇ₐ_p1 = get_p1_dual(sm.props.eos_res[k+1].∇ₐ)
-    #∇ₐ_00 = get_00_dual(sm.props.eos_res[k].∇ₐ)
-    #∇ₐ = (sm.dm[k] * ∇ₐ_00 + sm.dm[k + 1] * ∇ₐ_p1) / (sm.dm[k] + sm.dm[k + 1])
+    ∇ᵣ = 3κface * L₀ * Pface / (16π * CRAD * CLIGHT * CGRAV * sm.m[k] * Tface^4)
+    ∇ₐ_p1 = get_p1_dual(sm.props.eos_res[k+1].∇ₐ)
+    ∇ₐ_00 = get_00_dual(sm.props.eos_res[k].∇ₐ)
+    ∇ₐ = (sm.dm[k] * ∇ₐ_00 + sm.dm[k + 1] * ∇ₐ_p1) / (sm.dm[k] + sm.dm[k + 1])
 
-    #if (∇ᵣ < ∇ₐ)
-    #    return (Tface * (lnT₊ - lnT₀) / sm.dm[k] +
-    #            CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface) * ∇ᵣ) /
-    #           (CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
-    #else  # should do convection here
-    #    return (Tface * (lnT₊ - lnT₀) / sm.dm[k] +
-    #            CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface) * ∇ₐ) /
-    #           (CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
-    #end
+    if (∇ᵣ < ∇ₐ)
+        return (Tface * (lnT₊ - lnT₀) / sm.dm[k] +
+                CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface) * ∇ᵣ) /
+               (CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
+    else  # should do convection here
+        return (Tface * (lnT₊ - lnT₀) / sm.dm[k] +
+                CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface) * ∇ₐ) /
+               (CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
+    end
 
-    ∇ = get_00_dual(sm.props.turb_res[k].∇)
-    return (Tface * (lnT₊ - lnT₀) / sm.dm[k] +
-            CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface) * ∇) /
-           (CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
+    #∇ = get_00_dual(sm.props.turb_res[k].∇)
+    #return (Tface * (lnT₊ - lnT₀) / sm.dm[k] +
+    #        CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface) * ∇) /
+    #       (CGRAV * sm.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
 end
 
 """
@@ -145,15 +145,19 @@ function equationLuminosity(sm::StellarModel, k::Int)
     dTdt = (T₀ - exp(sm.ssi.lnT[k])) / sm.ssi.dt
     dPdt = (P₀ - exp(sm.ssi.lnP[k])) / sm.ssi.dt
 
+    r₀ = exp(get_00_dual(sm.props.lnr[k]))
+    norm = 4π*r₀^2*BOLTZ_SIGMA*T₀^4/sm.m[1]
+
     ϵnuc::typeof(L₀) = 0
     for i in eachindex(sm.network.reactions)
         ϵnuc += get_00_dual(sm.props.rates[k,i])*sm.network.reactions[i].Qvalue
     end
     if k > 1
         L₋ = get_m1_dual(sm.props.L[k-1]) * LSUN
-        return ((L₀ - L₋) / sm.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)  # no neutrinos
+        return ((L₀ - L₋) / sm.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)/norm  # no neutrinos
     else
-        return (L₀ / sm.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)  # no neutrinos
+        #@show L₀.value / sm.dm[k], ϵnuc.value, (cₚ * dTdt - (δ / ρ₀) * dPdt).value
+        return (L₀ / sm.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)/norm  # no neutrinos
     end
 end
 """
@@ -234,7 +238,7 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
         ρface_up = exp((sm.dm[k+1] * lnρ_00 + sm.dm[k] * lnρ_p1) /
                 (sm.dm[k] + sm.dm[k + 1]))
         rface_up = exp(get_00_dual(sm.props.lnr[k]))
-        Dface_up = get_00_dual(sm.props.turb_res[k].D_turb)
+        Dface_up = 1e20#get_00_dual(sm.props.turb_res[k].D_turb)
         Dnorm = max(Dnorm, Dface_up)
         flux_up = (4π*rface_up^2*ρface_up)^2*Dface_up*
                     (Xp1-X00)/(0.5*(sm.dm[k]+sm.dm[k+1]))
@@ -245,7 +249,7 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
         ρface_down = exp((sm.dm[k] * lnρ_m1 + sm.dm[k-1] * lnρ_00) /
                 (sm.dm[k - 1] + sm.dm[k]))
         rface_down = exp(get_m1_dual(sm.props.lnr[k-1]))
-        Dface_down = get_m1_dual(sm.props.turb_res[k-1].D_turb)
+        Dface_down = 1e20#get_m1_dual(sm.props.turb_res[k-1].D_turb)
         Dnorm = max(Dnorm, Dface_down)
         flux_down = (4π*rface_down^2*ρface_down)^2*Dface_down*
                     (X00-Xm1)/(0.5*(sm.dm[k-1]+sm.dm[k]))

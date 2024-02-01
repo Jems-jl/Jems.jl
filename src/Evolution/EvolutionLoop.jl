@@ -106,7 +106,7 @@ function do_evolution_loop!(sm::StellarModel)
     retry_count = 0
     while true
         # get dt for this step
-        dt_next = get_dt_next(sm)*dt_factor
+        dt_next = min(SECYEAR*1e5,get_dt_next(sm)*dt_factor)
 
         cycle_step_info!(sm)  # move esi of previous step to psi of this step
 
@@ -135,45 +135,66 @@ function do_evolution_loop!(sm::StellarModel)
             thomas_algorithm!(sm)  # here as well
             corr = @view sm.solver_data.solver_corr[1:sm.nvars*sm.nz]
 
-            real_max_corr = maximum(corr)
+            ## scale surface correction to prevent negative surface luminosity
+            ## if correction will produce negative L, scale it so L is halved
+            #corr_lum_surf = corr[sm.nvars * (sm.nz - 1) + sm.vari[:lum]]
+            #lum_surf = sm.ind_vars[sm.nvars * (sm.nz - 1) + sm.vari[:lum]]
+            #if lum_surf + corr_lum_surf < 0.0
+            #    corr = corr * (-0.1 * lum_surf / corr_lum_surf)
+            #end
 
-            # scale surface correction to prevent negative surface luminosity
-            # if correction will produce negative L, scale it so L is halved
-            corr_lum_surf = corr[sm.nvars * (sm.nz - 1) + sm.vari[:lum]]
-            lum_surf = sm.ind_vars[sm.nvars * (sm.nz - 1) + sm.vari[:lum]]
-            if lum_surf + corr_lum_surf < 0.0
-                corr = corr * (-0.1 * lum_surf / corr_lum_surf)
+            # Find zones that have larger corrections and residual
+            max_corr = -1.0 # this is the "real" correction given by the linear solver. We potentially scale it below
+            max_corr_cell = -1
+            max_corr_var = -1
+            worst_residual = -1.0 #worst_residual_data[1]
+            worst_cell = -1 #worst_residual_index÷sm.nvars + 1
+            worst_equ = -1 #worst_residual_index%sm.nvars
+            for k in 1:sm.nz
+                for j in 1:sm.nvars
+                    residual = abs(sm.solver_data.eqs_numbers[(k-1)*sm.nvars + j])
+                    if residual > worst_residual
+                        worst_residual = residual
+                        worst_cell = k
+                        worst_equ = j
+                    end
+                    cell_corr = abs(corr[(k-1)*sm.nvars + j])
+                    if cell_corr > max_corr
+                        max_corr = cell_corr
+                        max_corr_cell = k
+                        max_corr_var = j
+                    end
+                end
             end
 
             # scale correction
             if sm.model_number == 0
-                corr = corr * min(1, sm.opt.solver.initial_model_scale_max_correction / maximum(corr))
+                corr = corr * min(1, sm.opt.solver.initial_model_scale_max_correction / max_corr)
             else
-                corr = corr * min(1, sm.opt.solver.scale_max_correction / maximum(corr))
+                corr = corr * min(1, sm.opt.solver.scale_max_correction / max_corr)
             end
-            if i % 50 == 0
-                worst_residual_index = findmax(sm.solver_data.eqs_numbers[1:sm.nz])[2]
-                worst_cell = worst_residual_index÷sm.nvars + 1
-                worst_equ = worst_residual_index%sm.nvars
-                @show i, sm.nz, maximum(corr), real_max_corr, maximum(sm.solver_data.eqs_numbers[1:sm.nz]), worst_cell, worst_equ
+            if i % 1 == 0
+                @show i, sm.nz, max_corr, max_corr_cell, max_corr_var, worst_residual, worst_cell, worst_equ
             end
             # first try applying correction and see if it would give negative luminosity
             for i=1:sm.nz*sm.nvars
                 sm.ind_vars[i] = sm.ind_vars[i] + corr[i]
             end
-            if real_max_corr < 1e-6
+            if max_corr < 1e-5 && worst_residual < 1e-8
                 if sm.model_number == 0
                     println("Found first model")
                 end
+                sm.solver_data.newton_iters = i
                 break  # successful, break the step loop
             end
             if i == max_steps
-                if retry_count > 20
+                if retry_count > 5
                     exit_evolution = true
                     println("Too many retries, ending simulation")
                 else
                     retry_count = retry_count + 1
-                    retry_step = true
+                    #retry_step = true
+                    exit_evolution = true
                     println("Failed to converge step $(sm.model_number) with timestep $(dt_next/SECYEAR), retrying")
                 end
             end
