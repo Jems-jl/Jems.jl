@@ -6,12 +6,12 @@ variables, `ind_vars_view`.
 """
 function eval_cell_eqs!(sm::StellarModel, k::Int)
     # evaluate all equations! (except composition)
-    for i = 1:(sm.nvars - sm.network.nspecies)
-        sm.solver_data.eqs_duals[k, i] = sm.structure_equations[i].func(sm, k)
+    for i = 1:(sm.props.nvars - sm.network.nspecies)
+        sm.solver_data.eqs_duals[k, i] = sm.structure_equations[i].func(sm.props, sm.opt, k)
     end
     # evaluate all composition equations
     for i = 1:sm.network.nspecies
-        sm.solver_data.eqs_duals[k, sm.nvars - sm.network.nspecies + i] = equation_composition(sm, k, sm.network.species_names[i])
+        sm.solver_data.eqs_duals[k, sm.props.nvars - sm.network.nspecies + i] = equation_composition(sm, k, sm.network.species_names[i])
     end
 end
 
@@ -76,7 +76,7 @@ end
 Evaluates the whole Jacobian matrix and equations of the given StellarModel `sm`.
 """
 function eval_jacobian_eqs!(sm::StellarModel)
-    Threads.@threads for k = 1:(sm.nz)
+    Threads.@threads for k = 1:(sm.props.nz)
         eval_jacobian_eqs_row!(sm, k)
     end
 end

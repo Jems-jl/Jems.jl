@@ -59,9 +59,11 @@ At last we are in position to evaluate the equations and compute the Jacobian.
 =#
 n=3
 StellarModels.n_polytrope_initial_condition!(n, sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-Evolution.set_step_info!(sm, sm.esi)
-Evolution.cycle_step_info!(sm);
-Evolution.set_step_info!(sm, sm.ssi)
+StellarModels.copy_props!(sm.props, sm.props_old)
+StellarModels.copy_props!(sm.props, sm.props_old_after_remesh)
+StellarModels.update_stellar_model_properties!(sm, sm.props)
+StellarModels.update_stellar_model_properties!(sm, sm.props_old)
+StellarModels.update_stellar_model_properties!(sm, sm.props_old_after_remesh)
 
 ##
 StellarModels.update_stellar_model_properties!(sm, sm.props)
@@ -221,6 +223,20 @@ Lscale = (4π*BOLTZ_SIGMA*CGRAV).*sm.m[1:sm.nz].*T.^4 ./ (κ.*P)./LSUN
 #lines!(ax,1:sm.nz,Lscale/LSUN)
 #lines!(ax,1:sm.nz,lum)
 lines!(ax,1:sm.nz,lum./Lscale)
+
+##
+W = 0.000001
+U = 100000
+
+a = 1
+b = (8/9 - 3)*U
+c = 3*U^2
+d = -8*U/9*(U^2+W)-3*U^3
+
+Δ₀ = b^2 - 3*a*c
+Δ₁ = 2*b^3 -9*a*b*c + 27*a^2*d
+sqrt(Δ₁^2-4*Δ₀^3)
+##
 
 #axislegend(ax)
 f

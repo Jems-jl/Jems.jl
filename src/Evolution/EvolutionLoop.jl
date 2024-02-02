@@ -1,50 +1,14 @@
 """
-    set_end_step_info(sm::StellarModel)
-
-Sets the StellarStepInfo `si`` from current state of the StellarModel `sm`.
-"""
-function set_step_info!(sm::StellarModel, si::StellarModels.StellarStepInfo)
-    si.model_number = sm.model_number
-    si.time = sm.time
-    si.dt = sm.dt
-
-    si.nz = sm.nz
-    si.mstar = sm.mstar
-
-    Threads.@threads for i = 1:(sm.nz)
-        si.m[i] = sm.m[i]
-        si.dm[i] = sm.dm[i]
-
-        si.lnT[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
-        si.lnρ[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]]
-        si.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]]
-
-        xa = view(sm.ind_vars, (i * sm.nvars - sm.network.nspecies + 1):(i * sm.nvars))
-        si.X[i] = xa[sm.network.xa_index[:H1]]  # can later include H2 as well.
-        si.Y[i] = xa[sm.network.xa_index[:He4]]  # can later include He3 as well.
-
-        set_EOS_resultsTρ!(sm.eos, si.eos_res[i], si.lnT[i], si.lnρ[i], xa, sm.network.species_names)
-
-        si.lnP[i] = log(si.eos_res[i].P)
-        for k = 1:sm.nvars
-            si.ind_vars[(i - 1) * sm.nvars + k] = sm.ind_vars[(i - 1) * sm.nvars + k]
-        end
-        si.L[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lumfrac]]
-        si.L[i] = si.L[i]*(4π*BOLTZ_SIGMA*CGRAV*(si.m[i]-0.5*si.dm[i])*exp(si.lnT[i])^4/(0.4*exp(si.lnP[i])))/LSUN
-    end
-end
-
-"""
     cycle_step_info!(sm::StellarModel)
 
 Moves the model info of the StellarModel `sm` over one state:
 start step info -> end step info -> previous step info -> start step info.
 """
-function cycle_step_info!(sm::StellarModel)
-    temp_step_info = sm.psi
-    sm.psi = sm.esi
-    sm.esi = sm.ssi
-    sm.ssi = temp_step_info
+function cycle_props!(sm::StellarModel)
+    temp_props = sm.props_old
+    sm.props_old = sm.props
+    sm.props = sm.props_old_after_remesh
+    sm.props_old_after_remesh = temp_step_info
 end
 
 """
@@ -53,11 +17,11 @@ end
 Moves the model info of the StellarModel `sm` back one state:
 start step info <- end step info <- previous step info <- start step info.
 """
-function uncycle_step_info!(sm::StellarModel)
-    temp_step_info = sm.esi
-    sm.esi = sm.psi
-    sm.psi = sm.ssi
-    sm.ssi = temp_step_info
+function uncycle_props!(sm::StellarModel)
+    temp_step_info = sm.props
+    sm.props = sm.props_old
+    sm.props_old = sm.props_old_after_remesh
+    sm.props_old_after_remesh = temp_step_info
 end
 
 """

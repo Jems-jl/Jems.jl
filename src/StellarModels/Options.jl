@@ -1,4 +1,5 @@
 using TOML
+export Options
 
 """
     mutable struct RemeshOptions
