@@ -16,7 +16,6 @@ function set_step_info!(sm::StellarModel, si::StellarModels.StellarStepInfo)
         si.dm[i] = sm.dm[i]
 
         si.lnT[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
-        si.L[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]]
         si.lnρ[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]]
         si.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]]
 
@@ -30,6 +29,8 @@ function set_step_info!(sm::StellarModel, si::StellarModels.StellarStepInfo)
         for k = 1:sm.nvars
             si.ind_vars[(i - 1) * sm.nvars + k] = sm.ind_vars[(i - 1) * sm.nvars + k]
         end
+        si.L[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lumfrac]]
+        si.L[i] = si.L[i]*(4π*BOLTZ_SIGMA*CGRAV*(si.m[i]-0.5*si.dm[i])*exp(si.lnT[i])^4/(0.4*exp(si.lnP[i])))/LSUN
     end
 end
 
@@ -106,7 +107,7 @@ function do_evolution_loop!(sm::StellarModel)
     retry_count = 0
     while true
         # get dt for this step
-        dt_next = min(SECYEAR*1e5,get_dt_next(sm)*dt_factor)
+        dt_next = min(get_dt_next(sm)*dt_factor)
 
         cycle_step_info!(sm)  # move esi of previous step to psi of this step
 
@@ -180,7 +181,7 @@ function do_evolution_loop!(sm::StellarModel)
             for i=1:sm.nz*sm.nvars
                 sm.ind_vars[i] = sm.ind_vars[i] + corr[i]
             end
-            if max_corr < 1e-5 && worst_residual < 1e-8
+            if max_corr < 1e-5# && worst_residual < 1e-5
                 if sm.model_number == 0
                     println("Found first model")
                 end
@@ -188,13 +189,13 @@ function do_evolution_loop!(sm::StellarModel)
                 break  # successful, break the step loop
             end
             if i == max_steps
-                if retry_count > 5
+                if retry_count > 20
                     exit_evolution = true
                     println("Too many retries, ending simulation")
                 else
                     retry_count = retry_count + 1
-                    #retry_step = true
-                    exit_evolution = true
+                    retry_step = true
+                    #exit_evolution = true
                     println("Failed to converge step $(sm.model_number) with timestep $(dt_next/SECYEAR), retrying")
                 end
             end

@@ -110,12 +110,12 @@ function split_lum(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
     if i==1
         L_face_below = 0
     else
-        L_face_below = var_m1[sm.vari[:lum]]
+        L_face_below = var_m1[sm.vari[:lumfrac]]
     end
-    L_above = var_00[sm.vari[:lum]]
+    L_above = var_00[sm.vari[:lumfrac]]
 
-    varnew_low[sm.vari[:lum]] = 0.5*(L_face_below + L_above)
-    varnew_up[sm.vari[:lum]] = L_above
+    varnew_low[sm.vari[:lumfrac]] = 0.5*(L_face_below + L_above)
+    varnew_up[sm.vari[:lumfrac]] = L_above
 end
 
 function split_lnT(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,

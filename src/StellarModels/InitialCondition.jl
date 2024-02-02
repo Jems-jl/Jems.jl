@@ -251,17 +251,17 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
         end
         κ = get_opacity_resultsTρ(sm.opacity, lnTface, log(ρface) ,[1.0,0.0], [:H1,:He4])
 
-        sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (dlnT / dlnP) *
-                                                          (16π * CRAD * CLIGHT * CGRAV * m_face[i] * Tface^4) /
-                                                          (3κ * Pface * LSUN)
+        sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lumfrac]] = (dlnT / dlnP)# *
+                                                          #(16π * CRAD * CLIGHT * CGRAV * m_face[i] * Tface^4) /
+                                                          #(3κ * Pface * LSUN)
     end
 
     # special cases, just copy values at edges
     sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lnρ]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lnρ]]
     sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lnT]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lnT]]
     # sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lum]]
-    sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 3) * sm.nvars + sm.vari[:lum]]
-    sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 3) * sm.nvars + sm.vari[:lum]]
+    sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lumfrac]] = sm.ind_vars[(sm.nz - 3) * sm.nvars + sm.vari[:lumfrac]]
+    sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lumfrac]] = sm.ind_vars[(sm.nz - 3) * sm.nvars + sm.vari[:lumfrac]]
 
     sm.time = 0.0
     sm.dt = initial_dt

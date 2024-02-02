@@ -5,7 +5,7 @@ abstract type AbstractStellarModelProperties end
     lnT::Vector{TCellDualData}
     lnρ::Vector{TCellDualData}
     lnr::Vector{TCellDualData}
-    L::Vector{TCellDualData}
+    lumfrac::Vector{TCellDualData}
     xa::Matrix{TCellDualData}
     xa_dual::Matrix{TDual}
 
@@ -15,6 +15,9 @@ abstract type AbstractStellarModelProperties end
 
     # opacity
     κ::Vector{TCellDualData}
+
+    # luminosity
+    L::Vector{TCellDualData}
 
     #rates
     rates::Matrix{TCellDualData}
@@ -45,8 +48,8 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                             is_ind_var=true, ind_var_i=vari[:lnρ]) for i in 1:(nz+nextra)]
     lnr = [CellDualData(nvars, TN;
                             is_ind_var=true, ind_var_i=vari[:lnr]) for i in 1:(nz+nextra)]
-    L = [CellDualData(nvars, TN;
-                            is_ind_var=true, ind_var_i=vari[:lum]) for i in 1:(nz+nextra)]
+    lumfrac = [CellDualData(nvars, TN;
+                            is_ind_var=true, ind_var_i=vari[:lumfrac]) for i in 1:(nz+nextra)]
     xa = Matrix{CDDTYPE}(undef,nz+nextra, nspecies)
     for k in 1:(nz+nextra)
         for i in 1:nspecies
@@ -60,8 +63,10 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
     # for some reason using zeros just creates a bunch of instances of the same object
     # so we just initialize a vector of undef
     κ = Vector{CDDTYPE}(undef, nz+nextra)#zeros(CDDTYPE, nz+nextra)
+    L = Vector{CDDTYPE}(undef, nz+nextra)#zeros(CDDTYPE, nz+nextra)
     for k in 1:(nz+nextra)
         κ[k] = CellDualData(nvars, TN)
+        L[k] = CellDualData(nvars, TN)
     end
 
     rates = Matrix{CDDTYPE}(undef,nz+nextra, nrates)
@@ -78,10 +83,11 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                   lnT=lnT,
                                   lnρ=lnρ,
                                   lnr=lnr,
-                                  L=L,
+                                  lumfrac=lumfrac,
                                   xa=xa,
                                   xa_dual=xa_dual,
                                   κ=κ,
+                                  L=L,
                                   rates=rates,
                                   rates_dual=rates_dual)
 end
@@ -91,7 +97,7 @@ function update_stellar_model_properties!(sm, props::StellarModelProperties)
         lnT_i = sm.vari[:lnT]
         lnρ_i = sm.vari[:lnρ]
         lnr_i = sm.vari[:lnr]
-        L_i = sm.vari[:lum]
+        lumfrac_i = sm.vari[:lumfrac]
         # update independent variables
         update_cell_dual_data_value!(props.lnT[i], 
                                         sm.ind_vars[(i-1)*(sm.nvars)+lnT_i])
@@ -99,8 +105,8 @@ function update_stellar_model_properties!(sm, props::StellarModelProperties)
                                         sm.ind_vars[(i-1)*(sm.nvars)+lnρ_i])
         update_cell_dual_data_value!(props.lnr[i], 
                                         sm.ind_vars[(i-1)*(sm.nvars)+lnr_i])
-        update_cell_dual_data_value!(props.L[i], 
-                                        sm.ind_vars[(i-1)*(sm.nvars)+L_i])
+        update_cell_dual_data_value!(props.lumfrac[i], 
+                                        sm.ind_vars[(i-1)*(sm.nvars)+lumfrac_i])
         for j in 1:sm.network.nspecies
             update_cell_dual_data_value!(props.xa[i,j], 
                             sm.ind_vars[(i-1)*(sm.nvars)+(sm.nvars - sm.network.nspecies + j)])
@@ -142,6 +148,11 @@ function update_stellar_model_properties!(sm, props::StellarModelProperties)
         κ_dual = get_opacity_resultsTρ(sm.opacity, lnT, lnρ,
                     xa, sm.network.species_names)
         update_cell_dual_data!(props.κ[i], κ_dual)
+
+        P_dual = props.eos_res_dual[i].P
+        lumfrac = get_cell_dual(props.lumfrac[i])
+        L_dual = 4π*BOLTZ_SIGMA*CGRAV*(sm.m[i]-0.5*sm.dm[i])*exp(lnT)^4/P_dual*lumfrac
+        update_cell_dual_data!(sm.props.L[i], L_dual)
 
         #get rates
         rates = @view props.rates_dual[i,:]
@@ -187,7 +198,7 @@ function update_stellar_model_properties!(sm, props::StellarModelProperties)
         κface = exp((sm.dm[i+1] * lnκ_00 + sm.dm[i] * lnκ_p1) /
                 (sm.dm[i] + sm.dm[i + 1]))
 
-        Lface = get_face_00_dual(props.L[i])*LSUN
+        Lface = get_face_00_dual(props.L[i])
         rface = exp(get_face_00_dual(props.lnr[i]))
         mface = sm.m[i]
 

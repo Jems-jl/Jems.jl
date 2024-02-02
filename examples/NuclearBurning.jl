@@ -28,7 +28,7 @@ simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple 
 to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
 
-varnames = [:lnρ, :lnT, :lnr, :lum]
+varnames = [:lnρ, :lnT, :lnr, :lumfrac]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
@@ -98,9 +98,6 @@ f = Figure();
 ax = Axis(f[1,1])
 lines!(ax, collect(1:(sm.nz-1)),log10.(Dmix))
 f
-##
-
-sm.props.turb_res_dual[1].∇ᵣ.value
 
 ##
 #=
@@ -153,17 +150,17 @@ open("example_options.toml", "w") do file
 
           [solver]
           newton_max_iter_first_step = 1000
-          newton_max_iter = 20
-          scale_max_correction = 2.0
+          newton_max_iter = 10
+          scale_max_correction = 0.01
 
           [timestep]
-          dt_max_increase = 10.0
+          dt_max_increase = 1.01
         
           delta_R_limit = 0.01
           delta_Tc_limit = 0.01
 
           [termination]
-          max_model_number = 2000
+          max_model_number = 100000
           max_center_T = 4e77
 
           [plotting]
@@ -201,12 +198,31 @@ StellarModels.n_polytrope_initial_condition!(n, sm, 1*MSUN, 100 * RSUN; initial_
 ##
 f = Figure();
 ax = Axis(f[1,1])
-for i in 1:sm.nvars
+for i in 1:4
     residuals = [sm.solver_data.solver_corr[(k-1)*sm.nvars + i] for k in 1:sm.nz]
     #residuals = [sm.solver_data.eqs_numbers[(k-1)*sm.nvars + i] for k in 1:sm.nz]
     lines!(ax, 1:sm.nz, residuals, label="$i")
 end
 axislegend(ax)
+f
+##
+f = Figure();
+ax = Axis(f[1,1])
+lum = [sm.ind_vars[(k-1)*sm.nvars + sm.vari[:lum]] for k in 1:sm.nz]
+r = exp.([sm.ind_vars[(k-1)*sm.nvars + sm.vari[:lnr]] for k in 1:sm.nz])
+T = exp.([sm.ind_vars[(k-1)*sm.nvars + sm.vari[:lnT]] for k in 1:sm.nz])
+ρ = exp.([sm.ind_vars[(k-1)*sm.nvars + sm.vari[:lnρ]] for k in 1:sm.nz])
+κ = [sm.props.κ[k].diff_cache_cell.dual_data[1] for k in 1:sm.nz]
+P = [sm.props.eos_res[k].P.diff_cache_cell.dual_data[1] for k in 1:sm.nz]
+LTeff = 4π.*r.^2 .*BOLTZ_SIGMA.*T.^4/LSUN
+Lscale = (4π*BOLTZ_SIGMA*CGRAV).*sm.m[1:sm.nz].*T.^4 ./ (κ.*P)./LSUN
+#lines!(ax,1:sm.nz,lum)
+#lines!(ax,1:sm.nz,LTeff)
+#lines!(ax,1:sm.nz,Lscale/LSUN)
+#lines!(ax,1:sm.nz,lum)
+lines!(ax,1:sm.nz,lum./Lscale)
+
+#axislegend(ax)
 f
 
 ##
