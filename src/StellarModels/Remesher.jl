@@ -7,10 +7,25 @@ function remesher!(sm::StellarModel)
     # we first do cell splitting
     do_split = Vector{Bool}(undef, sm.nz) 
     do_split .= false
+    #maxPinstar = 0
+    #maxrinstar = 0
     for i in 1:sm.nz-1
-        a = abs(sm.psi.lnP[i] - sm.psi.lnP[i+1])/log(10)
-        b = sm.opt.remesh.delta_log10P_split
-        if a > b
+        delta_log10P = abs(sm.psi.lnP[i] - sm.psi.lnP[i+1])/log(10)
+        #if delta_log10P > maxPinstar
+        #    maxPinstar = delta_log10P
+        delta_log10P_max = sm.opt.remesh.delta_log10P_max
+        delta_log10r = abs(sm.psi.lnr[i] - sm.psi.lnr[i+1])/log(10)
+        #if delta_log10r > maxrinstar
+        #    maxrinstar = delta_log10r
+        delta_log10r_max = sm.opt.remesh.delta_log10r_max
+        if (delta_log10r > delta_log10r_max)
+            # if the condition is satisfied, we split the largest of the two cells
+            if sm.dm[i] > sm.dm[i+1]
+                do_split[i] = true
+            else
+                do_split[i+1] = true
+            end
+        elseif (delta_log10P > delta_log10P_max) 
             # if the condition is satisfied, we split the largest of the two cells
             if sm.dm[i] > sm.dm[i+1]
                 do_split[i] = true
