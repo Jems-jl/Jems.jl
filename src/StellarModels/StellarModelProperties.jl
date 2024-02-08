@@ -1,29 +1,7 @@
-export AbstractStellarModelProperties
-
 abstract type AbstractStellarModelProperties end
 
-@kwdef mutable struct StellarModelProperties{TNUMBER, TDual, TDualFace, TCellDualData} <: AbstractStellarModelProperties where {TNUMBER}
-    # Properties that define the model
-    nvars::Int  # This is the sum of hydro vars and species
-    nspecies::Int # Number of isotopes in network
-    var_names::Vector{Symbol}  # List of variable names
-    vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector
-
-    # Grid properties
-    nz::Int  # Number of zones in the model
-    nextra::Int  # Number of extra zones used to avoid constant reallocation while remeshing
-    m::Vector{TNUMBER}  # Mass coordinate of each cell (g)
-    dm::Vector{TNUMBER}  # Mass contained in each cell (g)
-    mstar::TNUMBER  # Total model mass (g)
-
-    # Unique valued properties (ie not cell dependent)
-    time::TNUMBER  # Age of the model (s)
-    dt::TNUMBER  # Timestep of the current evolutionary step (s)
-    model_number::Int
-
-    ind_vars::Vector{TNUMBER}  # List of independent variables
-    
-    # independent variables, turned into duals
+@kwdef struct StellarModelProperties{TDual, TDualFace, TCellDualData} <: AbstractStellarModelProperties
+    # independent variables
     lnT::Vector{TCellDualData}
     lnρ::Vector{TCellDualData}
     lnr::Vector{TCellDualData}
@@ -51,21 +29,8 @@ abstract type AbstractStellarModelProperties end
 
 end
 
-function StellarModelProperties(var_names::Vector{Symbol}, nz::Int, nextra::Int,
-                                    nrates::Int, nspecies::Int, ::Type{TN}) where{TN<:Real}
-
-    nvars = length(var_names)
-    ind_vars = zeros(TN, nvars * (nz + nextra))
-
-    # link var_names to the correct index so you can do ind_var[vari[:lnT]] = 'some temperature'
-    vari::Dict{Symbol,Int} = Dict()
-    for i in eachindex(var_names)
-        vari[var_names[i]] = i
-    end
-
-    # mass coordinates
-    dm = zeros(TN, nz+nextra)
-    m = zeros(TN, nz+nextra)
+function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
+                                    nrates::Int, nspecies::Int, vari::Dict{Symbol, Int}, ::Type{TN}) where{TN<:Real}
 
     CDDTYPE = CellDualData{nvars,3*nvars,TN}
     TDSC = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, nvars))...))
@@ -111,55 +76,40 @@ function StellarModelProperties(var_names::Vector{Symbol}, nz::Int, nextra::Int,
         end
     end
 
-    return StellarModelProperties(nvars=nvars,
-                                  nspecies=nspecies,
-                                  var_names=var_names,
-                                  vari=vari,
-                                  nz=nz,
-                                  nextra=nextra,
-                                  m=m,
-                                  dm=dm,
-                                  mstar=zero(TN),
-                                  time=zero(TN),
-                                  dt=zero(TN),
-                                  model_number=0,
-                                  ind_vars=ind_vars,
+    return StellarModelProperties(eos_res_dual=eos_res_dual,
+                                  eos_res=eos_res,
+                                  turb_res_dual=turb_res_dual,
+                                  turb_res=turb_res,
                                   lnT=lnT,
                                   lnρ=lnρ,
                                   lnr=lnr,
                                   lumfrac=lumfrac,
                                   xa=xa,
                                   xa_dual=xa_dual,
-                                  eos_res_dual=eos_res_dual,
-                                  eos_res=eos_res,
                                   κ=κ,
                                   L=L,
                                   rates=rates,
-                                  rates_dual=rates_dual,
-                                  turb_res_dual=turb_res_dual,
-                                  turb_res=turb_res)
+                                  rates_dual=rates_dual)
 end
 
 function update_stellar_model_properties!(sm, props::StellarModelProperties)
-    nz = props.nz
-    nvars = props.nvars
-    Threads.@threads for i in 1:nz
-        lnT_i = props.vari[:lnT]
-        lnρ_i = props.vari[:lnρ]
-        lnr_i = props.vari[:lnr]
-        lumfrac_i = props.vari[:lumfrac]
+    Threads.@threads for i in 1:sm.nz
+        lnT_i = sm.vari[:lnT]
+        lnρ_i = sm.vari[:lnρ]
+        lnr_i = sm.vari[:lnr]
+        lumfrac_i = sm.vari[:lumfrac]
         # update independent variables
         update_cell_dual_data_value!(props.lnT[i], 
-                                        props.ind_vars[(i-1)*(nvars)+lnT_i])
+                                        sm.ind_vars[(i-1)*(sm.nvars)+lnT_i])
         update_cell_dual_data_value!(props.lnρ[i], 
-                                        props.ind_vars[(i-1)*(nvars)+lnρ_i])
+                                        sm.ind_vars[(i-1)*(sm.nvars)+lnρ_i])
         update_cell_dual_data_value!(props.lnr[i], 
-                                        props.ind_vars[(i-1)*(nvars)+lnr_i])
+                                        sm.ind_vars[(i-1)*(sm.nvars)+lnr_i])
         update_cell_dual_data_value!(props.lumfrac[i], 
-                                        props.ind_vars[(i-1)*(nvars)+lumfrac_i])
-        for j in 1:props.nspecies
+                                        sm.ind_vars[(i-1)*(sm.nvars)+lumfrac_i])
+        for j in 1:sm.network.nspecies
             update_cell_dual_data_value!(props.xa[i,j], 
-                            props.ind_vars[(i-1)*(nvars)+(nvars - props.nspecies + j)])
+                            sm.ind_vars[(i-1)*(sm.nvars)+(sm.nvars - sm.network.nspecies + j)])
             props.xa_dual[i,j] = get_cell_dual(props.xa[i,j])
         end
 
@@ -201,7 +151,7 @@ function update_stellar_model_properties!(sm, props::StellarModelProperties)
 
         P_dual = props.eos_res_dual[i].P
         lumfrac = get_cell_dual(props.lumfrac[i])
-        L_dual = 4π*BOLTZ_SIGMA*CGRAV*(props.m[i]-0.5*props.dm[i])*exp(lnT)^4/P_dual*lumfrac
+        L_dual = 4π*BOLTZ_SIGMA*CGRAV*(sm.m[i]-0.5*sm.dm[i])*exp(lnT)^4/P_dual*lumfrac
         update_cell_dual_data!(sm.props.L[i], L_dual)
 
         #get rates
@@ -212,45 +162,45 @@ function update_stellar_model_properties!(sm, props::StellarModelProperties)
         end
     end
     # Compute face properties
-    Threads.@threads for i in 1:nz-1
+    Threads.@threads for i in 1:sm.nz-1
         lnP_00 = get_face_00_dual(sm.props.eos_res[i].lnP)
         lnP_p1 = get_face_p1_dual(sm.props.eos_res[i+1].lnP)
-        Pface = exp((props.dm[i+1] * lnP_00 + props.dm[i] * lnP_p1) /
-                (props.dm[i] + props.dm[i + 1]))
+        Pface = exp((sm.dm[i+1] * lnP_00 + sm.dm[i] * lnP_p1) /
+                (sm.dm[i] + sm.dm[i + 1]))
 
         lnT_00 = get_face_00_dual(sm.props.eos_res[i].lnT)
         lnT_p1 = get_face_p1_dual(sm.props.eos_res[i+1].lnT)
-        Tface = exp((props.dm[i+1] * lnT_00 + props.dm[i] * lnT_p1) /
-                (props.dm[i] + props.dm[i + 1]))
+        Tface = exp((sm.dm[i+1] * lnT_00 + sm.dm[i] * lnT_p1) /
+                (sm.dm[i] + sm.dm[i + 1]))
 
         lnρ_00 = get_face_00_dual(sm.props.eos_res[i].lnρ)
         lnρ_p1 = get_face_p1_dual(sm.props.eos_res[i+1].lnρ)
-        ρface = exp((props.dm[i+1] * lnρ_00 + props.dm[i] * lnρ_p1) /
-                (props.dm[i] + props.dm[i + 1]))
+        ρface = exp((sm.dm[i+1] * lnρ_00 + sm.dm[i] * lnρ_p1) /
+                (sm.dm[i] + sm.dm[i + 1]))
 
         δ_00 = get_face_00_dual(sm.props.eos_res[i].δ)
         δ_p1 = get_face_p1_dual(sm.props.eos_res[i+1].δ)
-        δface = (props.dm[i+1] * δ_00 + props.dm[i] * δ_p1) /
-                (props.dm[i] + props.dm[i + 1])
+        δface = (sm.dm[i+1] * δ_00 + sm.dm[i] * δ_p1) /
+                (sm.dm[i] + sm.dm[i + 1])
 
         cₚ_00 = get_face_00_dual(sm.props.eos_res[i].cₚ)
         cₚ_p1 = get_face_p1_dual(sm.props.eos_res[i+1].cₚ)
-        cₚface = (props.dm[i+1] * cₚ_00 + props.dm[i] * cₚ_p1) /
-                (props.dm[i] + props.dm[i + 1])
+        cₚface = (sm.dm[i+1] * cₚ_00 + sm.dm[i] * cₚ_p1) /
+                (sm.dm[i] + sm.dm[i + 1])
 
         ∇ₐ_00 = get_face_00_dual(sm.props.eos_res[i].∇ₐ)
         ∇ₐ_p1 = get_face_p1_dual(sm.props.eos_res[i+1].∇ₐ)
-        ∇ₐface = (props.dm[i+1] * ∇ₐ_00 + props.dm[i] * ∇ₐ_p1) /
-                (props.dm[i] + props.dm[i + 1])
+        ∇ₐface = (sm.dm[i+1] * ∇ₐ_00 + sm.dm[i] * ∇ₐ_p1) /
+                (sm.dm[i] + sm.dm[i + 1])
 
         lnκ_00 = log(get_face_00_dual(sm.props.κ[i]))
         lnκ_p1 = log(get_face_p1_dual(sm.props.κ[i+1]))
-        κface = exp((props.dm[i+1] * lnκ_00 + props.dm[i] * lnκ_p1) /
-                (props.dm[i] + props.dm[i + 1]))
+        κface = exp((sm.dm[i+1] * lnκ_00 + sm.dm[i] * lnκ_p1) /
+                (sm.dm[i] + sm.dm[i + 1]))
 
         Lface = get_face_00_dual(props.L[i])
         rface = exp(get_face_00_dual(props.lnr[i]))
-        mface = props.m[i]
+        mface = sm.m[i]
 
         set_turb_results!(sm.turbulence, props.turb_res_dual[i],
                           κface, Lface, ρface, Pface, Tface, rface,
@@ -262,14 +212,4 @@ function update_stellar_model_properties!(sm, props::StellarModelProperties)
         update_cell_dual_data_face!(props.turb_res[i].Γ, props.turb_res_dual[i].Γ)
         update_cell_dual_data_face!(props.turb_res[i].Hₚ, props.turb_res_dual[i].Hₚ)
     end
-end
-
-function copy_props!(props1::StellarModelProperties, props2::StellarModelProperties)
-    props2.m .= props1.m
-    props2.dm .= props1.dm
-    props2.mstar = props1.mstar
-    props2.time = props1.time
-    props2.dt = props1.dt
-    props2.model_number = props1.model_number
-    props2.ind_vars .= props1.ind_vars
 end

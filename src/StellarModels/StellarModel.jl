@@ -20,9 +20,66 @@ function structure_equation(::TS, ::Int,
 For typical usage, TS is the concrete type of StellarModel, and TD the type of dual number being used for automatic
 differentiation. The function must return an object of type TD, the result of the equation.
 """
-struct TypeStableEquation{TPROPS<:AbstractStellarModelProperties,Options,TD<:Real}
+struct TypeStableEquation{TS,TD<:Real}
     func::FunctionWrappers.FunctionWrapper{TD,
-                                           Tuple{TPROPS,Options,Int}}
+                                           Tuple{TS,Int}}
+end
+
+"""
+    mutable struct StellarStepInfo{TN<:Real}
+
+Information used for a simulation step. A single stellar model can have three different objects of type StellarStepInfo,
+containing information from the previous step, information right before the Newton solver, and information after
+the Newton solver has completed.
+
+The struct has one parametric type, TN to represent 'normal' numbers. No fields here need to have dual numbers as these
+will not be used in automatic differentiation routines.
+"""
+@kwdef mutable struct StellarStepInfo{TNUMBER<:Real}
+    # grid properties
+    nz::Int  # number of zones in the model
+    m::Vector{TNUMBER}  # mass coordinate of each cell
+    dm::Vector{TNUMBER}  # mass contained in each cell
+    mstar::TNUMBER  # total model mass
+
+    # unique valued properties (ie not cell dependent)
+    time::TNUMBER
+    dt::TNUMBER
+    model_number::Int
+
+    # full vector with independent variables (size is number of variables * number of zones)
+    ind_vars::Vector{TNUMBER}
+
+    # Values of properties at each cell, sizes are equal to number of zones
+    lnT::Vector{TNUMBER}
+    L::Vector{TNUMBER}
+    lnP::Vector{TNUMBER}
+    lnρ::Vector{TNUMBER}
+    lnr::Vector{TNUMBER}
+    X::Vector{TNUMBER}
+    Y::Vector{TNUMBER}
+
+    #eos results
+    eos_res::Vector{EOSResults{TNUMBER}}
+end
+
+function StellarStepInfo(nvars, nz, nextra, number_type)
+    return StellarStepInfo(nz=nz,
+                           m=zeros(number_type, nz+nextra),
+                           dm=zeros(number_type, nz+nextra),
+                           mstar=zero(number_type),
+                           time=zero(number_type),
+                           dt=zero(number_type),
+                           model_number=0,
+                           ind_vars=zeros(number_type, nvars * (nz+nextra)),
+                           lnT=zeros(number_type, nz+nextra),
+                           L=zeros(number_type, nz+nextra),
+                           lnP=zeros(number_type, nz+nextra),
+                           lnρ=zeros(number_type, nz+nextra),
+                           lnr=zeros(number_type, nz+nextra),
+                           X=zeros(number_type, nz+nextra),
+                           Y=zeros(number_type, nz+nextra),
+                           eos_res=[EOSResults{number_type}() for i = 1:(nz+nextra)])
 end
 
 """
@@ -34,20 +91,38 @@ variables of the model and its equations.
 The struct has four parametric types, `TN` for 'normal' numbers, `TD` for dual numbers used in automatic
 differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type of opacity law being used.
 """
-@kwdef mutable struct StellarModel{TDUALFULL<:ForwardDiff.Dual, TPROPS<:AbstractStellarModelProperties,
+@kwdef mutable struct StellarModel{TNUMBER<:Real, TDUALFULL<:ForwardDiff.Dual, TPROPS<:AbstractStellarModelProperties,
                                    TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,TNET<:NuclearNetworks.AbstractNuclearNetwork,
                                    TTURB<:Turbulence.AbstractTurb, TSOLVER<:AbstractSolverData}
+    # Properties that define the model
+    ind_vars::Vector{TNUMBER}  # List of independent variables
+    nvars::Int  # This is the sum of hydro vars and species
+    var_names::Vector{Symbol}  # List of variable names
+    vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector
+
     ## Properties related to the solver ##
     # original vector of functions that are solved. These are turned into TypeStableEquations.
     # We keep the original input for when we resize the stellar model.
     structure_equations_original::Vector{Function}
     # List of equations to be solved.
-    structure_equations::Vector{TypeStableEquation{TPROPS,Options,TDUALFULL}}
+    structure_equations::Vector{TypeStableEquation{StellarModel{TNUMBER,TDUALFULL,TPROPS,TEOS,TKAP,TNET,TTURB,TSOLVER},TDUALFULL}}
 
     solver_data::TSOLVER
 
+    # Grid properties
+    nz::Int  # Number of zones in the model
+    nextra::Int  # Number of extra zones used to avoid constant reallocation while remeshing
+    m::Vector{TNUMBER}  # Mass coordinate of each cell (g)
+    dm::Vector{TNUMBER}  # Mass contained in each cell (g)
+    mstar::TNUMBER  # Total model mass (g)
+
     # Remeshing functions
     remesh_split_functions::Vector{Function}
+
+    # Unique valued properties (ie not cell dependent)
+    time::TNUMBER  # Age of the model (s)
+    dt::TNUMBER  # Timestep of the current evolutionary step (s)
+    model_number::Int
 
     # Some basic info
     eos::TEOS
@@ -56,11 +131,20 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     turbulence::TTURB
 
     ##
-    props::TPROPS # properties derived from ind_vars
-    props_old::TPROPS # properties from previous timestep
-    props_old_after_remesh::TPROPS # properties from previous timestep after remeshing
+    props::TPROPS
 
-    # Space for user defined options, defaults are in Options.jl
+    # Here I want to preemt things that will be necessary once we have an adaptative
+    # mesh. Idea is that psi contains the information from the previous step (or the
+    # initial condition). ssi will contain information after remeshing. Absent remeshing
+    # it will make no difference. esi will contain properties once the step is completed.
+    # Information coming from the previous step (psi=Previous Step Info)
+    psi::StellarStepInfo{TNUMBER}
+    # Information computed at the start of the step (ssi=Start Step Info)
+    ssi::StellarStepInfo{TNUMBER}
+    # Information computed at the end of the step (esi=End Step Info)
+    esi::StellarStepInfo{TNUMBER}
+
+    # Space for used defined options, defaults are in Options.jl
     opt::Options
 
     # object holding plotting things, ie figures, data to plot.
@@ -83,27 +167,43 @@ function StellarModel(var_names::Vector{Symbol},
     nvars = length(var_names) + network.nspecies
 
     # create the vector containing the independent variables
+    ind_vars = zeros(number_type, nvars * (nz + nextra))
 
     # var_names should also contain the name of species, we get them from the network
     var_names_full = vcat(var_names, network.species_names)
 
+    # link var_names to the correct index so you can do ind_var[vari[:lnT]] = 'some temperature'
+    vari::Dict{Symbol,Int} = Dict()
+    for i in eachindex(var_names_full)
+        vari[var_names_full[i]] = i
+    end
+
     solver_data = SolverData(nvars, nz, nextra, use_static_arrays, number_type)
 
-    props = StellarModelProperties(var_names_full, nz, nextra, 
-                    length(network.reactions), network.nspecies, number_type)
-    props_old = StellarModelProperties(var_names_full, nz, nextra, 
-                    length(network.reactions), network.nspecies, number_type)
-    props_old_after_remesh = StellarModelProperties(var_names_full, nz, nextra, 
-                    length(network.reactions), network.nspecies, number_type)
+    # mass coordinates
+    dm = zeros(number_type, nz+nextra)
+    m = zeros(number_type, nz+nextra)
+
+    props = StellarModelProperties(nvars, nz, nextra, 
+                    length(network.reactions), network.nspecies, vari, number_type)
 
     # create type stable function objects
     dual_sample = ForwardDiff.Dual(zero(number_type), (zeros(number_type, 3*nvars)...))
-    tpe_stbl_funcs = Vector{TypeStableEquation{typeof(props), Options,
-                                typeof(dual_sample)}}(undef, length(structure_equations))
+    tpe_stbl_funcs = Vector{TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample), typeof(props),
+                                                            typeof(eos), typeof(opacity), typeof(network), typeof(turbulence),
+                                                            typeof(solver_data)},
+                                     typeof(dual_sample)}}(undef, length(structure_equations))
     for i in eachindex(structure_equations)
-        tpe_stbl_funcs[i] = TypeStableEquation{typeof(props), Options,
+        tpe_stbl_funcs[i] = TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample), typeof(props),
+                                                            typeof(eos), typeof(opacity), typeof(network), typeof(turbulence),
+                                                            typeof(solver_data)},
                                      typeof(dual_sample)}(structure_equations[i])
     end
+
+    # create stellar step info objects
+    psi = StellarStepInfo(nvars, nz, nextra, number_type)
+    ssi = StellarStepInfo(nvars, nz, nextra, number_type)
+    esi = StellarStepInfo(nvars, nz, nextra, number_type)
 
     # create options object
     opt = Options()
@@ -111,13 +211,17 @@ function StellarModel(var_names::Vector{Symbol},
     plt = Plotter()
 
     # create the stellar model
-    sm = StellarModel(structure_equations_original=structure_equations,
-                      structure_equations=tpe_stbl_funcs,
+    sm = StellarModel(ind_vars=ind_vars, nvars=nvars,
+                      var_names=var_names_full, vari=vari,
                       solver_data = solver_data,
+                      structure_equations_original=structure_equations,
+                      structure_equations=tpe_stbl_funcs,
+                      nz=nz, nextra=nextra,
+                      m=m, dm=dm, mstar=zero(number_type),
                       remesh_split_functions=remesh_split_functions,
-                      eos=eos, opacity=opacity, network=network, turbulence=turbulence,
-                      props=props, props_old=props_old, props_old_after_remesh=props_old_after_remesh,
-                      opt=opt, plt=plt)
+                      time=zero(number_type), dt=zero(number_type), model_number=0,
+                      eos=eos, opacity=opacity, network=network, turbulence=turbulence, props=props,
+                      psi=psi, ssi=ssi, esi=esi, opt=opt, plt=plt)
 
     return sm
 end
