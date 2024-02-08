@@ -1,4 +1,6 @@
-@kwdef struct StellarModelProperties{TDual, TCellDualData}
+abstract type AbstractStellarModelProperties end
+
+@kwdef struct StellarModelProperties{TDual, TCellDualData} <: AbstractStellarModelProperties
     eos_res_dual::Vector{EOSResults{TDual}}
     eos_res::Vector{EOSResults{TCellDualData}}
 
@@ -59,38 +61,46 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
         end
     end
 
-    return StellarModelProperties(eos_res_dual=eos_res_dual, eos_res=eos_res,
-                                  lnT=lnT, lnρ=lnρ, lnr=lnr, L=L, xa=xa, xa_dual=xa_dual,
-                                  κ=κ, rates=rates, rates_dual=rates_dual)
+    return StellarModelProperties(eos_res_dual=eos_res_dual,
+                                  eos_res=eos_res,
+                                  lnT=lnT,
+                                  lnρ=lnρ,
+                                  lnr=lnr,
+                                  L=L,
+                                  xa=xa,
+                                  xa_dual=xa_dual,
+                                  κ=κ,
+                                  rates=rates,
+                                  rates_dual=rates_dual)
 end
 
-function update_stellar_model_properties!(sm)
+function update_stellar_model_properties!(sm, props::StellarModelProperties)
     Threads.@threads for i in 1:sm.nz
         lnT_i = sm.vari[:lnT]
         lnρ_i = sm.vari[:lnρ]
         lnr_i = sm.vari[:lnr]
         L_i = sm.vari[:lum]
         # update independent variables
-        update_cell_dual_data_value!(sm.props.lnT[i], 
+        update_cell_dual_data_value!(props.lnT[i], 
                                         sm.ind_vars[(i-1)*(sm.nvars)+lnT_i])
-        update_cell_dual_data_value!(sm.props.lnρ[i], 
+        update_cell_dual_data_value!(props.lnρ[i], 
                                         sm.ind_vars[(i-1)*(sm.nvars)+lnρ_i])
-        update_cell_dual_data_value!(sm.props.lnr[i], 
+        update_cell_dual_data_value!(props.lnr[i], 
                                         sm.ind_vars[(i-1)*(sm.nvars)+lnr_i])
-        update_cell_dual_data_value!(sm.props.L[i], 
+        update_cell_dual_data_value!(props.L[i], 
                                         sm.ind_vars[(i-1)*(sm.nvars)+L_i])
         for j in 1:sm.network.nspecies
-            update_cell_dual_data_value!(sm.props.xa[i,j], 
+            update_cell_dual_data_value!(props.xa[i,j], 
                             sm.ind_vars[(i-1)*(sm.nvars)+(sm.nvars - sm.network.nspecies + j)])
-            sm.props.xa_dual[i,j] = get_cell_dual(sm.props.xa[i,j])
+            props.xa_dual[i,j] = get_cell_dual(props.xa[i,j])
         end
 
-        lnT = get_cell_dual(sm.props.lnT[i])
-        lnρ = get_cell_dual(sm.props.lnρ[i])
-        xa = @view sm.props.xa_dual[i,:]
+        lnT = get_cell_dual(props.lnT[i])
+        lnρ = get_cell_dual(props.lnρ[i])
+        xa = @view props.xa_dual[i,:]
 
         # Get EOS
-        set_EOS_resultsTρ!(sm.eos, sm.props.eos_res_dual[i], lnT, lnρ,
+        set_EOS_resultsTρ!(sm.eos, props.eos_res_dual[i], lnT, lnρ,
                             xa, sm.network.species_names)
         #names = fieldnames(EOSResults)
         #for name in names
@@ -98,34 +108,34 @@ function update_stellar_model_properties!(sm)
         #    dual_cell_data = getfield(props.eos_res[i], name)
         #    update_cell_dual_data!(dual_cell_data, dual)
         #end
-        update_cell_dual_data!(sm.props.eos_res[i].T, sm.props.eos_res_dual[i].T)
-        update_cell_dual_data!(sm.props.eos_res[i].P, sm.props.eos_res_dual[i].P)
-        update_cell_dual_data!(sm.props.eos_res[i].ρ, sm.props.eos_res_dual[i].ρ)
-        update_cell_dual_data!(sm.props.eos_res[i].lnT, sm.props.eos_res_dual[i].lnT)
-        update_cell_dual_data!(sm.props.eos_res[i].lnP, sm.props.eos_res_dual[i].lnP)
-        update_cell_dual_data!(sm.props.eos_res[i].lnρ, sm.props.eos_res_dual[i].lnρ)
-        update_cell_dual_data!(sm.props.eos_res[i].Prad, sm.props.eos_res_dual[i].Prad)
-        update_cell_dual_data!(sm.props.eos_res[i].μ, sm.props.eos_res_dual[i].μ)
-        update_cell_dual_data!(sm.props.eos_res[i].α, sm.props.eos_res_dual[i].α)
-        update_cell_dual_data!(sm.props.eos_res[i].β, sm.props.eos_res_dual[i].β)
-        update_cell_dual_data!(sm.props.eos_res[i].δ, sm.props.eos_res_dual[i].δ)
-        update_cell_dual_data!(sm.props.eos_res[i].χ_ρ, sm.props.eos_res_dual[i].χ_ρ)
-        update_cell_dual_data!(sm.props.eos_res[i].χ_T, sm.props.eos_res_dual[i].χ_T)
-        update_cell_dual_data!(sm.props.eos_res[i].u, sm.props.eos_res_dual[i].u)
-        update_cell_dual_data!(sm.props.eos_res[i].cₚ, sm.props.eos_res_dual[i].cₚ)
-        update_cell_dual_data!(sm.props.eos_res[i].∇ₐ, sm.props.eos_res_dual[i].∇ₐ)
-        update_cell_dual_data!(sm.props.eos_res[i].Γ₁, sm.props.eos_res_dual[i].Γ₁)
+        update_cell_dual_data!(props.eos_res[i].T, props.eos_res_dual[i].T)
+        update_cell_dual_data!(props.eos_res[i].P, props.eos_res_dual[i].P)
+        update_cell_dual_data!(props.eos_res[i].ρ, props.eos_res_dual[i].ρ)
+        update_cell_dual_data!(props.eos_res[i].lnT, props.eos_res_dual[i].lnT)
+        update_cell_dual_data!(props.eos_res[i].lnP, props.eos_res_dual[i].lnP)
+        update_cell_dual_data!(props.eos_res[i].lnρ, props.eos_res_dual[i].lnρ)
+        update_cell_dual_data!(props.eos_res[i].Prad, props.eos_res_dual[i].Prad)
+        update_cell_dual_data!(props.eos_res[i].μ, props.eos_res_dual[i].μ)
+        update_cell_dual_data!(props.eos_res[i].α, props.eos_res_dual[i].α)
+        update_cell_dual_data!(props.eos_res[i].β, props.eos_res_dual[i].β)
+        update_cell_dual_data!(props.eos_res[i].δ, props.eos_res_dual[i].δ)
+        update_cell_dual_data!(props.eos_res[i].χ_ρ, props.eos_res_dual[i].χ_ρ)
+        update_cell_dual_data!(props.eos_res[i].χ_T, props.eos_res_dual[i].χ_T)
+        update_cell_dual_data!(props.eos_res[i].u, props.eos_res_dual[i].u)
+        update_cell_dual_data!(props.eos_res[i].cₚ, props.eos_res_dual[i].cₚ)
+        update_cell_dual_data!(props.eos_res[i].∇ₐ, props.eos_res_dual[i].∇ₐ)
+        update_cell_dual_data!(props.eos_res[i].Γ₁, props.eos_res_dual[i].Γ₁)
 
         # get opacity
         κ_dual = get_opacity_resultsTρ(sm.opacity, lnT, lnρ,
                     xa, sm.network.species_names)
-        update_cell_dual_data!(sm.props.κ[i], κ_dual)
+        update_cell_dual_data!(props.κ[i], κ_dual)
 
         #get rates
-        rates = @view sm.props.rates_dual[i,:]
-        set_rates_for_network!(rates, sm.network, sm.props.eos_res_dual[i], xa)
+        rates = @view props.rates_dual[i,:]
+        set_rates_for_network!(rates, sm.network, props.eos_res_dual[i], xa)
         for j in eachindex(rates)
-            update_cell_dual_data!(sm.props.rates[i,j], rates[j])
+            update_cell_dual_data!(props.rates[i,j], rates[j])
         end
     end
 end
