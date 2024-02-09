@@ -1,3 +1,5 @@
+using ForwardDiff
+
 abstract type AbstractStellarModelProperties end
 
 @kwdef struct StellarModelProperties{TDual, TCellDualData} <: AbstractStellarModelProperties
@@ -23,7 +25,7 @@ end
 function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                     nrates::Int, nspecies::Int, vari::Dict{Symbol, Int}, ::Type{TN}) where{TN<:Real}
 
-    CDDTYPE = CellDualData{nvars,3*nvars,TN}
+    CDDTYPE = CellDualData{nvars+1,3*nvars+1,TN}
     TDSC = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, nvars))...))
     
     eos_res_dual = [EOSResults{TDSC}() for i in 1:(nz+nextra)]
@@ -74,7 +76,8 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                   rates_dual=rates_dual)
 end
 
-function update_stellar_model_properties!(sm, props::StellarModelProperties)
+function update_stellar_model_properties!(sm, props::StellarModelProperties{TDual, TCellDualData}) where
+                                                {TDual <: ForwardDiff.Dual, TCellDualData}
     Threads.@threads for i in 1:sm.nz
         lnT_i = sm.vari[:lnT]
         lnρ_i = sm.vari[:lnρ]

@@ -147,17 +147,15 @@ function do_evolution_loop!(sm::StellarModel)
 
             # scale correction
             if sm.model_number == 0
-                corr = corr * min(1, sm.opt.solver.initial_model_scale_max_correction / maximum(corr))
+                corr .*= min(1, sm.opt.solver.initial_model_scale_max_correction / maximum(corr))
             else
-                corr = corr * min(1, sm.opt.solver.scale_max_correction / maximum(corr))
+                corr .*= min(1, sm.opt.solver.scale_max_correction / maximum(corr))
             end
             if i % 50 == 0
                 @show i, maximum(corr), real_max_corr, maximum(sm.eqs_numbers)
             end
             # first try applying correction and see if it would give negative luminosity
-            for i=1:sm.nz*sm.nvars
-                sm.ind_vars[i] = sm.ind_vars[i] + corr[i]
-            end
+            sm.ind_vars[1:sm.nvars*sm.nz] .+= corr[1:sm.nvars*sm.nz]
             if real_max_corr < 1e-10
                 if sm.model_number == 0
                     println("Found first model")

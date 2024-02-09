@@ -72,8 +72,8 @@ steps, the first is to evaluate properties across the model (for example, the EO
 and then evaluate all differential equations.
 =#
 @benchmark begin
-    StellarModels.update_stellar_model_properties!(sm, sm.props)
-    Evolution.eval_jacobian_eqs!(sm)
+    StellarModels.update_stellar_model_properties!($sm, $sm.props)
+    Evolution.eval_jacobian_eqs!($sm)
 end
 
 ##
@@ -86,7 +86,7 @@ to run only the matrix solver can be determined by substracting the previous ben
 =#
 
 @benchmark begin
-    StellarModels.update_stellar_model_properties!(sm, sm.props)
+    StellarModels.update_stellar_model_properties!($sm, $sm.props)
     Evolution.eval_jacobian_eqs!($sm)
     Evolution.thomas_algorithm!($sm)
 end
