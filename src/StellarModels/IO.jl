@@ -87,7 +87,69 @@ profile_output_options = Dict(
                               "Y" => ("unitless", (sm, k) -> profile_get_ind_vars_value(sm, :He4, k)))
 
 """
-    write_data(dm::StellarModel)
+    create_output_files(sm::StellarModel)
+
+Creates output files for history and profile data
+"""
+function create_output_files!(sm::StellarModel)
+    # Create history file
+    sm.history_file = h5open(sm.opt.io.hdf5_history_filename, "w")
+    data_cols = sm.opt.io.history_values
+    ncols = length(data_cols)
+
+    # verify validity of column names
+    for i in eachindex(data_cols)
+        if data_cols[i] ∉ keys(history_output_options)
+            throw(ArgumentError("Invalid name for history data column, 
+                :$(data_cols[i])"))
+        end
+    end
+
+    # Create history dataset in HDF5 file
+    # Dataset is created with size (0, ncols), we will add rows by using the HDF5.set_extent_dims function
+    # the (-1, ncols) is used to define the maximum extent of the dataset, -1 indicates that it is unbound
+    # in number of rows. The chunk size is used for compression. Smaller chunk sizes will result in worse
+    # compression but faster writes.
+    # The compression level can be anywhere between 0 and 9, 0 being no compression 9 being the highest.
+    # Compression is lossless.
+    history = create_dataset(sm.history_file, "history", Float64, ((0, ncols), (-1, ncols)),
+                                chunk=(sm.opt.io.hdf5_history_chunk_size, ncols),
+                                compress=sm.opt.io.hdf5_history_compression_level)
+
+    # next up, include the units for all quantities. No need to recheck columns.
+    attrs(history)["column_units"] = [history_output_options[data_cols[i]][1] for i in eachindex(data_cols)]
+    # Finally, place column names
+    attrs(history)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
+    if (!sm.opt.io.hdf5_history_keep_open)
+        close(sm.history_file)
+    end
+
+    # Create profile file
+    sm.profiles_file = h5open(sm.opt.io.hdf5_profile_filename, "w")
+    data_cols = sm.opt.io.profile_values
+    # verify validity of column names
+    for i in eachindex(data_cols)
+        if data_cols[i] ∉ keys(profile_output_options)
+            throw(ArgumentError("Invalid name for history data column,
+                :$(data_cols[i])"))
+        end
+    end
+    if (!sm.opt.io.hdf5_profile_keep_open)
+        close(sm.profiles_file)
+    end
+end
+
+function close_output_files!(sm)
+    if(sm.opt.io.hdf5_history_keep_open)
+        close(sm.history_file)
+    end
+    if(sm.opt.io.hdf5_profile_keep_open)
+        close(sm.profiles_file)
+    end
+end
+
+"""
+    write_data(sm::StellarModel)
 
 Saves data (history/profile) for the current model, as required by the settings in `sm.opt.io`.
 """
@@ -96,46 +158,23 @@ function write_data(sm::StellarModel)
     if (sm.opt.io.history_interval > 0)
         file_exists = isfile(sm.opt.io.hdf5_history_filename)
         if !file_exists  # create file if it doesn't exist yet
-            h5open(sm.opt.io.hdf5_history_filename, "w") do history_file
-                data_cols = sm.opt.io.history_values
-                ncols = length(data_cols)
-
-                # verify validity of column names
-                for i in eachindex(data_cols)
-                    if data_cols[i] ∉ keys(history_output_options)
-                        throw(ArgumentError("Invalid name for history data column, 
-                            :$(data_cols[i])"))
-                    end
-                end
-
-                # Create history dataset in HDF5 file
-                # Dataset is created with size (0, ncols), we will add rows by using the HDF5.set_extent_dims function
-                # the (-1, ncols) is used to define the maximum extent of the dataset, -1 indicates that it is unbound
-                # in number of rows. The chunk size is used for compression. Smaller chunk sizes will result in worse
-                # compression but faster writes.
-                # The compression level can be anywhere between 0 and 9, 0 being no compression 9 being the highest.
-                # Compression is lossless.
-                history = create_dataset(history_file, "history", Float64, ((0, ncols), (-1, ncols)),
-                                         chunk=(sm.opt.io.hdf5_history_chunk_size, ncols),
-                                         compress=sm.opt.io.hdf5_history_compression_level)
-
-                # next up, include the units for all quantities. No need to recheck columns.
-                attrs(history)["column_units"] = [history_output_options[data_cols[i]][1] for i in eachindex(data_cols)]
-                # Finally, place column names
-                attrs(history)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
-            end
+            throw(ErrorException("History file does not exist at $(sm.opt.io.hdf5_history_filename)"))
         end
         if (sm.model_number % sm.opt.io.history_interval == 0)
-            h5open(sm.opt.io.hdf5_history_filename, "r+") do history_file
-                data_cols = sm.opt.io.history_values
-                ncols = length(data_cols)
+            if (!sm.opt.io.hdf5_history_keep_open)
+                sm.history_file = h5open(sm.opt.io.hdf5_history_filename, "r+")
+            end
+            data_cols = sm.opt.io.history_values
+            ncols = length(data_cols)
 
-                # after being sure the header is there, print the data
-                history = history_file["history"]
-                HDF5.set_extent_dims(history, (size(history)[1] + 1, ncols))
-                for i in eachindex(data_cols)
-                    history[end, i] = history_output_options[data_cols[i]][2](sm)
-                end
+            # after being sure the header is there, print the data
+            history = sm.history_file["history"]
+            HDF5.set_extent_dims(history, (size(history)[1] + 1, ncols))
+            for i in eachindex(data_cols)
+                history[end, i] = history_output_options[data_cols[i]][2](sm)
+            end
+            if (!sm.opt.io.hdf5_history_keep_open)
+                close(sm.history_file)
             end
         end
     end
@@ -143,37 +182,32 @@ function write_data(sm::StellarModel)
     if (sm.opt.io.profile_interval > 0)
         file_exists = isfile(sm.opt.io.hdf5_profile_filename)
         if !file_exists  # create file if it doesn't exist yet
-            h5open(sm.opt.io.hdf5_profile_filename, "w") do profile_file
-                data_cols = sm.opt.io.profile_values
-                # verify validity of column names
-                for i in eachindex(data_cols)
-                    if data_cols[i] ∉ keys(profile_output_options)
-                        throw(ArgumentError("Invalid name for history data column,
-                            :$(data_cols[i])"))
-                    end
-                end
-            end
+            throw(ErrorException("Profile file does not exist at $(sm.opt.io.hdf5_profile_filename)"))
         end
         if (sm.model_number % sm.opt.io.profile_interval == 0)
-            h5open(sm.opt.io.hdf5_profile_filename, "r+") do profile_file
-                data_cols = sm.opt.io.profile_values
-                ncols = length(data_cols)
-                # Save current profile
-                profile = create_dataset(profile_file,
-                                         "$(lpad(sm.model_number,sm.opt.io.hdf5_profile_dataset_name_zero_padding,"0"))",
-                                         Float64, ((sm.nz, ncols), (sm.nz, ncols));
-                                         chunk=(sm.opt.io.hdf5_profile_chunk_size, ncols),
-                                         compress=sm.opt.io.hdf5_profile_compression_level)
+            if (!sm.opt.io.hdf5_profile_keep_open)
+                sm.profiles_file = h5open(sm.opt.io.hdf5_profile_filename, "r+")
+            end
+            data_cols = sm.opt.io.profile_values
+            ncols = length(data_cols)
+            # Save current profile
+            profile = create_dataset(sm.profiles_file,
+                                        "$(lpad(sm.model_number,sm.opt.io.hdf5_profile_dataset_name_zero_padding,"0"))",
+                                        Float64, ((sm.nz, ncols), (sm.nz, ncols));
+                                        chunk=(sm.opt.io.hdf5_profile_chunk_size, ncols),
+                                        compress=sm.opt.io.hdf5_profile_compression_level)
 
-                # next up, include the units for all quantities. No need to recheck columns.
-                attrs(profile)["column_units"] = [profile_output_options[data_cols[i]][1] for i in eachindex(data_cols)]
-                # Place column names
-                attrs(profile)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
+            # next up, include the units for all quantities. No need to recheck columns.
+            attrs(profile)["column_units"] = [profile_output_options[data_cols[i]][1] for i in eachindex(data_cols)]
+            # Place column names
+            attrs(profile)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
 
-                # store data
-                for i in eachindex(data_cols), k = 1:(sm.nz)
-                    profile[k, i] = profile_output_options[data_cols[i]][2](sm, k)
-                end
+            # store data
+            for i in eachindex(data_cols), k = 1:(sm.nz)
+                profile[k, i] = profile_output_options[data_cols[i]][2](sm, k)
+            end
+            if (!sm.opt.io.hdf5_profile_keep_open)
+                close(sm.profiles_file)
             end
         end
     end
@@ -213,8 +247,8 @@ end
 Retruns the column names of the profile data contained in the hdf5 file `hdf5_filename`.
 """
 function get_profile_names_from_hdf5(hdf5_filename)
-    h5open(hdf5_filename) do profile_file
-        return keys(profile_file)
+    h5open(hdf5_filename) do profiles_file
+        return keys(profiles_file)
     end
 end
 
@@ -224,7 +258,7 @@ end
 Returns a DataFrame object built from an hdf5 file, named `hdf5_filename`, considering the column named `profile_name`
 """
 function get_profile_dataframe_from_hdf5(hdf5_filename, profile_name)
-    h5open(hdf5_filename) do profile_file
-        return DataFrame(profile_file[profile_name][:, :], attrs(profile_file[profile_name])["column_names"])
+    h5open(hdf5_filename) do profiles_file
+        return DataFrame(profiles_file[profile_name][:, :], attrs(profiles_file[profile_name])["column_names"])
     end
 end

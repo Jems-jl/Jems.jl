@@ -67,11 +67,13 @@ Substructure of Options containing controls relating to input/output of data
     hdf5_history_filename::String = "history.hdf5"
     hdf5_history_chunk_size::Int = 50
     hdf5_history_compression_level::Int = 9
+    hdf5_history_keep_open::Bool = false
 
     hdf5_profile_filename::String = "profiles.hdf5"
     hdf5_profile_chunk_size::Int = 50
     hdf5_profile_compression_level::Int = 9
     hdf5_profile_dataset_name_zero_padding::Int = 10
+    hdf5_profile_keep_open::Bool = false
 
     terminal_header_interval::Int = 10
     terminal_info_interval::Int = 10

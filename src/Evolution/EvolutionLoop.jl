@@ -100,6 +100,7 @@ Performs the main evolutionary loop of the input StellarModel `sm`. It continues
 termination criteria is reached (defined in `sm.opt.termination`).
 """
 function do_evolution_loop!(sm::StellarModel)
+    StellarModels.create_output_files!(sm)
     set_step_info!(sm, sm.esi)
     # evolution loop, be sure to have sensible termination conditions or this will go on forever!
     dt_factor = 1.0 # this is changed during retries to lower the timestep
@@ -223,5 +224,6 @@ function do_evolution_loop!(sm::StellarModel)
     if sm.opt.plotting.do_plotting
         Plotting.end_of_evolution(sm)
     end
-
+    StellarModels.close_output_files!(sm)
+    return sm
 end
