@@ -11,6 +11,8 @@ Substructure of Options containing controls relating to remeshing
     delta_log10P_min::Float64 = 0.001 # merge two cells if difference in log10P is less than this
     delta_log10r_max::Float64 = 0.1 # split two cells if difference in log10r is greater than this
     delta_log10r_min::Float64 = 0.001 # merge two cells if difference in log10r is less than this
+    delta_dm_max::Float64 = 0.1 # split two cells if difference in dm is greater than this
+    delta_dm_min::Float64 = 0.001 # merge two cells if difference in dm is less than this
 
     max_cell_mass_ratio::Float64 = 5.0 # split cell if neighboring cell masses are smaller than this
     max_dq_center::Float64 = 1e-5 # maximum dm/M for center cell

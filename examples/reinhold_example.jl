@@ -14,6 +14,10 @@ using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
 
+using CairoMakie
+#using LaTeXStrings
+using Printf
+ 
 ##
 #=
 ### Model creation
@@ -45,11 +49,15 @@ StellarModels.n_polytrope_initial_condition!(n, sm, MSUN, 100 * RSUN; initial_dt
 Evolution.set_step_info!(sm, sm.esi)
 Evolution.cycle_step_info!(sm);
 Evolution.set_step_info!(sm, sm.ssi)
-StellarModels.update_stellar_model_properties!(sm)
+StellarModels.update_stellar_model_properties!(sm, sm.props)
 Evolution.eval_jacobian_eqs!(sm)
 
-sm.nz
+#println(sm.psi.lnP)
 
+for i in 1:sm.psi.nz
+    println(sm.psi.lnP[i])
+end
+sm.nz
 
 ##
 #=
@@ -69,27 +77,215 @@ open("example_options.toml", "w") do file
           """
           [remesh]
           do_remesh = true
-          delta_log10P_max = 100.0 #1eh
-          #delta_log10r_max = 1e-1 #1e9
+          delta_log10P_max = 1e5 #1e5
+          delta_log10r_max = 1e5 #1e-1
+          delta_dm_max = 1e29
           """)
 end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 
-
-
 ##
 
-using CairoMakie
-using LaTeXStrings
-using Printf
- 
+
+delta_log10P_max = sm.opt.remesh.delta_log10P_max
+delta_log10r_max = sm.opt.remesh.delta_log10r_max
+delta_dm_max = sm.opt.remesh.delta_dm_max
+
+print("logP_max -> ")
+println(delta_log10P_max)
+print("logr_max -> ")
+println(delta_log10r_max)
+print("dm_max -> ")
+println(delta_dm_max)
+##
+
+
+
+# we first do cell splitting
+#do_split = Vector{Bool}(undef, sm.nz) 
+#do_split .= false
+###maxPinstar = 0
+###maxrinstar = 0
+#for i in 1:sm.nz-1
+#    delta_log10P = abs(sm.psi.lnP[i] - sm.psi.lnP[i+1])/log(10)
+#    #if delta_log10P > maxPinstar
+#    #    maxPinstar = delta_log10P
+#    delta_log10P_max = sm.opt.remesh.delta_log10P_max
+#    delta_log10r = abs(sm.psi.lnr[i] - sm.psi.lnr[i+1])/log(10)
+#    #if delta_log10r > maxrinstar
+#    #    maxrinstar = delta_log10r
+#    delta_log10r_max = sm.opt.remesh.delta_log10r_max
+#    if (delta_log10r > delta_log10r_max)
+#        println(i, ", logr")
+#        # if the condition is satisfied, we split the largest of the two cells
+#        if sm.dm[i] > sm.dm[i+1]
+#            do_split[i] = true
+#        else
+#            do_split[i+1] = true
+#        end
+#    elseif (delta_log10P > delta_log10P_max) 
+#        println(i, ", logP")
+#        # if the condition is satisfied, we split the largest of the two cells
+#        if sm.dm[i] > sm.dm[i+1]
+#            do_split[i] = true
+#        else
+#            do_split[i+1] = true
+#        end
+#    end
+#end
+### we are ignoring the edges for now
+### do_split[sm.nz] = false
+#extra_cells = sum(do_split)
+# if allocated space is not enough, we need to reallocate everything
+#if sm.nz + extra_cells > length(sm.dm)
+#    sm = adjusted_stellar_model_data(sm, sm.nz + extra_cells, sm.nextra);
+#end
+#for i=sm.nz:-1:2
+#    if extra_cells == 0
+#        break
+#    end
+#    if !do_split[i]
+#        # move everything upwards by extra_cells
+#        for j in 1:sm.nvars
+#            sm.ind_vars[(i+extra_cells-1)*sm.nvars+j] = sm.ind_vars[(i-1)*sm.nvars+j]
+#        end
+#        # RTW: why do we need these lines here? Is mass not part of the ind_vars?
+#        sm.m[i+extra_cells] = sm.m[i]
+#        sm.dm[i+extra_cells] = sm.dm[i]
+#        if i > sm.nz - 10
+#            println("i, extra = ", i, " ", extra_cells)
+#            println(sm.m[i])
+#            println(sm.m[i+extra_cells])
+#            println(sm.dm[i])
+#            println(sm.dm[i+extra_cells])
+#            println()
+#        end
+#    else
+#        println("This index is getting split ", i)
+#        println("Extra cells = ", extra_cells)
+#        #split the cell and lower extra_cells by 1
+#        #dm_00 = sm.dm[i]
+#        #var_00 = view(sm.ind_vars, ((i-1)*sm.nvars + 1):((i-1)*sm.nvars + sm.nvars))
+#        #if i > 1
+#        #    dm_m1 = sm.dm[i-1]
+#        #    var_m1 = view(sm.ind_vars, ((i-2)*sm.nvars + 1):((i-2)*sm.nvars + sm.nvars))
+#        #else
+#        #    dm_m1 = NaN
+#        #    var_m1 = []
+#        #end
+#        #if i < sm.nz
+#        #    dm_p1 = sm.dm[i+1]
+#        #    var_p1 = view(sm.ind_vars, ((i)*sm.nvars + 1):((i)*sm.nvars + sm.nvars))
+#        #else
+#        #    dm_p1 = NaN
+#        #    var_p1 = []
+#        #end
+#        #varnew_low = view(sm.ind_vars, 
+#        #                  ((i+extra_cells-2)*sm.nvars+1):((i+extra_cells-2)*sm.nvars+sm.nvars))
+#        #varnew_up = view(sm.ind_vars, 
+#        #                  ((i+extra_cells-1)*sm.nvars+1):((i+extra_cells-1)*sm.nvars+sm.nvars))
+#
+#        #for remesh_split_function in sm.remesh_split_functions
+#        #    remesh_split_function(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
+#        #                            varnew_low, varnew_up)
+#        #end
+#
+#        sm.m[i+extra_cells] = 0.5*sm.m[i]
+#        sm.m[i+extra_cells-1] = 0.5*sm.m[i]
+#        sm.dm[i+extra_cells] = 0.5*sm.dm[i]
+#        sm.dm[i+extra_cells-1] = 0.5*sm.dm[i]
+#
+#        extra_cells = extra_cells - 1
+#    end
+#end
+#sm.nz = sm.nz + sum(do_split)
+
+
 # using printf macro with @ sign 
+#println("nCells = ", sm.nz)        
+
 StellarModels.remesher!(sm)
-println(sm.nz)        
+
+#print("Sum of split is: ")
+#println(sum(do_split))
+println("nCells = ", sm.nz)        
+
+f = Figure()
+idx = 1:sm.nz-1
+#delta_log10_P = [abs(sm.psi.lnP[i] - sm.psi.lnP[i+1])/log(10) for i in 1:sm.nz-1]
+delta_dm = [abs(sm.psi.dm[i] - sm.psi.dm[i+1]) for i in 1:sm.nz-1]
+ax = Axis(f[1,1], xlabel=L"\mathrm{idx}", ylabel=L"\mathrm{dM}")
+lines!(ax, idx, delta_dm)
+f
+
+
+
+
+
+
+#StellarModels.profile_output_options["log10_P"][2](sm, k) for k in 1:sm.nz]
+
+
+
+#for i in 1:sm.nz-1
+#    #delta_log10P = abs(sm.psi.lnP[i] - sm.psi.lnP[i+1])/log(10)
+#    delta_log10r = abs(sm.psi.lnr[i] - sm.psi.lnr[i+1])/log(10)
+#    
+#    #if (delta_log10P > delta_log10P_max) 
+#    if (delta_log10r > delta_log10r_max) 
+#        print(i)
+#        print(" => ")
+#        #println(delta_log10P)
+#        println(delta_log10r)
+#    end
+#end
+##
+
+
+# we first do cell splitting
+#do_split = Vector{Bool}(undef, sm.nz) 
+#do_split .= false
+#maxPinstar = 0
+#maxrinstar = 0
+
+##
+    #if delta_log10P > maxPinstar
+    #    maxPinstar = delta_log10P
+    #if delta_log10r > maxrinstar
+    #    maxrinstar = delta_log10r
+    delta_log10r_max = sm.opt.remesh.delta_log10r_max
+    if (delta_log10r > delta_log10r_max)
+        # if the condition is satisfied, we split the largest of the two cells
+        if sm.dm[i] > sm.dm[i+1]
+            do_split[i] = true
+        else
+            do_split[i+1] = true
+        end
+    elseif (delta_log10P > delta_log10P_max) 
+        # if the condition is satisfied, we split the largest of the two cells
+        if sm.dm[i] > sm.dm[i+1]
+            do_split[i] = true
+        else
+            do_split[i+1] = true
+        end
+    end
+end
+
+
+
+
+
+
+
+
+
+
+
+
 ##
 #[abs(sm.psi.lnr[i] - sm.psi.lnr[i+1])/log(10) for i in 1:sm.nz]
 #maxval, idx = findmax()
-println( maxval) 
+#println( maxval) 
 maxval, idx = findmax([abs(sm.psi.lnP[i] - sm.psi.lnP[i+1])/log(10) for i in 1:sm.nz])
 println( maxval) 
 
@@ -150,3 +346,5 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 (_previous step info_) to populate the information needed before the Newton solver in `sm.ssi` (_start step info_).
 At last we are in position to evaluate the equations and compute the Jacobian.
 =#
+
+##
