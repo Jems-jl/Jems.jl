@@ -1,4 +1,4 @@
-#Asplund, Grevesse, Sauval, Scott 2009
+#Asplund, Grevesse, Sauval, Scott 2009 #full reference
 #X,Y,Z mass fractions
 X = 0.7314
 Y = 0.2485
