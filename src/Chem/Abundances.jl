@@ -1,4 +1,5 @@
 using Jems.Chem
+using Jems.NuclearNetworks
 println("RESTART ##################################")
 Chem.isotope_list[:Zn64]
 
@@ -88,8 +89,6 @@ end
 
 ##
 println("Restart ######################################################################################################")
-using Jems.NuclearNetworks
-
 net = NuclearNetwork([:H1,:He4,:C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 a = get_mass_fractions(abundance_lists[:ASG_09], net, 0.7, 0.05,0.03)
 @show a
