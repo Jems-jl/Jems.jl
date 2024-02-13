@@ -9,7 +9,7 @@ Chem.isotope_list[:Zn64]
     species_names::Vector{Symbol}
 end
 
-function get_abundance_list(path)
+function AbundanceList(path) #returns object of type AbundanceList
     #count the number of elements
     X = 0.0
     Y = 0.0
@@ -46,7 +46,7 @@ end
 #prepare dictionary
 abundance_lists = Dict{Symbol, AbundanceList}()
 #get the abundances from Asplund2009
-abundance_lists[:ASG_09] = get_abundance_list("src/Chem/asplund2009.txt")
+abundance_lists[:ASG_09] = AbundanceList("src/Chem/asplund2009.txt")
 abundance_lists[:ASG_09]
 #check the species included
 abundance_lists[:ASG_09].species_names
@@ -94,14 +94,6 @@ a = get_mass_fractions(abundance_lists[:ASG_09], net, 0.7, 0.05,0.03)
 @show a
 #println(a[:O16] / a[:C12])
 #abundance_lists[:ASG_09].massfractions[:O16] / abundance_lists[:ASG_09].massfractions[:C12]
-
-##
-
-
-
-
-
-
 
 
 ##
