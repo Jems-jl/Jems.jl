@@ -7,15 +7,19 @@ function remesher!(sm::StellarModel)
     # we first do cell splitting
     do_split = Vector{Bool}(undef, sm.nz) 
     do_split .= false
+    #maxPinstar = 0
+    #maxrinstar = 0
+
     for i in 1:sm.nz-1
         delta_log10P = abs(sm.psi.lnP[i] - sm.psi.lnP[i+1])/log(10)
         delta_log10P_max = sm.opt.remesh.delta_log10P_max
         delta_log10r = abs(sm.psi.lnr[i] - sm.psi.lnr[i+1])/log(10)
         delta_log10r_max = sm.opt.remesh.delta_log10r_max
         delta_dm = abs(sm.psi.dm[i] - sm.psi.dm[i+1])
+        #delta_dm = abs(sm.dm[i] - sm.dm[i+1])
+        println(delta_dm)
         delta_dm_max = sm.opt.remesh.delta_dm_max
         if (delta_log10r > delta_log10r_max)
-            println("Hey hey, dr")
             # if the condition is satisfied, we split the largest of the two cells
             if sm.dm[i] > sm.dm[i+1]
                 do_split[i] = true
@@ -24,7 +28,7 @@ function remesher!(sm::StellarModel)
             end
         elseif (delta_log10P > delta_log10P_max) 
             # if the condition is satisfied, we split the largest of the two cells
-            println("Hey hey, dP")
+            #println("Hey you")
             if sm.dm[i] > sm.dm[i+1]
                 do_split[i] = true
             else
@@ -32,7 +36,7 @@ function remesher!(sm::StellarModel)
             end
         elseif (delta_dm > delta_dm_max) 
             # if the condition is satisfied, we split the largest of the two cells
-            println("Hey hey, dm")
+            println("Hey hey")
             if sm.dm[i] > sm.dm[i+1]
                 do_split[i] = true
             else
@@ -46,6 +50,7 @@ function remesher!(sm::StellarModel)
     println("Extra cells = ", extra_cells)
     # if allocated space is not enough, we need to reallocate everything
     if sm.nz + extra_cells > length(sm.dm)
+        println("Is this working?")
         sm = adjusted_stellar_model_data(sm, sm.nz + extra_cells, sm.nextra);
     end
     for i=sm.nz:-1:2
@@ -57,10 +62,12 @@ function remesher!(sm::StellarModel)
             for j in 1:sm.nvars
                 sm.ind_vars[(i+extra_cells-1)*sm.nvars+j] = sm.ind_vars[(i-1)*sm.nvars+j]
             end
-            sm.m[i+extra_cells] = sm.m[i]
-            sm.dm[i+extra_cells] = sm.dm[i]
+            # RTW: why do we need these lines here? Is mass not part of the ind_vars?
+            sm.psi.m[i+extra_cells] = sm.m[i]
+            sm.psi.dm[i+extra_cells] = sm.dm[i]
         else
             #split the cell and lower extra_cells by 1
+            #println("Are you getting here?")
             dm_00 = sm.dm[i]
             var_00 = view(sm.ind_vars, ((i-1)*sm.nvars + 1):((i-1)*sm.nvars + sm.nvars))
             if i > 1
@@ -82,15 +89,31 @@ function remesher!(sm::StellarModel)
             varnew_up = view(sm.ind_vars, 
                               ((i+extra_cells-1)*sm.nvars+1):((i+extra_cells-1)*sm.nvars+sm.nvars))
 
-            for remesh_split_function in sm.remesh_split_functions
-                remesh_split_function(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
-                                        varnew_low, varnew_up)
-            end
+            #for remesh_split_function in sm.remesh_split_functions
+            #    remesh_split_function(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
+            #                            varnew_low, varnew_up)
+            #end
 
-            sm.m[i+extra_cells] = sm.m[i]
-            sm.m[i+extra_cells-1] = sm.m[i]-0.5*sm.dm[i]
-            sm.dm[i+extra_cells] = 0.5*sm.dm[i]
-            sm.dm[i+extra_cells-1] = 0.5*sm.dm[i]
+            #println("Splitting at: ", i, " + ", extra_cells)
+            #println(sm.m[i], ", ", sm.dm[i])
+            #println(sm.m[i+extra_cells], ", ", sm.dm[i+extra_cells])
+            sm.psi.m[i+extra_cells] = sm.m[i]
+            sm.psi.m[i+extra_cells-1] = sm.m[i]-0.5*sm.dm[i]
+            sm.psi.dm[i+extra_cells] = 0.5*sm.dm[i]
+            sm.psi.dm[i+extra_cells-1] = 0.5*sm.dm[i]
+
+            #sm.psi.dm[i] = 0
+            #sm.dm[i] = 0
+            #sm.psi.m[i] = 0
+            #sm.dm[i] = 0 #RTW should do nothing
+            #sm.m[i] = 0
+            #sm.m[i+extra_cells-1] =  0
+            #sm.dm[i] =  0
+            #sm.psi.dm[i] = 0
+            #sm.dm[i+extra_cells-1] = 0
+            #println(sm.m[i+extra_cells], ", ", sm.dm[i+extra_cells])
+            #println(sm.m[i], ", ", sm.dm[i])
+            #println()
 
             extra_cells = extra_cells - 1
         end

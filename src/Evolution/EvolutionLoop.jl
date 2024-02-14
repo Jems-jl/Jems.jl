@@ -152,7 +152,8 @@ function do_evolution_loop!(sm::StellarModel)
                 corr = corr * min(1, sm.opt.solver.scale_max_correction / maximum(corr))
             end
             if i % 50 == 0
-                @show i, maximum(corr), real_max_corr, maximum(sm.eqs_numbers)
+                # RTW changed this line because it was throwing an error
+                @show i, maximum(corr), real_max_corr, maximum(sm.solver_data.eqs_numbers)
             end
             # first try applying correction and see if it would give negative luminosity
             for i=1:sm.nz*sm.nvars
