@@ -1,8 +1,9 @@
 using ForwardDiff
+using Jems.Turbulence
 
 abstract type AbstractStellarModelProperties end
 
-@kwdef mutable struct StellarModelProperties{TN, TDual, TCellDualData, TFaceDualData} <: AbstractStellarModelProperties
+@kwdef mutable struct StellarModelProperties{TN, TDual, TDualFace, TCellDualData, TFaceDualData} <: AbstractStellarModelProperties
     # scalar quantities
     dt::TN  # Timestep of the current evolutionary step (s)
     dt_next::TN
@@ -38,9 +39,14 @@ abstract type AbstractStellarModelProperties end
     # face values
     lnP_face::Vector{TFaceDualData}  # [dyne]
     lnT_face::Vector{TFaceDualData}  # [K]
+    lnρ_face::Vector{TFaceDualData}  # [g cm^-3]
     κ_face::Vector{TFaceDualData}    # cm^2 g^-1
     ∇ₐ_face::Vector{TFaceDualData}   # dim-less
     ∇ᵣ_face::Vector{TFaceDualData}   # dim-less
+
+    # turbulence (i.e. convection, face valued)
+    turb_res_dual::Vector{TurbResults{TDualFace}}
+    turb_res::Vector{TurbResults{TFaceDualData}}
 end
 
 function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
@@ -51,12 +57,16 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
     CDDTYPE = CellDualData{nvars+1,3*nvars+1,TN}  # full dual arrays
     FDDTYPE = FaceDualData{2*nvars+1,3*nvars+1,TN}
     TD = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, nvars))...))  # only the cell duals
+    TDF = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, 2*nvars))...))  # only the face duals
 
     # create the vector containing the independent variables
     ind_vars = zeros(TN, nvars * (nz + nextra))
 
     eos_res_dual = [EOSResults{TD}() for i in 1:(nz+nextra)]
     eos_res = [EOSResults{CDDTYPE}() for i in 1:(nz+nextra)]
+
+    turb_res_dual = [TurbResults{TDF}() for i in 1:(nz+nextra)]
+    turb_res = [TurbResults{FDDTYPE}() for i in 1:(nz+nextra)]
 
     lnT = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnT]) for i in 1:(nz+nextra)]
     lnρ = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnρ]) for i in 1:(nz+nextra)]
@@ -77,6 +87,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
     # for some reason using zeros just creates a bunch of instances of the same object
     # so we just initialize a vector of undef
     lnP_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
+    lnρ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     lnT_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     κ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     ∇ₐ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
@@ -84,6 +95,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
     κ = Vector{CDDTYPE}(undef, nz+nextra)  # zeros(CDDTYPE, nz+nextra)
     for k in 1:(nz+nextra)
         lnP_face[k] = FaceDualData(nvars, TN)
+        lnρ_face[k] = FaceDualData(nvars, TN)
         lnT_face[k] = FaceDualData(nvars, TN)
         κ_face[k] = FaceDualData(nvars, TN)
         ∇ₐ_face[k] = FaceDualData(nvars, TN)
@@ -103,6 +115,8 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                   dt=zero(TN), dt_next=zero(TN), time=zero(TN),
                                   eos_res_dual=eos_res_dual,
                                   eos_res=eos_res,
+                                  turb_res_dual=turb_res_dual,
+                                  turb_res=turb_res,
                                   lnT=lnT,
                                   lnρ=lnρ,
                                   lnr=lnr,
@@ -110,6 +124,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                   xa=xa,
                                   xa_dual=xa_dual,
                                   lnP_face=lnP_face,
+                                  lnρ_face=lnρ_face,
                                   lnT_face=lnT_face,
                                   κ_face=κ_face,
                                   ∇ₐ_face=∇ₐ_face,
@@ -202,6 +217,11 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         lnP_face_dual = (props.dm[i] * lnP₀ + props.dm[i + 1] * lnP₊)/(props.dm[i] + props.dm[i + 1])
         update_face_dual_data!(props.lnP_face[i], lnP_face_dual)
 
+        lnρ₀ = get_face_00_dual(props.eos_res[i].lnρ)
+        lnρ₊ = get_face_p1_dual(props.eos_res[i+1].lnρ)
+        lnρ_face_dual = (props.dm[i] * lnρ₀ + props.dm[i + 1] * lnρ₊)/(props.dm[i] + props.dm[i + 1])
+        update_face_dual_data!(props.lnρ_face[i], lnρ_face_dual)
+
         lnT₀ = get_face_00_dual(props.eos_res[i].lnT)
         lnT₊ = get_face_p1_dual(props.eos_res[i+1].lnT)
         lnT_face_dual = (props.dm[i] * lnT₀ + props.dm[i + 1] * lnT₊)/(props.dm[i] + props.dm[i + 1])
@@ -216,6 +236,25 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         ∇ᵣ_dual = 3κface_dual * L₀_dual * exp(lnP_face_dual) /
                     (16π * CRAD * CLIGHT * CGRAV * props.m[i] * exp(4*lnT_face_dual))
         update_face_dual_data!(props.∇ᵣ_face[i], ∇ᵣ_dual)
+
+        δ_00 = get_face_00_dual(props.eos_res[i].δ)
+        δ_p1 = get_face_p1_dual(props.eos_res[i+1].δ)
+        δ_face_dual = (props.dm[i] * δ_00 + props.dm[i + 1] * δ_p1)/(props.dm[i] + props.dm[i + 1])
+        cₚ_00 = get_face_00_dual(props.eos_res[i].cₚ)
+        cₚ_p1 = get_face_p1_dual(props.eos_res[i+1].cₚ)
+        cₚ_face_dual = (props.dm[i] * cₚ_00 + props.dm[i + 1] * cₚ_p1)/(props.dm[i] + props.dm[i + 1])
+
+        r_dual = exp(get_face_00_dual(props.lnr[i]))
+        set_turb_results!(sm.turbulence, props.turb_res_dual[i],
+                    κface_dual, L₀_dual, exp(lnρ_face_dual), exp(lnP_face_dual), exp(lnT_face_dual), r_dual,
+                    δ_face_dual, cₚ_face_dual, ∇ₐ_face_dual, props.m[i])
+        update_face_dual_data!(props.turb_res[i].∇, props.turb_res_dual[i].∇)
+        update_face_dual_data!(props.turb_res[i].∇ᵣ, props.turb_res_dual[i].∇ᵣ)
+        update_face_dual_data!(props.turb_res[i].v_turb, props.turb_res_dual[i].v_turb)
+        update_face_dual_data!(props.turb_res[i].D_turb, props.turb_res_dual[i].D_turb)
+        update_face_dual_data!(props.turb_res[i].Γ, props.turb_res_dual[i].Γ)
+        update_face_dual_data!(props.turb_res[i].Hₚ, props.turb_res_dual[i].Hₚ)
+
     end
 end
 

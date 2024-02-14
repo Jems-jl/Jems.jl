@@ -10,6 +10,7 @@ using Jems.Constants
 using Jems.EOS
 using Jems.Opacity
 using Jems.NuclearNetworks
+using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
@@ -37,7 +38,8 @@ nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
-sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity);
+turbulence = Turbulence.BasicMLT(1.0)
+sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
 
 ##
 #=

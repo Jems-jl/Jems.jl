@@ -37,8 +37,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
 """
 @kwdef mutable struct StellarModel{TNUMBER<:Real, TDUALFULL<:ForwardDiff.Dual, TPROPS<:AbstractStellarModelProperties,
                                    TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,TNET<:NuclearNetworks.AbstractNuclearNetwork,
-                                   TSOLVER<:AbstractSolverData}
-    # Basic info that does not change over the run (for now)
+                                   TTURB<:Turbulence.AbstractTurb, TSOLVER<:AbstractSolverData}
     nvars::Int  # This is the sum of hydro vars and species
     var_names::Vector{Symbol}  # List of variable names
     vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector
@@ -49,7 +48,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     # We keep the original input for when we resize the stellar model.
     structure_equations_original::Vector{Function}
     # List of equations to be solved.
-    structure_equations::Vector{TypeStableEquation{StellarModel{TNUMBER,TDUALFULL,TPROPS,TEOS,TKAP,TNET,TSOLVER},TDUALFULL}}
+    structure_equations::Vector{TypeStableEquation{StellarModel{TNUMBER,TDUALFULL,TPROPS,TEOS,TKAP,TNET,TTURB,TSOLVER},TDUALFULL}}
     # cache to store residuals and solver matrices
     solver_data::TSOLVER
 
@@ -60,6 +59,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     eos::TEOS
     opacity::TKAP
     network::TNET
+    turbulence::TTURB
 
     # Properties that define the model
     prv_step_props::TPROPS  # properties of the previous step
@@ -88,7 +88,7 @@ number of zones in the model `nz` and an iterface to the EOS and Opacity laws.
 function StellarModel(var_names::Vector{Symbol},
                       structure_equations::Vector{Function}, nz::Int, nextra::Int,
                       remesh_split_functions::Vector{Function},
-                      network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity;
+                      network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity, turbulence::AbstractTurb;
                       use_static_arrays=true, number_type=Float64)
     nvars = length(var_names) + network.nspecies
 
@@ -113,14 +113,14 @@ function StellarModel(var_names::Vector{Symbol},
 
     # create type stable function objects
     dual_sample = ForwardDiff.Dual(zero(number_type), (zeros(number_type, 3*nvars)...))
-    tpe_stbl_funcs = Vector{TypeStableEquation{StellarModel{number_type,typeof(dual_sample),typeof(props),
-                                                            typeof(eos),typeof(opacity),typeof(network),
-                                                            typeof(solver_data)},
+    tpe_stbl_funcs = Vector{TypeStableEquation{StellarModel{number_type, typeof(dual_sample), typeof(props),
+                                                            typeof(eos), typeof(opacity), typeof(network),
+                                                            typeof(turbulence), typeof(solver_data)},
                                      typeof(dual_sample)}}(undef, length(structure_equations))
     for i in eachindex(structure_equations)
-        tpe_stbl_funcs[i] = TypeStableEquation{StellarModel{number_type,typeof(dual_sample),typeof(props),
-                                                            typeof(eos),typeof(opacity),typeof(network),
-                                                            typeof(solver_data)},
+        tpe_stbl_funcs[i] = TypeStableEquation{StellarModel{number_type, typeof(dual_sample), typeof(props),
+                                                            typeof(eos), typeof(opacity), typeof(network),
+                                                            typeof(turbulence), typeof(solver_data)},
                                      typeof(dual_sample)}(structure_equations[i])
     end
 
@@ -134,7 +134,7 @@ function StellarModel(var_names::Vector{Symbol},
                       structure_equations_original=structure_equations,
                       structure_equations=tpe_stbl_funcs,
                       remesh_split_functions=remesh_split_functions,
-                      eos=eos, opacity=opacity, network=network,
+                      eos=eos, opacity=opacity, network=network, turbulence=turbulence,
                       start_step_props=start_step_props, prv_step_props=prv_step_props, props=props,
                       opt=opt, plt=plt,
                       history_file=HDF5.File(-1,""),

@@ -91,18 +91,11 @@ function equationT(sm::StellarModel, k::Int)
     Pface = exp(get_00_dual(sm.props.lnP_face[k]))
     Tface = exp(get_00_dual(sm.props.lnT_face[k]))
 
-    ∇ᵣ = get_00_dual(sm.props.∇ᵣ_face[k])
-    ∇ₐ = get_00_dual(sm.props.∇ₐ_face[k])
+    ∇ = get_00_dual(sm.props.turb_res[k].∇)
+    return (Tface * (lnT₊ - lnT₀) / sm.props.dm[k] +
+            CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface) * ∇) /
+           (CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
 
-    if (∇ᵣ < ∇ₐ)
-        return (Tface * (lnT₊ - lnT₀) / sm.props.dm[k] +
-                CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface) * ∇ᵣ) /
-               (CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
-    else  # should do convection here
-        return (Tface * (lnT₊ - lnT₀) / sm.props.dm[k] +
-                CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface) * ∇ₐ) /
-               (CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
-    end
 end
 
 """
