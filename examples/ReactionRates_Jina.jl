@@ -1,61 +1,5 @@
 # JINA database - test file
 
-########################################
-############## TEXT ECXPL ##############
-########################################
-
-# test single reaction rate:
-# p + d -> he3
-# https://reaclib.jinaweb.org/d(p,g)he3/de04/
-
-# Format file:
-# per chapter:
-#          n    p                            wc12w     7.82300e-01          
-# -6.781610e+00 0.000000e+00 0.000000e+00 0.000000e+00                      
-# 0.000000e+00 0.000000e+00 0.000000e+00                                   
-
-# The REACLIB 1 (R1) file format is the default output of the REACLIB Database.
-# Every three lines in the R1 file comprises of an entry can be of two different types.
-# It is either a header entry or a set entry. Every line in a REACLIB file is
-# 74 characters long and is padding with spaces. Because of this a blank line is
-# actually 74 space characters.
-
-
-# MEANING DATA
-
-# The first line of the set entry is as follows: --> OK
-
-# Five(5) space characters. ok
-# Six(6) fields of five(5) characters that contain the nuclides for the rate padded with spaces. ok
-# Eight(8) spaces. ok 
-# Four(4) characters that contains the set label. ok
-# A one(1) character flag denoting:
-# blank or n: A non-resonant rate.
-# r: A resonant rate.
-# w: A weak rate. ok
-# A one(1) character flag that is set to 'v' when this is a reverse rate. ok
-# The "v" flag shows reverse rates in which detailed balance (without partition functions) was used to derive the reaction rate. Therefore, rates with this flag must be corrected to include partition function modifications.
-# Three(3) space characters. ok
-# A twelve(12) character field that contains the Q value for the reaction. 0.00000e+00. ok
-# Ten(10) space characters. ok
-
-# The second line of the set entry contains the first four ai (a0, a1, a2, a3)
-# values in that set. Each of these fields are 13 characters (0.000000e+00).
-# Followed by 22 space characters.  --> OK
-
-# The third line of the set entry contains the last three ai (a4, a5, a6) values 
-# in that set. Each of these fields are 13 characters (0.000000e+00).
-# Followed by 35 space characters. --> OK
-
-# Load in file
-
-# load in a file from my downloads
-
-
-########################################
-############## START CODE ##############
-########################################
-
 ##
 
 using BenchmarkTools
@@ -78,65 +22,24 @@ close(file)
 
 ##
 
-# code for a single element
+"""
+    JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
 
-n = 3 * 75       # start of the selected reaction
-                 # each line is 74 tokens long            
+Struct that holds the following information for a given reaction rate:
+    name: name of the reaction as a symbol
+    iso_in: vector that contains all elements on the LHS of the reaction
+    iso_out: vector that contains all elements on the RHS of the reaction
+    Qvalue: Q-value of the reaction
+    coeff: different a_i values of the reaction. Contains a vector of 7 values
+    set_label: Symbol containing set label of the reaction
+    res_rate: A 1 character flag symbol:
+        when blank or n it is a non-resonant rate
+        when r it is a resonant rate
+        when w it is a weak rate.
+    rev_rate: a 1 character flag symbol which is set to 'v' when it is a reverse rate.
+    chapter: chapter this reaction is in
 
-char_1 = file_contents[(n + 6) : (n + 10)]; println("character 1: $char_1")
-char_2 = file_contents[(n + 11): (n + 15)]; println("character 2: $char_2")
-char_3 = file_contents[(n + 16): (n + 20)]; println("character 3: $char_3")
-char_4 = file_contents[(n + 21): (n + 25)]; println("character 4: $char_4")
-char_5 = file_contents[(n + 26): (n + 30)]; println("character 5: $char_5")
-char_6 = file_contents[(n + 31): (n + 35)]; println("character 6: $char_6")
-
-set_label = file_contents[(n + 44): (n + 47)]; println("set label: $set_label")
-
-res_rate  = file_contents[(n + 48)]; println("resonance rate: $res_rate")
-char_flag = file_contents[(n + 49)]; println("character flag: $char_flag")
-
-Q_value   = file_contents[(n + 53): (n + 64)]; println("Q value: $Q_value")
-
-# second line
-
-a0 = file_contents[(n + 76) : (n + 88) ]; println("a0: $a0")
-a1 = file_contents[(n + 89) : (n + 101)]; println("a1: $a1")
-a2 = file_contents[(n + 102): (n + 114)]; println("a2: $a2")
-a3 = file_contents[(n + 115): (n + 127)]; println("a3: $a3")
-
-# third line
-
-a4 = file_contents[(n + 151): (n + 163)]; println("a4: $a4")
-a5 = file_contents[(n + 164): (n + 176)]; println("a5: $a5")
-a6 = file_contents[(n + 177): (n + 189)]; println("a6: $a6")                            
-
-##
-
-# define the start of a chapter
-
-start_char = file_contents[(n + 1)]; print("start character: $start_char")
-
-# when a chapter is started, the start_char is a model_number
-# what we want = to have a separate condition when this token is a number than the above
-# for a reaction, this is a space
-
-if start_char == ' '
-    reaction = true
-else
-    reaction = false
-end
-
-# if reaction = true --> doe het bovenstaande
-# if reaction = false --> markeer de chapter met + 1 & ga 3 lijnen verder
-
-
-###########################
-###### FULL FUNCTION ######
-###########################
-
-##
-
-# define the Jina Reaction rate structure 
+"""
 
 struct JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
     name::Symbol
@@ -146,26 +49,40 @@ struct JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
     coeff::Vector{TT}
     set_label::Symbol
     res_rate::Symbol
-    char_flag::Symbol
+    rev_rate::Symbol
+    chapter::Symbol
 end
-
 
 ## 
 
 
+"""
 
-# function om de dubbele rates te identificeren
+    add_to_references(main_dict, ref_dict, reaction, new_info::JinaReactionRate)
+
+Function to identify rates with the same reaction equation
+Evaluates if a reaction rate is already in the reference dictionary ref_dict
+
+If the reaction rate does not exist allready in the reference dictionary:
+    added as a new key to the reference dictionary
+    the value of the key is a list containing all variations of the specific reaction
+    the reaction will be added to the main dictionary 
+
+If the reaction rate allready exists in the reference dictionary:
+    keys in the main dictionary update so they have unique keys
+    value of the key of the reaction in ref_dict is updated so all the unique versions of the rate are in
+
+"""
+
 
 function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReactionRate)
 
-    # main_dict = de algemene dictionary met alle reaction rates in
-    # ref_dict  = de dictionary waarin alle references naar de reacties instaan
-    # reaction  = Symbol van de reactie die toegevoegd moet worden aan de algemene dictionary
-    # new_info  = JinaReactionRate van de nieuwe reactie
+    # main_dict = general dictionary containing all JINA Reaction rates
+    # ref_dict  = dictionary containing all unique versions of each reaction rates
+    # reaction  = Symbol of the reaction that has to be added to the main dictionary
+    # new_info  = JinaReactionRate of the new rate
 
-    if haskey(ref_dict, reaction) # de reaction rate bestaat al
-
-        # current_reactions = ref_dict[reaction]
+    if haskey(ref_dict, reaction)
 
         if ref_dict[reaction] == []
 
@@ -173,14 +90,14 @@ function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReaction
 
             cur_set_label = cur_info.set_label
             cur_res_rate  = cur_info.res_rate
-            cur_char_flag = cur_info.char_flag
+            cur_rev_rate = cur_info.rev_rate
 
             new_set_label = new_info.set_label
             new_res_rate  = new_info.res_rate
-            new_char_flag = new_info.char_flag
+            new_rev_rate = new_info.rev_rate
 
-            reaction_string_cur = "$(reaction)_$(cur_set_label)_$(cur_res_rate)_$(cur_char_flag)"
-            reaction_string_new = "$(reaction)_$(new_set_label)_$(new_res_rate)_$(new_char_flag)"
+            reaction_string_cur = "$(reaction)_$(cur_set_label)_$(cur_res_rate)_$(cur_rev_rate)"
+            reaction_string_new = "$(reaction)_$(new_set_label)_$(new_res_rate)_$(new_rev_rate)"
 
             reaction_symbol_cur = Symbol(replace(reaction_string_cur, ' ' => 'x'))
             reaction_symbol_new = Symbol(replace(reaction_string_new, ' ' => 'x'))
@@ -190,8 +107,6 @@ function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReaction
             push!(list, reaction_symbol_new)
             ref_dict[reaction] = list
 
-            # ref_dict[reaction].
-
             main_dict[reaction_symbol_cur] = cur_info
             main_dict[reaction_symbol_new] = new_info
 
@@ -199,16 +114,13 @@ function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReaction
 
             new_set_label = new_info.set_label
             new_res_rate  = new_info.res_rate
-            new_char_flag = new_info.char_flag
+            new_rev_rate = new_info.rev_rate
 
-            reaction_string_new = "$(reaction)_$(new_set_label)_$(new_res_rate)_$(new_char_flag)"
+            reaction_string_new = "$(reaction)_$(new_set_label)_$(new_res_rate)_$(new_rev_rate)"
             reaction_symbol_new = Symbol(replace(reaction_string_new, ' ' => '/'))
-
-            # ref_dict[reaction].append(reaction_symbol_new)
 
             list = ref_dict[reaction]
             push!(list, reaction_symbol_new)
-            # list.append(reaction_symbol_new)
             ref_dict[reaction] = list
 
 
@@ -218,26 +130,58 @@ function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReaction
 
     else 
         
-        ref_dict[reaction]  = []        # reaction rate bestaat nog niet
-        main_dict[reaction] = new_info  # JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, char_flag)
+        ref_dict[reaction]  = []        
+        main_dict[reaction] = new_info 
 
     end
     
 end
 
+# we willen dat de dict niet leeg is als het element de enige is
 
 ##
 
-# functie om namen aan te passen
+"""
+
+    correct_names(JINA_name)
+
+This function will return the name that corresponds with the JEMS isotope database
+
+JINA_name is the name of the element as it is given in the JINA library (without the extra spaces) as a string
+RETURN_name is the corrected name given as a string
+
+"""
+
+function correct_names(JINA_name)
+    change_name = Dict("p" => "H1", "d" => "D2", "t" => "T3", "n" => "n")
+
+    if haskey(change_name, JINA_name)
+        RETURN_name = change_name[JINA_name]
+    else
+        RETURN_name = uppercase("$JINA_name[1]") * lowercase(JINA_name[2:end])
+    end
+
+    return RETURN_name
+end
+
 
 ##
+
+"""
+
+    read_set(dataset, dictionary, reference_dictionary)
+
+    * uitleg *
+
+"""
+
 
 function read_set(dataset, dictionary, reference_dictionary)
 
     chap = 0 
+    n = 0
 
-    for x in 0:80030    # let it go through file to count / while loop
-        n = 225 * x      
+    while n <= lastindex(dataset) - 225       
     
         if dataset[(n + 1)] == ' '
 
@@ -245,7 +189,7 @@ function read_set(dataset, dictionary, reference_dictionary)
 
             set_label = Symbol(dataset[(n + 44): (n + 47)])
             res_rate  = Symbol(dataset[(n + 48)])
-            char_flag = Symbol(dataset[(n + 49)])
+            rev_rate = Symbol(dataset[(n + 49)])
 
             a0 = parse(Float64, dataset[(n + 76) : (n + 88) ])
             a1 = parse(Float64, dataset[(n + 89) : (n + 101)])
@@ -260,8 +204,8 @@ function read_set(dataset, dictionary, reference_dictionary)
 
             if chap == 1
 
-                char_1_l = strip(dataset[(n + 6) : (n + 10)]); char_1 = uppercase(first(char_1_l)) * lowercase(char_1_l[2:end]) # functie voor schrijven
-                char_2_l = strip(dataset[(n + 11): (n + 15)]); char_2 = uppercase(first(char_2_l)) * lowercase(char_2_l[2:end])
+                char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA) 
+                char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA) 
 
                 reaction_symbol = Symbol(char_1 * "_to_" * char_2)
 
@@ -270,15 +214,15 @@ function read_set(dataset, dictionary, reference_dictionary)
 
                 Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, char_flag)
+                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
                 add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
                 
 
             elseif chap == 2
 
-                char_1_l = strip(dataset[(n + 6) : (n + 10)]); char_1 = uppercase(first(char_1_l)) * lowercase(char_1_l[2:end])
-                char_2_l = strip(dataset[(n + 11): (n + 15)]); char_2 = uppercase(first(char_2_l)) * lowercase(char_2_l[2:end])
-                char_3_l = strip(dataset[(n + 16): (n + 20)]); char_3 = uppercase(first(char_3_l)) * lowercase(char_3_l[2:end])
+                char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA) 
+                char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA) 
+                char_3_JINA = strip(dataset[(n + 16): (n + 20)]); char_3 = correct_names(char_3_JINA) 
             
                 reaction_symbol = Symbol(char_1 * "_to_" * char_2 * "_" * char_3)
                 
@@ -287,15 +231,15 @@ function read_set(dataset, dictionary, reference_dictionary)
 
                 Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                         
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, char_flag)
+                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
                 add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
                 
             elseif chap == 3
 
-                char_1_l = strip(dataset[(n + 6) : (n + 10)]); char_1 = uppercase(first(char_1_l)) * lowercase(char_1_l[2:end])
-                char_2_l = strip(dataset[(n + 11): (n + 15)]); char_2 = uppercase(first(char_2_l)) * lowercase(char_2_l[2:end])
-                char_3_l = strip(dataset[(n + 16): (n + 20)]); char_3 = uppercase(first(char_3_l)) * lowercase(char_3_l[2:end])
-                char_4_l = strip(dataset[(n + 21): (n + 25)]); char_4 = uppercase(first(char_4_l)) * lowercase(char_4_l[2:end])
+                char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA)
+                char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA)
+                char_3_JINA = strip(dataset[(n + 16): (n + 20)]); char_3 = correct_names(char_3_JINA)
+                char_4_JINA = strip(dataset[(n + 21): (n + 25)]); char_4 = correct_names(char_4_JINA)
             
                 reaction_symbol = Symbol(char_1 * "_to_" * char_2 * "_" * char_3 * "_" *char_4)
                 
@@ -304,14 +248,14 @@ function read_set(dataset, dictionary, reference_dictionary)
 
                 Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                          
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, char_flag)
+                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
                 add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
                 
             elseif chap == 4
 
-                char_1_l = strip(dataset[(n + 6) : (n + 10)]); char_1 = uppercase(first(char_1_l)) * lowercase(char_1_l[2:end])
-                char_2_l = strip(dataset[(n + 11): (n + 15)]); char_2 = uppercase(first(char_2_l)) * lowercase(char_2_l[2:end])
-                char_3_l = strip(dataset[(n + 16): (n + 20)]); char_3 = uppercase(first(char_3_l)) * lowercase(char_3_l[2:end])
+                char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA)
+                char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA)
+                char_3_JINA = strip(dataset[(n + 16): (n + 20)]); char_3 = correct_names(char_3_JINA)
             
                 reaction_symbol = Symbol(char_1 * "_" * char_2 * "_to_" * char_3)
                 
@@ -320,15 +264,15 @@ function read_set(dataset, dictionary, reference_dictionary)
 
                 Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                        
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, char_flag)
+                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
                 add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
                 
             elseif chap == 5
 
-                char_1_l = strip(dataset[(n + 6) : (n + 10)]); char_1 = uppercase(first(char_1_l)) * lowercase(char_1_l[2:end])
-                char_2_l = strip(dataset[(n + 11): (n + 15)]); char_2 = uppercase(first(char_2_l)) * lowercase(char_2_l[2:end])
-                char_3_l = strip(dataset[(n + 16): (n + 20)]); char_3 = uppercase(first(char_3_l)) * lowercase(char_3_l[2:end])
-                char_4_l = strip(dataset[(n + 21): (n + 25)]); char_4 = uppercase(first(char_4_l)) * lowercase(char_4_l[2:end])
+                char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA)
+                char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA)
+                char_3_JINA = strip(dataset[(n + 16): (n + 20)]); char_3 = correct_names(char_3_JINA)
+                char_4_JINA = strip(dataset[(n + 21): (n + 25)]); char_4 = correct_names(char_4_JINA)
             
                 reaction_symbol = Symbol(char_1 * "_" * char_2 * "_to_" * char_3 * "_" *char_4)
                 
@@ -337,16 +281,16 @@ function read_set(dataset, dictionary, reference_dictionary)
 
                 Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                          
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, char_flag)
+                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
                 add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
                 
             elseif chap == 6
 
-                char_1_l = strip(dataset[(n + 6) : (n + 10)]); char_1 = uppercase(first(char_1_l)) * lowercase(char_1_l[2:end])
-                char_2_l = strip(dataset[(n + 11): (n + 15)]); char_2 = uppercase(first(char_2_l)) * lowercase(char_2_l[2:end])
-                char_3_l = strip(dataset[(n + 16): (n + 20)]); char_3 = uppercase(first(char_3_l)) * lowercase(char_3_l[2:end])
-                char_4_l = strip(dataset[(n + 21): (n + 25)]); char_4 = uppercase(first(char_4_l)) * lowercase(char_4_l[2:end])
-                char_5_l = strip(dataset[(n + 26): (n + 30)]); char_5 = uppercase(first(char_5_l)) * lowercase(char_5_l[2:end])
+                char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA)
+                char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA)
+                char_3_JINA = strip(dataset[(n + 16): (n + 20)]); char_3 = correct_names(char_3_JINA)
+                char_4_JINA = strip(dataset[(n + 21): (n + 25)]); char_4 = correct_names(char_4_JINA)
+                char_5_JINA = strip(dataset[(n + 26): (n + 30)]); char_5 = correct_names(char_5_JINA)
 
                 reaction_symbol = Symbol(char_1 * "_" * char_2 * "_to_" * char_3 * "_" * char_4 * "_" * char_5)
                 
@@ -355,17 +299,17 @@ function read_set(dataset, dictionary, reference_dictionary)
 
                 Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                        
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, char_flag)
+                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
                 add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
                 
             elseif chap == 7
 
-                char_1_l = strip(dataset[(n + 6) : (n + 10)]); char_1 = uppercase(first(char_1_l)) * lowercase(char_1_l[2:end])
-                char_2_l = strip(dataset[(n + 11): (n + 15)]); char_2 = uppercase(first(char_2_l)) * lowercase(char_2_l[2:end])
-                char_3_l = strip(dataset[(n + 16): (n + 20)]); char_3 = uppercase(first(char_3_l)) * lowercase(char_3_l[2:end])
-                char_4_l = strip(dataset[(n + 21): (n + 25)]); char_4 = uppercase(first(char_4_l)) * lowercase(char_4_l[2:end])
-                char_5_l = strip(dataset[(n + 26): (n + 30)]); char_5 = uppercase(first(char_5_l)) * lowercase(char_5_l[2:end])
-                char_6_l = strip(dataset[(n + 31): (n + 35)]); char_6 = uppercase(first(char_6_l)) * lowercase(char_6_l[2:end])
+                char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA)
+                char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA)
+                char_3_JINA = strip(dataset[(n + 16): (n + 20)]); char_3 = correct_names(char_3_JINA)
+                char_4_JINA = strip(dataset[(n + 21): (n + 25)]); char_4 = correct_names(char_4_JINA)
+                char_5_JINA = strip(dataset[(n + 26): (n + 30)]); char_5 = correct_names(char_5_JINA)
+                char_6_JINA = strip(dataset[(n + 31): (n + 35)]); char_6 = correct_names(char_6_JINA)
 
                 reaction_symbol = Symbol(char_1 * "_" * char_2 * "_to_" * char_3 * "_" * char_4 * "_" * char_5 * "_" * char_6)
                 
@@ -374,15 +318,15 @@ function read_set(dataset, dictionary, reference_dictionary)
 
                 Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                       
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, char_flag)
+                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
                 add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
                 
             elseif chap == 8
 
-                char_1_l = strip(dataset[(n + 6) : (n + 10)]); char_1 = uppercase(first(char_1_l)) * lowercase(char_1_l[2:end])
-                char_2_l = strip(dataset[(n + 11): (n + 15)]); char_2 = uppercase(first(char_2_l)) * lowercase(char_2_l[2:end])
-                char_3_l = strip(dataset[(n + 16): (n + 20)]); char_3 = uppercase(first(char_3_l)) * lowercase(char_3_l[2:end])
-                char_4_l = strip(dataset[(n + 21): (n + 25)]); char_4 = uppercase(first(char_4_l)) * lowercase(char_4_l[2:end])
+                char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA)
+                char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA)
+                char_3_JINA = strip(dataset[(n + 16): (n + 20)]); char_3 = correct_names(char_3_JINA)
+                char_4_JINA = strip(dataset[(n + 21): (n + 25)]); char_4 = correct_names(char_4_JINA)
 
                 reaction_symbol = Symbol(char_1 * "_" * char_2 * "_" * char_3 * "_to_" * char_4)
                 
@@ -391,7 +335,7 @@ function read_set(dataset, dictionary, reference_dictionary)
 
                 Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                       
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, char_flag)
+                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
                 add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
                 
             end
@@ -402,116 +346,168 @@ function read_set(dataset, dictionary, reference_dictionary)
             chap += 1
 
         end
+
+        n += 225
+
     end
         
 end
 
 ##
 
-# p to H1
-# n stays small
-# Deuterium / Tritium --> H2 & H3
+##
+
+# function to determine the reaction rate
+
+function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT}, xa_index::Dict{Symbol,Int})::TT where{TT}
+
+    # determine λ
+
+    T_9 = (eos00.T / 1e9)
+    a = reaction.coeff
+
+    x = a[1] +  a[7] * log(T_9)
+
+    for i in 2:6
+        x += a[i] * T_9^((2(i-1) - 5)/3)
+        
+    end
+
+    λ = exp(x)
+
+
+    # determine elements and how many times they occur
+    # code gives a dictionary with the elements and how many times they occur
+
+    LHS_elements = reaction.iso_in
+
+    sorted_elements = Dict{Symbol, Int}()
+    
+    for element in LHS_elements
+        if haskey(sorted_elements, element)
+            sorted_elements[element] += 1
+        else
+            sorted_elements[element] = 1
+        end
+    end
+
+    elements   = collect(keys(sorted_elements))      # elements that occur on the LHS
+    N_elements = collect(values(sorted_elements))    # how many times they occur on the LHS
+
+
+    # determine all needed parameters for every element
+
+    ν = -1
+    factors = []
+
+    for index in eachindex(elements)
+
+        elem = elements[index]                        # A
+        N_elem  = N_elements[index]                   # N_A
+        X_elem  = xa[xa_index[elem]]                  # X_A
+        m_elem  = Chem.isotope_list[elem].mass        # m_A
+
+        Y_elem = X_elem / (m_elem * Constants.AVO)              # Y_A
+        ν += N_elem
+        factor_elem = Y_elem^(N_elem) / factorial(N_elem)
+
+        push!(factors, factor_elem)
+
+    end
+
+
+
+
+    # Calculate the reaction rate
+
+    ρ = eos00.ρ
+    RR = ρ^ν * λ
+
+    for factor in factors
+        RR = RR * factor
+
+    end
+
+    print("ρ : ", ρ)
+    print("λ : ", λ)
+
+    return RR
+
+end
+
+##
+
+###############################
+######### TEST CODE ###########
+###############################
+
+##
+
+# test of reading functions
+
+##
 
 References = Dict()
 Jina_Rates = Dict()
 read_set(file_contents, Jina_Rates, References)
 
-## 
+##
 
 References = Dict()
 Jina_Rates = Dict()
-
-##
 
 using BenchmarkTools
 @benchmark read_set(file_contents, Jina_Rates, References)
 
 ##
 
-print(Jina_Rates)
 
-##
-
-# print(References)
-
-##
-
-for (key, value) in References
+for (key, value) in Jina_Rates
     println("$key: $value")
 end
 
 
 ##
 
-# lijst niet leeg laten: ook de enkele rates erin zetten
-# definitie van reaction rate bekijken
 
-
-
-# Reaction Rates
-
-
-function reaction_rate_Jina(a_0, a, eos00::EOSResults{TT})::TT where{TT}
-    T_9 = (eos00.T / 1e9)
-    sum_term = sum(i -> a[i] * T_9^((2i - 5)/3), 1:5)
-    x = exp(a_0 + sum_term + a[6] * log(T_9))
-    return x
-end
+########################
+### Big bang testing ###
+########################
 
 ##
 
-a_0 = 1.0
-a = [2.0, 3.0, 4.0, 5.0, 6.0, 7.0]
-# T_9 = 3.0
+# Starting conditions
 
-r = EOSResults{Float64}()
-eos = EOS.IdealEOS(false)
-
-set_EOS_resultsTρ!(eos, r, log(3.0e9), log(1), [1.0, 0.0], [:H1, :He4])
-
-result = reaction_rate_Jina(a_0, a, r);
-println(result)
+r = EOSResults{Float64}();          # zet een standaard EOS data file met alle waarden 0 --> hierin worden EOS resultaten opgeslagen
+eos = EOS.IdealEOS(false);          # IdealEOS op false
+logT = LinRange(10.0,11.5,100);     # Temperature range in log
+rates = zeros(100);                 # standaard rates values van 0 --> hierin worden rate values opgeslagen
 
 ##
 
-function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT}, xa_index::Dict{Symbol,Int})::TT where{TT}
+for i in eachindex(logT)                    # voor elke temperatuurwaarde --> index
 
-    T_9 = (eos00.T / 1e9)
-    a = reaction.coeff
+    set_EOS_resultsTρ!(eos,                 # state of eos (niet te veel op letten) 
+                       r,                   # data storage (niet te veel op letten) 
+                       logT[i]*log(10),     # lnT --> varieert dus voor elke i      
+                       log(1),              # lnρ --> nu op 1 gezet                 
+                       [1.0, 0.0],          # xa --> mixture quantity: wat is de fractie van het element  
+                       [:H1, :D2])          # de elementen in de mixture            
 
-    # sum_term = sum(i -> a[i] * T_9^((2i - 5)/3), 2:6)
-    λ = a[1] +  a[7] * log(T_9)
+    # r.T = 10^(logT[i])
 
-    for i in 2:6
-        λ += a[i] * T_9^((2(i-1) - 5)/3)
-        
-    end
-
-    # λ = exp(a[1] + sum_term + a[7] * log(T_9))
-
-    return exp(λ)    
-
-end
-
-
-##
-
-r = EOSResults{Float64}()
-eos = EOS.IdealEOS(false)
-logT = LinRange(7.0,10.0,100)
-rates = zeros(100)
-
-for i in eachindex(logT)
-    # set_EOS_resultsTρ!(eos, r, logT[i]*log(10), log(1), [1.0, 0.0], [:H1, :He4])
-    r.T = 10^(logT[i])
-    rates[i] = get_reaction_rate(Jina_Rates[:P_P_to_D], r,[1.0, 0.0], Dict{Symbol, Int}() )
+    rates[i] = get_reaction_rate(Jina_Rates[:H1_H1_to_D2],
+                                 r,
+                                 [0.2, 0.8],
+                                 Dict{Symbol, Int64}(:H1 => 1, :D2 => 2))
  
 end
+
+
 
 ##
 
 rates
-# Jina_Rates[:P_D_to_He3].coeff
 
 ##
 
@@ -525,6 +521,7 @@ lines!(ax, logT, log10.(rates))
 f
 
 ##
+
 # extra dict with all references (how many rates of that type)
 # add returns to kipp_rates
 
