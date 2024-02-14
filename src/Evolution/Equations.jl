@@ -146,9 +146,9 @@ function equationLuminosity(sm::StellarModel, k::Int)
     end
     if k > 1
         L₋ = get_m1_dual(sm.props.L[k-1]) * LSUN
-        return ((L₀ - L₋) / sm.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)  # no neutrinos
+        return ((L₀ - L₋) / sm.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)/(L₀/sm.m[k])  # no neutrinos
     else
-        return (L₀ / sm.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)  # no neutrinos
+        return (L₀ / sm.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)/(L₀/sm.m[k])  # no neutrinos
     end
 end
 """
