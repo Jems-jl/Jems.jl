@@ -154,7 +154,7 @@ function do_evolution_loop!(sm::StellarModel)
             end
             if sm.opt.solver.report_solver_progress &&
                 i % sm.opt.solver.solver_progress_iter == 0
-                @show sm.model_number, i, rel_corr, corr_nz, corr_equ, max_res, res_nz, res_equ
+                @show sm.model_number, i, rel_corr, abs_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ
             end
             # first try applying correction and see if it would give negative luminosity
             sm.ind_vars[1:sm.nvars*sm.nz] .+= corr[1:sm.nvars*sm.nz]

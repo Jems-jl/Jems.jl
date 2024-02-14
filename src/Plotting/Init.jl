@@ -35,14 +35,14 @@ function init_plots!(sm::StellarModel)
         elseif plot.type == :profile
             # make observables
             xname = sm.opt.plotting.profile_xaxis
-            xvals = Dict(Symbol(xname) => StellarModels.profile_output_options[xname][2].((sm,), 1:(sm.nz)))
+            xvals = Dict(Symbol(xname) => StellarModels.profile_output_functions[xname].((sm,), 1:(sm.nz)))
             ynames = sm.opt.plotting.profile_yaxes
             yvals = Dict([Symbol(name) =>
-                        StellarModels.profile_output_options[name][2].((sm,), 1:(sm.nz)) for name in ynames])
+                        StellarModels.profile_output_functions[name].((sm,), 1:(sm.nz)) for name in ynames])
             altynames = sm.opt.plotting.profile_alt_yaxes
             if !isnothing(plot.alt_ax)
                 altyvals = Dict([Symbol(name) =>
-                            StellarModels.profile_output_options[name][2].((sm,), 1:(sm.nz)) for name in altynames])
+                            StellarModels.profile_output_functions[name].((sm,), 1:(sm.nz)) for name in altynames])
             else
                 altyvals = nothing
             end
@@ -59,14 +59,14 @@ function init_plots!(sm::StellarModel)
                                 alt_ax=plot.alt_ax, alt_yvals=plot.alt_y_obs, alt_ylabels=alt_ylabels)
         elseif plot.type == :history
             xname = sm.opt.plotting.history_xaxis
-            xvals = Dict(Symbol(xname) => StellarModels.history_output_options[xname][2](sm))
+            xvals = Dict(Symbol(xname) => StellarModels.history_output_functions[xname](sm))
             
             ynames = sm.opt.plotting.history_yaxes
-            yvals = Dict([Symbol(name) => StellarModels.history_output_options[name][2](sm) for name in ynames])
+            yvals = Dict([Symbol(name) => StellarModels.history_output_functions[name](sm) for name in ynames])
             
             altynames = sm.opt.plotting.history_alt_yaxes
             if !isnothing(plot.alt_ax)
-                altyvals = Dict([Symbol(name) => StellarModels.history_output_options[name][2](sm) for name in altynames])
+                altyvals = Dict([Symbol(name) => StellarModels.history_output_functions[name](sm) for name in altynames])
             else
                 altyvals = nothing
             end
