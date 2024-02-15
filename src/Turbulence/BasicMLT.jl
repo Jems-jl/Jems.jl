@@ -21,10 +21,6 @@ function set_turb_results!(turb::BasicMLT, res::TurbResults, κ::T1, L::T1, ρ::
         res.D_turb = 0e0
         return
     end
-    res.∇ = ∇ₐ
-    res.v_turb = 0
-    res.D_turb = 0e0
-    return
 
     U = 3*CRAD*CLIGHT*T^3/(cₚ*ρ^2*κ*(turb.α_MLT*res.Hₚ)^2)*sqrt(8*res.Hₚ/(g*δ))
     W = res.∇ᵣ-∇ₐ

@@ -103,6 +103,7 @@ function do_evolution_loop!(sm::StellarModel)
             equs = @view sm.solver_data.eqs_numbers[1:sm.nvars*sm.props.nz]
 
             (abs_max_corr, i_corr) = findmax(abs, corr)
+            signed_max_corr = corr[i_corr]
             corr_nz = i_corr÷sm.nvars + 1
             corr_equ = i_corr%sm.nvars
             rel_corr = abs_max_corr/eps(sm.props.ind_vars[i_corr])
@@ -113,9 +114,9 @@ function do_evolution_loop!(sm::StellarModel)
 
             # scale correction
             if sm.props.model_number == 0
-                corr .*= min(1, sm.opt.solver.initial_model_scale_max_correction / abs_max_corr)
+                corr .*= min(1.0, sm.opt.solver.initial_model_scale_max_correction / abs_max_corr)
             else
-                corr .*= min(1, sm.opt.solver.scale_max_correction / abs_max_corr)
+                corr .*= min(1.0, sm.opt.solver.scale_max_correction / abs_max_corr)
             end
             if sm.opt.solver.report_solver_progress &&
                 i % sm.opt.solver.solver_progress_iter == 0
