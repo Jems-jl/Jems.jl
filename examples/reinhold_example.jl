@@ -52,8 +52,6 @@ Evolution.set_step_info!(sm, sm.ssi)
 StellarModels.update_stellar_model_properties!(sm, sm.props)
 Evolution.eval_jacobian_eqs!(sm)
 
-#println(sm.psi.lnP)
-
 for i in 1:sm.psi.nz
     println(sm.psi.lnP[i])
 end
@@ -72,24 +70,73 @@ toml file, which we generate dynamically. These simulation should complete in ab
 Output is stored in HDF5 files, and easy to use functions are provided with the Evolution module to turn these HDF5
 files into DataFrame objects. HDF5 output is compressed by default.
 =#
+#open("example_options.toml", "w") do file
+#    write(file,
+#          """
+#          [remesh]
+#          do_remesh = true
+#          delta_log10P_max = 0.1 #1e5 #1e5
+#          delta_log10r_max = 0.05 #1e5 #1e-1
+#          delta_dm_max = 2e30
+#          """)
+#end
+#StellarModels.set_options!(sm.opt, "./example_options.toml")
+
 open("example_options.toml", "w") do file
     write(file,
           """
           [remesh]
           do_remesh = true
-          delta_log10P_max = 1e5 #1e5
-          delta_log10r_max = 1e5 #1e-1
-          delta_dm_max = 1e29
+          delta_dm_max = 3.3e30
+          delta_log10r_max = 0.015 #1e5 #1e-1
+          delta_log10P_max = 0.03 #1e5 #1e5
+
+          [solver]
+          newton_max_iter_first_step = 1000
+          newton_max_iter = 200
+
+          [timestep]
+          dt_max_increase = 10.0
+          delta_R_limit = 0.01
+          delta_Tc_limit = 0.01
+
+          [termination]
+          max_model_number = 50
+          max_center_T = 4e7
+
+          [plotting]
+          do_plotting = false
+          wait_at_termination = false
+          plotting_interval = 1
+
+          window_specs = ["HR", "profile", "history"]
+          window_layouts = [[1, 1],  # arrangement of plots
+                            [2, 1],
+                            [3, 1]
+                            ]
+
+          profile_xaxis = 'mass'
+          profile_yaxes = ['log10_T']
+          profile_alt_yaxes = ['X','Y']
+
+          history_xaxis = 'star_age'
+          history_yaxes = ['R_surf']
+          history_alt_yaxes = ['T_center']
+
+          [io]
+          profile_interval = 50
+          terminal_header_interval = 100
+          terminal_info_interval = 100
+
           """)
 end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
+rm(sm.opt.io.hdf5_history_filename; force=true)
+rm(sm.opt.io.hdf5_profile_filename; force=true)
 
-##
-
-
-delta_log10P_max = sm.opt.remesh.delta_log10P_max
-delta_log10r_max = sm.opt.remesh.delta_log10r_max
 delta_dm_max = sm.opt.remesh.delta_dm_max
+delta_log10r_max = sm.opt.remesh.delta_log10r_max
+delta_log10P_max = sm.opt.remesh.delta_log10P_max
 
 print("logP_max -> ")
 println(delta_log10P_max)
@@ -99,127 +146,52 @@ print("dm_max -> ")
 println(delta_dm_max)
 ##
 
+using GLMakie
 
 
-# we first do cell splitting
-#do_split = Vector{Bool}(undef, sm.nz) 
-#do_split .= false
-###maxPinstar = 0
-###maxrinstar = 0
-#for i in 1:sm.nz-1
-#    delta_log10P = abs(sm.psi.lnP[i] - sm.psi.lnP[i+1])/log(10)
-#    #if delta_log10P > maxPinstar
-#    #    maxPinstar = delta_log10P
-#    delta_log10P_max = sm.opt.remesh.delta_log10P_max
-#    delta_log10r = abs(sm.psi.lnr[i] - sm.psi.lnr[i+1])/log(10)
-#    #if delta_log10r > maxrinstar
-#    #    maxrinstar = delta_log10r
-#    delta_log10r_max = sm.opt.remesh.delta_log10r_max
-#    if (delta_log10r > delta_log10r_max)
-#        println(i, ", logr")
-#        # if the condition is satisfied, we split the largest of the two cells
-#        if sm.dm[i] > sm.dm[i+1]
-#            do_split[i] = true
-#        else
-#            do_split[i+1] = true
-#        end
-#    elseif (delta_log10P > delta_log10P_max) 
-#        println(i, ", logP")
-#        # if the condition is satisfied, we split the largest of the two cells
-#        if sm.dm[i] > sm.dm[i+1]
-#            do_split[i] = true
-#        else
-#            do_split[i+1] = true
-#        end
-#    end
-#end
-### we are ignoring the edges for now
-### do_split[sm.nz] = false
-#extra_cells = sum(do_split)
-# if allocated space is not enough, we need to reallocate everything
-#if sm.nz + extra_cells > length(sm.dm)
-#    sm = adjusted_stellar_model_data(sm, sm.nz + extra_cells, sm.nextra);
-#end
-#for i=sm.nz:-1:2
-#    if extra_cells == 0
-#        break
-#    end
-#    if !do_split[i]
-#        # move everything upwards by extra_cells
-#        for j in 1:sm.nvars
-#            sm.ind_vars[(i+extra_cells-1)*sm.nvars+j] = sm.ind_vars[(i-1)*sm.nvars+j]
-#        end
-#        # RTW: why do we need these lines here? Is mass not part of the ind_vars?
-#        sm.m[i+extra_cells] = sm.m[i]
-#        sm.dm[i+extra_cells] = sm.dm[i]
-#        if i > sm.nz - 10
-#            println("i, extra = ", i, " ", extra_cells)
-#            println(sm.m[i])
-#            println(sm.m[i+extra_cells])
-#            println(sm.dm[i])
-#            println(sm.dm[i+extra_cells])
-#            println()
-#        end
-#    else
-#        println("This index is getting split ", i)
-#        println("Extra cells = ", extra_cells)
-#        #split the cell and lower extra_cells by 1
-#        #dm_00 = sm.dm[i]
-#        #var_00 = view(sm.ind_vars, ((i-1)*sm.nvars + 1):((i-1)*sm.nvars + sm.nvars))
-#        #if i > 1
-#        #    dm_m1 = sm.dm[i-1]
-#        #    var_m1 = view(sm.ind_vars, ((i-2)*sm.nvars + 1):((i-2)*sm.nvars + sm.nvars))
-#        #else
-#        #    dm_m1 = NaN
-#        #    var_m1 = []
-#        #end
-#        #if i < sm.nz
-#        #    dm_p1 = sm.dm[i+1]
-#        #    var_p1 = view(sm.ind_vars, ((i)*sm.nvars + 1):((i)*sm.nvars + sm.nvars))
-#        #else
-#        #    dm_p1 = NaN
-#        #    var_p1 = []
-#        #end
-#        #varnew_low = view(sm.ind_vars, 
-#        #                  ((i+extra_cells-2)*sm.nvars+1):((i+extra_cells-2)*sm.nvars+sm.nvars))
-#        #varnew_up = view(sm.ind_vars, 
-#        #                  ((i+extra_cells-1)*sm.nvars+1):((i+extra_cells-1)*sm.nvars+sm.nvars))
-#
-#        #for remesh_split_function in sm.remesh_split_functions
-#        #    remesh_split_function(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
-#        #                            varnew_low, varnew_up)
-#        #end
-#
-#        sm.m[i+extra_cells] = 0.5*sm.m[i]
-#        sm.m[i+extra_cells-1] = 0.5*sm.m[i]
-#        sm.dm[i+extra_cells] = 0.5*sm.dm[i]
-#        sm.dm[i+extra_cells-1] = 0.5*sm.dm[i]
-#
-#        extra_cells = extra_cells - 1
-#    end
-#end
-#sm.nz = sm.nz + sum(do_split)
-
-
-# using printf macro with @ sign 
-#println("nCells = ", sm.nz)        
-
-StellarModels.remesher!(sm)
-
-#print("Sum of split is: ")
-#println(sum(do_split))
 println("nCells = ", sm.nz)        
 
-f = Figure()
+f = Figure(size=(600, 600))
 idx = 1:sm.nz-1
-#delta_log10_P = [abs(sm.psi.lnP[i] - sm.psi.lnP[i+1])/log(10) for i in 1:sm.nz-1]
-delta_dm = [abs(sm.psi.dm[i] - sm.psi.dm[i+1]) for i in 1:sm.nz-1]
-ax = Axis(f[1,1], xlabel=L"\mathrm{idx}", ylabel=L"\mathrm{dM}")
-lines!(ax, idx, delta_dm)
+idx2 = 1:sm.nz
+dm = [sm.dm[i] for i in 1:sm.nz-1]
+lnr = [sm.psi.lnr[i] for i in 1:sm.nz]/log(10)
+lnP = [sm.psi.lnP[i] for i in 1:sm.nz]/log(10)
+dlnr = lnr[2:sm.nz] - lnr[1:sm.nz-1]
+dlnP = - (lnP[2:sm.nz] - lnP[1:sm.nz-1])
+ax1 = Axis(f[1,1], xlabel=L"\mathrm{idx}", ylabel=L"dM", yticklabelcolor=:blue)
+ax21 = Axis(f[2,1], xlabel=L"\mathrm{idx}", yticklabelcolor=:blue, ylabel=L"\Delta \log_{10}r")
+ax22 = Axis(f[2,1], xlabel=L"\mathrm{idx}", yticklabelcolor=:red, yaxisposition=:right, ylabel=L"\log_{10}r")
+ax31 = Axis(f[3,1], xlabel=L"\mathrm{idx}", yticklabelcolor=:blue, ylabel=L"\log_{10}P")
+ax32 = Axis(f[3,1], xlabel=L"\mathrm{idx}", yticklabelcolor=:red, yaxisposition=:right, ylabel=L"\log_{10}P")
+hidespines!(ax22)
+hidexdecorations!(ax22)
+hidespines!(ax32)
+hidexdecorations!(ax32)
+lines!(ax1, idx, dm, color=:blue)
+lines!(ax1, idx, delta_dm_max*ones(idx), linestyle=:dash, color=:blue)
+lines!(ax21, idx, dlnr, color=:blue)
+lines!(ax21, idx,  delta_log10r_max*ones(idx), linestyle=:dash, color=:blue)
+lines!(ax22, idx2, lnr, color=:red) 
+lines!(ax31, idx, dlnP, color=:blue)
+lines!(ax31, idx, delta_log10P_max*ones(idx), linestyle=:dash, color=:blue)
+lines!(ax32, idx2, lnP, color=:red) 
 f
 
+##
 
+rm(sm.opt.io.hdf5_history_filename; force=true)
+rm(sm.opt.io.hdf5_profile_filename; force=true)
+sm = StellarModel(varnames, structure_equations, nz, nextra,
+                  remesh_split_functions, net, eos, opacity);
+StellarModels.set_options!(sm.opt, "./example_options.toml")
+StellarModels.n_polytrope_initial_condition!(n, sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+#StellarModels.remesher!(sm)
+sm = Evolution.do_evolution_loop!(sm);
 
+##
+##
+ 
 
 
 
