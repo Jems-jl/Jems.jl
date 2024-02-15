@@ -52,7 +52,7 @@ function equationHSE(sm::StellarModel, k::Int)
     #log pressure at cell center of cell k+1
     lnP₊ = get_p1_dual(sm.props.eos_res[k+1].lnP)
 
-    lnPface = (sm.dm[k+1] * lnP₀ + sm.dm[k] * lnP₊) / (sm.dm[k] + sm.dm[k + 1])
+    lnPface = (sm.dm[k+1] * lnP₀ + sm.dm[k] * lnP₊) / (sm.dm[k] + sm.dm[k + 1])  # mass weighted pressure
     r₀ = exp(get_00_dual(sm.props.lnr[k]))
     dm = 0.5*(sm.dm[k + 1] + sm.dm[k])
 
@@ -75,7 +75,7 @@ Identical to [`equationHSE`](@ref) for compatibility with StellarModels.TypeStab
 
 # Returns
 
-Residual of comparing dlnT/dm with -∇*GMT/4πr^4P, where the latter is evaluation at the face of cell `k` and `k+1`.
+Residual of comparing dlnT/dm with -∇*GMT/4πr^4P, where the latter is evaluated at the face of cell `k` and `k+1`.
 """
 function equationT(sm::StellarModel, k::Int)
     lnT₀ = get_00_dual(sm.props.eos_res[k].lnT)
@@ -194,7 +194,7 @@ Default equation for composition evolution for isotope `iso_name`, evaluated for
 
 # Arguments
 
-TBD
+Identical to [`equationHSE`](@ref) for compatibility with StellarModels.TypeStableEquation
 
 # Returns
 

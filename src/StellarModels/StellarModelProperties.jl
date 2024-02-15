@@ -51,12 +51,12 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
 
     # for some reason using zeros just creates a bunch of instances of the same object
     # so we just initialize a vector of undef
-    κ = Vector{CDDTYPE}(undef, nz+nextra)#zeros(CDDTYPE, nz+nextra)
+    κ = Vector{CDDTYPE}(undef, nz+nextra)  # zeros(CDDTYPE, nz+nextra)
     for k in 1:(nz+nextra)
         κ[k] = CellDualData(nvars, TN)
     end
 
-    rates = Matrix{CDDTYPE}(undef,nz+nextra, nrates)
+    rates = Matrix{CDDTYPE}(undef, nz+nextra, nrates)
     for k in 1:(nz+nextra)
         for i in 1:nrates
             rates[k,i] = CellDualData(nvars, TN)
