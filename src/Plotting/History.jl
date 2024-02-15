@@ -54,12 +54,12 @@ Updates the given `plot` with relevant history data from the stellar model `sm`.
 """
 function update_history_plot!(plot::StellarModels.JemsPlot, sm::StellarModel)
     for (key, obs) in pairs(plot.x_obs)
-        push!(obs.val, StellarModels.history_output_options[String(key)][2](sm))
+        push!(obs.val, StellarModels.history_output_functions[String(key)](sm))
     end
     for (key, obs) in pairs(plot.y_obs)
-        push!(obs.val, StellarModels.history_output_options[String(key)][2](sm))
+        push!(obs.val, StellarModels.history_output_functions[String(key)](sm))
     end
     for (key, obs) in pairs(plot.alt_y_obs)
-        push!(obs.val, StellarModels.history_output_options[String(key)][2](sm))
+        push!(obs.val, StellarModels.history_output_functions[String(key)](sm))
     end
 end

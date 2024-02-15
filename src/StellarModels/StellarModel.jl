@@ -1,6 +1,7 @@
 using FunctionWrappers
 using ForwardDiff
 using LinearAlgebra
+using HDF5
 using Jems.DualSupport
 
 """
@@ -148,6 +149,10 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
 
     # object holding plotting things, ie figures, data to plot.
     plt::Plotter
+
+    # Output files
+    history_file::HDF5.File
+    profiles_file::HDF5.File
 end
 
 """
@@ -220,7 +225,9 @@ function StellarModel(var_names::Vector{Symbol},
                       remesh_split_functions=remesh_split_functions,
                       time=zero(number_type), dt=zero(number_type), model_number=0,
                       eos=eos, opacity=opacity, network=network, props=props,
-                      psi=psi, ssi=ssi, esi=esi, opt=opt, plt=plt)
+                      psi=psi, ssi=ssi, esi=esi, opt=opt, plt=plt,
+                      history_file = HDF5.File(-1,""),
+                      profiles_file = HDF5.File(-1,""))
 
     return sm
 end
@@ -264,6 +271,9 @@ function adjusted_stellar_model_data(sm, new_nz::Int, new_nextra::Int)
     new_sm.model_number = sm.model_number
     new_sm.mstar = sm.mstar
     new_sm.plt = sm.plt
+
+    new_sm.history_file = sm.history_file
+    new_sm.profiles_file = sm.profiles_file
 
     # copy arrays
     for i in 1:sm.nz
