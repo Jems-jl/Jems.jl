@@ -227,4 +227,5 @@ function do_evolution_loop!(sm::StellarModel)
         Plotting.end_of_evolution(sm)
     end
 
+    return sm
 end
