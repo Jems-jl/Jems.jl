@@ -50,7 +50,7 @@ struct JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
     set_label::Symbol
     res_rate::Symbol
     rev_rate::Symbol
-    chapter::Symbol
+    chapter::Int64
 end
 
 ## 
@@ -117,7 +117,7 @@ function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReaction
             new_rev_rate = new_info.rev_rate
 
             reaction_string_new = "$(reaction)_$(new_set_label)_$(new_res_rate)_$(new_rev_rate)"
-            reaction_symbol_new = Symbol(replace(reaction_string_new, ' ' => '/'))
+            reaction_symbol_new = Symbol(replace(reaction_string_new, ' ' => 'x'))
 
             list = ref_dict[reaction]
             push!(list, reaction_symbol_new)
@@ -158,7 +158,7 @@ function correct_names(JINA_name)
     if haskey(change_name, JINA_name)
         RETURN_name = change_name[JINA_name]
     else
-        RETURN_name = uppercase("$JINA_name[1]") * lowercase(JINA_name[2:end])
+        RETURN_name = uppercase(JINA_name[1]) * lowercase(JINA_name[2:end])
     end
 
     return RETURN_name
@@ -514,7 +514,7 @@ rates
 using CairoMakie
 
 f = Figure();
-ax = Axis(f[1, 1]; xlabel=L"\log_{10}(T_\mathrm{eff}/[K])", ylabel=L"\log_{10}(L/L_\odot)", xreversed=false)
+ax = Axis(f[1, 1]; xlabel=L"\log_{10}(T_\mathrm{eff}/[K])", ylabel="Reaction rate", xreversed=false)
 # history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
 lines!(ax, logT, log10.(rates))
 # ylims!(ax, -3,5)
