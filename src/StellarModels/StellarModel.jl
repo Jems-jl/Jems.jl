@@ -115,7 +115,6 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
 
     # Remeshing functions
     remesh_split_functions::Vector{Function}
-
     # Unique valued properties (ie not cell dependent)
     time::TN  # Age of the model (s)
     dt::TN  # Timestep of the current evolutionary step (s)
@@ -125,9 +124,6 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     eos::TEOS
     opacity::TKAP
     network::NuclearNetwork{TR}
-
-    #NEW
-    abundanceList::AbundanceList
 
     # cache for the EOS
     eos_res::Matrix{EOSResults{TD}}
@@ -168,7 +164,7 @@ number of zones in the model `nz` and an iterface to the EOS and Opacity laws.
 function StellarModel(var_names::Vector{Symbol},
                       structure_equations::Vector{Function}, nz::Int, nextra::Int,
                       remesh_split_functions::Vector{Function},
-                      network::NuclearNetwork, abundanceList::AbundanceList, eos::AbstractEOS, opacity::AbstractOpacity;
+                      network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity;
                       use_static_arrays=true)
     nvars = length(var_names) + network.nspecies
 
@@ -287,9 +283,6 @@ function StellarModel(var_names::Vector{Symbol},
                       var00=Matrix{typeof(dual_sample)}(undef, nz+nextra, nvars),
                       varm1=Matrix{typeof(dual_sample)}(undef, nz+nextra, nvars),
                       eos=eos, opacity=opacity, network=network, 
-                      #NEW
-                      abundanceList = abundanceList,
-                      #####
                       jacobian_D=jacobian_D, jacobian_U=jacobian_U, jacobian_L=jacobian_L,
                       solver_LU = solver_LU,
                       solver_tmp1=solver_tmp1, solver_tmp2=solver_tmp2, solver_β=solver_β,
