@@ -7,19 +7,19 @@ using Jems.DualSupport
 """
     struct TypeStableEquation{TS,TD<:Real}
 
-    Structure that wraps a stellar structure equation into a type stable object, using FunctionWrappers.jl. This requires
-    that the stellar structure equations have the following signature:
+Structure that wraps a stellar structure equation into a type stable object, using FunctionWrappers.jl. This requires
+that the stellar structure equations have the following signature:
 
-        ```
-        function structure_equation(::TS, ::Int,
-                                    ::Matrix{TD}, ::Matrix{TD}, ::Matrix{TD},
-                                    ::EOSResults{TD}, ::EOSResults{TD}, ::EOSResults{TD}
-                                    ::Matrix{TD},
-                                    ::TD, ::TD, ::TD)::TD
-        ```
+    ```
+    function structure_equation(::TS, ::Int,
+                                ::Matrix{TD}, ::Matrix{TD}, ::Matrix{TD},
+                                ::EOSResults{TD}, ::EOSResults{TD}, ::EOSResults{TD}
+                                ::Matrix{TD},
+                                ::TD, ::TD, ::TD)::TD
+    ```
 
-    For typical usage, TS is the concrete type of StellarModel, and TD the type of dual number being used for automatic
-    differentiation. The function must return an object of type TD, the result of the equation.
+For typical usage, TS is the concrete type of StellarModel, and TD the type of dual number being used for automatic
+differentiation. The function must return an object of type TD, the result of the equation.
 """
 struct TypeStableEquation{TS,TD<:Real}
     func::FunctionWrappers.FunctionWrapper{TD,
@@ -29,12 +29,12 @@ end
 """
     mutable struct StellarStepInfo{TN<:Real}
 
-    Information used for a simulation step. A single stellar model can have three different objects of type StellarStepInfo,
-    containing information from the previous step, information right before the Newton solver, and information after
-    the Newton solver has completed.
+Information used for a simulation step. A single stellar model can have three different objects of type StellarStepInfo,
+containing information from the previous step, information right before the Newton solver, and information after
+the Newton solver has completed.
 
-    The struct has one parametric type, TN to represent 'normal' numbers. No fields here need to have dual numbers as these
-    will not be used in automatic differentiation routines.
+The struct has one parametric type, TN to represent 'normal' numbers. No fields here need to have dual numbers as these
+will not be used in automatic differentiation routines.
 """
 @kwdef mutable struct StellarStepInfo{TNUMBER<:Real}
     # grid properties
@@ -86,11 +86,11 @@ end
 """
     mutable struct StellarModel{TN<:Real,TD<:Real,TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity}
 
-    An evolutionary model for a star, containing information about the star's current state, as well as the independent
-    variables of the model and its equations.
+An evolutionary model for a star, containing information about the star's current state, as well as the independent
+variables of the model and its equations.
 
-    The struct has four parametric types, `TN` for 'normal' numbers, `TD` for dual numbers used in automatic
-    differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type of opacity law being used.
+The struct has four parametric types, `TN` for 'normal' numbers, `TD` for dual numbers used in automatic
+differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type of opacity law being used.
 """
 @kwdef mutable struct StellarModel{TNUMBER<:Real, TDUALFULL<:ForwardDiff.Dual, TPROPS<:AbstractStellarModelProperties,
                                    TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,TNET<:NuclearNetworks.AbstractNuclearNetwork,
@@ -157,7 +157,7 @@ end
 
 """
     StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Function},
-                 nvars::Int, nspecies::Int, nz::Int, eos::AbstractEOS, opacity::AbstractOpacity)
+                nvars::Int, nspecies::Int, nz::Int, eos::AbstractEOS, opacity::AbstractOpacity)
 
 Constructor for a `StellarModel` instance, using `varnames` for the independent variables, functions of the
 `structure_equations` to be solved, number of independent variables `nvars`, number of species in the network `nspecies`
