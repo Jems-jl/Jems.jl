@@ -4,7 +4,7 @@ using ForwardDiff
 using StaticArrays
 
 export CellDualData, update_cell_dual_data_value!, update_cell_dual_data!,
-        get_cell_dual, get_m1_dual, get_00_dual, get_p1_dual
+        get_cell_dual, get_m1_dual, get_00_dual, get_p1_dual, get_cell_value
 
 # Inspired by DiffCache from PreallocationTools (https://github.com/SciML/PreallocationTools.jl)
 """
@@ -37,7 +37,7 @@ end
 # https://discourse.julialang.org/t/reinterpret-vector-into-single-struct/107709
 function get_dual(sdc::StarDiffCache{SIZE, TNUMBER}) where {SIZE,TNUMBER}
     p::Ptr{ForwardDiff.Dual{Nothing, TNUMBER, SIZE-1}} = pointer(sdc.dual_data)
-    unsafe_load(p)  # Load the first element from that pointer
+    return unsafe_load(p)  # Load the first element from that pointer
 end
 
 """
@@ -152,6 +152,10 @@ end
 
 function get_p1_dual(cd::CellDualData)
     return get_dual(cd.diff_cache_p1)
+end
+
+function get_cell_value(cd::CellDualData)
+    return get_cell_dual(cd).value
 end
 
 end

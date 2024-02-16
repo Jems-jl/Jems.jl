@@ -57,9 +57,9 @@ At last we are in position to evaluate the equations and compute the Jacobian.
 =#
 n=3
 StellarModels.n_polytrope_initial_condition!(n, sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-Evolution.set_step_info!(sm, sm.esi)
-Evolution.cycle_step_info!(sm);
-Evolution.set_step_info!(sm, sm.ssi)
+StellarModels.update_stellar_model_properties!(sm, sm.props)
+Evolution.cycle_props!(sm);
+StellarModels.update_stellar_model_properties!(sm, sm.start_step_props)
 
 ##
 #=
@@ -108,7 +108,7 @@ open("example_options.toml", "w") do file
     write(file,
           """
           [remesh]
-          do_remesh = true
+          do_remesh = false
 
           [solver]
           newton_max_iter_first_step = 1000

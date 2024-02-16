@@ -1,62 +1,62 @@
+# """
+#     set_end_step_info(sm::StellarModel)
+
+# Sets the StellarStepInfo `si`` from current state of the StellarModel `sm`.
+# """
+# function set_step_info!(sm::StellarModel, si::StellarModels.StellarStepInfo)
+#     si.model_number = sm.model_number
+#     si.time = sm.time
+#     si.dt = sm.dt
+
+#     si.nz = sm.props.nz
+#     si.mstar = sm.mstar
+
+#     Threads.@threads for i = 1:(sm.props.nz)
+#         si.m[i] = sm.m[i]
+#         si.dm[i] = sm.dm[i]
+
+#         si.lnT[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
+#         si.L[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]]
+#         si.lnρ[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]]
+#         si.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]]
+
+#         xa = view(sm.ind_vars, (i * sm.nvars - sm.network.nspecies + 1):(i * sm.nvars))
+#         si.X[i] = xa[sm.network.xa_index[:H1]]  # can later include H2 as well.
+#         si.Y[i] = xa[sm.network.xa_index[:He4]]  # can later include He3 as well.
+
+#         set_EOS_resultsTρ!(sm.eos, si.eos_res[i], si.lnT[i], si.lnρ[i], xa, sm.network.species_names)
+
+#         si.lnP[i] = log(si.eos_res[i].P)
+#         for k = 1:sm.nvars
+#             si.ind_vars[(i - 1) * sm.nvars + k] = sm.ind_vars[(i - 1) * sm.nvars + k]
+#         end
+#     end
+# end
+
 """
-    set_end_step_info(sm::StellarModel)
+    cycle_props!(sm::StellarModel)
 
-Sets the StellarStepInfo `si`` from current state of the StellarModel `sm`.
+Moves the model properties of the StellarModel `sm` over one state:
+start_step_props -> props -> prv_step_props -> start_step_props
 """
-function set_step_info!(sm::StellarModel, si::StellarModels.StellarStepInfo)
-    si.model_number = sm.model_number
-    si.time = sm.time
-    si.dt = sm.dt
-
-    si.nz = sm.nz
-    si.mstar = sm.mstar
-
-    Threads.@threads for i = 1:(sm.nz)
-        si.m[i] = sm.m[i]
-        si.dm[i] = sm.dm[i]
-
-        si.lnT[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
-        si.L[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]]
-        si.lnρ[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]]
-        si.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]]
-
-        xa = view(sm.ind_vars, (i * sm.nvars - sm.network.nspecies + 1):(i * sm.nvars))
-        si.X[i] = xa[sm.network.xa_index[:H1]]  # can later include H2 as well.
-        si.Y[i] = xa[sm.network.xa_index[:He4]]  # can later include He3 as well.
-
-        set_EOS_resultsTρ!(sm.eos, si.eos_res[i], si.lnT[i], si.lnρ[i], xa, sm.network.species_names)
-
-        si.lnP[i] = log(si.eos_res[i].P)
-        for k = 1:sm.nvars
-            si.ind_vars[(i - 1) * sm.nvars + k] = sm.ind_vars[(i - 1) * sm.nvars + k]
-        end
-    end
+function cycle_props!(sm::StellarModel)
+    temp_props = sm.prv_step_props
+    sm.prv_step_props = sm.props
+    sm.props = sm.start_step_props
+    sm.start_step_props = temp_props
 end
 
 """
-    cycle_step_info!(sm::StellarModel)
+    uncycle_props!(sm::StellarModel)
 
-Moves the model info of the StellarModel `sm` over one state:
-start step info -> end step info -> previous step info -> start step info.
+Moves the model properties of the StellarModel `sm` back one state:
+start_step_props <- props <- prv_step_props <- start_step_props
 """
-function cycle_step_info!(sm::StellarModel)
-    temp_step_info = sm.psi
-    sm.psi = sm.esi
-    sm.esi = sm.ssi
-    sm.ssi = temp_step_info
-end
-
-"""
-    uncycle_step_info!(sm::StellarModel)
-
-Moves the model info of the StellarModel `sm` back one state:
-start step info <- end step info <- previous step info <- start step info.
-"""
-function uncycle_step_info!(sm::StellarModel)
-    temp_step_info = sm.esi
-    sm.esi = sm.psi
-    sm.psi = sm.ssi
-    sm.ssi = temp_step_info
+function uncycle_props!(sm::StellarModel)
+    temp_props = sm.props
+    sm.props = sm.prv_step_props
+    sm.prv_step_props = sm.start_step_props
+    sm.start_step_props = temp_props
 end
 
 """
@@ -66,20 +66,20 @@ Computes the timestep of the next evolutionary step to be taken by the StellarMo
 controls (`sm.opt.timestep`).
 """
 function get_dt_next(sm::StellarModel)
-    dt_next = sm.esi.dt
-    if (sm.esi.model_number == 0)
+    dt_next = sm.prv_step_props.dt
+    if (sm.model_number == 0)
         return dt_next
     else
-        Rsurf = exp(sm.esi.lnr[sm.esi.nz])
-        Rsurf_old = exp(sm.psi.lnr[sm.esi.nz])
+        Rsurf = exp(get_cell_value(sm.props.lnr[sm.props.nz]))
+        Rsurf_old = exp(get_cell_value(sm.prv_step_props.lnr[sm.prv_step_props.nz]))
         ΔR_div_R = abs(Rsurf - Rsurf_old) / Rsurf
 
-        Tc = exp(sm.esi.lnT[sm.esi.nz])
-        Tc_old = exp(sm.psi.lnT[sm.esi.nz])
+        Tc = exp(get_cell_value(sm.props.lnT[sm.props.nz]))
+        Tc_old = exp(get_cell_value(sm.prv_step_props.lnT[sm.prv_step_props.nz]))
         ΔTc_div_Tc = abs(Tc - Tc_old) / Tc
 
-        X = sm.esi.ind_vars[(sm.esi.nz - 1) * sm.nvars + sm.vari[:H1]]
-        Xold = sm.psi.ind_vars[(sm.esi.nz - 1) * sm.nvars + sm.vari[:H1]]
+        X = get_cell_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:H1]])
+        Xold = get_cell_value(sm.prv_step_props.xa[sm.prv_step_props.nz, sm.network.xa_index[:H1]])
         ΔX = abs(X - Xold) / (X)
 
         dt_nextR = dt_next * sm.opt.timestep.delta_R_limit / ΔR_div_R
@@ -100,28 +100,27 @@ Performs the main evolutionary loop of the input StellarModel `sm`. It continues
 termination criteria is reached (defined in `sm.opt.termination`).
 """
 function do_evolution_loop!(sm::StellarModel)
+    # before loop actions
     StellarModels.create_output_files!(sm)
-    set_step_info!(sm, sm.esi)
-    # evolution loop, be sure to have sensible termination conditions or this will go on forever!
-    dt_factor = 1.0 # this is changed during retries to lower the timestep
+    StellarModels.update_stellar_model_properties!(sm, sm.props)  # set the initial condition as the result of a previous phantom step
+    dt_factor = 1.0  # this is changed during retries to lower the timestep
     retry_count = 0
+
+    # evolution loop, be sure to have sensible termination conditions or this will go on forever!
     while true
-        # get dt for this step
-        dt_next = get_dt_next(sm)*dt_factor
+        # get dt for coming step
+        sm.dt = get_dt_next(sm)*dt_factor
 
-        cycle_step_info!(sm)  # move esi of previous step to psi of this step
-
+        cycle_props!(sm)  # move props of previous step to prv_props of current step
+        
         # remeshing
         if sm.opt.remesh.do_remesh
             sm = StellarModels.remesher!(sm)
         end
 
-        set_step_info!(sm, sm.ssi)  # set start step info before we attempt any newton solver
+        StellarModels.update_stellar_model_properties!(sm, sm.start_step_props)  # save bef_props before we attempt any newton solver
 
-        sm.ssi.dt = dt_next
-        sm.dt = dt_next
         sm.solver_data.newton_iters = 0
-
         max_steps = sm.opt.solver.newton_max_iter
         if (sm.model_number == 0)
             max_steps = sm.opt.solver.newton_max_iter_first_step
@@ -134,14 +133,14 @@ function do_evolution_loop!(sm::StellarModel)
             StellarModels.update_stellar_model_properties!(sm, sm.props)
             eval_jacobian_eqs!(sm)  # heavy lifting happens here!
             thomas_algorithm!(sm)  # here as well
-            corr = @view sm.solver_data.solver_corr[1:sm.nvars*sm.nz]
+            corr = @view sm.solver_data.solver_corr[1:sm.nvars*sm.props.nz]
 
             real_max_corr = maximum(corr)
 
             # scale surface correction to prevent negative surface luminosity
             # if correction will produce negative L, scale it so L is halved
-            corr_lum_surf = corr[sm.nvars * (sm.nz - 1) + sm.vari[:lum]]
-            lum_surf = sm.ind_vars[sm.nvars * (sm.nz - 1) + sm.vari[:lum]]
+            corr_lum_surf = corr[sm.nvars * (sm.props.nz - 1) + sm.vari[:lum]]
+            lum_surf = sm.ind_vars[sm.nvars * (sm.props.nz - 1) + sm.vari[:lum]]
             if lum_surf + corr_lum_surf < 0.0
                 corr = corr * (-0.1 * lum_surf / corr_lum_surf)
             end
@@ -153,10 +152,10 @@ function do_evolution_loop!(sm::StellarModel)
                 corr .*= min(1, sm.opt.solver.scale_max_correction / maximum(corr))
             end
             if i % 50 == 0
-                @show i, maximum(corr), real_max_corr, maximum(sm.eqs_numbers)
+                @show i, maximum(corr), real_max_corr, maximum(sm.solver_data.eqs_numbers)
             end
             # first try applying correction and see if it would give negative luminosity
-            sm.ind_vars[1:sm.nvars*sm.nz] .+= corr[1:sm.nvars*sm.nz]
+            sm.ind_vars[1:sm.nvars*sm.props.nz] .+= corr[1:sm.nvars*sm.props.nz]
             if real_max_corr < 1e-10
                 if sm.model_number == 0
                     println("Found first model")
@@ -170,7 +169,7 @@ function do_evolution_loop!(sm::StellarModel)
                 else
                     retry_count = retry_count + 1
                     retry_step = true
-                    println("Failed to converge step $(sm.model_number) with timestep $(dt_next/SECYEAR), retrying")
+                    println("Failed to converge step $(sm.model_number) with timestep $(sm.props.dt/SECYEAR), retrying")
                 end
             end
             sm.solver_data.newton_iters = i
@@ -178,7 +177,7 @@ function do_evolution_loop!(sm::StellarModel)
 
         if retry_step
             dt_factor = dt_factor*0.5
-            uncycle_step_info!(sm)
+            uncycle_props!(sm)  # reset props to what prv_props contains
             continue
         else
             dt_factor = 1.0
@@ -192,12 +191,12 @@ function do_evolution_loop!(sm::StellarModel)
         retry_count = 0
 
         # increment age and model number since we accept the step.
-        sm.time = sm.time + sm.ssi.dt
+        sm.time = sm.time + sm.dt
         sm.model_number = sm.model_number + 1
 
-        # write state in sm.esi and potential history/profiles.
-        set_step_info!(sm, sm.esi)
-        StellarModels.write_data(sm)
+        # write state in sm.props and potential history/profiles.
+        StellarModels.update_stellar_model_properties!(sm, sm.props)
+        # StellarModels.write_data(sm)
         StellarModels.write_terminal_info(sm)
 
         if sm.opt.plotting.do_plotting && sm.model_number == 1
@@ -206,17 +205,17 @@ function do_evolution_loop!(sm::StellarModel)
             Plotting.update_plotting!(sm)
         end
 
-        #@show sm.model_number, sm.esi.lnP[1], sm.esi.lnP[2], sm.esi.lnP[sm.nz-1], sm.esi.lnP[sm.nz]
-        #@show sm.model_number, sm.esi.lnT[1], sm.esi.lnT[2], sm.esi.lnT[sm.nz-1], sm.esi.lnT[sm.nz]
+        #@show sm.model_number, sm.esi.lnP[1], sm.esi.lnP[2], sm.esi.lnP[sm.props.nz-1], sm.esi.lnP[sm.props.nz]
+        #@show sm.model_number, sm.esi.lnT[1], sm.esi.lnT[2], sm.esi.lnT[sm.props.nz-1], sm.esi.lnT[sm.props.nz]
         #@show sm.dm[1], sm.dm[2], sm.dm[3]
-        #@show sum(sm.dm[1:sm.nz])
+        #@show sum(sm.dm[1:sm.props.nz])
 
         # check termination conditions
         if (sm.model_number > sm.opt.termination.max_model_number)
             println("Reached maximum model number")
             break
         end
-        if (exp(sm.esi.lnT[1]) > sm.opt.termination.max_center_T)
+        if (exp(get_cell_value(sm.props.lnT[1])) > sm.opt.termination.max_center_T)
             println("Reached maximum central temperature")
             break
         end

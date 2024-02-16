@@ -161,21 +161,21 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
     xvals, yvals, zvals = RungeKutta_LaneEmden(n)
     (θ_n, ξ_1, derivative_θ_n) = (linear_interpolation(xvals,yvals), xvals[end],linear_interpolation(xvals,zvals))
     
-    logdqs = zeros(length(sm.dm))
-    for i in 1:sm.nz
-        logdqs[i] = get_logdq(i, sm.nz, -10.0, 0.0, -6.0, 200)
+    logdqs = zeros(length(sm.props.dm))
+    for i in 1:sm.props.nz
+        logdqs[i] = get_logdq(i, sm.props.nz, -10.0, 0.0, -6.0, 200)
     end
     dqs = 10 .^ logdqs
-    dqs[sm.nz+1:end] .= 0  # extra entries beyond nz have no mass
+    dqs[sm.props.nz+1:end] .= 0  # extra entries beyond nz have no mass
     dqs = dqs ./ sum(dqs)
     dms = dqs .* M
     m_face = cumsum(dms)
     m_cell = cumsum(dms)
     # correct m_center
-    for i = 1:(sm.nz)
+    for i = 1:(sm.props.nz)
         if i == 1
             m_cell[i] = 0
-        elseif i != sm.nz
+        elseif i != sm.props.nz
             m_cell[i] = m_cell[i] - 0.5 * dms[i]
         end
     end
@@ -183,22 +183,22 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
     rn = R / ξ_1  # ξ is defined as r/rn, where rn^2=(n+1)Pc/(4π G ρc^2)
     ρc = M / (4π * rn^3 * (-ξ_1^2 * derivative_θ_n(ξ_1)))
     Pc = 4π * CGRAV * rn^2 * ρc^2 / (n + 1)
-    ξ_cell = zeros(sm.nz)
-    ξ_face = zeros(sm.nz)
+    ξ_cell = zeros(sm.props.nz)
+    ξ_face = zeros(sm.props.nz)
     function mfunc(ξ, m)
         return m - 4π * rn^3 * ρc * (-ξ^2 * derivative_θ_n(ξ))
     end
 
-    for i = 1:(sm.nz)
+    for i = 1:(sm.props.nz)
         if i == 1
             ξ_cell[i] = 0
-        elseif i == sm.nz
+        elseif i == sm.props.nz
             ξ_cell[i] = ξ_1
         else
             mfunc_anon = ξ -> mfunc(ξ, m_cell[i])
             ξ_cell[i] = find_zero(mfunc_anon, (0, ξ_1), Bisection())
         end
-        if i == sm.nz
+        if i == sm.props.nz
             ξ_face[i] = ξ_1
         else
             mfunc_anon = ξ -> mfunc(ξ, m_face[i])
@@ -208,7 +208,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
     mfunc_anon = ξ -> mfunc(ξ, 0.99999*M)
 
     # set radii, pressure and temperature
-    for i = 1:(sm.nz)
+    for i = 1:(sm.props.nz)
         μ = 0.5
         XH = 1.0
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]] = log(rn * ξ_face[i])
@@ -235,7 +235,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
     sm.m = m_face
 
     # set luminosity
-    for i = 1:(sm.nz - 1)
+    for i = 1:(sm.props.nz - 1)
         μ = 0.5
         Pface = Pc * (θ_n(ξ_face[i]))^(n + 1)
         ρface = ρc * (θ_n(ξ_face[i]))^(n)
@@ -257,11 +257,11 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
     end
 
     # special cases, just copy values at edges
-    sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lnρ]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lnρ]]
-    sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lnT]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lnT]]
-    # sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lum]]
-    sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 3) * sm.nvars + sm.vari[:lum]]
-    sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 3) * sm.nvars + sm.vari[:lum]]
+    sm.ind_vars[(sm.props.nz - 1) * sm.nvars + sm.vari[:lnρ]] = sm.ind_vars[(sm.props.nz - 2) * sm.nvars + sm.vari[:lnρ]]
+    sm.ind_vars[(sm.props.nz - 1) * sm.nvars + sm.vari[:lnT]] = sm.ind_vars[(sm.props.nz - 2) * sm.nvars + sm.vari[:lnT]]
+    # sm.ind_vars[(sm.props.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.props.nz - 2) * sm.nvars + sm.vari[:lum]]
+    sm.ind_vars[(sm.props.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.props.nz - 3) * sm.nvars + sm.vari[:lum]]
+    sm.ind_vars[(sm.props.nz - 2) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.props.nz - 3) * sm.nvars + sm.vari[:lum]]
 
     sm.time = 0.0
     sm.dt = initial_dt
