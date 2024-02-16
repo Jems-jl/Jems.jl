@@ -10,6 +10,7 @@ profiles.hdf5
 example_options.toml
 docs/build
 alloc-profile.pb.gz
+profile.pb.gz
 
 NuclearBurning.md
 developing/test*
