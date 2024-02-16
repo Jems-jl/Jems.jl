@@ -28,7 +28,12 @@ Substructure of Options containing controls relating to the Newton solver
     newton_max_iter_first_step::Int = 5000
     initial_model_scale_max_correction::Float64 = 3.0
     scale_max_correction::Float64 = 0.5
-    scale_correction_negative_Lsurf::Float64 = 0.1
+
+    relative_correction_tolerance::Float64 = 1e3 # measured in terms of variable epsilon, 1 would be machine precision limit, 1e16 is on the scale of the variable
+    maximum_residual_tolerance::Float64 = 1e-4
+
+    report_solver_progress::Bool = true
+    solver_progress_iter::Int = 50
 end
 
 """
@@ -67,11 +72,13 @@ Substructure of Options containing controls relating to input/output of data
     hdf5_history_filename::String = "history.hdf5"
     hdf5_history_chunk_size::Int = 50
     hdf5_history_compression_level::Int = 9
+    hdf5_history_keep_open::Bool = false
 
     hdf5_profile_filename::String = "profiles.hdf5"
     hdf5_profile_chunk_size::Int = 50
     hdf5_profile_compression_level::Int = 9
     hdf5_profile_dataset_name_zero_padding::Int = 10
+    hdf5_profile_keep_open::Bool = false
 
     terminal_header_interval::Int = 10
     terminal_info_interval::Int = 10

@@ -18,7 +18,7 @@ abstract type AbstractEOS end
 
 Structure that holds various results from the evaluation of the EOS of a certain cell.
 """
-@kwdef mutable struct EOSResults{T1<:Real}
+@kwdef mutable struct EOSResults{T1}
     T::T1 = 0  # Temperature (K)
     P::T1 = 0  # Pressure (dyn)
     ρ::T1 = 0  # density (g cm^-3)

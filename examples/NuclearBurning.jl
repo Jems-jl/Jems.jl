@@ -60,7 +60,6 @@ StellarModels.n_polytrope_initial_condition!(n, sm, 0.73,0.01,0.0002,Chem.abunda
 Evolution.set_step_info!(sm, sm.esi)
 Evolution.cycle_step_info!(sm);
 Evolution.set_step_info!(sm, sm.ssi)
-Evolution.eval_jacobian_eqs!(sm)
 
 ##
 #=
@@ -68,26 +67,17 @@ Evolution.eval_jacobian_eqs!(sm)
 
 The previous code leaves everything ready to solve the linearized system. 
 For now we make use of a the serial Thomas algorithm for tridiagonal block matrices.
-We first show how long it takes to evaluate one row (meaning, one set of lower, diagonal
-and upper block) of the Jacobian matrix.
+We first show how long it takes to evaluate the Jacobian matrix. This requires two
+steps, the first is to evaluate properties across the model (for example, the EOS)
+and then evaluate all differential equations.
 =#
-@benchmark Evolution.eval_jacobian_eqs_row!(sm, 2)
+@benchmark begin
+    StellarModels.update_stellar_model_properties!($sm, $sm.props)
+    Evolution.eval_jacobian_eqs!($sm)
+end
 
 ##
 #=
-On my machine, this takes $\sim 3\;\mathrm{\mu s}$. This is a short amount of time, but we have a thousand cells
-to compute. Let's benchmark the calculation of the full jacobian.
-=#
-@benchmark Evolution.eval_jacobian_eqs!(sm)
-
-##
-#=
-And on my computer, this took about $1\;\mathrm{ms}$. Even though we have a thousand cells, the computation time was
-not a thousand times longer than computing the components of the jacobian for a single cell. The reason for this is that
-the calculation is parallelized so cells are done independently. However, I used 8 cores for my calculations, so the
-scaling is less than ideal. One of the main culprits here is the garbage collector. Current versions of julia can only
-perform garbage collection in a serial way, so it does not take advantage of all threads. Starting with julia 1.10, the
-garbage collector will be able to run in multiple threads, so that should alleviate issues with performance scaling.
 
 To get an idea of how much a complete iteration of the solver takes, we need to benchmark
 both the calculation of the Jacobian and the matrix solver. This is because the matrix solver
@@ -96,6 +86,7 @@ to run only the matrix solver can be determined by substracting the previous ben
 =#
 
 @benchmark begin
+    StellarModels.update_stellar_model_properties!($sm, $sm.props)
     Evolution.eval_jacobian_eqs!($sm)
     Evolution.thomas_algorithm!($sm)
 end
@@ -130,7 +121,7 @@ open("example_options.toml", "w") do file
 
           [termination]
           max_model_number = 2000
-          max_center_T = 4e7
+          max_center_T = 1e8
 
           [plotting]
           do_plotting = false
@@ -175,7 +166,7 @@ here so we don't need to distribute those fonts together with Jems.
 using CairoMakie, LaTeXStrings, MathTeXEngine
 basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                            italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
-                    fontsize=30, resolution=(1000, 750), linewidth=7,
+                    fontsize=30, size=(1000, 750), linewidth=7,
                     Axis=(xlabelsize=40, ylabelsize=40, titlesize=40, xgridvisible=false, ygridvisible=false,
                           spinewidth=2.5, xminorticksvisible=true, yminorticksvisible=true, xtickalign=1, ytickalign=1,
                           xminortickalign=1, yminortickalign=1, xticksize=14, xtickwidth=2.5, yticksize=14,
