@@ -95,31 +95,32 @@ function do_evolution_loop!(sm::StellarModel)
 
             eval_jacobian_eqs!(sm)  # heavy lifting happens here!
             thomas_algorithm!(sm)  # here as well
+            corr = @view sm.solver_data.solver_corr[1:sm.nvars*sm.nz]
+            equs = @view sm.solver_data.eqs_numbers[1:sm.nvars*sm.nz]
 
-            corr = @view sm.solver_data.solver_corr[1:sm.nvars*sm.props.nz]
-            real_max_corr = maximum(corr)
+            (abs_max_corr, i_corr) = findmax(abs, corr)
+            corr_nz = i_corr÷sm.nvars + 1
+            corr_equ = i_corr%sm.nvars
+            rel_corr = abs_max_corr/eps(sm.ind_vars[i_corr])
 
-            # scale surface correction to prevent negative surface luminosity
-            # if correction will produce negative L, scale it so L is halved
-            corr_lum_surf = corr[sm.nvars * (sm.props.nz - 1) + sm.vari[:lum]]
-            lum_surf = sm.ind_vars[sm.nvars * (sm.props.nz - 1) + sm.vari[:lum]]
-            if lum_surf + corr_lum_surf < 0.0
-                corr *= (-0.1 * lum_surf / corr_lum_surf)
-            end
+            (max_res, i_res) = findmax(abs, equs)
+            res_nz = i_res÷sm.nvars + 1
+            res_equ = i_res%sm.nvars
 
             # scale correction
             if sm.model_number == 0
-                corr .*= min(1, sm.opt.solver.initial_model_scale_max_correction / maximum(corr))
+                corr .*= min(1, sm.opt.solver.initial_model_scale_max_correction / abs_max_corr)
             else
-                corr .*= min(1, sm.opt.solver.scale_max_correction / maximum(corr))
+                corr .*= min(1, sm.opt.solver.scale_max_correction / abs_max_corr)
             end
-            # if i % 50 == 0
-            #     @show i, maximum(corr), real_max_corr, maximum(sm.solver_data.eqs_numbers)
-            # end
-
-            # applying correction
-            sm.ind_vars[1:sm.nvars*sm.props.nz] .+= corr[1:sm.nvars*sm.props.nz]
-            if real_max_corr < 1e-10
+            if sm.opt.solver.report_solver_progress &&
+                i % sm.opt.solver.solver_progress_iter == 0
+                @show sm.model_number, i, rel_corr, abs_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ
+            end
+            # first try applying correction and see if it would give negative luminosity
+            sm.ind_vars[1:sm.nvars*sm.nz] .+= corr[1:sm.nvars*sm.nz]
+            if rel_corr < sm.opt.solver.relative_correction_tolerance &&
+                    max_res < sm.opt.solver.maximum_residual_tolerance
                 if sm.model_number == 0
                     println("Found first model")
                 end

@@ -121,7 +121,7 @@ open("example_options.toml", "w") do file
 
           [termination]
           max_model_number = 2000
-          max_center_T = 4e7
+          max_center_T = 1e8
 
           [plotting]
           do_plotting = false

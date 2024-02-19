@@ -48,11 +48,11 @@ function equationHSE(sm::StellarModel, k::Int)
 
     #log pressure at cell center of cell k
     lnP₀ = get_00_dual(sm.props.eos_res[k].lnP)
-
     #log pressure at cell center of cell k+1
     lnP₊ = get_p1_dual(sm.props.eos_res[k+1].lnP)
 
-    lnPface = (sm.props.dm[k+1] * lnP₀ + sm.props.dm[k] * lnP₊) / (sm.props.dm[k] + sm.props.dm[k + 1])  # mass weighted pressure
+    lnPface = get_00_dual(sm.props.lnP_face[k])
+
     r₀ = exp(get_00_dual(sm.props.lnr[k]))
     dm = 0.5*(sm.props.dm[k + 1] + sm.props.dm[k])
 
@@ -84,23 +84,15 @@ function equationT(sm::StellarModel, k::Int)
         r₀ = exp(get_00_dual(sm.props.lnr[k]))
         return lnT₀ - log(L₀ / (BOLTZ_SIGMA * 4π * r₀^2)) / 4  # Eddington gray, ignoring radiation pressure term
     end
-    κ00 = get_00_dual(sm.props.κ[k])
-    κp1 = get_p1_dual(sm.props.κ[k+1])
-    κface = exp((sm.props.dm[k] * log(κ00) + sm.props.dm[k + 1] * log(κp1)) / (sm.props.dm[k] + sm.props.dm[k + 1]))
-    L₀ = get_00_dual(sm.props.L[k]) * LSUN
     r₀ = exp(get_00_dual(sm.props.lnr[k]))
+    lnT₀ = get_00_dual(sm.props.lnT[k])
+    lnT₊ = get_p1_dual(sm.props.lnT[k+1])
 
-    lnP₀ = get_00_dual(sm.props.eos_res[k].lnP)
-    lnP₊ = get_p1_dual(sm.props.eos_res[k+1].lnP)
-    Pface = exp((sm.props.dm[k] * lnP₀ + sm.props.dm[k + 1] * lnP₊) /
-                (sm.props.dm[k] + sm.props.dm[k + 1]))
-    lnT₊ = get_p1_dual(sm.props.eos_res[k+1].lnT)
-    Tface = exp((sm.props.dm[k] * lnT₀ + sm.props.dm[k + 1] * lnT₊) / (sm.props.dm[k] + sm.props.dm[k + 1]))
+    Pface = exp(get_00_dual(sm.props.lnP_face[k]))
+    Tface = exp(get_00_dual(sm.props.lnT_face[k]))
 
-    ∇ᵣ = 3κface * L₀ * Pface / (16π * CRAD * CLIGHT * CGRAV * sm.props.m[k] * Tface^4)
-    ∇ₐ_p1 = get_p1_dual(sm.props.eos_res[k+1].∇ₐ)
-    ∇ₐ_00 = get_00_dual(sm.props.eos_res[k].∇ₐ)
-    ∇ₐ = (sm.props.dm[k] * ∇ₐ_00 + sm.props.dm[k + 1] * ∇ₐ_p1) / (sm.props.dm[k] + sm.props.dm[k + 1])
+    ∇ᵣ = get_00_dual(sm.props.∇ᵣ_face[k])
+    ∇ₐ = get_00_dual(sm.props.∇ₐ_face[k])
 
     if (∇ᵣ < ∇ₐ)
         return (Tface * (lnT₊ - lnT₀) / sm.props.dm[k] +
@@ -146,9 +138,9 @@ function equationLuminosity(sm::StellarModel, k::Int)
     end
     if k > 1
         L₋ = get_m1_dual(sm.props.L[k-1]) * LSUN
-        return ((L₀ - L₋) / sm.props.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)  # no neutrinos
+        return ((L₀ - L₋) / sm.props.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)/(L₀/sm.props.m[k])  # no neutrinos
     else
-        return (L₀ / sm.props.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)  # no neutrinos
+        return (L₀ / sm.props.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)/(L₀/sm.props.m[k])  # no neutrinos
     end
 end
 """
