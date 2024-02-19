@@ -108,7 +108,7 @@ open("example_options.toml", "w") do file
     write(file,
           """
           [remesh]
-          do_remesh = false
+          do_remesh = true
 
           [solver]
           newton_max_iter_first_step = 1000

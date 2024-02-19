@@ -5,10 +5,11 @@
 """
 function remesher!(sm::StellarModel)
     # we first do cell splitting
-    do_split = Vector{Bool}(undef, sm.nz) 
+    do_split = Vector{Bool}(undef, sm.nz)
     do_split .= false
-    for i in 1:sm.nz-1
-        a = abs(sm.psi.lnP[i] - sm.psi.lnP[i+1])/log(10)
+    Threads.@threads for i in 1:sm.nz-1
+        a = abs(log10(get_cell_value(sm.prv_step_props.eos_res[i].P)) -
+                log10(get_cell_value(sm.prv_step_props.eos_res[i+1].P)))
         b = sm.opt.remesh.delta_log10P_split
         if a > b
             # if the condition is satisfied, we split the largest of the two cells
@@ -38,7 +39,7 @@ function remesher!(sm::StellarModel)
             sm.m[i+extra_cells] = sm.m[i]
             sm.dm[i+extra_cells] = sm.dm[i]
         else
-            #split the cell and lower extra_cells by 1
+            # split the cell and lower extra_cells by 1
             dm_00 = sm.dm[i]
             var_00 = view(sm.ind_vars, ((i-1)*sm.nvars + 1):((i-1)*sm.nvars + sm.nvars))
             if i > 1
@@ -61,8 +62,7 @@ function remesher!(sm::StellarModel)
                               ((i+extra_cells-1)*sm.nvars+1):((i+extra_cells-1)*sm.nvars+sm.nvars))
 
             for remesh_split_function in sm.remesh_split_functions
-                remesh_split_function(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
-                                        varnew_low, varnew_up)
+                remesh_split_function(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
             end
 
             sm.m[i+extra_cells] = sm.m[i]
@@ -81,10 +81,9 @@ function remesher!(sm::StellarModel)
     return sm
 end
 
-function split_lnr_lnρ(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
-    varnew_low, varnew_up)
+function split_lnr_lnρ(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
 
-    lnρ_old = var_00[sm.vari[:lnρ]] # we keep the same density on both new cells
+    lnρ_old = var_00[sm.vari[:lnρ]]  # we keep the same density on both new cells
     lnr_old = var_00[sm.vari[:lnr]]
 
     # radius of the lower cell is computed with the continuity equation
@@ -103,9 +102,7 @@ function split_lnr_lnρ(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
     varnew_up[sm.vari[:lnr]] = lnr_old
 end
 
-function split_lum(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
-    varnew_low, varnew_up)
-
+function split_lum(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
     # for the center face, we use the surface boundary condition L=0
     if i==1
         L_face_below = 0
@@ -118,22 +115,20 @@ function split_lum(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
     varnew_up[sm.vari[:lum]] = L_above
 end
 
-function split_lnT(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
-    varnew_low, varnew_up)
-
+function split_lnT(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
     if i==1
-        lnT_low = var_00[sm.vari[:lnT]] # Central cell remains at the center
+        lnT_low = var_00[sm.vari[:lnT]]  # Central cell remains at the center
         lnT_cell_above = var_p1[sm.vari[:lnT]]
 
-        mnew_up = 0.75*dm_00 # mass from the core
+        mnew_up = 0.75*dm_00  # mass from the core
         mcell_above = dm_00 + 0.5*dm_p1
 
         lnT_up = lnT_low + (lnT_cell_above - lnT_low)*mnew_up/mcell_above
     elseif i==sm.nz
-        lnT_up = var_00[sm.vari[:lnT]] # Surface remians at same temperature
+        lnT_up = var_00[sm.vari[:lnT]]  # Surface remians at same temperature
         lnT_cell_below = var_m1[sm.vari[:lnT]]
 
-        mnew_low = 0.5*dm_m1 + 0.25*dm_00 # mass of new lower cell from center of lower cell
+        mnew_low = 0.5*dm_m1 + 0.25*dm_00  # mass of new lower cell from center of lower cell
         mup = 0.5*dm_m1 + dm_00 # mass of the surface from center of lower cell
 
         lnT_low = lnT_cell_below + (lnT_up - lnT_cell_below)*mnew_low/mup
@@ -142,11 +137,11 @@ function split_lnT(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
         lnT_cell_below = var_m1[sm.vari[:lnT]]
         lnT_old = var_00[sm.vari[:lnT]]
 
-        mnew_low = 0.5*dm_m1+0.25*dm_00 # mass at cell center of new lower cell, from center of cell below
-        mold = 0.5*dm_m1+0.5*dm_00 # old mass at cell center, from center of cell below
+        mnew_low = 0.5*dm_m1+0.25*dm_00  # mass at cell center of new lower cell, from center of cell below
+        mold = 0.5*dm_m1+0.5*dm_00  # old mass at cell center, from center of cell below
         lnT_low = lnT_cell_below + (lnT_old - lnT_cell_below)*mnew_low/mold
 
-        mnew_up = 0.25*dm_00 # mass from center of cell before splitting 
+        mnew_up = 0.25*dm_00  # mass from center of cell before splitting 
         mcell_above = 0.5*dm_00+0.5*dm_p1
         lnT_up = lnT_old + (lnT_cell_above - lnT_old)*mnew_up/mcell_above
     end
@@ -154,9 +149,8 @@ function split_lnT(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
     varnew_up[sm.vari[:lnT]] = lnT_up
 end
 
-function split_xa(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1,
-    varnew_low, varnew_up)
-    #use same composition on both cells to preserve species
+function split_xa(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
+    # use same composition on both cells to preserve species
     for i in 1:sm.network.nspecies
         varnew_low[sm.nvars+1-i] = var_00[sm.nvars+1-i]
         varnew_up[sm.nvars+1-i] = var_00[sm.nvars+1-i]
