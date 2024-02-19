@@ -1,6 +1,7 @@
 module Plotting
 
-using GLMakie, LaTeXStrings, MathTeXEngine, Jems.StellarModels
+using GLMakie, LaTeXStrings, MathTeXEngine, Jems.StellarModels, Jems.DualSupport
+
 const colors = Iterators.cycle([:red, :blue, :green])
 const label_dict = Dict("mass" => L"m / M_\odot",
                         "zone" => L"\mathrm{zone}",
@@ -47,9 +48,9 @@ function update_plotting!(sm::StellarModel)
     if (sm.model_number % sm.opt.plotting.data_interval == 0)
         for plot in sm.plt.plots
             if plot.type == :HR
-                update_HR_plot!(plot, sm)
+                update_HR_plot!(plot, sm.props)
             elseif plot.type == :profile
-                update_profile_plot!(plot, sm)
+                update_profile_plot!(plot, sm)  # these cannot be loaded from props, bc they use the IO functions.
             elseif plot.type == :history
                 update_history_plot!(plot, sm)
             end

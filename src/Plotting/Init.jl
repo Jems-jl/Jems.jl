@@ -6,7 +6,7 @@ Sets up all observables to be traced this run, and creates the figure and axis w
 function init_plots!(sm::StellarModel)
     basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                                italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
-                        fontsize=50, resolution=(1000, 750), linewidth=7,
+                        fontsize=50, size=(1000, 750), linewidth=7,
                         Axis=(xlabelsize=40, ylabelsize=40, titlesize=40, xgridvisible=false, ygridvisible=false,
                               spinewidth=2.5, xminorticksvisible=true, yminorticksvisible=true, xtickalign=1,
                               ytickalign=1,
@@ -29,7 +29,7 @@ function init_plots!(sm::StellarModel)
         plot.y_obs = Dict{Symbol,Observable}()
         plot.alt_y_obs = Dict{Symbol,Observable}()
         if plot.type == :HR
-            create_HR_observables!(plot, sm)
+            create_HR_observables!(plot, sm.props)
             make_HR_plot!(plot.ax, plot.x_obs[:Teff], plot.y_obs[:L], plot.x_obs[:Teff_now],
                           plot.y_obs[:L_now]; scatter_kwargs=Dict(:color => "red", :markersize => 20))
         elseif plot.type == :profile
