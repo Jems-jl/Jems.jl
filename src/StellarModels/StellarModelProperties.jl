@@ -13,10 +13,10 @@ abstract type AbstractStellarModelProperties end
     eos_res::Vector{EOSResults{TCellDualData}}
 
     # independent variables
-    lnT::Vector{TCellDualData}
-    lnρ::Vector{TCellDualData}
-    lnr::Vector{TCellDualData}
-    L::Vector{TCellDualData}
+    lnT::Vector{TCellDualData}  # [K]
+    lnρ::Vector{TCellDualData}  # [g cm^-3]
+    lnr::Vector{TCellDualData}  # [cm]
+    L::Vector{TCellDualData}    # [erg s^-1]
     xa::Matrix{TCellDualData}
     xa_dual::Matrix{TDual}
 

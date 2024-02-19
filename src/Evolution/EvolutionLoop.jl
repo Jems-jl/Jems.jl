@@ -1,38 +1,3 @@
-# """
-#     set_end_step_info(sm::StellarModel)
-
-# Sets the StellarStepInfo `si`` from current state of the StellarModel `sm`.
-# """
-# function set_step_info!(sm::StellarModel, si::StellarModels.StellarStepInfo)
-#     si.model_number = sm.model_number
-#     si.time = sm.time
-#     si.dt = sm.dt
-
-#     si.nz = sm.props.nz
-#     si.mstar = sm.mstar
-
-#     Threads.@threads for i = 1:(sm.props.nz)
-#         si.m[i] = sm.m[i]
-#         si.dm[i] = sm.dm[i]
-
-#         si.lnT[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
-#         si.L[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]]
-#         si.lnρ[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]]
-#         si.lnr[i] = sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]]
-
-#         xa = view(sm.ind_vars, (i * sm.nvars - sm.network.nspecies + 1):(i * sm.nvars))
-#         si.X[i] = xa[sm.network.xa_index[:H1]]  # can later include H2 as well.
-#         si.Y[i] = xa[sm.network.xa_index[:He4]]  # can later include He3 as well.
-
-#         set_EOS_resultsTρ!(sm.eos, si.eos_res[i], si.lnT[i], si.lnρ[i], xa, sm.network.species_names)
-
-#         si.lnP[i] = log(si.eos_res[i].P)
-#         for k = 1:sm.nvars
-#             si.ind_vars[(i - 1) * sm.nvars + k] = sm.ind_vars[(i - 1) * sm.nvars + k]
-#         end
-#     end
-# end
-
 """
     cycle_props!(sm::StellarModel)
 
@@ -112,8 +77,9 @@ function do_evolution_loop!(sm::StellarModel)
             sm = StellarModels.remesher!(sm)
         end
 
-        # MF: this is unnecessary atm I think, we never refer to start_step_props
-        StellarModels.update_stellar_model_properties!(sm, sm.start_step_props)  # save start_step_props before we attempt any newton solver
+        # time derivatives in the equations use the remeshed info,
+        # save start_step_props before we attempt any newton solver
+        StellarModels.update_stellar_model_properties!(sm, sm.start_step_props)
 
         sm.solver_data.newton_iters = 0
         max_steps = sm.opt.solver.newton_max_iter
@@ -196,7 +162,7 @@ function do_evolution_loop!(sm::StellarModel)
 
         # write state in sm.props and potential history/profiles.
         StellarModels.update_stellar_model_properties!(sm, sm.props)
-        # StellarModels.write_data(sm)
+        StellarModels.write_data(sm)
         StellarModels.write_terminal_info(sm)
 
         if sm.opt.plotting.do_plotting && sm.model_number == 1
@@ -212,10 +178,12 @@ function do_evolution_loop!(sm::StellarModel)
 
         # check termination conditions
         if (sm.model_number > sm.opt.termination.max_model_number)
+            StellarModels.write_terminal_info(sm; now=true)
             println("Reached maximum model number")
             break
         end
         if (exp(get_cell_value(sm.props.lnT[1])) > sm.opt.termination.max_center_T)
+            StellarModels.write_terminal_info(sm; now=true)
             println("Reached maximum central temperature")
             break
         end

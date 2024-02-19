@@ -152,7 +152,8 @@ end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
-StellarModels.n_polytrope_initial_condition!(n, sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
+n=3
+StellarModels.n_polytrope_initial_condition!(n, sm, 1 * MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
 @time sm = Evolution.do_evolution_loop!(sm);
 
 ##

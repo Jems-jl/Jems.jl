@@ -13,33 +13,16 @@ const intstr = "%$width" * "i "
 const line1fmt = Printf.Format(intstr * floatstr^6 * intstr * "\n")
 const line2fmt = Printf.Format(floatstr^7 * intstr * "\n")
 const header = """
-        model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
-         mass       age      logR     logTc     logPc     logρc   He_cntr     zones
-    -------------------------------------------------------------------------------
-    """
-
+    model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
+     mass       age      logR     logTc     logPc     logρc   He_cntr     zones
+-------------------------------------------------------------------------------
 """
-    history_get_ind_vars_edge_value(sm::StellarModel, var_symbol::Symbol, edge::Symbol)
 
-Returns the value of the independent variable `var_symbol` at either the surface or the center of the StellarModel `sm`.
-`edge` can be either `:surface` or `:center`.
-"""
-function history_get_ind_vars_edge_value(sm::StellarModel, var_symbol::Symbol, edge::Symbol)
-    if var_symbol ∉ sm.var_names
-        throw(ArgumentError(":$var_symbol is not a valid independent variable"))
-    end
-    if edge == :center
-        return sm.ind_vars[sm.vari[var_symbol]]
-    elseif edge == :surface
-        return sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[var_symbol]]
-    else
-        throw(ArgumentError("'edge' must be either :surface or :center. Instead received 
-                :$edge"))
-    end
-end
+const history_output_units::Dict{String,String} = Dict()
+const history_output_functions::Dict{String,Function} = Dict()
+const profile_output_units::Dict{String,String} = Dict()
+const profile_output_functions::Dict{String,Function} = Dict()
 
-const history_output_units::Dict{String, String} = Dict()
-const history_output_functions::Dict{String, Function} = Dict()
 function add_history_option(name, unit, func)
     if haskey(history_output_units, name)
         throw(ArgumentError("Key $name is already part of the history output options"))
@@ -47,41 +30,29 @@ function add_history_option(name, unit, func)
     history_output_units[name] = unit
     history_output_functions[name] = func
 end
-add_history_option("star_age", "year", sm -> sm.esi.time / SECYEAR)
-add_history_option("dt", "year", sm -> sm.esi.dt / SECYEAR)
-add_history_option("model_number", "unitless", sm -> sm.esi.model_number)
-add_history_option("star_mass", "Msun", sm -> sm.esi.mstar / MSUN)
 
-#surface properties
-add_history_option("R_surf", "Rsun", sm -> exp(sm.esi.lnr[sm.nz]-log(RSUN)))
-add_history_option("L_surf", "Lsun", sm -> sm.esi.L[sm.nz])
-add_history_option("T_surf", "K", sm -> exp(sm.esi.lnT[sm.nz]))
-add_history_option("P_surf", "dyne", sm -> exp(sm.esi.lnP[sm.nz]))
-add_history_option("ρ_surf", "g*cm^-3", sm -> exp(sm.esi.lnρ[sm.nz]))
-add_history_option("X_surf", "unitless", sm -> history_get_ind_vars_edge_value(sm, :H1, :surface))
-add_history_option("Y_surf", "unitless", sm -> history_get_ind_vars_edge_value(sm, :He4, :surface))
+# general properties
+add_history_option("star_age", "year", sm -> sm.time / SECYEAR)
+add_history_option("dt", "year", sm -> sm.dt / SECYEAR)
+add_history_option("model_number", "unitless", sm -> sm.model_number)
+add_history_option("star_mass", "Msun", sm -> sm.mstar / MSUN)
 
-#central properties
-add_history_option("T_center", "K", sm -> exp(sm.esi.lnT[1]))
-add_history_option("P_center", "dyne", sm -> exp(sm.esi.lnP[1]))
-add_history_option("ρ_center", "g*cm^-3", sm -> exp(sm.ssi.lnρ[1]))
-add_history_option("X_center", "unitless", sm -> history_get_ind_vars_edge_value(sm, :H1, :surface))
-add_history_option("Y_center", "unitless", sm -> history_get_ind_vars_edge_value(sm, :He4, :surface))
+# surface properties
+add_history_option("R_surf", "Rsun", sm -> exp(get_cell_value(sm.props.lnr[sm.nz])) / RSUN)
+add_history_option("L_surf", "Lsun", sm -> get_cell_value(sm.props.L[sm.nz]) / LSUN)
+add_history_option("T_surf", "K", sm -> exp(get_cell_value(sm.props.lnT[sm.nz])))
+add_history_option("ρ_surf", "g*cm^-3", sm -> exp(get_cell_value(sm.props.lnρ[sm.nz])))
+add_history_option("P_surf", "dyne", sm -> exp(get_cell_value(sm.props.eos_res[sm.nz].P)))
+add_history_option("X_surf", "unitless", sm -> get_cell_value(sm.props.xa[sm.nz, sm.network.xa_index[:H1]]))
+add_history_option("Y_surf", "unitless", sm -> get_cell_value(sm.props.xa[sm.nz, sm.network.xa_index[:He4]]))
 
-"""
-    profile_get_ind_vars_value(sm::StellarModel, var_symbol::Symbol, k::Int)
+# central properties
+add_history_option("T_center", "K", sm -> exp(get_cell_value(sm.props.lnT[1])))
+add_history_option("ρ_center", "g*cm^-3", sm -> exp(get_cell_value(sm.props.lnρ[1])))
+add_history_option("P_center", "dyne", sm -> exp(get_cell_value(sm.props.eos_res[1].P)))
+add_history_option("X_center", "unitless", sm -> get_cell_value(sm.props.xa[1, sm.network.xa_index[:H1]]))
+add_history_option("Y_center", "unitless", sm -> get_cell_value(sm.props.xa[1, sm.network.xa_index[:He4]]))
 
-Returns the value of the variable Symbol `var_symbol` at cell number `k` of the StellarModel `sm`.
-"""
-function profile_get_ind_vars_value(sm::StellarModel, var_symbol::Symbol, k::Int)
-    if var_symbol ∉ sm.var_names
-        throw(ArgumentError(":$var_symbol is not a valid independent variable"))
-    end
-    return sm.ind_vars[(k - 1) * sm.nvars + sm.vari[var_symbol]]
-end
-
-const profile_output_units::Dict{String, String} = Dict()
-const profile_output_functions::Dict{String, Function} = Dict()
 function add_profile_option(name, unit, func)
     if haskey(profile_output_units, name)
         throw(ArgumentError("Key $name is already part of the history output options"))
@@ -90,21 +61,21 @@ function add_profile_option(name, unit, func)
     profile_output_functions[name] = func
 end
 
-#general properties
+# general properties
 add_profile_option("zone", "unitless", (sm, k) -> k)
-add_profile_option("mass", "Msun", (sm, k) -> sm.esi.m[k] / MSUN)
-add_profile_option("dm", "Msun", (sm, k) -> sm.esi.dm[k] / MSUN)
+add_profile_option("mass", "Msun", (sm, k) -> sm.props.m[k] / MSUN)
+add_profile_option("dm", "Msun", (sm, k) -> sm.props.dm[k] / MSUN)
 
-#thermodynamic properties
-add_profile_option("log10_r", "log10(Rsun)", (sm, k) -> sm.esi.lnr[k] / RSUN * log10_e)
-add_profile_option("log10_P", "log10(dyne)", (sm, k) -> sm.esi.lnP[k] * log10_e)
-add_profile_option("log10_T", "log10(K)", (sm, k) -> sm.esi.lnT[k] * log10_e)
-add_profile_option("log10_ρ", "log10_(g*cm^-3)", (sm, k) -> sm.esi.lnρ[k] * log10_e)
-add_profile_option("luminosity", "Lsun", (sm, k) -> sm.esi.L[k])
+# thermodynamic properties
+add_profile_option("log10_r", "log10(Rsun)", (sm, k) -> get_cell_value(sm.props.lnr[k]) * log10_e - log10(RSUN))
+add_profile_option("log10_P", "log10(dyne)", (sm, k) -> get_cell_value(sm.props.eos_res[k].P) * log10_e)
+add_profile_option("log10_T", "log10(K)", (sm, k) -> get_cell_value(sm.props.lnT[k]) * log10_e)
+add_profile_option("log10_ρ", "log10_(g*cm^-3)", (sm, k) -> get_cell_value(sm.props.lnρ[k]) * log10_e)
+add_profile_option("luminosity", "Lsun", (sm, k) -> get_cell_value(sm.props.L[k]) / LSUN)
 
-#abundance
-add_profile_option("X", "unitless", (sm, k) -> profile_get_ind_vars_value(sm, :H1, k))
-add_profile_option("Y", "unitless", (sm, k) -> profile_get_ind_vars_value(sm, :He4, k))
+# abundances
+add_profile_option("X", "unitless", (sm, k) -> get_cell_value(sm.props.xa[k, sm.network.xa_index[:H1]]))
+add_profile_option("Y", "unitless", (sm, k) -> get_cell_value(sm.props.xa[k, sm.network.xa_index[:He4]]))
 
 """
     create_output_files(sm::StellarModel)
@@ -233,13 +204,11 @@ function write_data(sm::StellarModel)
     end
 end
 
-function write_terminal_info(sm::StellarModel)
-    if sm.model_number == 1 || 
-            sm.model_number % sm.opt.io.terminal_header_interval == 0
+function write_terminal_info(sm::StellarModel; now::Bool=false)
+    if sm.model_number == 1 || sm.model_number % sm.opt.io.terminal_header_interval == 0 || now
         print(header)
     end
-    if sm.model_number == 1 ||
-            sm.model_number % sm.opt.io.terminal_info_interval == 0
+    if sm.model_number == 1 || sm.model_number % sm.opt.io.terminal_info_interval == 0 || now
         Printf.format(stdout, line1fmt,
                       sm.model_number,
                       log10(sm.dt/SECYEAR),
