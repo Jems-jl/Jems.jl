@@ -66,6 +66,10 @@ function get_cell_dual(cd::CellDualData)
     return get_dual(cd.diff_cache_cell)
 end
 
+function get_cell_value(cd::CellDualData)
+    return get_cell_dual(cd).value
+end
+
 function get_m1_dual(cd::CellDualData)
     return get_dual(cd.diff_cache_m1)
 end
