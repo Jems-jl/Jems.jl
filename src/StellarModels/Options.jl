@@ -37,7 +37,7 @@ end
 Substructure of Options containing controls relating to timestepping
 """
 @kwdef mutable struct TimestepOptions
-    initial_dt::Int = 1 # in years
+    initial_dt::Int = 1  # in years
 
     delta_R_limit::Float64 = 0.005
     delta_Tc_limit::Float64 = 0.005
@@ -45,7 +45,7 @@ Substructure of Options containing controls relating to timestepping
 
     dt_max_increase::Float64 = 2
     dt_max_decrease::Float64 = 0.5
-    dt_retry_decrease::Float64 = 2
+    dt_retry_decrease::Float64 = 0.5
 end
 
 """

@@ -21,7 +21,7 @@ function thomas_algorithm!(sm)
 
     # We store Δ_i in the diagonal
     b_1 = @view eqs_numbers[1:sm.nvars]
-    solver_β[1] .= .- b_1 # this has an inverse sign for b_1 for our case
+    solver_β[1] .= .- b_1  # this has an inverse sign for b_1 for our case
     # Δ_0 is just the inverse of the first diagonal block
     D_1 = jacobian_D[1]
     solver_LU[1] = lu!(D_1)
@@ -63,7 +63,7 @@ function thomas_algorithm!(sm)
         β_i .= β_i .- x_i
         ldiv!(x_i, LU_Δ_i, β_i)
     end
-    #unload result into solver_corr
+    # unload result into solver_corr
     for i=1:sm.props.nz
         for j=1:sm.nvars
             solver_corr[(i-1)*sm.nvars+j] = solver_x[i][j]
