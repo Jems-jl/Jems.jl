@@ -94,7 +94,7 @@ function equationT(sm::StellarModel, k::Int)
     ∇ = get_00_dual(sm.props.turb_res[k].∇)
     return (Tface * (lnT₊ - lnT₀) / sm.props.dm[k] +
             CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface) * ∇) /
-           (CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
+           (CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface))
 
 end
 
