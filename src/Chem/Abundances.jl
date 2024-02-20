@@ -39,7 +39,6 @@ function AbundanceList(path) #returns object of type AbundanceList
             massfractions[isotope_symbol] = X_i
             abundance_sources[isotope_symbol] = source
             push!(species_names, isotope_symbol)
-            @show isotope_symbol, isotope, X_i, abundance
         end
     end
     return AbundanceList(massfractions, abundance_sources, species_names)
@@ -88,7 +87,7 @@ function get_mass_fractions(abundance_list::AbundanceList, network, X, Z, Dfract
             if species in abundance_list.species_names
                 fraction = Z / sum_of_metals
                 massfractions[species] = abundance_list.massfractions[species] * fraction
-            else
+            elseif species ≠ :D2
                 println("Species $(species) is not in the abundance list, setting its mass fraction to 0.0")
                 massfractions[species] = 0.0 #put to zero if species not in abundance list
             end
