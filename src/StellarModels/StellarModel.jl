@@ -26,63 +26,6 @@ struct TypeStableEquation{TS,TD<:Real}
                                            Tuple{TS,Int}}
 end
 
-# """
-#     mutable struct StellarStepInfo{TN<:Real}
-
-# Information used for a simulation step. A single stellar model can have three different objects of type StellarStepInfo,
-# containing information from the previous step, information right before the Newton solver, and information after
-# the Newton solver has completed.
-
-# The struct has one parametric type, TN to represent 'normal' numbers. No fields here need to have dual numbers as these
-# will not be used in automatic differentiation routines.
-# """
-# @kwdef mutable struct StellarStepInfo{TNUMBER<:Real}
-#     # grid properties
-#     nz::Int  # number of zones in the model
-#     m::Vector{TNUMBER}  # mass coordinate of each cell
-#     dm::Vector{TNUMBER}  # mass contained in each cell
-#     mstar::TNUMBER  # total model mass
-
-#     # unique valued properties (ie not cell dependent)
-#     time::TNUMBER
-#     dt::TNUMBER
-#     model_number::Int
-
-#     # full vector with independent variables (size is number of variables * number of zones)
-#     ind_vars::Vector{TNUMBER}
-
-#     # Values of properties at each cell, sizes are equal to number of zones
-#     lnT::Vector{TNUMBER}
-#     L::Vector{TNUMBER}
-#     lnP::Vector{TNUMBER}
-#     lnρ::Vector{TNUMBER}
-#     lnr::Vector{TNUMBER}
-#     X::Vector{TNUMBER}
-#     Y::Vector{TNUMBER}
-
-#     #eos results
-#     eos_res::Vector{EOSResults{TNUMBER}}
-# end
-
-# function StellarStepInfo(nvars, nz, nextra, number_type)
-#     return StellarStepInfo(nz=nz,
-#                            m=zeros(number_type, nz+nextra),
-#                            dm=zeros(number_type, nz+nextra),
-#                            mstar=zero(number_type),
-#                            time=zero(number_type),
-#                            dt=zero(number_type),
-#                            model_number=0,
-#                            ind_vars=zeros(number_type, nvars * (nz+nextra)),
-#                            lnT=zeros(number_type, nz+nextra),
-#                            L=zeros(number_type, nz+nextra),
-#                            lnP=zeros(number_type, nz+nextra),
-#                            lnρ=zeros(number_type, nz+nextra),
-#                            lnr=zeros(number_type, nz+nextra),
-#                            X=zeros(number_type, nz+nextra),
-#                            Y=zeros(number_type, nz+nextra),
-#                            eos_res=[EOSResults{number_type}() for i = 1:(nz+nextra)])
-# end
-
 """
     mutable struct StellarModel{TN<:Real,TD<:Real,TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity}
 
@@ -134,17 +77,6 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     prv_step_props::TPROPS  # properties of the previous step
     start_step_props::TPROPS  # properties before newton solving (but after remesh)
     props::TPROPS  # properties during and after newton solving
-
-    # # Here I want to preemt things that will be necessary once we have an adaptative
-    # # mesh. Idea is that psi contains the information from the previous step (or the
-    # # initial condition). ssi will contain information after remeshing. Absent remeshing
-    # # it will make no difference. esi will contain properties once the step is completed.
-    # # Information coming from the previous step (psi=Previous Step Info)
-    # psi::StellarStepInfo{TNUMBER}
-    # # Information computed at the start of the step (ssi=Start Step Info)
-    # ssi::StellarStepInfo{TNUMBER}
-    # # Information computed at the end of the step (esi=End Step Info)
-    # esi::StellarStepInfo{TNUMBER}
 
     # Space for used defined options, defaults are in Options.jl
     opt::Options
@@ -211,11 +143,6 @@ function StellarModel(var_names::Vector{Symbol},
                                                             typeof(solver_data)},
                                      typeof(dual_sample)}(structure_equations[i])
     end
-
-    # # create stellar step info objects
-    # psi = StellarStepInfo(nvars, nz, nextra, number_type)
-    # ssi = StellarStepInfo(nvars, nz, nextra, number_type)
-    # esi = StellarStepInfo(nvars, nz, nextra, number_type)
 
     # create options object
     opt = Options()
@@ -294,29 +221,5 @@ function adjusted_stellar_model_data(sm, new_nz::Int, new_nextra::Int)
         new_sm.m[i] = sm.m[i]
         new_sm.dm[i] = sm.dm[i]
     end
-
-    # # Copy StellarStepInfo objects
-    # for (new_ssi, old_ssi) in [(new_sm.psi, sm.psi), (new_sm.ssi, sm.ssi), (new_sm.esi, sm.esi)]
-    #     new_ssi.nz = old_ssi.nz
-    #     new_ssi.time = old_ssi.time
-    #     new_ssi.dt = old_ssi.dt
-    #     new_ssi.model_number = old_ssi.model_number
-    #     new_ssi.mstar = old_ssi.mstar
-    #     for i in 1:sm.nz
-    #         for j in 1:sm.nvars
-    #             new_ssi.ind_vars[(i-1)*sm.nvars + j] = old_ssi.ind_vars[(i-1)*sm.nvars + j]
-    #         end
-    #         new_ssi.m[i] = old_ssi.m[i]
-    #         new_ssi.dm[i] = old_ssi.dm[i]
-    #         new_ssi.lnT[i] = old_ssi.lnT[i]
-    #         new_ssi.L[i] = old_ssi.L[i]
-    #         new_ssi.lnP[i] = old_ssi.lnP[i]
-    #         new_ssi.lnρ[i] = old_ssi.lnρ[i]
-    #         new_ssi.lnr[i] = old_ssi.lnr[i]
-    #         new_ssi.X[i] == old_ssi.X[i]
-    #         new_ssi.Y[i] == old_ssi.Y[i]
-    #     end
-    # end
-
     return new_sm
 end
