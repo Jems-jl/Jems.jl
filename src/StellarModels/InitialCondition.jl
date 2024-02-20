@@ -157,9 +157,7 @@ variables `sm.ind_vars`, etc. accordingly. Also sets the initial timestep to be 
 calls the solution to the Lane-Emden equation for index `n` and then sets radii, densities, pressures
 and luminosities.
 """
-#user input X, Z, XH2 (deuterium, as a fraction of X(H1)), Abundancelist 
-###NEW  changed
-function n_polytrope_initial_condition!(n, sm::StellarModel, X, Z, Dfraction,abundanceList::AbundanceList, M::Real, R::Real; initial_dt=100 * SECYEAR)
+function n_polytrope_initial_condition!(n, sm::StellarModel, X, Z, Dfraction, abundanceList::AbundanceList, M::Real, R::Real; initial_dt=100 * SECYEAR)
     xvals, yvals, zvals = RungeKutta_LaneEmden(n)
     (θ_n, ξ_1, derivative_θ_n) = (linear_interpolation(xvals,yvals), xvals[end],linear_interpolation(xvals,zvals))
     
@@ -228,12 +226,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, X, Z, Dfraction,abu
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]] = log(ρ)
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = lnT
 
-    
-        #Original
-        #sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:H1]] = 1.0 #mass fractions should come here for each element
-        #sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:He4]] = 0 #network has the species names
-
-        #NEW: set mass fractions
+        #set mass fractions
         massfractions = get_mass_fractions(abundanceList, sm.network, X, Z, Dfraction)
         for (isotope, massfraction) in massfractions
             sm.ind_vars[(i - 1) * sm.nvars + sm.vari[isotope]] = massfraction

@@ -1,11 +1,5 @@
 export AbundanceList, get_mass_fractions
 
-
-##
-using Jems.Chem #doe terug weg
-Chem.isotope_list[:Au197]
-
-##
 @kwdef struct AbundanceList
     massfractions::Dict{Symbol, Float64}
     abundance_sources::Dict{Symbol, String}
@@ -50,26 +44,38 @@ function AbundanceList(path) #returns object of type AbundanceList
     end
     return AbundanceList(massfractions, abundance_sources, species_names)
 end
+
+#################################################################################################
 #prepare a dictionary that contains mixtures
 abundance_lists = Dict{Symbol, AbundanceList}()
 #add the Asplund 2009 mixture
 abundance_lists[:ASG_09] = AbundanceList(pkgdir(Chem, "data/ChemData", "asplund2009.data"))
-#check the species included
-abundance_lists[:ASG_09].species_names
-#get the mass fraction of a specific isotope of the :ASG_09 mixture
-abundance_lists[:ASG_09].massfractions[:Li7]
-#get the source of the abundance of a specific isotope of the :ASG_09 mixture
-abundance_lists[:ASG_09].abundance_sources[:Li7]
+"""
+Some functionalities:
+Check the species included
+    abundance_lists[:ASG_09].species_names
+get the mass fraction of a specific isotope of the :ASG_09 mixture
+    abundance_lists[:ASG_09].massfractions[:Li7]
+get the source of the abundance of a specific isotope of the :ASG_09 mixture
+    abundance_lists[:ASG_09].abundance_sources[:Li7]
+"""
+#################################################################################################
 
+"""
+    get_mass_fractions(abundance_list::AbundanceList, network, X, Z, Dfraction)
 
-##
+Given an AbundanceList (= a certain mixture), a nuclear network, fractions X and Z and the deuterium fraction Dfraction, this function
+rescales the mass fraction of the mixture to the disired X and Z values, keeping the relative abundances of the metals fixed. All species
+not in the network are given a mass fraction of zero. The function returns a dictionary with the mass fractions of the species in the network.
+"""
+
 function get_mass_fractions(abundance_list::AbundanceList, network, X, Z, Dfraction)
     #count the sum of all metals
     sum_of_metals = 0.0
     for i in eachindex(network.species_names)
         species = network.species_names[i]
         if species ≠ :H1 && species ≠ :He4
-            if species in keys(abundance_list.massfractions)
+            if species in abundance_list.species_names
                 sum_of_metals += abundance_list.massfractions[species]
             end
         end
@@ -83,6 +89,7 @@ function get_mass_fractions(abundance_list::AbundanceList, network, X, Z, Dfract
                 fraction = Z / sum_of_metals
                 massfractions[species] = abundance_list.massfractions[species] * fraction
             else
+                println("Species $(species) is not in the abundance list, setting its mass fraction to 0.0")
                 massfractions[species] = 0.0 #put to zero if species not in abundance list
             end
         end
@@ -93,14 +100,3 @@ function get_mass_fractions(abundance_list::AbundanceList, network, X, Z, Dfract
     massfractions[:He4] = 1-X-Z
     return massfractions
 end
-
-
-##
-
-###
-using Jems
-using Jems.NuclearNetworks
-#creating a NuclearNetwork, also including some exotic species
-net = NuclearNetwork([:H1,:He4,:C12, :N14, :O16, :Al27, :Ba138, :U238], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
-massfractions_for_network = get_mass_fractions(abundance_lists[:ASG_09], net, 0.7, 0.05,0.03)
-@show massfractions_for_network
