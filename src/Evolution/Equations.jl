@@ -1,3 +1,5 @@
+using Jems.DualSupport
+
 """
     equationHSE(sm::StellarModel, k::Int,
                 varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
@@ -26,33 +28,32 @@ equilibrium is satisfied.
 
 Residual of comparing dlnP/dm with -GM/4πr^4, where the latter is evaluated at the face of cell `k` and `k+1`.
 """
-function equationHSE(sm::StellarModel, k::Int,
-                     varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
-                     eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                     rates::Matrix{TT},
-                     κm1::TT, κ00::TT, κp1::TT) where {TT<:Real}
+function equationHSE(sm::StellarModel, k::Int)
     if k == sm.nz  # atmosphere boundary condition
-        lnP₀ = eos00.lnP
-        r₀ = exp(var00[k, sm.vari[:lnr]])
+        lnP₀ = get_00_dual(sm.props.eos_res[k].lnP)
+        r₀ = exp(get_00_dual(sm.props.lnr[k]))
         g₀ = CGRAV * sm.mstar / r₀^2
+        κ00 = get_00_dual(sm.props.κ[k])
         return lnP₀ - log(2g₀ / (3κ00))  # Eddington gray, ignoring radiation pressure term
     end
     if k==1
-        P₀ = eos00.P
-        P₊ = eosp1.P
-        ρ₀ = eos00.ρ
-        rmid₊ = 0.5*(exp(var00[k,sm.vari[:lnr]]) + exp(varp1[k,sm.vari[:lnr]]))
+        P₀ = get_00_dual(sm.props.eos_res[k].P)
+        P₊ = get_p1_dual(sm.props.eos_res[k+1].P)
+        ρ₀ = get_00_dual(sm.props.eos_res[k].ρ)
+        r₀ = exp(get_00_dual(sm.props.lnr[k]))
+        r₊ = exp(get_p1_dual(sm.props.lnr[k+1]))
+        rmid₊ = 0.5*(r₀ + r₊)
         return 1-(P₊ + CGRAV*ρ₀^2*(2π/3)*rmid₊^2)/P₀
     end
 
     #log pressure at cell center of cell k
-    lnP₀ = eos00.lnP
-
+    lnP₀ = get_00_dual(sm.props.eos_res[k].lnP)
     #log pressure at cell center of cell k+1
-    lnP₊ = eosp1.lnP
+    lnP₊ = get_p1_dual(sm.props.eos_res[k+1].lnP)
 
-    lnPface = (sm.dm[k+1] * lnP₀ + sm.dm[k] * lnP₊) / (sm.dm[k] + sm.dm[k + 1])
-    r₀ = exp(var00[k, sm.vari[:lnr]])
+    lnPface = get_00_dual(sm.props.lnP_face[k])
+
+    r₀ = exp(get_00_dual(sm.props.lnr[k]))
     dm = 0.5*(sm.dm[k + 1] + sm.dm[k])
 
     return (exp(lnPface) * (lnP₊ - lnP₀) / dm + CGRAV * sm.m[k] / (4π * r₀^4)) /
@@ -76,28 +77,22 @@ Identical to [`equationHSE`](@ref) for compatibility with StellarModels.TypeStab
 
 Residual of comparing dlnT/dm with -∇*GMT/4πr^4P, where the latter is evaluation at the face of cell `k` and `k+1`.
 """
-function equationT(sm::StellarModel, k::Int,
-                   varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
-                   eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                   rates::Matrix{TT},
-                   κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
+function equationT(sm::StellarModel, k::Int)
+    lnT₀ = get_00_dual(sm.props.eos_res[k].lnT)
     if k == sm.nz  # atmosphere boundary condition
-        lnT₀ = eos00.lnT
-        L₀ = var00[k, sm.vari[:lum]] * LSUN
-        r₀ = exp(var00[k, sm.vari[:lnr]])
+        L₀ = get_00_dual(sm.props.L[k]) * LSUN
+        r₀ = exp(get_00_dual(sm.props.lnr[k]))
         return lnT₀ - log(L₀ / (BOLTZ_SIGMA * 4π * r₀^2)) / 4  # Eddington gray, ignoring radiation pressure term
     end
-    κface = exp((sm.dm[k] * log(κ00) + sm.dm[k + 1] * log(κp1)) / (sm.dm[k] + sm.dm[k + 1]))
-    L₀ = var00[k, sm.vari[:lum]] * LSUN
-    r₀ = exp(var00[k, sm.vari[:lnr]])
-    Pface = exp((sm.dm[k] * eos00.lnP + sm.dm[k + 1] * eosp1.lnP) /
-                (sm.dm[k] + sm.dm[k + 1]))
-    lnT₊ = eosp1.lnT
-    lnT₀ = eos00.lnT
-    Tface = exp((sm.dm[k] * lnT₀ + sm.dm[k + 1] * lnT₊) / (sm.dm[k] + sm.dm[k + 1]))
+    r₀ = exp(get_00_dual(sm.props.lnr[k]))
+    lnT₀ = get_00_dual(sm.props.lnT[k])
+    lnT₊ = get_p1_dual(sm.props.lnT[k+1])
 
-    ∇ᵣ = 3κface * L₀ * Pface / (16π * CRAD * CLIGHT * CGRAV * sm.m[k] * Tface^4)
-    ∇ₐ = (sm.dm[k] * eos00.∇ₐ + sm.dm[k + 1] * eosp1.∇ₐ) / (sm.dm[k] + sm.dm[k + 1])
+    Pface = exp(get_00_dual(sm.props.lnP_face[k]))
+    Tface = exp(get_00_dual(sm.props.lnT_face[k]))
+
+    ∇ᵣ = get_00_dual(sm.props.∇ᵣ_face[k])
+    ∇ₐ = get_00_dual(sm.props.∇ₐ_face[k])
 
     if (∇ᵣ < ∇ₐ)
         return (Tface * (lnT₊ - lnT₀) / sm.dm[k] +
@@ -127,28 +122,26 @@ Identical to [`equationHSE`](@ref) for compatibility with StellarModels.TypeStab
 
 Residual of comparing dL/dm with ϵnuc - cₚ * dT/dt - (δ / ρ) * dP/dt
 """
-function equationLuminosity(sm::StellarModel, k::Int,
-                            varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
-                            eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                            rates::Matrix{TT},
-                            κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
-    if k > 1
-        L₋ = varm1[k, sm.vari[:lum]] * LSUN  # change it if not at first cell
-    else
-        L₋::TT = 0  # central luminosity is zero at first cell
-    end
-    L₀ = var00[k, sm.vari[:lum]] * LSUN
-    ρ₀ = eos00.ρ
-    cₚ = eos00.cₚ
-    δ = eos00.δ
-    dTdt = (eos00.T - exp(sm.ssi.lnT[k])) / sm.ssi.dt
-    dPdt = (eos00.P - exp(sm.ssi.lnP[k])) / sm.ssi.dt
+function equationLuminosity(sm::StellarModel, k::Int)
+    L₀ = get_00_dual(sm.props.L[k]) * LSUN
+    ρ₀ = get_00_dual(sm.props.eos_res[k].ρ)
+    cₚ = get_00_dual(sm.props.eos_res[k].cₚ)
+    δ = get_00_dual(sm.props.eos_res[k].δ)
+    T₀ = get_00_dual(sm.props.eos_res[k].T)
+    P₀ = get_00_dual(sm.props.eos_res[k].P)
+    dTdt = (T₀ - exp(sm.ssi.lnT[k])) / sm.ssi.dt
+    dPdt = (P₀ - exp(sm.ssi.lnP[k])) / sm.ssi.dt
 
-    ϵnuc::TT = 0
+    ϵnuc::typeof(L₀) = 0
     for i in eachindex(sm.network.reactions)
-        ϵnuc += rates[k, i]*sm.network.reactions[i].Qvalue
+        ϵnuc += get_00_dual(sm.props.rates[k,i])*sm.network.reactions[i].Qvalue
     end
-    return ((L₀ - L₋) / sm.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)  # no neutrinos
+    if k > 1
+        L₋ = get_m1_dual(sm.props.L[k-1]) * LSUN
+        return ((L₀ - L₋) / sm.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)/(L₀/sm.m[k])  # no neutrinos
+    else
+        return (L₀ / sm.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)/(L₀/sm.m[k])  # no neutrinos
+    end
 end
 """
     equationContinuity(sm::StellarModel, k::Int,
@@ -167,21 +160,17 @@ Identical to [`equationHSE`](@ref) for compatibility with StellarModels.TypeStab
 
 Residual of comparing dr^3/dm with 3/(4πρ)
 """
-function equationContinuity(sm::StellarModel, k::Int,
-                            varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
-                            eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                            rates::Matrix{TT},
-                            κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
-    ρ₀ = eos00.ρ
-    r₀ = exp(var00[k, sm.vari[:lnr]])
-    if k > 1  # get inner radius
-        r₋ = exp(varm1[k, sm.vari[:lnr]])
-    else
-        r₋::TT = 0  # central radius is zero at first cell
-    end
-
+function equationContinuity(sm::StellarModel, k::Int)
+    ρ₀ = get_00_dual(sm.props.eos_res[k].ρ)
+    r₀ = exp(get_00_dual(sm.props.lnr[k]))
     expected_dr³_dm = 3 / (4π * ρ₀)
-    actual_dr³_dm = (r₀^3 - r₋^3) / sm.dm[k]
+
+    if k > 1  # get inner radius
+        r₋ = exp(get_m1_dual(sm.props.lnr[k-1]))
+        actual_dr³_dm = (r₀^3 - r₋^3) / sm.dm[k]
+    else
+        actual_dr³_dm = (r₀^3) / sm.dm[k]
+    end
 
     return (expected_dr³_dm - actual_dr³_dm) * ρ₀  # times ρ to make eq. dim-less
 end
@@ -203,22 +192,23 @@ TBD
 
 Residual of comparing dX_i/dt with its computed reaction rate
 """
-function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol,
-                    varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
-                    eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                    rates::Matrix{TT},
-                    κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
-    dXdt_nuc::TT = 0
+function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
+    # Get mass fraction for this iso
+    X = get_00_dual(sm.props.xa[k, sm.network.xa_index[iso_name]])
+
+    dXdt_nuc::typeof(X) = 0
     reactions_in = sm.network.species_reactions_in[sm.network.xa_index[iso_name]]
     for reaction_in in reactions_in
-        dXdt_nuc = dXdt_nuc - rates[k,reaction_in[1]]*reaction_in[2]*Chem.isotope_list[iso_name].A*AMU
+        rate = get_00_dual(sm.props.rates[k,reaction_in[1]])
+        dXdt_nuc = dXdt_nuc - rate*reaction_in[2]*Chem.isotope_list[iso_name].A*AMU
     end
     reactions_out = sm.network.species_reactions_out[sm.network.xa_index[iso_name]]
     for reaction_out in reactions_out
-        dXdt_nuc = dXdt_nuc + rates[k,reaction_out[1]]*reaction_out[2]*Chem.isotope_list[iso_name].A*AMU
+        rate = get_00_dual(sm.props.rates[k,reaction_out[1]])
+        dXdt_nuc = dXdt_nuc + rate*reaction_out[2]*Chem.isotope_list[iso_name].A*AMU
     end
 
     Xi = sm.ssi.ind_vars[(k - 1) * sm.nvars + sm.vari[iso_name]]
 
-    return (var00[k, sm.vari[iso_name]] - Xi) / sm.ssi.dt - dXdt_nuc
+    return (X - Xi) / sm.ssi.dt - dXdt_nuc
 end

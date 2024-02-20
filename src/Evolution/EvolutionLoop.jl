@@ -99,7 +99,8 @@ end
 Performs the main evolutionary loop of the input StellarModel `sm`. It continues taking steps until one of the
 termination criteria is reached (defined in `sm.opt.termination`).
 """
-function do_evolution_loop(sm::StellarModel)
+function do_evolution_loop!(sm::StellarModel)
+    StellarModels.create_output_files!(sm)
     set_step_info!(sm, sm.esi)
     # evolution loop, be sure to have sensible termination conditions or this will go on forever!
     dt_factor = 1.0 # this is changed during retries to lower the timestep
@@ -119,7 +120,7 @@ function do_evolution_loop(sm::StellarModel)
 
         sm.ssi.dt = dt_next
         sm.dt = dt_next
-        sm.newton_iters = 0
+        sm.solver_data.newton_iters = 0
 
         max_steps = sm.opt.solver.newton_max_iter
         if (sm.model_number == 0)
@@ -130,34 +131,35 @@ function do_evolution_loop(sm::StellarModel)
         retry_step = false
         # step loop
         for i = 1:max_steps
+            StellarModels.update_stellar_model_properties!(sm, sm.props)
             eval_jacobian_eqs!(sm)  # heavy lifting happens here!
             thomas_algorithm!(sm)  # here as well
-            corr = @view sm.solver_corr[1:sm.nvars*sm.nz]
+            corr = @view sm.solver_data.solver_corr[1:sm.nvars*sm.nz]
+            equs = @view sm.solver_data.eqs_numbers[1:sm.nvars*sm.nz]
 
-            real_max_corr = maximum(corr)
+            (abs_max_corr, i_corr) = findmax(abs, corr)
+            corr_nz = i_corr÷sm.nvars + 1
+            corr_equ = i_corr%sm.nvars
+            rel_corr = abs_max_corr/eps(sm.ind_vars[i_corr])
 
-            # scale surface correction to prevent negative surface luminosity
-            # if correction will produce negative L, scale it so L is halved
-            corr_lum_surf = corr[sm.nvars * (sm.nz - 1) + sm.vari[:lum]]
-            lum_surf = sm.ind_vars[sm.nvars * (sm.nz - 1) + sm.vari[:lum]]
-            if lum_surf + corr_lum_surf < 0.0
-                corr = corr * (-0.1 * lum_surf / corr_lum_surf)
-            end
+            (max_res, i_res) = findmax(abs, equs)
+            res_nz = i_res÷sm.nvars + 1
+            res_equ = i_res%sm.nvars
 
             # scale correction
             if sm.model_number == 0
-                corr = corr * min(1, sm.opt.solver.initial_model_scale_max_correction / maximum(corr))
+                corr .*= min(1, sm.opt.solver.initial_model_scale_max_correction / abs_max_corr)
             else
-                corr = corr * min(1, sm.opt.solver.scale_max_correction / maximum(corr))
+                corr .*= min(1, sm.opt.solver.scale_max_correction / abs_max_corr)
             end
-            if i % 50 == 0
-                @show i, maximum(corr), real_max_corr, maximum(sm.eqs_numbers)
+            if sm.opt.solver.report_solver_progress &&
+                i % sm.opt.solver.solver_progress_iter == 0
+                @show sm.model_number, i, rel_corr, abs_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ
             end
             # first try applying correction and see if it would give negative luminosity
-            for i=1:sm.nz*sm.nvars
-                sm.ind_vars[i] = sm.ind_vars[i] + corr[i]
-            end
-            if real_max_corr < 1e-10
+            sm.ind_vars[1:sm.nvars*sm.nz] .+= corr[1:sm.nvars*sm.nz]
+            if rel_corr < sm.opt.solver.relative_correction_tolerance &&
+                    max_res < sm.opt.solver.maximum_residual_tolerance
                 if sm.model_number == 0
                     println("Found first model")
                 end
@@ -173,7 +175,7 @@ function do_evolution_loop(sm::StellarModel)
                     println("Failed to converge step $(sm.model_number) with timestep $(dt_next/SECYEAR), retrying")
                 end
             end
-            sm.newton_iters = i
+            sm.solver_data.newton_iters = i
         end
 
         if retry_step
@@ -224,5 +226,6 @@ function do_evolution_loop(sm::StellarModel)
     if sm.opt.plotting.do_plotting
         Plotting.end_of_evolution(sm)
     end
-
+    StellarModels.close_output_files!(sm)
+    return sm
 end
