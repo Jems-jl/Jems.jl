@@ -1,9 +1,4 @@
-#=
-# NuclearBurning.jl
-
-This notebook provides a simple example of a star with simplified microphysics undergoing nuclear burning.
-Import all necessary Jems modules. We will also do some benchmarks, so we import BenchmarkTools as well.
-=#
+#My notebook for testing some Mass-luminosity things
 using BenchmarkTools
 using Jems.Chem
 using Jems.Constants
@@ -15,7 +10,7 @@ using Jems.Evolution
 using Jems.ReactionRates
 
 
-## Plotting with Makie
+# Plotting with Makie
 
 using CairoMakie, LaTeXStrings, MathTeXEngine
 basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
@@ -28,9 +23,6 @@ basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                           xticklabelsize=35, yticklabelsize=35, xticksmirrored=true, yticksmirrored=true),
                     Legend=(patchsize=(70, 10), framevisible=false, patchlabelgap=20, rowgap=10))
 set_theme!(basic_theme)
-
-
-
 
 ##
 
