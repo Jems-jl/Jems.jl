@@ -207,7 +207,9 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, X, Z, Dfraction, ab
     end
     mfunc_anon = ξ -> mfunc(ξ, 0.99999*M)
 
-    # set radii, pressure and temperature
+    # set radii, pressure and temperature, and mass fractions
+    massfractions = get_mass_fractions(abundanceList, sm.network, X, Z, Dfraction)
+
     for i = 1:(sm.nz)
         μ = 0.5
         XH = 1.0
@@ -227,7 +229,6 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, X, Z, Dfraction, ab
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = lnT
 
         #set mass fractions
-        massfractions = get_mass_fractions(abundanceList, sm.network, X, Z, Dfraction)
         for (isotope, massfraction) in massfractions
             sm.ind_vars[(i - 1) * sm.nvars + sm.vari[isotope]] = massfraction
         end
