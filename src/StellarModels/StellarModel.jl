@@ -38,11 +38,11 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
 @kwdef mutable struct StellarModel{TNUMBER<:Real, TDUALFULL<:ForwardDiff.Dual, TPROPS<:AbstractStellarModelProperties,
                                    TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,TNET<:NuclearNetworks.AbstractNuclearNetwork,
                                    TSOLVER<:AbstractSolverData}
-    # Properties that define the model
-    ind_vars::Vector{TNUMBER}  # List of independent variables
+    # Basic info that does not change over the run (for now)
     nvars::Int  # This is the sum of hydro vars and species
     var_names::Vector{Symbol}  # List of variable names
     vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector
+    nextra::Int  # Number of extra zones used to avoid constant reallocation while remeshing
 
     ## Properties related to the solver ##
     # original vector of functions that are solved. These are turned into TypeStableEquations.
@@ -53,27 +53,15 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     # cache to store residuals and solver matrices
     solver_data::TSOLVER
 
-    # Grid properties; can be changed by the remesher
-    nz::Int  # Number of zones in the model
-    m::Vector{TNUMBER}  # Mass coordinate of each cell (g)
-    dm::Vector{TNUMBER}  # Mass contained in each cell (g)
-
     # Remeshing functions
     remesh_split_functions::Vector{Function}
 
-    # Unique valued properties (ie not cell dependent)
-    time::TNUMBER  # Age of the model (s)
-    dt::TNUMBER  # Timestep of the current evolutionary step (s)
-    model_number::Int
-    mstar::TNUMBER  # Total model mass (g)
-    nextra::Int  # Number of extra zones used to avoid constant reallocation while remeshing
-
-    # Some basic info
+    # Microphyical models
     eos::TEOS
     opacity::TKAP
     network::TNET
 
-    ##
+    # Properties that define the model
     prv_step_props::TPROPS  # properties of the previous step
     start_step_props::TPROPS  # properties before newton solving (but after remesh)
     props::TPROPS  # properties during and after newton solving
@@ -104,9 +92,6 @@ function StellarModel(var_names::Vector{Symbol},
                       use_static_arrays=true, number_type=Float64)
     nvars = length(var_names) + network.nspecies
 
-    # create the vector containing the independent variables
-    ind_vars = zeros(number_type, nvars * (nz + nextra))
-
     # var_names should also contain the name of species, we get them from the network
     var_names_full = vcat(var_names, network.species_names)
 
@@ -118,11 +103,6 @@ function StellarModel(var_names::Vector{Symbol},
 
     solver_data = SolverData(nvars, nz, nextra, use_static_arrays, number_type)
 
-    # mass coordinates
-    dm = zeros(number_type, nz+nextra)
-    m = zeros(number_type, nz+nextra)
-    dt = zero(number_type)
-
     # properties
     prv_step_props = StellarModelProperties(nvars, nz, nextra,
                                        length(network.reactions), network.nspecies, vari, number_type)
@@ -133,37 +113,32 @@ function StellarModel(var_names::Vector{Symbol},
 
     # create type stable function objects
     dual_sample = ForwardDiff.Dual(zero(number_type), (zeros(number_type, 3*nvars)...))
-    tpe_stbl_funcs = Vector{TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample), typeof(props),
-                                                            typeof(eos), typeof(opacity), typeof(network),
+    tpe_stbl_funcs = Vector{TypeStableEquation{StellarModel{number_type,typeof(dual_sample),typeof(props),
+                                                            typeof(eos),typeof(opacity),typeof(network),
                                                             typeof(solver_data)},
                                      typeof(dual_sample)}}(undef, length(structure_equations))
     for i in eachindex(structure_equations)
-        tpe_stbl_funcs[i] = TypeStableEquation{StellarModel{eltype(ind_vars), typeof(dual_sample), typeof(props),
-                                                            typeof(eos), typeof(opacity), typeof(network),
+        tpe_stbl_funcs[i] = TypeStableEquation{StellarModel{number_type,typeof(dual_sample),typeof(props),
+                                                            typeof(eos),typeof(opacity),typeof(network),
                                                             typeof(solver_data)},
                                      typeof(dual_sample)}(structure_equations[i])
     end
 
-    # create options object
-    opt = Options()
-
+    opt = Options()  # create options object
     plt = Plotter()
 
     # create the stellar model
-    sm = StellarModel(ind_vars=ind_vars, nvars=nvars,
-                      var_names=var_names_full, vari=vari,
+    sm = StellarModel(;nvars=nvars,
+                      var_names=var_names_full, vari=vari, nextra=nextra,
                       solver_data = solver_data,
                       structure_equations_original=structure_equations,
                       structure_equations=tpe_stbl_funcs,
-                      nextra=nextra, nz=nz,
-                      m=m, dm=dm, mstar=zero(number_type),
                       remesh_split_functions=remesh_split_functions,
-                      time=zero(number_type), dt=dt, model_number=0,
                       eos=eos, opacity=opacity, network=network,
                       start_step_props=start_step_props, prv_step_props=prv_step_props, props=props,
                       opt=opt, plt=plt,
-                      history_file = HDF5.File(-1,""),
-                      profiles_file = HDF5.File(-1,""))
+                      history_file=HDF5.File(-1,""),
+                      profiles_file=HDF5.File(-1,""))
     return sm
 end
 

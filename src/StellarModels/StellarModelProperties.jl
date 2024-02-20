@@ -4,10 +4,16 @@ abstract type AbstractStellarModelProperties end
 
 @kwdef mutable struct StellarModelProperties{TN, TDual, TCellDualData, TFaceDualData} <: AbstractStellarModelProperties
     nz::Int
-    dt::TN
+    dt::TN  # Timestep of the current evolutionary step (s)
+    time::TN  # Age of the model (s)
+    model_number::Int
+
+    # array of the values of the independent variables, everything should be reconstructable from this
+    ind_vars::Vector{TN}
 
     m::Vector{TN}
     dm::Vector{TN}
+    mstar::TN  # Total model mass (g)
 
     eos_res_dual::Vector{EOSResults{TDual}}
     eos_res::Vector{EOSResults{TCellDualData}}
@@ -39,10 +45,14 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                 nrates::Int, nspecies::Int, vari::Dict{Symbol, Int},
                                 ::Type{TN}) where {TN<:Real}
 
+    # define the types
     CDDTYPE = CellDualData{nvars+1,3*nvars+1,TN}  # full dual arrays
     FDDTYPE = FaceDualData{2*nvars+1,3*nvars+1,TN}
     TD = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, nvars))...))  # only the cell duals
-    
+
+    # create the vector containing the independent variables
+    ind_vars = zeros(TN, nvars * (nz + nextra))
+
     eos_res_dual = [EOSResults{TD}() for i in 1:(nz+nextra)]
     eos_res = [EOSResults{CDDTYPE}() for i in 1:(nz+nextra)]
 
@@ -86,10 +96,9 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
         end
     end
 
-    return StellarModelProperties(nz=nz,
-                                  m=m,
-                                  dm=dm,
-                                  dt=zero(TN),
+    return StellarModelProperties(;ind_vars=ind_vars, model_number=zero(Int),
+                                  nz=nz, m=m, dm=dm, mstar=zero(TN),
+                                  dt=zero(TN), time=zero(TN),
                                   eos_res_dual=eos_res_dual,
                                   eos_res=eos_res,
                                   lnT=lnT,
@@ -102,7 +111,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                   lnT_face=lnT_face,
                                   κ_face=κ_face,
                                   ∇ₐ_face=∇ₐ_face,
-                                  ∇ᵣ_face=∇ᵣ_face,   
+                                  ∇ᵣ_face=∇ᵣ_face,
                                   κ=κ,
                                   rates=rates,
                                   rates_dual=rates_dual)
