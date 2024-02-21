@@ -109,7 +109,7 @@ function RungeKutta_LaneEmden(n)
 end
 
 """
-    getlnT_NewtonRhapson(lnT_initial, lnρ, P, xa, species, eos)
+    getlnT_NewtonRhapson(lnT_initial, lnρ, P, massfractions, eos)
 
 Computes the temperature lnT starting from a density `lnρ`, a pressure `P`, a composition `xa`,
 a species `species` and an equation of state `eos`. The equation of state gives us the pressure, 
@@ -210,7 +210,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, X, Z, Dfraction, ab
     mfunc_anon = ξ -> mfunc(ξ, 0.99999*M)
 
     # set radii, pressure and temperature, and mass fractions
-    massfractions = get_mass_fractions(abundanceList, sm.network, X, Z, Dfraction)
+    massfractions = get_mass_fractions(abundanceList, sm.network.species_names, X, Z, Dfraction)
 
     for i = 1:(sm.nz)
         μ = 0.5
@@ -257,7 +257,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, X, Z, Dfraction, ab
         else
             dlnP = log(Pc * (θ_n(ξ_cell[i+1]))^(n + 1)) - log(Pc)
         end
-        κ = get_opacity_resultsTρ(sm.opacity, lnTface, log(ρface) ,[1.0,0.0], [:H1,:He4])
+        κ = get_opacity_resultsTρ(sm.opacity, lnTface, log(ρface) ,collect(Float64,values(massfractions)), collect(Symbol,keys(massfractions)))
 
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (dlnT / dlnP) *
                                                           (16π * CRAD * CLIGHT * CGRAV * m_face[i] * Tface^4) /
