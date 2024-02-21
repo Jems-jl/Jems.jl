@@ -32,7 +32,7 @@ function equationHSE(sm::StellarModel, k::Int)
     if k == sm.props.nz  # atmosphere boundary condition
         lnP₀ = get_00_dual(sm.props.eos_res[k].lnP)
         r₀ = exp(get_00_dual(sm.props.lnr[k]))
-        g₀ = CGRAV * sm.mstar / r₀^2
+        g₀ = CGRAV * sm.props.mstar / r₀^2
         κ00 = get_00_dual(sm.props.κ[k])
         return lnP₀ - log(2g₀ / (3κ00))  # Eddington gray, ignoring radiation pressure term
     end
