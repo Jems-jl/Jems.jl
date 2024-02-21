@@ -68,11 +68,11 @@ rescales the mass fraction of the mixture to the disired X and Z values, keeping
 not in the network are given a mass fraction of zero. The function returns a dictionary with the mass fractions of the species in the network.
 """
 
-function get_mass_fractions(abundance_list::AbundanceList, network, X, Z, Dfraction)
+function get_mass_fractions(abundance_list::AbundanceList, species_names, X, Z, Dfraction)
     #count the sum of all metals
     sum_of_metals = 0.0
-    for i in eachindex(network.species_names)
-        species = network.species_names[i]
+    for i in eachindex(species_names)
+        species = species_names[i]
         if species ≠ :H1 && species ≠ :He4
             if species in abundance_list.species_names
                 sum_of_metals += abundance_list.massfractions[species]
@@ -81,8 +81,8 @@ function get_mass_fractions(abundance_list::AbundanceList, network, X, Z, Dfract
     end
     #calculate the mass fractions
     massfractions = Dict()
-    for i in eachindex(network.species_names)
-        species = network.species_names[i]
+    for i in eachindex(species_names)
+        species = species_names[i]
         if species ≠ :H1 && species ≠ :He4
             if species in abundance_list.species_names
                 fraction = Z / sum_of_metals
