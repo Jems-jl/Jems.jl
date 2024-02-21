@@ -122,14 +122,16 @@ the difference between the calculated pressure and the given pressure is smaller
 The temperature at which this occurs is returned.
 
 """
-function getlnT_NewtonRhapson(lnT_initial, lnρ, P, xa, species, eos)
+function getlnT_NewtonRhapson(lnT_initial, lnρ, P, massfractions, eos)
+    (species_names, xa) = (collect(Symbol,keys(massfractions)), collect(Float64,values(massfractions)))
+    @show species_names, xa
     ΔlnPmin = 1e-4
     lnT = lnT_initial
     lnT_dual = ForwardDiff.Dual(lnT_initial,1.0)
     lnρ_dual = ForwardDiff.Dual(lnρ,0.0)
     xa_dual = [ForwardDiff.Dual(xa[i],0.0) for i in eachindex(xa)]
     r = EOSResults{typeof(lnT_dual)}()
-    set_EOS_resultsTρ!(eos,r,lnT_dual,lnρ_dual,xa_dual,species)
+    set_EOS_resultsTρ!(eos,r,lnT_dual,lnρ_dual,xa_dual,species_names)
     lnP = log(r.P)
     dlnPdlnT = lnP.partials[1]
     i = 0
@@ -137,7 +139,7 @@ function getlnT_NewtonRhapson(lnT_initial, lnρ, P, xa, species, eos)
     while abs(log(P) - lnP.value) > ΔlnPmin
         lnT = lnT + (log(P) - lnP.value) / dlnPdlnT  # go to the next guess
         lnT_dual = ForwardDiff.Dual(lnT,1.0)  # setting new lnT_dual
-        set_EOS_resultsTρ!(eos,r,lnT_dual,lnρ_dual,xa_dual,[:H1,:He4])
+        set_EOS_resultsTρ!(eos,r,lnT_dual,lnρ_dual,xa_dual,species_names)
         lnP = log(r.P)
         dlnPdlnT = lnP.partials[1]
         i = i+1
@@ -223,7 +225,8 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, X, Z, Dfraction, ab
         end
         lnT_initial = log(P * μ / (CGAS * ρ))  # ideal gas temperature as intial guess
         # fit the temperature using the equation of state
-        lnT = getlnT_NewtonRhapson(lnT_initial, log(ρ),P,[1.0,0],[:H1,:He4],sm.eos)
+        #lnT = getlnT_NewtonRhapson(lnT_initial, log(ρ),P,[1.0,0],[:H1,:He4],sm.eos)
+        lnT = getlnT_NewtonRhapson(lnT_initial, log(ρ),P,massfractions,sm.eos)
 
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]] = log(ρ)
         sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = lnT
@@ -245,7 +248,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, X, Z, Dfraction, ab
         Pface = Pc * (θ_n(ξ_face[i]))^(n + 1)
         ρface = ρc * (θ_n(ξ_face[i]))^(n)
         Tfaceinit = Pface * μ / (CGAS * ρface)
-        lnTface = getlnT_NewtonRhapson(log(Tfaceinit),log(ρface), Pface, [1.0,0.0],[:H1,:He4],sm.eos)
+        lnTface = getlnT_NewtonRhapson(log(Tfaceinit),log(ρface), Pface, massfractions,sm.eos)
         Tface = exp(lnTface)
        
         dlnT = sm.ind_vars[(i) * sm.nvars + sm.vari[:lnT]] - sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
