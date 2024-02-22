@@ -18,27 +18,14 @@ function thomas_algorithm!(sm)
     solver_x = sm.solver_data.solver_x
     solver_β = sm.solver_data.solver_β
     solver_corr = sm.solver_data.solver_corr
-
-    ##crappy pre-conditioning
+    ## Simple diagonal pre-conditioning
     #for i in 1:sm.nz
-    #    max_L = maximum(abs, jacobian_L[i], dims=2)
-    #    max_D = maximum(abs, jacobian_D[i], dims=2)
-    #    max_U = maximum(abs, jacobian_U[i], dims=2)
-    #    if i ==1
-    #        max_vals = max.(max_D, max_U)
-    #    elseif i==sm.nz
-    #        max_vals = max.(max_L, max_D)
-    #    else
-    #        max_vals = max.(max_L, max_D, max_U)
-    #    end
-    #    for j in 1:sm.nvars
-    #        for l in 1:sm.nvars
-    #            sm.solver_data.jacobian_L[i][j,l] /= max_vals[j]
-    #            sm.solver_data.jacobian_D[i][j,l] /= max_vals[j]
-    #            sm.solver_data.jacobian_U[i][j,l] /= max_vals[j]
-    #        end
-    #    end
-    #    sm.solver_data.eqs_numbers[(sm.nvars*(i-1)+1):(sm.nvars*(i-1)+sm.nvars)] ./= max_vals
+    #    inv_D = inv(jacobian_D[i])
+    #    b_i = @view eqs_numbers[sm.nvars*(i-1)+1:sm.nvars*i]
+    #    jacobian_D[i] .= inv_D*jacobian_D[i]
+    #    jacobian_L[i] .= inv_D*jacobian_L[i]
+    #    jacobian_U[i] .= inv_D*jacobian_U[i]
+    #    b_i .= inv_D*b_i
     #end
 
     # We store Δ_i in the diagonal

@@ -46,7 +46,7 @@ Substructure of Options containing controls relating to timestepping
 
     delta_R_limit::Float64 = 0.005
     delta_Tc_limit::Float64 = 0.005
-    delta_Xc_limit::Float64 = 0.005
+    delta_Xc_limit::Float64 = 0.001
 
     dt_max_increase::Float64 = 2
     dt_max_decrease::Float64 = 0.5

@@ -33,7 +33,12 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
+<<<<<<< HEAD
 net = NuclearNetwork([:H1,:He4,:C12,:N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+=======
+net = NuclearNetwork([:H1,:He4,:C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+#net = NuclearNetwork([:H1,:He4,:C12, :N14, :O16], [(:toy_rates, :toy_cno)])
+>>>>>>> bfe3102 (Various experiments)
 nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(false)
@@ -117,9 +122,13 @@ open("example_options.toml", "w") do file
 
           [solver]
           newton_max_iter_first_step = 1000
+<<<<<<< HEAD
           newton_max_iter = 200
+=======
+          newton_max_iter = 100
+>>>>>>> bfe3102 (Various experiments)
           scale_max_correction = 0.1
-          solver_progress_iter = 1
+          solver_progress_iter = 50
 
           [timestep]
           dt_max_increase = 1.5
@@ -128,8 +137,13 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.002
 
           [termination]
+<<<<<<< HEAD
           max_model_number = 2000
           max_center_T = 5e7
+=======
+          max_model_number = 200000
+          max_center_T = 5e88
+>>>>>>> bfe3102 (Various experiments)
 
           [plotting]
           do_plotting = true
@@ -160,9 +174,14 @@ end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
+<<<<<<< HEAD
 n = 3
 StellarModels.n_polytrope_initial_condition!(n,sm,nz,0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],1.0*MSUN,100 * RSUN;initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
+=======
+StellarModels.n_polytrope_initial_condition!(n, sm, MSUN, 100 * RSUN; initial_dt=100 * SECYEAR)
+@time sm = Evolution.do_evolution_loop!(sm);
+>>>>>>> bfe3102 (Various experiments)
 
 ##
 #=

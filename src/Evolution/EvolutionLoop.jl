@@ -114,9 +114,15 @@ function do_evolution_loop!(sm::StellarModel)
 
             # scale correction
             if sm.props.model_number == 0
-                corr .*= min(1.0, sm.opt.solver.initial_model_scale_max_correction / abs_max_corr)
+                correction_multiplier = min(1.0, sm.opt.solver.initial_model_scale_max_correction / abs_max_corr)
             else
-                corr .*= min(1.0, sm.opt.solver.scale_max_correction / abs_max_corr)
+                correction_multiplier = min(1.0, sm.opt.solver.scale_max_correction / abs_max_corr)
+            end
+            if (sm.solver_data.newton_iters > 10 && i%3!=0)
+                correction_multiplier = correction_multiplier*(rand()*0.5+0.5)
+            end
+            if correction_multiplier < 1
+                corr .*= correction_multiplier
             end
             if sm.opt.solver.report_solver_progress &&
                 i % sm.opt.solver.solver_progress_iter == 0

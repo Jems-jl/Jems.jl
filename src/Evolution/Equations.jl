@@ -239,5 +239,5 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
 
     Xi = get_cell_value(sm.start_step_props.xa[k, sm.network.xa_index[iso_name]])  # is never a dual!!
 
-    return ((X00 - Xi) / sm.ssi.dt - dXdt_nuc - dXdt_mix)/max(1/sm.ssi.dt, dXdt_nuc, Dnorm)
+    return ((X00 - Xi) / sm.ssi.dt - dXdt_nuc - dXdt_mix)#/max(1/sm.ssi.dt, dXdt_nuc, Dnorm)
 end

@@ -47,5 +47,5 @@ function set_turb_results!(turb::BasicMLT, res::TurbResults, κ::T1, L::T1, ρ::
     res.∇ = ∇ₐ + ξ^2 - U^2
 
     res.v_turb = sqrt(g*δ/(8*res.Hₚ))*(ξ-U)*(turb.α_MLT*res.Hₚ) # 7.6 of Kipp
-    res.D_turb = 1e8*1/3*res.v_turb*(turb.α_MLT*res.Hₚ)
+    res.D_turb = 1/3*res.v_turb*(turb.α_MLT*res.Hₚ)
 end
