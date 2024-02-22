@@ -45,7 +45,7 @@ include("History.jl")
 Updates all plots currently being displayed, by collecting appropriate data and notifying observables
 """
 function update_plotting!(sm::StellarModel)
-    if (sm.model_number % sm.opt.plotting.data_interval == 0)
+    if (sm.props.model_number % sm.opt.plotting.data_interval == 0)
         for plot in sm.plt.plots
             if plot.type == :HR
                 update_HR_plot!(plot, sm.props)
@@ -56,7 +56,7 @@ function update_plotting!(sm::StellarModel)
             end
         end
     end
-    if (sm.model_number % sm.opt.plotting.plotting_interval == 0)
+    if (sm.props.model_number % sm.opt.plotting.plotting_interval == 0)
         for plot in sm.plt.plots
             for xobs in values(plot.x_obs)
                 notify(xobs)  # notifying only the x observables should replot everything

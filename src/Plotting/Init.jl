@@ -35,14 +35,14 @@ function init_plots!(sm::StellarModel)
         elseif plot.type == :profile
             # make observables
             xname = sm.opt.plotting.profile_xaxis
-            xvals = Dict(Symbol(xname) => StellarModels.profile_output_functions[xname].((sm,), 1:(sm.nz)))
+            xvals = Dict(Symbol(xname) => StellarModels.profile_output_functions[xname].((sm,), 1:(sm.props.nz)))
             ynames = sm.opt.plotting.profile_yaxes
             yvals = Dict([Symbol(name) =>
-                        StellarModels.profile_output_functions[name].((sm,), 1:(sm.nz)) for name in ynames])
+                        StellarModels.profile_output_functions[name].((sm,), 1:(sm.props.nz)) for name in ynames])
             altynames = sm.opt.plotting.profile_alt_yaxes
             if !isnothing(plot.alt_ax)
                 altyvals = Dict([Symbol(name) =>
-                            StellarModels.profile_output_functions[name].((sm,), 1:(sm.nz)) for name in altynames])
+                            StellarModels.profile_output_functions[name].((sm,), 1:(sm.props.nz)) for name in altynames])
             else
                 altyvals = nothing
             end

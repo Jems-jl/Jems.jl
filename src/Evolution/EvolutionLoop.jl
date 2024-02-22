@@ -169,7 +169,7 @@ function do_evolution_loop!(sm::StellarModel)
         StellarModels.write_data(sm)
         StellarModels.write_terminal_info(sm)
 
-        if sm.opt.plotting.do_plotting && sm.model_number == 1
+        if sm.opt.plotting.do_plotting && sm.props.model_number == 1
             Plotting.init_plots!(sm)
         elseif sm.opt.plotting.do_plotting && sm.props.model_number % sm.opt.plotting.plotting_interval == 0
             Plotting.update_plotting!(sm)

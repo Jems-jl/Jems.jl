@@ -23,7 +23,7 @@ Sets up the plot elements for an HRD
 """
 function make_HR_plot!(ax::Axis, Teff::Observable, L::Observable, Teff_now::Observable, L_now::Observable;
                        line_kwargs=Dict(), scatter_kwargs=Dict())
-    ax.xlabel = L"\log_{10}(T_\mathrm{eff}/[K])"
+    ax.xlabel = L"T_\mathrm{eff}/K"
     ax.ylabel = L"L/L_\odot"
     ax.xreversed = true
     lines!(ax, Teff, L; line_kwargs...)
