@@ -32,19 +32,19 @@ function add_history_option(name, unit, func)
 end
 
 # general properties
-add_history_option("star_age", "year", sm -> sm.time / SECYEAR)
-add_history_option("dt", "year", sm -> sm.dt / SECYEAR)
-add_history_option("model_number", "unitless", sm -> sm.model_number)
-add_history_option("star_mass", "Msun", sm -> sm.mstar / MSUN)
+add_history_option("star_age", "year", sm -> sm.props.time / SECYEAR)
+add_history_option("dt", "year", sm -> sm.props.dt / SECYEAR)
+add_history_option("model_number", "unitless", sm -> sm.props.model_number)
+add_history_option("star_mass", "Msun", sm -> sm.props.mstar / MSUN)
 
 # surface properties
-add_history_option("R_surf", "Rsun", sm -> exp(get_cell_value(sm.props.lnr[sm.nz])) / RSUN)
-add_history_option("L_surf", "Lsun", sm -> get_cell_value(sm.props.L[sm.nz]) / LSUN)
-add_history_option("T_surf", "K", sm -> exp(get_cell_value(sm.props.lnT[sm.nz])))
-add_history_option("ρ_surf", "g*cm^-3", sm -> exp(get_cell_value(sm.props.lnρ[sm.nz])))
-add_history_option("P_surf", "dyne", sm -> exp(get_cell_value(sm.props.eos_res[sm.nz].P)))
-add_history_option("X_surf", "unitless", sm -> get_cell_value(sm.props.xa[sm.nz, sm.network.xa_index[:H1]]))
-add_history_option("Y_surf", "unitless", sm -> get_cell_value(sm.props.xa[sm.nz, sm.network.xa_index[:He4]]))
+add_history_option("R_surf", "Rsun", sm -> exp(get_cell_value(sm.props.lnr[sm.props.nz])) / RSUN)
+add_history_option("L_surf", "Lsun", sm -> get_cell_value(sm.props.L[sm.props.nz]) / LSUN)
+add_history_option("T_surf", "K", sm -> exp(get_cell_value(sm.props.lnT[sm.props.nz])))
+add_history_option("ρ_surf", "g*cm^-3", sm -> exp(get_cell_value(sm.props.lnρ[sm.props.nz])))
+add_history_option("P_surf", "dyne", sm -> exp(get_cell_value(sm.props.eos_res[sm.props.nz].P)))
+add_history_option("X_surf", "unitless", sm -> get_cell_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:H1]]))
+add_history_option("Y_surf", "unitless", sm -> get_cell_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:He4]]))
 
 # central properties
 add_history_option("T_center", "K", sm -> exp(get_cell_value(sm.props.lnT[1])))
@@ -151,7 +151,7 @@ function write_data(sm::StellarModel)
         if !file_exists  # create file if it doesn't exist yet
             throw(ErrorException("History file does not exist at $(sm.opt.io.hdf5_history_filename)"))
         end
-        if (sm.model_number % sm.opt.io.history_interval == 0)
+        if (sm.props.model_number % sm.opt.io.history_interval == 0)
             if (!sm.opt.io.hdf5_history_keep_open)
                 sm.history_file = h5open(sm.opt.io.hdf5_history_filename, "r+")
             end
@@ -175,7 +175,7 @@ function write_data(sm::StellarModel)
         if !file_exists  # create file if it doesn't exist yet
             throw(ErrorException("Profile file does not exist at $(sm.opt.io.hdf5_profile_filename)"))
         end
-        if (sm.model_number % sm.opt.io.profile_interval == 0)
+        if (sm.props.model_number % sm.opt.io.profile_interval == 0)
             if (!sm.opt.io.hdf5_profile_keep_open)
                 sm.profiles_file = h5open(sm.opt.io.hdf5_profile_filename, "r+")
             end
@@ -183,8 +183,8 @@ function write_data(sm::StellarModel)
             ncols = length(data_cols)
             # Save current profile
             profile = create_dataset(sm.profiles_file,
-                                        "$(lpad(sm.model_number,sm.opt.io.hdf5_profile_dataset_name_zero_padding,"0"))",
-                                        Float64, ((sm.nz, ncols), (sm.nz, ncols));
+                                        "$(lpad(sm.props.model_number,sm.opt.io.hdf5_profile_dataset_name_zero_padding,"0"))",
+                                        Float64, ((sm.props.nz, ncols), (sm.props.nz, ncols));
                                         chunk=(sm.opt.io.hdf5_profile_chunk_size, ncols),
                                         compress=sm.opt.io.hdf5_profile_compression_level)
 
@@ -194,7 +194,7 @@ function write_data(sm::StellarModel)
             attrs(profile)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
 
             # store data
-            for i in eachindex(data_cols), k = 1:(sm.nz)
+            for i in eachindex(data_cols), k = 1:(sm.props.nz)
                 profile[k, i] = profile_output_functions[data_cols[i]](sm, k)
             end
             if (!sm.opt.io.hdf5_profile_keep_open)
@@ -205,13 +205,13 @@ function write_data(sm::StellarModel)
 end
 
 function write_terminal_info(sm::StellarModel; now::Bool=false)
-    if sm.model_number == 1 || sm.model_number % sm.opt.io.terminal_header_interval == 0 || now
+    if sm.props.model_number == 1 || sm.props.model_number % sm.opt.io.terminal_header_interval == 0 || now
         print(header)
     end
-    if sm.model_number == 1 || sm.model_number % sm.opt.io.terminal_info_interval == 0 || now
+    if sm.props.model_number == 1 || sm.props.model_number % sm.opt.io.terminal_info_interval == 0 || now
         Printf.format(stdout, line1fmt,
-                      sm.model_number,
-                      log10(sm.dt/SECYEAR),
+                      sm.props.model_number,
+                      log10(sm.props.dt / SECYEAR),
                       log10(get_cell_value(sm.props.L[sm.props.nz])),
                       log10_e * get_cell_value(sm.props.lnT[sm.props.nz]),
                       log10(get_cell_value(sm.props.eos_res[sm.props.nz].P)),
@@ -219,8 +219,8 @@ function write_terminal_info(sm::StellarModel; now::Bool=false)
                       get_cell_value(sm.props.xa[1, sm.network.xa_index[:H1]]),
                       sm.solver_data.newton_iters)
         Printf.format(stdout, line2fmt,
-                      sm.mstar / MSUN,
-                      sm.time / SECYEAR,
+                      sm.props.mstar / MSUN,
+                      sm.props.time / SECYEAR,
                       log10_e * get_cell_value(sm.props.lnr[sm.props.nz]) - log10(RSUN),
                       log10_e * get_cell_value(sm.props.lnT[1]),
                       log10(get_cell_value(sm.props.eos_res[1].P)), 
