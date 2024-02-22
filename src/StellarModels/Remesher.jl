@@ -4,8 +4,8 @@
 Acts on sm.start_step_props using info from sm.prv_step_props to decide whether to merge/split cells
 """
 function remesher!(sm::StellarModel)
-    psp = sm.prv_step_props  # for brevity
-    ssp = sm.start_step_props
+    psp::StellarModelProperties = sm.prv_step_props  # for brevity
+    ssp::StellarModelProperties = sm.start_step_props
     # we first do cell splitting
     do_split = Vector{Bool}(undef, psp.nz)
     do_split .= false
@@ -27,7 +27,7 @@ function remesher!(sm::StellarModel)
     extra_cells = sum(do_split)
     # if allocated space is not enough, we need to reallocate everything
     if psp.nz + extra_cells > length(psp.dm)
-        ssp = adjust_props_size(sm, psp.nz + extra_cells, sm.nextra)
+        adjust_props_size!(sm, psp.nz + extra_cells, sm.nextra)
     end
     for i=psp.nz:-1:1
         if !do_split[i]
@@ -78,13 +78,12 @@ function remesher!(sm::StellarModel)
     if (extra_cells != 0)
         throw(AssertionError("extra_cells is not zero: $(extra_cells), cell splitting has gone wrong"))
     end
-    
-    ssp.nz = psp.nz + sum(do_split)
+
+    ssp.nz = psp.nz + sum(do_split)  # set the new nz
 
     # we then do cell merging
     # TODO
 
-    sm.start_step_props = ssp  # set the new start_step_props
 end
 
 function split_lnr_lnρ(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
@@ -178,7 +177,7 @@ properties:
   - m
   - dm
 """
-function adjust_props_size(sm::StellarModel, new_nz::Int, nextra::Int)
+function adjust_props_size!(sm::StellarModel, new_nz::Int, nextra::Int)
     # verify that new size can contain old sm
     if sm.prv_step_props.nz > new_nz + nextra
         throw(ArgumentError("Can't fit model of size nz=$(sm.prv_step_props.nz) using new_nz=$(new_nz) and nextra=$(nextra)."))

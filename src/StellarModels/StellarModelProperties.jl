@@ -222,10 +222,10 @@ end
 """
     function copy_mesh!(sm, props_in, props_out)
 
-Copies over the mesh quantities from `props_in` into `props_out`
-This is a substitute for when remeshing is disabled.
+Copies over the mesh quantities, i.e., `nz`, `m`, `dm`, and `ind_vars` from `props_in` into `props_out`.
 """
 function copy_mesh_properties!(sm, props_out, props_in)
+    props_out.nz = props_in.nz
     Threads.@threads for i = 1:(props_in.nz)
         props_out.m[i] = props_in.m[i]
         props_out.dm[i] = props_in.dm[i]

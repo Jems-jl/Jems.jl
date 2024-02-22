@@ -145,9 +145,8 @@ function do_evolution_loop!(sm::StellarModel)
 
         if retry_step
             dt_factor *= sm.opt.timestep.dt_retry_decrease
-            uncycle_props!(sm)  # reset props to what prv_step_props contains
-            # adapt dt
-            sm.props.dt_next *= dt_factor
+            uncycle_props!(sm)  # reset props to what prv_step_props contains, ie mimic state at end of previous step
+            sm.props.dt_next *= dt_factor  # adapt dt
             continue  # go back to top of evolution loop
         else
             dt_factor = 1.0
