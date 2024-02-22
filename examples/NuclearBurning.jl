@@ -32,7 +32,7 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
-net = NuclearNetwork([:H1,:He4,:C12,:N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+net = NuclearNetwork([:H1, :D2,:He4,:C12,:N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(false)
@@ -56,7 +56,7 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 At last we are in position to evaluate the equations and compute the Jacobian.
 =#
 n=3
-StellarModels.n_polytrope_initial_condition!(n, sm, 0.73,0.02,0.0002,Chem.abundance_lists[:ASG_09],MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+StellarModels.n_polytrope_initial_condition!(n, sm, 0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 Evolution.set_step_info!(sm, sm.esi)
 Evolution.cycle_step_info!(sm);
 Evolution.set_step_info!(sm, sm.ssi)
@@ -113,18 +113,19 @@ open("example_options.toml", "w") do file
           [solver]
           newton_max_iter_first_step = 1000
           newton_max_iter = 200
+          scale_max_correction = 0.1
 
           [timestep]
           dt_max_increase = 10.0
-          delta_R_limit = 0.01
-          delta_Tc_limit = 0.01
+          delta_R_limit = 0.005
+          delta_Tc_limit = 0.005
 
           [termination]
           max_model_number = 2000
-          max_center_T = 1e8
+          max_center_T = 5e7
 
           [plotting]
-          do_plotting = true
+          do_plotting = false
           wait_at_termination = false
           plotting_interval = 1
 
@@ -152,10 +153,10 @@ end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
-StellarModels.n_polytrope_initial_condition!(n,sm,0.73,0.02,0.002,Chem.abundance_lists[:ASG_09],MSUN,100 * RSUN;initial_dt=10 * SECYEAR)
+StellarModels.n_polytrope_initial_condition!(n,sm,0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],0.5*MSUN,100 * RSUN;initial_dt=10 * SECYEAR)
 @time sm = Evolution.do_evolution_loop!(sm);
 
-
+##
 #=
 ### Plotting with Makie
 
