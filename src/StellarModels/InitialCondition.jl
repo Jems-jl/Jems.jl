@@ -124,7 +124,6 @@ The temperature at which this occurs is returned.
 """
 function getlnT_NewtonRhapson(lnT_initial, lnρ, P, massfractions, eos)
     (species_names, xa) = (collect(Symbol,keys(massfractions)), collect(Float64,values(massfractions)))
-    @show species_names, xa
     ΔlnPmin = 1e-4
     lnT = lnT_initial
     lnT_dual = ForwardDiff.Dual(lnT_initial,1.0)
