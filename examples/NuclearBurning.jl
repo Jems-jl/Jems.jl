@@ -32,7 +32,7 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
-net = NuclearNetwork([:H1, :D2,:He4,:C12,:N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+net = NuclearNetwork([:H1,:He4,:C12,:N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(false)
