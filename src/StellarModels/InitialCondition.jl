@@ -152,10 +152,10 @@ end
 """
     n_polytrope_initial_condition(n,sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
 
-Initializes a stellar model properties `sm.props` of size `nz` with values corresponding to a polytrope of index `n`,
-setting the mesh and the independent variables `sm.props.ind_vars`, etc. accordingly. Also sets the initial timestep to
-be taken, `initial_dt`. It first calls the solution to the Lane-Emden equation for index `n` and then sets radii,
-densities, pressures and luminosities.
+Initializes the stellar model properties `sm.props` with a mesh of size `nz` with values corresponding to a polytrope of
+index `n`, setting `sm.props.m`, `sm.props.dm` and the independent variables `sm.props.ind_vars`, etc. accordingly. Also
+sets the initial timestep to be taken, `initial_dt`. It first calls the solution to the Lane-Emden equation for index
+`n` and then sets radii, densities, pressures and luminosities.
 """
 function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, M::Real, R::Real; initial_dt=100 * SECYEAR)
     xvals, yvals, zvals = RungeKutta_LaneEmden(n)
@@ -163,10 +163,10 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, M::Real, R
     
     logdqs = zeros(length(sm.props.dm))
     for i in 1:nz
-        logdqs[i] = get_logdq(i, sm.props.nz, -10.0, 0.0, -6.0, 200)
+        logdqs[i] = get_logdq(i, nz, -10.0, 0.0, -6.0, 200)
     end
     dqs = 10 .^ logdqs
-    dqs[sm.props.nz+1:end] .= 0  # extra entries beyond nz have no mass
+    dqs[nz+1:end] .= 0  # extra entries beyond nz have no mass
     dqs = dqs ./ sum(dqs)
     dms = dqs .* M
     m_face = cumsum(dms)
@@ -175,7 +175,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, M::Real, R
     for i = 1:nz
         if i == 1
             m_cell[i] = 0
-        elseif i != sm.props.nz
+        elseif i != nz
             m_cell[i] = m_cell[i] - 0.5 * dms[i]
         end
     end
@@ -256,12 +256,12 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, M::Real, R
                                                           (3κ * Pface * LSUN)
     end
 
-    # special cases, just copy values at edges
-    sm.props.ind_vars[(sm.props.nz - 1) * sm.nvars + sm.vari[:lnρ]] = sm.props.ind_vars[(sm.props.nz - 2) * sm.nvars + sm.vari[:lnρ]]
-    sm.props.ind_vars[(sm.props.nz - 1) * sm.nvars + sm.vari[:lnT]] = sm.props.ind_vars[(sm.props.nz - 2) * sm.nvars + sm.vari[:lnT]]
-    # sm.props.ind_vars[(sm.props.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.props.ind_vars[(sm.props.nz - 2) * sm.nvars + sm.vari[:lum]]
-    sm.props.ind_vars[(sm.props.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.props.ind_vars[(sm.props.nz - 3) * sm.nvars + sm.vari[:lum]]
-    sm.props.ind_vars[(sm.props.nz - 2) * sm.nvars + sm.vari[:lum]] = sm.props.ind_vars[(sm.props.nz - 3) * sm.nvars + sm.vari[:lum]]
+    # modify special cases, just copy values at edges
+    sm.props.ind_vars[(nz - 1) * sm.nvars + sm.vari[:lnρ]] = sm.props.ind_vars[(nz - 2) * sm.nvars + sm.vari[:lnρ]]
+    sm.props.ind_vars[(nz - 1) * sm.nvars + sm.vari[:lnT]] = sm.props.ind_vars[(nz - 2) * sm.nvars + sm.vari[:lnT]]
+    # sm.props.ind_vars[(nz - 1) * sm.nvars + sm.vari[:lum]] = sm.props.ind_vars[(nz - 2) * sm.nvars + sm.vari[:lum]]
+    sm.props.ind_vars[(nz - 1) * sm.nvars + sm.vari[:lum]] = sm.props.ind_vars[(nz - 3) * sm.nvars + sm.vari[:lum]]
+    sm.props.ind_vars[(nz - 2) * sm.nvars + sm.vari[:lum]] = sm.props.ind_vars[(nz - 3) * sm.nvars + sm.vari[:lum]]
 
     sm.props.time = 0.0
     sm.props.dt = initial_dt
