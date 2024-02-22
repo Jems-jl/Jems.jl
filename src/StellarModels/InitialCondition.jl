@@ -265,6 +265,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, M::Real, R
 
     sm.props.time = 0.0
     sm.props.dt = initial_dt
+    sm.props.dt_next = initial_dt
     sm.props.model_number = 0
     sm.props.nz = nz
 end

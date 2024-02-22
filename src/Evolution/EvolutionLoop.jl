@@ -82,6 +82,7 @@ function do_evolution_loop!(sm::StellarModel)
         # save start_step_props before we attempt any newton solver
         StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
         StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
+        sm.start_step_props.dt = sm.prv_step_props.dt_next  # dt of this step becomes dt_next of previous
 
         # step loop
         sm.solver_data.newton_iters = 0
@@ -146,7 +147,7 @@ function do_evolution_loop!(sm::StellarModel)
             dt_factor *= sm.opt.timestep.dt_retry_decrease
             uncycle_props!(sm)  # reset props to what prv_step_props contains
             # adapt dt
-            sm.prv_step_props.dt *= dt_factor
+            sm.props.dt_next *= dt_factor
             continue  # go back to top of evolution loop
         else
             dt_factor = 1.0
@@ -188,7 +189,7 @@ function do_evolution_loop!(sm::StellarModel)
         end
 
         # get dt for coming step
-        sm.props.dt = get_dt_next(sm)
+        sm.props.dt_next = get_dt_next(sm)
     end
     if sm.opt.plotting.do_plotting
         Plotting.end_of_evolution(sm)

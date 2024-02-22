@@ -5,6 +5,7 @@ abstract type AbstractStellarModelProperties end
 @kwdef mutable struct StellarModelProperties{TN, TDual, TCellDualData, TFaceDualData} <: AbstractStellarModelProperties
     # scalar quantities
     dt::TN  # Timestep of the current evolutionary step (s)
+    dt_next::TN
     time::TN  # Age of the model (s)
     model_number::Int
     mstar::TN  # Total model mass (g)
@@ -99,7 +100,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
 
     return StellarModelProperties(;ind_vars=ind_vars, model_number=zero(Int),
                                   nz=nz, m=m, dm=dm, mstar=zero(TN),
-                                  dt=zero(TN), time=zero(TN),
+                                  dt=zero(TN), dt_next=zero(TN), time=zero(TN),
                                   eos_res_dual=eos_res_dual,
                                   eos_res=eos_res,
                                   lnT=lnT,
@@ -237,6 +238,7 @@ end
 function copy_scalar_properties!(props_out, props_in)
     props_out.time = props_in.time
     props_out.dt = props_in.dt
+    props_out.dt_next = props_in.dt
     props_out.model_number = props_in.model_number
     props_out.mstar = props_in.mstar
 end
