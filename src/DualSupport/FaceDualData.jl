@@ -1,13 +1,29 @@
 export FaceDualData, update_face_dual_data_value!, update_face_dual_data!,
         get_face_dual, get_m1_dual, get_00_dual
 
+
+"""
+    struct FaceDualData{TWONVARSP1, THREENVARSP1, TNUMBER}
+
+Definition of FaceDualData, that holds the information needed to construct partial derivatives wrt its own properties
+(the face) as well as its neighbors.
+Parametric in types `TWONVARSP1`, two times the number of independent variables plus one, `THREENVARSP1`, three times the number of
+independe variables plus one, and `TNUMBER`, the type of the number used for the calculations (usually floats, but
+can be duals themselves).
+"""
 struct FaceDualData{TWONVARSP1, THREENVARSP1, TNUMBER}
     diff_cache_face::StarDiffCache{TWONVARSP1, TNUMBER}
     diff_cache_m1::StarDiffCache{THREENVARSP1, TNUMBER}
     diff_cache_00::StarDiffCache{THREENVARSP1, TNUMBER}
 end
 
-function FaceDualData(nvars::Int, ::Type{TNUMBER}) where{TNUMBER}
+"""
+    function CellDualData(nvars::Int, ::Type{TNUMBER}; is_ind_var=false, ind_var_i=0)
+
+Instantiates an object of type FaceDualData, that holds the information needed to construct partial derivatives wrt its
+own properties as well as its neighbors.
+"""
+function FaceDualData(nvars::Int, ::Type{TNUMBER}) where {TNUMBER}
     diff_cache_face = StarDiffCache(2*nvars, TNUMBER)
     diff_cache_m1 = StarDiffCache(3*nvars, TNUMBER)
     diff_cache_00 = StarDiffCache(3*nvars, TNUMBER)

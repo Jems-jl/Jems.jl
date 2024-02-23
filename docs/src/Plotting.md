@@ -1,4 +1,4 @@
-# Plotting.md
+# Plotting
 
 This module provides live plotting routines for simulations
 

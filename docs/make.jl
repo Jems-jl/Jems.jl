@@ -6,7 +6,7 @@ using Literate
 pkg_path = pkgdir(Jems)
 
 function ignore_code_blocks(content)
-    content = replace(content, "##\n" => "\n")  # remove code blocks 
+    content = replace(content, "##\n" => "\n")  # remove code blocks
     content = replace(content, "###" => "##")  # make level 3 headers level 2
 end
 
@@ -24,7 +24,7 @@ makedocs(modules=[Jems],
                                 assets=String[]),
          pages=["Home" => "index.md",
                 "Examples" => ["NuclearBurning.md"],
-                "Modules" => ["Chem.md", "Constants.md", "EOS.md", "Opacity.md",
+                "Modules" => ["Chem.md", "Constants.md", "DualSupport.md", "EOS.md", "Opacity.md",
                               "StellarModels.md", "Evolution.md", "Plotting.md"],
                 "Developing" => ["style.md"]])
 
