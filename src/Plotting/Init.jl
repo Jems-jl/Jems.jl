@@ -6,7 +6,7 @@ Sets up all observables to be traced this run, and creates the figure and axis w
 function init_plots!(sm::StellarModel)
     basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                                italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
-                        fontsize=50, resolution=(1000, 750), linewidth=7,
+                        fontsize=50, size=(1000, 750), linewidth=7,
                         Axis=(xlabelsize=40, ylabelsize=40, titlesize=40, xgridvisible=false, ygridvisible=false,
                               spinewidth=2.5, xminorticksvisible=true, yminorticksvisible=true, xtickalign=1,
                               ytickalign=1,
@@ -29,20 +29,20 @@ function init_plots!(sm::StellarModel)
         plot.y_obs = Dict{Symbol,Observable}()
         plot.alt_y_obs = Dict{Symbol,Observable}()
         if plot.type == :HR
-            create_HR_observables!(plot, sm)
+            create_HR_observables!(plot, sm.props)
             make_HR_plot!(plot.ax, plot.x_obs[:Teff], plot.y_obs[:L], plot.x_obs[:Teff_now],
                           plot.y_obs[:L_now]; scatter_kwargs=Dict(:color => "red", :markersize => 20))
         elseif plot.type == :profile
             # make observables
             xname = sm.opt.plotting.profile_xaxis
-            xvals = Dict(Symbol(xname) => StellarModels.profile_output_options[xname][2].((sm,), 1:(sm.nz)))
+            xvals = Dict(Symbol(xname) => StellarModels.profile_output_functions[xname].((sm,), 1:(sm.props.nz)))
             ynames = sm.opt.plotting.profile_yaxes
             yvals = Dict([Symbol(name) =>
-                        StellarModels.profile_output_options[name][2].((sm,), 1:(sm.nz)) for name in ynames])
+                        StellarModels.profile_output_functions[name].((sm,), 1:(sm.props.nz)) for name in ynames])
             altynames = sm.opt.plotting.profile_alt_yaxes
             if !isnothing(plot.alt_ax)
                 altyvals = Dict([Symbol(name) =>
-                            StellarModels.profile_output_options[name][2].((sm,), 1:(sm.nz)) for name in altynames])
+                            StellarModels.profile_output_functions[name].((sm,), 1:(sm.props.nz)) for name in altynames])
             else
                 altyvals = nothing
             end
@@ -59,14 +59,14 @@ function init_plots!(sm::StellarModel)
                                 alt_ax=plot.alt_ax, alt_yvals=plot.alt_y_obs, alt_ylabels=alt_ylabels)
         elseif plot.type == :history
             xname = sm.opt.plotting.history_xaxis
-            xvals = Dict(Symbol(xname) => StellarModels.history_output_options[xname][2](sm))
+            xvals = Dict(Symbol(xname) => StellarModels.history_output_functions[xname](sm))
             
             ynames = sm.opt.plotting.history_yaxes
-            yvals = Dict([Symbol(name) => StellarModels.history_output_options[name][2](sm) for name in ynames])
+            yvals = Dict([Symbol(name) => StellarModels.history_output_functions[name](sm) for name in ynames])
             
             altynames = sm.opt.plotting.history_alt_yaxes
             if !isnothing(plot.alt_ax)
-                altyvals = Dict([Symbol(name) => StellarModels.history_output_options[name][2](sm) for name in altynames])
+                altyvals = Dict([Symbol(name) => StellarModels.history_output_functions[name](sm) for name in altynames])
             else
                 altyvals = nothing
             end

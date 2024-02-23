@@ -21,11 +21,11 @@ function thomas_algorithm!(sm)
 
     # We store Δ_i in the diagonal
     b_1 = @view eqs_numbers[1:sm.nvars]
-    solver_β[1] .= .- b_1 # this has an inverse sign for b_1 for our case
+    solver_β[1] .= .- b_1  # this has an inverse sign for b_1 for our case
     # Δ_0 is just the inverse of the first diagonal block
     D_1 = jacobian_D[1]
     solver_LU[1] = lu!(D_1)
-    for i=2:sm.nz
+    for i=2:sm.props.nz
         # update β first
         L_i = jacobian_L[i]
         LU_Δ_im1 = solver_LU[i-1] # we have stored the LU factorization of Δ for previous zone here
@@ -47,12 +47,12 @@ function thomas_algorithm!(sm)
         solver_LU[i] = lu!(D_i)
     end
 
-    x_N = solver_x[sm.nz]
-    LU_Δ_N = solver_LU[sm.nz]
-    β_N = solver_β[sm.nz] 
+    x_N = solver_x[sm.props.nz]
+    LU_Δ_N = solver_LU[sm.props.nz]
+    β_N = solver_β[sm.props.nz] 
     ldiv!(x_N, LU_Δ_N, β_N)
     # backwards sweep
-    for i=sm.nz-1:-1:1
+    for i=sm.props.nz-1:-1:1
         x_i = solver_x[i]
         x_ip1 = solver_x[i+1]
         β_i = solver_β[i]
@@ -63,8 +63,8 @@ function thomas_algorithm!(sm)
         β_i .= β_i .- x_i
         ldiv!(x_i, LU_Δ_i, β_i)
     end
-    #unload result into solver_corr
-    for i=1:sm.nz
+    # unload result into solver_corr
+    for i=1:sm.props.nz
         for j=1:sm.nvars
             solver_corr[(i-1)*sm.nvars+j] = solver_x[i][j]
         end

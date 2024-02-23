@@ -37,8 +37,7 @@ nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
-sm = StellarModel(varnames, structure_equations, nz, nextra,
-                  remesh_split_functions, net, eos, opacity);
+sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity);
 
 ##
 #=
@@ -55,24 +54,27 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 (_previous step info_) to populate the information needed before the Newton solver in `sm.ssi` (_start step info_).
 At last we are in position to evaluate the equations and compute the Jacobian.
 =#
-n=3
-StellarModels.n_polytrope_initial_condition!(n, sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-Evolution.set_step_info!(sm, sm.esi)
-Evolution.cycle_step_info!(sm);
-Evolution.set_step_info!(sm, sm.ssi)
-
+n = 3
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+Evolution.cycle_props!(sm);
+StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
+StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props)  # or do StellarModels.remesher!(sm);
+StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
+StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
+StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
 ##
 #=
 ### Benchmarking
 
-The previous code leaves everything ready to solve the linearized system. 
+The previous code leaves everything ready to solve the linearized system.
 For now we make use of a the serial Thomas algorithm for tridiagonal block matrices.
 We first show how long it takes to evaluate the Jacobian matrix. This requires two
 steps, the first is to evaluate properties across the model (for example, the EOS)
 and then evaluate all differential equations.
 =#
 @benchmark begin
-    StellarModels.update_stellar_model_properties!($sm, $sm.props)
+    StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
     Evolution.eval_jacobian_eqs!($sm)
 end
 
@@ -86,7 +88,7 @@ to run only the matrix solver can be determined by substracting the previous ben
 =#
 
 @benchmark begin
-    StellarModels.update_stellar_model_properties!($sm, $sm.props)
+    StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
     Evolution.eval_jacobian_eqs!($sm)
     Evolution.thomas_algorithm!($sm)
 end
@@ -121,7 +123,7 @@ open("example_options.toml", "w") do file
 
           [termination]
           max_model_number = 2000
-          max_center_T = 4e7
+          max_center_T = 1e8
 
           [plotting]
           do_plotting = false
@@ -152,8 +154,9 @@ end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
-StellarModels.n_polytrope_initial_condition!(n, sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
-@time sm = Evolution.do_evolution_loop!(sm);
+n = 3
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, 1 * MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
+@time Evolution.do_evolution_loop!(sm);
 
 ##
 #=

@@ -13,33 +13,16 @@ const intstr = "%$width" * "i "
 const line1fmt = Printf.Format(intstr * floatstr^6 * intstr * "\n")
 const line2fmt = Printf.Format(floatstr^7 * intstr * "\n")
 const header = """
-        model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
-         mass       age      logR     logTc     logPc     logρc   He_cntr     zones
-    -------------------------------------------------------------------------------
-    """
-
+    model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
+     mass       age      logR     logTc     logPc     logρc   He_cntr     zones
+-------------------------------------------------------------------------------
 """
-    history_get_ind_vars_edge_value(sm::StellarModel, var_symbol::Symbol, edge::Symbol)
 
-Returns the value of the independent variable `var_symbol` at either the surface or the center of the StellarModel `sm`.
-`edge` can be either `:surface` or `:center`.
-"""
-function history_get_ind_vars_edge_value(sm::StellarModel, var_symbol::Symbol, edge::Symbol)
-    if var_symbol ∉ sm.var_names
-        throw(ArgumentError(":$var_symbol is not a valid independent variable"))
-    end
-    if edge == :center
-        return sm.ind_vars[sm.vari[var_symbol]]
-    elseif edge == :surface
-        return sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[var_symbol]]
-    else
-        throw(ArgumentError("'edge' must be either :surface or :center. Instead received 
-                :$edge"))
-    end
-end
+const history_output_units::Dict{String,String} = Dict()
+const history_output_functions::Dict{String,Function} = Dict()
+const profile_output_units::Dict{String,String} = Dict()
+const profile_output_functions::Dict{String,Function} = Dict()
 
-const history_output_units::Dict{String, String} = Dict()
-const history_output_functions::Dict{String, Function} = Dict()
 function add_history_option(name, unit, func)
     if haskey(history_output_units, name)
         throw(ArgumentError("Key $name is already part of the history output options"))
@@ -47,41 +30,29 @@ function add_history_option(name, unit, func)
     history_output_units[name] = unit
     history_output_functions[name] = func
 end
-add_history_option("star_age", "year", sm -> sm.esi.time / SECYEAR)
-add_history_option("dt", "year", sm -> sm.esi.dt / SECYEAR)
-add_history_option("model_number", "unitless", sm -> sm.esi.model_number)
-add_history_option("star_mass", "Msun", sm -> sm.esi.mstar / MSUN)
 
-#surface properties
-add_history_option("R_surf", "Rsun", sm -> exp(sm.esi.lnr[sm.nz]-log(RSUN)))
-add_history_option("L_surf", "Lsun", sm -> sm.esi.L[sm.nz])
-add_history_option("T_surf", "K", sm -> exp(sm.esi.lnT[sm.nz]))
-add_history_option("P_surf", "dyne", sm -> exp(sm.esi.lnP[sm.nz]))
-add_history_option("ρ_surf", "g*cm^-3", sm -> exp(sm.esi.lnρ[sm.nz]))
-add_history_option("X_surf", "unitless", sm -> history_get_ind_vars_edge_value(sm, :H1, :surface))
-add_history_option("Y_surf", "unitless", sm -> history_get_ind_vars_edge_value(sm, :He4, :surface))
+# general properties
+add_history_option("star_age", "year", sm -> sm.props.time / SECYEAR)
+add_history_option("dt", "year", sm -> sm.props.dt / SECYEAR)
+add_history_option("model_number", "unitless", sm -> sm.props.model_number)
+add_history_option("star_mass", "Msun", sm -> sm.props.mstar / MSUN)
 
-#central properties
-add_history_option("T_center", "K", sm -> exp(sm.esi.lnT[1]))
-add_history_option("P_center", "dyne", sm -> exp(sm.esi.lnP[1]))
-add_history_option("ρ_center", "g*cm^-3", sm -> exp(sm.ssi.lnρ[1]))
-add_history_option("X_center", "unitless", sm -> history_get_ind_vars_edge_value(sm, :H1, :surface))
-add_history_option("Y_center", "unitless", sm -> history_get_ind_vars_edge_value(sm, :He4, :surface))
+# surface properties
+add_history_option("R_surf", "Rsun", sm -> exp(get_cell_value(sm.props.lnr[sm.props.nz])) / RSUN)
+add_history_option("L_surf", "Lsun", sm -> get_cell_value(sm.props.L[sm.props.nz]))
+add_history_option("T_surf", "K", sm -> exp(get_cell_value(sm.props.lnT[sm.props.nz])))
+add_history_option("ρ_surf", "g*cm^-3", sm -> exp(get_cell_value(sm.props.lnρ[sm.props.nz])))
+add_history_option("P_surf", "dyne", sm -> exp(get_cell_value(sm.props.eos_res[sm.props.nz].P)))
+add_history_option("X_surf", "unitless", sm -> get_cell_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:H1]]))
+add_history_option("Y_surf", "unitless", sm -> get_cell_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:He4]]))
 
-"""
-    profile_get_ind_vars_value(sm::StellarModel, var_symbol::Symbol, k::Int)
+# central properties
+add_history_option("T_center", "K", sm -> exp(get_cell_value(sm.props.lnT[1])))
+add_history_option("ρ_center", "g*cm^-3", sm -> exp(get_cell_value(sm.props.lnρ[1])))
+add_history_option("P_center", "dyne", sm -> exp(get_cell_value(sm.props.eos_res[1].P)))
+add_history_option("X_center", "unitless", sm -> get_cell_value(sm.props.xa[1, sm.network.xa_index[:H1]]))
+add_history_option("Y_center", "unitless", sm -> get_cell_value(sm.props.xa[1, sm.network.xa_index[:He4]]))
 
-Returns the value of the variable Symbol `var_symbol` at cell number `k` of the StellarModel `sm`.
-"""
-function profile_get_ind_vars_value(sm::StellarModel, var_symbol::Symbol, k::Int)
-    if var_symbol ∉ sm.var_names
-        throw(ArgumentError(":$var_symbol is not a valid independent variable"))
-    end
-    return sm.ind_vars[(k - 1) * sm.nvars + sm.vari[var_symbol]]
-end
-
-const profile_output_units::Dict{String, String} = Dict()
-const profile_output_functions::Dict{String, Function} = Dict()
 function add_profile_option(name, unit, func)
     if haskey(profile_output_units, name)
         throw(ArgumentError("Key $name is already part of the history output options"))
@@ -90,21 +61,21 @@ function add_profile_option(name, unit, func)
     profile_output_functions[name] = func
 end
 
-#general properties
+# general properties
 add_profile_option("zone", "unitless", (sm, k) -> k)
-add_profile_option("mass", "Msun", (sm, k) -> sm.esi.m[k] / MSUN)
-add_profile_option("dm", "Msun", (sm, k) -> sm.esi.dm[k] / MSUN)
+add_profile_option("mass", "Msun", (sm, k) -> sm.props.m[k] / MSUN)
+add_profile_option("dm", "Msun", (sm, k) -> sm.props.dm[k] / MSUN)
 
-#thermodynamic properties
-add_profile_option("log10_r", "log10(Rsun)", (sm, k) -> sm.esi.lnr[k] / RSUN * log10_e)
-add_profile_option("log10_P", "log10(dyne)", (sm, k) -> sm.esi.lnP[k] * log10_e)
-add_profile_option("log10_T", "log10(K)", (sm, k) -> sm.esi.lnT[k] * log10_e)
-add_profile_option("log10_ρ", "log10_(g*cm^-3)", (sm, k) -> sm.esi.lnρ[k] * log10_e)
-add_profile_option("luminosity", "Lsun", (sm, k) -> sm.esi.L[k])
+# thermodynamic properties
+add_profile_option("log10_r", "log10(Rsun)", (sm, k) -> get_cell_value(sm.props.lnr[k]) * log10_e - log10(RSUN))
+add_profile_option("log10_P", "log10(dyne)", (sm, k) -> get_cell_value(sm.props.eos_res[k].P) * log10_e)
+add_profile_option("log10_T", "log10(K)", (sm, k) -> get_cell_value(sm.props.lnT[k]) * log10_e)
+add_profile_option("log10_ρ", "log10_(g*cm^-3)", (sm, k) -> get_cell_value(sm.props.lnρ[k]) * log10_e)
+add_profile_option("luminosity", "Lsun", (sm, k) -> get_cell_value(sm.props.L[k]) / LSUN)
 
-#abundance
-add_profile_option("X", "unitless", (sm, k) -> profile_get_ind_vars_value(sm, :H1, k))
-add_profile_option("Y", "unitless", (sm, k) -> profile_get_ind_vars_value(sm, :He4, k))
+# abundances
+add_profile_option("X", "unitless", (sm, k) -> get_cell_value(sm.props.xa[k, sm.network.xa_index[:H1]]))
+add_profile_option("Y", "unitless", (sm, k) -> get_cell_value(sm.props.xa[k, sm.network.xa_index[:He4]]))
 
 """
     create_output_files(sm::StellarModel)
@@ -180,7 +151,7 @@ function write_data(sm::StellarModel)
         if !file_exists  # create file if it doesn't exist yet
             throw(ErrorException("History file does not exist at $(sm.opt.io.hdf5_history_filename)"))
         end
-        if (sm.model_number % sm.opt.io.history_interval == 0)
+        if (sm.props.model_number % sm.opt.io.history_interval == 0)
             if (!sm.opt.io.hdf5_history_keep_open)
                 sm.history_file = h5open(sm.opt.io.hdf5_history_filename, "r+")
             end
@@ -204,7 +175,7 @@ function write_data(sm::StellarModel)
         if !file_exists  # create file if it doesn't exist yet
             throw(ErrorException("Profile file does not exist at $(sm.opt.io.hdf5_profile_filename)"))
         end
-        if (sm.model_number % sm.opt.io.profile_interval == 0)
+        if (sm.props.model_number % sm.opt.io.profile_interval == 0)
             if (!sm.opt.io.hdf5_profile_keep_open)
                 sm.profiles_file = h5open(sm.opt.io.hdf5_profile_filename, "r+")
             end
@@ -212,8 +183,8 @@ function write_data(sm::StellarModel)
             ncols = length(data_cols)
             # Save current profile
             profile = create_dataset(sm.profiles_file,
-                                        "$(lpad(sm.model_number,sm.opt.io.hdf5_profile_dataset_name_zero_padding,"0"))",
-                                        Float64, ((sm.nz, ncols), (sm.nz, ncols));
+                                        "$(lpad(sm.props.model_number,sm.opt.io.hdf5_profile_dataset_name_zero_padding,"0"))",
+                                        Float64, ((sm.props.nz, ncols), (sm.props.nz, ncols));
                                         chunk=(sm.opt.io.hdf5_profile_chunk_size, ncols),
                                         compress=sm.opt.io.hdf5_profile_compression_level)
 
@@ -223,7 +194,7 @@ function write_data(sm::StellarModel)
             attrs(profile)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
 
             # store data
-            for i in eachindex(data_cols), k = 1:(sm.nz)
+            for i in eachindex(data_cols), k = 1:(sm.props.nz)
                 profile[k, i] = profile_output_functions[data_cols[i]](sm, k)
             end
             if (!sm.opt.io.hdf5_profile_keep_open)
@@ -233,18 +204,29 @@ function write_data(sm::StellarModel)
     end
 end
 
-function write_terminal_info(sm::StellarModel)
-    if sm.esi.model_number == 1 || 
-            sm.esi.model_number % sm.opt.io.terminal_header_interval == 0
+function write_terminal_info(sm::StellarModel; now::Bool=false)
+    if sm.props.model_number == 1 || sm.props.model_number % sm.opt.io.terminal_header_interval == 0 || now
         print(header)
     end
-    if sm.esi.model_number == 1 ||
-            sm.esi.model_number % sm.opt.io.terminal_info_interval == 0
-        Printf.format(stdout, line1fmt, sm.esi.model_number, log10(sm.dt/SECYEAR), log10(sm.esi.L[sm.nz]),
-                      log10_e * sm.esi.lnT[sm.nz], log10_e * sm.esi.lnP[sm.nz], log10_e * sm.esi.lnρ[sm.nz],
-                      sm.esi.X[1], sm.solver_data.newton_iters)
-        Printf.format(stdout, line2fmt, sm.esi.mstar / MSUN, sm.esi.time / SECYEAR, log10_e * sm.esi.lnr[sm.nz] - log10(RSUN),
-                      log10_e * sm.esi.lnT[1], log10_e * sm.esi.lnP[1], log10_e*sm.esi.lnρ[1], sm.esi.Y[1], sm.esi.nz)
+    if sm.props.model_number == 1 || sm.props.model_number % sm.opt.io.terminal_info_interval == 0 || now
+        Printf.format(stdout, line1fmt,
+                      sm.props.model_number,
+                      log10(sm.props.dt / SECYEAR),
+                      log10(get_cell_value(sm.props.L[sm.props.nz])),
+                      log10_e * get_cell_value(sm.props.lnT[sm.props.nz]),
+                      log10(get_cell_value(sm.props.eos_res[sm.props.nz].P)),
+                      log10_e * get_cell_value(sm.props.lnρ[sm.props.nz]),
+                      get_cell_value(sm.props.xa[1, sm.network.xa_index[:H1]]),
+                      sm.solver_data.newton_iters)
+        Printf.format(stdout, line2fmt,
+                      sm.props.mstar / MSUN,
+                      sm.props.time / SECYEAR,
+                      log10_e * get_cell_value(sm.props.lnr[sm.props.nz]) - log10(RSUN),
+                      log10_e * get_cell_value(sm.props.lnT[1]),
+                      log10(get_cell_value(sm.props.eos_res[1].P)), 
+                      log10_e * get_cell_value(sm.props.lnρ[1]),
+                      get_cell_value(sm.props.xa[1, sm.network.xa_index[:He4]]),
+                      sm.props.nz)
         println()
     end
 end
