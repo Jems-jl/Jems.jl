@@ -1,8 +1,9 @@
 """
-    eval_cell_eqs(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) where{TT<:Real}
 
-Evaluates the stellar structure equations of the stellar model, `sm`, at cell `k`, given the view of the independent
-variables, `ind_vars_view`.
+    eval_cell_eqs(sm::StellarModel, k::Int)
+
+Evaluates the stellar structure equations of the stellar model, `sm`, at cell `k` by populating the appropriate
+`sm.solver_data.eqs_duals` entries.
 """
 function eval_cell_eqs!(sm::StellarModel, k::Int)
     # evaluate all equations! (except composition)
@@ -11,14 +12,17 @@ function eval_cell_eqs!(sm::StellarModel, k::Int)
     end
     # evaluate all composition equations
     for i = 1:sm.network.nspecies
-        sm.solver_data.eqs_duals[k, sm.nvars - sm.network.nspecies + i] = equation_composition(sm, k, sm.network.species_names[i])
+        sm.solver_data.eqs_duals[k, sm.nvars - sm.network.nspecies + i] = 
+                                                    equation_composition(sm, k, sm.network.species_names[i])
     end
 end
 
 """
+
     eval_jacobian_eqs_row!(sm::StellarModel, k::int)
 
-Evaluates row `k` of the Jacobian matrix of the given StellarModel `sm`.
+Evaluates row `k` of the Jacobian matrix of the given StellarModel `sm`, by populating the appropriate
+`sm.solver_data.jacobian` entries. It uses the partial derivatives of the dual-number-evaluated equations.
 """
 function eval_jacobian_eqs_row!(sm::StellarModel, k::Int)
     #=
@@ -71,6 +75,7 @@ function eval_jacobian_eqs_row!(sm::StellarModel, k::Int)
 end
 
 """
+
     eval_jacobian_eqs!(sm::StellarModel)
 
 Evaluates the whole Jacobian matrix and equations of the given StellarModel `sm`.

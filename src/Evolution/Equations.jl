@@ -1,11 +1,9 @@
 using Jems.DualSupport
 
 """
-    equationHSE(sm::StellarModel, k::Int,
-                # varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
-                # eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                # rates::Matrix{TT},
-                # κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
+
+    equationHSE(sm::StellarModel, k::Int)
+
 
 Default equation of hydrostatic equilibrium. Evaluates for cell `k` of StellarModel `sm` to what degree hydrostatic
 equilibrium is satisfied.
@@ -14,19 +12,13 @@ equilibrium is satisfied.
 
   - `sm`: Stellar Model
   - `k`: cell number to consider
-#   - `varm1`: Matrix holding the dual numbers of the previous cell (`k-1`)
-#   - `var00`: Matrix holding the dual numbers of this cell (`k`)
-#   - `varp1`: Matrix holding the dual numbers of the next cell (`k+1`)
-#   - `eosm1`: EOSResults object holding the results of the EOS evaluation of the previous cell (`k-1`)
-#   - `eos00`: EOSResults object holding the results of the EOS evaluation of the current cell (`k`)
-#   - `eosp1`: EOSResults object holding the results of the EOS evaluation of the next cell (`k+1`)
-#   - `κm1`: Opacity evaluated at the previous cell (`k-1`)
-#   - `κ00`: Opacity evaluated at the current cell (`k`)
-#   - `κp1`: Opacity evaluated at the next cell (`k+1`)
+
+Must be identical to [`equationContinuity`](@ref) for compatibility with StellarModels.TypeStableEquation
 
 # Returns
 
-Residual of comparing dlnP/dm with -GM/4πr^4, where the latter is evaluated at the face of cell `k` and `k+1`.
+Residual of comparing the discretized ∂lnP/∂m with -GM/4πr^4, where the latter is evaluated at the face of cell `k` and
+`k+1`.
 """
 function equationHSE(sm::StellarModel, k::Int)
     if k == sm.props.nz  # atmosphere boundary condition
@@ -46,12 +38,10 @@ function equationHSE(sm::StellarModel, k::Int)
         return 1-(P₊ + CGRAV*ρ₀^2*(2π/3)*rmid₊^2)/P₀
     end
 
-    #log pressure at cell center of cell k
-    lnP₀ = get_00_dual(sm.props.eos_res[k].lnP)
-    #log pressure at cell center of cell k+1
-    lnP₊ = get_p1_dual(sm.props.eos_res[k+1].lnP)
 
-    lnPface = get_00_dual(sm.props.lnP_face[k])
+    lnP₀ = get_00_dual(sm.props.eos_res[k].lnP)  # log pressure at cell center of cell k
+    lnP₊ = get_p1_dual(sm.props.eos_res[k+1].lnP)  # log pressure at cell center of cell k+1
+    lnPface = get_00_dual(sm.props.lnP_face[k])  # log pressure at the face between k and k+1
 
     r₀ = exp(get_00_dual(sm.props.lnr[k]))
     dm = 0.5*(sm.props.dm[k + 1] + sm.props.dm[k])
@@ -61,21 +51,23 @@ function equationHSE(sm::StellarModel, k::Int)
 end
 
 """
-    equationT(sm::StellarModel, k::Int,
-              varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
-              eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-              rates::Matrix{TT},
-              κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
+
+    equationT(sm::StellarModel, k::Int)
 
 Default equation of energy transport, evaluated for cell `k` of StellarModel `sm`.
 
+
 # Arguments
 
-Identical to [`equationHSE`](@ref) for compatibility with StellarModels.TypeStableEquation
+  - `sm`: Stellar Model
+  - `k`: cell number to consider
+
+Must be identical to [`equationContinuity`](@ref) for compatibility with StellarModels.TypeStableEquation
 
 # Returns
 
-Residual of comparing dlnT/dm with -∇*GMT/4πr^4P, where the latter is evaluated at the face of cell `k` and `k+1`.
+Residual of comparing the discretized ∂lnT/∂m with -∇*GMT/4πr^4P, where the latter is evaluated at the face of cell `k`
+and `k+1`.
 """
 function equationT(sm::StellarModel, k::Int)
     lnT₀ = get_00_dual(sm.props.eos_res[k].lnT)
@@ -106,21 +98,21 @@ function equationT(sm::StellarModel, k::Int)
 end
 
 """
-    equationLuminosity(sm::StellarModel, k::Int,
-                       varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
-                       eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                       rates::Matrix{TT},
-                       κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
+
+    equationLuminosity(sm::StellarModel, k::Int)
 
 Default equation of energy generation, evaluated for cell `k` of StellarModel `sm`.
 
 # Arguments
 
-Identical to [`equationHSE`](@ref) for compatibility with StellarModels.TypeStableEquation
+  - `sm`: Stellar Model
+  - `k`: cell number to consider
+
+Must be identical to [`equationContinuity`](@ref) for compatibility with StellarModels.TypeStableEquation
 
 # Returns
 
-Residual of comparing dL/dm with ϵnuc - cₚ * dT/dt - (δ / ρ) * dP/dt
+Residual of comparing the discretized ∂L/∂m with ϵnuc - cₚ * ∂T/∂t - (δ / ρ) * ∂P/∂t
 """
 function equationLuminosity(sm::StellarModel, k::Int)
     L₀ = get_00_dual(sm.props.L[k]) * LSUN
@@ -129,8 +121,8 @@ function equationLuminosity(sm::StellarModel, k::Int)
     δ = get_00_dual(sm.props.eos_res[k].δ)
     T₀ = get_00_dual(sm.props.eos_res[k].T)
     P₀ = get_00_dual(sm.props.eos_res[k].P)
-    dTdt = (T₀ - get_cell_value(sm.start_step_props.eos_res[k].T)) / sm.props.dt
-    dPdt = (P₀ - get_cell_value(sm.start_step_props.eos_res[k].P)) / sm.props.dt
+    ∂T∂t = (T₀ - get_cell_value(sm.start_step_props.eos_res[k].T)) / sm.props.dt
+    ∂P∂t = (P₀ - get_cell_value(sm.start_step_props.eos_res[k].P)) / sm.props.dt
 
     ϵnuc::typeof(L₀) = 0
     for i in eachindex(sm.network.reactions)
@@ -138,59 +130,60 @@ function equationLuminosity(sm::StellarModel, k::Int)
     end
     if k > 1
         L₋ = get_m1_dual(sm.props.L[k-1]) * LSUN
-        return ((L₀ - L₋) / sm.props.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)/(L₀/sm.props.m[k])  # no neutrinos
+        return ((L₀ - L₋) / sm.props.dm[k] - ϵnuc + cₚ * ∂T∂t - (δ / ρ₀) * ∂P∂t) / (L₀ / sm.props.m[k])  # no neutrinos
     else
-        return (L₀ / sm.props.dm[k] - ϵnuc + cₚ * dTdt - (δ / ρ₀) * dPdt)/(L₀/sm.props.m[k])  # no neutrinos
+        return (L₀ / sm.props.dm[k] - ϵnuc + cₚ * ∂T∂t - (δ / ρ₀) * ∂P∂t) / (L₀ / sm.props.m[k])  # no neutrinos
     end
 end
+
 """
-    equationContinuity(sm::StellarModel, k::Int,
-                       varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
-                       eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                       rates::Matrix{TT},
-                       κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
+
+    equationContinuity(sm::StellarModel, k::Int)
 
 Default equation of mass continuity, evaluated for cell `k` of StellarModel `sm`.
 
 # Arguments
 
-Identical to [`equationHSE`](@ref) for compatibility with StellarModels.TypeStableEquation
+  - `sm`: Stellar Model
+  - `k`: cell number to consider
+
+Must be identical to other equations for compatibility with StellarModels.TypeStableEquation
 
 # Returns
 
-Residual of comparing dr^3/dm with 3/(4πρ)
+Residual of comparing the discretized ∂r^3/∂m with 3/(4πρ)
 """
 function equationContinuity(sm::StellarModel, k::Int)
     ρ₀ = get_00_dual(sm.props.eos_res[k].ρ)
     r₀ = exp(get_00_dual(sm.props.lnr[k]))
-    expected_dr³_dm = 3 / (4π * ρ₀)
+    expected_∂r³∂m = 3 / (4π * ρ₀)
 
     if k > 1  # get inner radius
         r₋ = exp(get_m1_dual(sm.props.lnr[k-1]))
-        actual_dr³_dm = (r₀^3 - r₋^3) / sm.props.dm[k]
+        actual_∂r³∂m = (r₀^3 - r₋^3) / sm.props.dm[k]
     else
-        actual_dr³_dm = (r₀^3) / sm.props.dm[k]
+        actual_∂r³∂m = (r₀^3) / sm.props.dm[k]
     end
 
-    return (expected_dr³_dm - actual_dr³_dm) * ρ₀  # times ρ to make eq. dim-less
+    return (expected_∂r³∂m - actual_∂r³∂m) * ρ₀  # times ρ to make eq. dim-less
 end
 
 """
-    equation_composition(sm::StellarModel, k::Int, iso_name::Symbol,
-                         varm1::Matrix{TT}, var00::Matrix{TT}, varp1::Matrix{TT},
-                         eosm1::EOSResults{TT}, eos00::EOSResults{TT}, eosp1::EOSResults{TT},
-                         rates::Matrix{TT},
-                         κm1::TT, κ00::TT, κp1::TT)::TT where {TT<:Real}
+
+    equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
 
 Default equation for composition evolution for isotope `iso_name`, evaluated for cell `k` of StellarModel `sm`.
 
 # Arguments
 
-Identical to [`equationHSE`](@ref) for compatibility with StellarModels.TypeStableEquation
+  - `sm`: Stellar Model
+  - `k`: cell number to consider
+
+Must be identical to [`equationContinuity`](@ref) for compatibility with StellarModels.TypeStableEquation
 
 # Returns
 
-Residual of comparing dX_i/dt with its computed reaction rate
+Residual of comparing the discretized ∂X_i/∂t with its computed reaction rate
 """
 function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
     # Get mass fraction for this iso
