@@ -26,7 +26,6 @@ The Evolution module has pre-defined equations corresponding to these variables,
 simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple simple electron scattering opacity equal
 to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
-
 varnames = [:lnρ, :lnT, :lnr, :lum]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
@@ -47,12 +46,13 @@ We do not have a working initial condition yet. We require pressure, temperature
 condition is that of an n=1 polytrope. This sets the pressure and density and computes the temperature from the EOS. The
 luminosity is initialized by assuming pure radiative transport for the temperature gradient produced by the polytrope.
 
-The normal evolution loop will store the information at the end of the step into an attribute of type `StellarStepInfo`,
-stored at `sm.esi` (_end step info_). After initializing our polytrope we can mimic that behavior by calling 
-`set_end_step_info!(sm)`. We then 'cycle' this info into the information of a hypothetical previous step with
-`cycle_step_info`, so now `sm.psi` contains our initial condition. Finally we call `set_start_step_info` to use `sm.psi`
-(_previous step info_) to populate the information needed before the Newton solver in `sm.ssi` (_start step info_).
-At last we are in position to evaluate the equations and compute the Jacobian.
+The normal evolution loop will store the information at the end of the step into an attribute of type
+`StellarModelProperties`, `sm.props`, here we do it manually ffter initializing our polytrope. We then 'cycle' this info
+into the information of a hypothetical previous step with `cycle_props!`, so now `sm.prv_step_props` contains our
+initial condition. Finally we call `copy_scalar_properties`, `copy_mesh_properties` and
+`evaluate_stellar_model_properties` to populate the `start_step_properties` which contains the information needed before
+the Newton solver. At last we copy it to the `sm.props` of the current step, and then are in position to evaluate the
+equations and compute the Jacobian.
 =#
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
@@ -196,8 +196,9 @@ ax = Axis(f[1, 1]; xlabel=L"\log_{10}(\rho/\mathrm{[g\;cm^{-3}]})", ylabel=L"\lo
 pname = Observable(profile_names[1])
 
 profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
-#To see why this is done this way, see https://docs.makie.org/stable/explanations/nodes/index.html#problems_with_synchronous_updates
-#the main issue is that remeshing changes the size of the arrays
+# To see why this is done this way, see
+# https://docs.makie.org/stable/explanations/nodes/index.html#problems_with_synchronous_updates
+# the main issue is that remeshing changes the size of the arrays
 log10_ρ = @lift($profile[!, "log10_ρ"])
 log10_P = Observable(rand(length(log10_ρ.val)))
 
