@@ -1,6 +1,6 @@
 # Plotting
 
-This module provides live plotting routines for simulations
+This module provides live plotting routines for simulations.
 
 ## Plotting.jl
 
