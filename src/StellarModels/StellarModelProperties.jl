@@ -24,16 +24,16 @@ abstract type AbstractStellarModelProperties end
     lnT::Vector{TCellDualData}  # [K]
     lnρ::Vector{TCellDualData}  # [g cm^-3]
     lnr::Vector{TCellDualData}  # [cm]
-    L::Vector{TCellDualData}    # erg g^-1
+    L::Vector{TCellDualData}    # Lsun
     xa::Matrix{TCellDualData}   # dim-less
-    xa_dual::Matrix{TDual}      # only the cell duals wrt to itself
+    xa_dual::Matrix{TDual}      # only the cell duals wrt itself
 
     # opacity (cell centered)
     κ::Vector{TCellDualData}  # cm^2 g^-1
 
     # rates (cell centered)
-    rates::Matrix{TCellDualData}  # 
-    rates_dual::Matrix{TDual}
+    rates::Matrix{TCellDualData}  # g^-1 s^-1
+    rates_dual::Matrix{TDual}     # only cell duals wrt itself
 
     # face values
     lnP_face::Vector{TFaceDualData}  # [dyne]

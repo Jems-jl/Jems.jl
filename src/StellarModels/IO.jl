@@ -39,7 +39,7 @@ add_history_option("star_mass", "Msun", sm -> sm.props.mstar / MSUN)
 
 # surface properties
 add_history_option("R_surf", "Rsun", sm -> exp(get_cell_value(sm.props.lnr[sm.props.nz])) / RSUN)
-add_history_option("L_surf", "Lsun", sm -> get_cell_value(sm.props.L[sm.props.nz]) / LSUN)
+add_history_option("L_surf", "Lsun", sm -> get_cell_value(sm.props.L[sm.props.nz]))
 add_history_option("T_surf", "K", sm -> exp(get_cell_value(sm.props.lnT[sm.props.nz])))
 add_history_option("ρ_surf", "g*cm^-3", sm -> exp(get_cell_value(sm.props.lnρ[sm.props.nz])))
 add_history_option("P_surf", "dyne", sm -> exp(get_cell_value(sm.props.eos_res[sm.props.nz].P)))
