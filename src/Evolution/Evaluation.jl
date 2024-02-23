@@ -51,15 +51,15 @@ function eval_jacobian_eqs_row!(sm::StellarModel, k::Int)
                 jacobian_Lk[i,j] = 0
                 jacobian_Dk[i,j] = eqs_duals[k, i].partials[j + sm.nvars]
                 jacobian_Uk[i,j] = eqs_duals[k, i].partials[j + 2*sm.nvars]
-            end              
-        elseif k==sm.nz      
-            for j=1:sm.nvars  
+            end
+        elseif k==sm.props.nz
+            for j=1:sm.nvars
                 jacobian_Lk[i,j] = eqs_duals[k, i].partials[j]
                 jacobian_Dk[i,j] = eqs_duals[k, i].partials[j + sm.nvars]
                 jacobian_Uk[i,j] = 0
-            end              
-        else                 
-            for j=1:sm.nvars  
+            end
+        else
+            for j=1:sm.nvars
                 jacobian_Lk[i,j] = eqs_duals[k, i].partials[j]
                 jacobian_Dk[i,j] = eqs_duals[k, i].partials[j + sm.nvars]
                 jacobian_Uk[i,j] = eqs_duals[k, i].partials[j + 2*sm.nvars]
@@ -76,7 +76,7 @@ end
 Evaluates the whole Jacobian matrix and equations of the given StellarModel `sm`.
 """
 function eval_jacobian_eqs!(sm::StellarModel)
-    Threads.@threads for k = 1:(sm.nz)
+    Threads.@threads for k = 1:(sm.props.nz)
         eval_jacobian_eqs_row!(sm, k)
     end
 end

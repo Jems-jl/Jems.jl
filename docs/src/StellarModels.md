@@ -9,6 +9,13 @@ Modules = [Jems.StellarModels]
 Pages = ["StellarModels/StellarModel.jl"]
 ```
 
+## StellarModelProperties.jl
+
+```@autodocs
+Modules = [Jems.StellarModels]
+Pages = ["StellarModels/StellarModelProperties.jl"]
+```
+
 ## Options.jl
 
 ```@autodocs

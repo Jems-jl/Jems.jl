@@ -44,7 +44,7 @@ function NuclearNetwork(species_names, reaction_names::Vector{Tuple{Symbol, Symb
     end
 
     # At this point reactions is a Vector{Any}. For type stability we want to turn it into a vector with type
-    # Union{...}, where the Union containts all types of reactions
+    # Union{...}, where the Union contains all types of reactions
 
     reactions_typed::Vector{Union{typeof.(reactions)...}} = [reactions...]
 
@@ -58,7 +58,8 @@ function NuclearNetwork(species_names, reaction_names::Vector{Tuple{Symbol, Symb
     )
 end
 
-function set_rates_for_network!(rates::AbstractArray{TT}, net::NuclearNetwork, eos00::EOSResults{TT}, xa::AbstractArray{TT}) where{TT}
+function set_rates_for_network!(rates::AbstractArray{TT}, net::NuclearNetwork, eos00::EOSResults{TT},
+                                xa::AbstractArray{TT}) where {TT}
     if length(rates) != length(net.reactions)
         throw(ArgumentError("Length of `rates` and `net.reactions` must be equal"))
     end
