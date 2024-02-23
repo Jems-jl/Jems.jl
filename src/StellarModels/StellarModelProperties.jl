@@ -2,7 +2,7 @@ using ForwardDiff
 
 abstract type AbstractStellarModelProperties end
 
-@kwdef mutable struct StellarModelProperties{TN, TDual, TCellDualData, TFaceDualData} <: AbstractStellarModelProperties
+@kwdef mutable struct StellarModelProperties{TN,TDual,TCellDualData,TFaceDualData} <: AbstractStellarModelProperties
     # scalar quantities
     dt::TN  # Timestep of the current evolutionary step (s)
     dt_next::TN
@@ -120,15 +120,16 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
 end
 
 """
-    function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TDual, TCellDualData}) where
-        {TDual <: ForwardDiff.Dual, TCellDualData}
+
+    function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TDual,TCellDualData}) where
+                                                    {TDual<:ForwardDiff.Dual,TCellDualData}
 
 Evaluates the stellar model properties `props` from the `ind_vars` array. The goal is to save the 'state' of the
 StellarModel so we can easily get properties like rates, eos, opacity values, and retrace if a retry is called.
 This does _not_ update the mesh/ind_vars arrays.
 """
-function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN, TDual, TCellDualData}) where
-                                                {TN<:Real, TDual<:ForwardDiff.Dual, TCellDualData}
+function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN,TDual,TCellDualData}) where
+                                                {TN<:Real,TDual<:ForwardDiff.Dual,TCellDualData}
     lnT_i = sm.vari[:lnT]
     lnρ_i = sm.vari[:lnρ]
     lnr_i = sm.vari[:lnr]
@@ -220,11 +221,14 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
 end
 
 """
-    function copy_mesh!(sm, props_in, props_out)
+
+    function copy_mesh_properties!(sm::StellarModel, props_out::SMP, props_in::SMP) where
+                                {SMP<:AbstractStellarModelProperties}
 
 Copies over the mesh quantities, i.e., `nz`, `m`, `dm`, and `ind_vars` from `props_in` into `props_out`.
 """
-function copy_mesh_properties!(sm, props_out, props_in)
+function copy_mesh_properties!(sm, props_out::SMP, props_in::SMP) where
+                                {SMP<:AbstractStellarModelProperties}
     props_out.nz = props_in.nz
     Threads.@threads for i = 1:(props_in.nz)
         props_out.m[i] = props_in.m[i]
@@ -235,7 +239,7 @@ function copy_mesh_properties!(sm, props_out, props_in)
     end
 end
 
-function copy_scalar_properties!(props_out, props_in)
+function copy_scalar_properties!(props_out::SMP, props_in::SMP) where {SMP<:AbstractStellarModelProperties}
     props_out.time = props_in.time
     props_out.dt = props_in.dt
     props_out.dt_next = props_in.dt

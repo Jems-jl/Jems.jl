@@ -11,33 +11,30 @@ Structure that wraps a stellar structure equation into a type stable object, usi
 that the stellar structure equations have the following signature:
 
     ```
-    function structure_equation(::TS, ::Int,
-                                ::Matrix{TD}, ::Matrix{TD}, ::Matrix{TD},
-                                ::EOSResults{TD}, ::EOSResults{TD}, ::EOSResults{TD}
-                                ::Matrix{TD},
-                                ::TD, ::TD, ::TD)::TD
+    function structure_equation(::TS, ::Int)::TD
     ```
 
 For typical usage, TS is the concrete type of StellarModel, and TD the type of dual number being used for automatic
 differentiation. The function must return an object of type TD, the result of the equation.
 """
 struct TypeStableEquation{TS,TD<:Real}
-    func::FunctionWrappers.FunctionWrapper{TD,
-                                           Tuple{TS,Int}}
+    func::FunctionWrappers.FunctionWrapper{TD,Tuple{TS,Int}}
 end
 
 """
+
     mutable struct StellarModel{TN<:Real,TD<:Real,TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity}
 
 An evolutionary model for a star, containing information about the star's current state, as well as the independent
 variables of the model and its equations.
 
-The struct has four parametric types, `TN` for 'normal' numbers, `TD` for dual numbers used in automatic
-differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type of opacity law being used.
+The struct has many parametric types, `TN` for 'normal' numbers, `TD` for dual numbers of `TN`, used in automatic
+differentiation, `TPROPS` for the internal properties of the model, `TEOS` for the type of EOS, `TKAP` for the type of
+opacity law, `TNET` for the nuclear network, and `TSOLVER` for the structures that solve the linear system.
 """
-@kwdef mutable struct StellarModel{TNUMBER<:Real, TDUALFULL<:ForwardDiff.Dual, TPROPS<:AbstractStellarModelProperties,
-                                   TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,TNET<:NuclearNetworks.AbstractNuclearNetwork,
-                                   TSOLVER<:AbstractSolverData}
+@kwdef mutable struct StellarModel{TNUMBER<:Real,TDUALFULL<:ForwardDiff.Dual,TPROPS<:AbstractStellarModelProperties,
+                                   TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,
+                                   TNET<:NuclearNetworks.AbstractNuclearNetwork,TSOLVER<:AbstractSolverData}
     # Basic info that does not change over the run (for now)
     nvars::Int  # This is the sum of hydro vars and species
     var_names::Vector{Symbol}  # List of variable names
@@ -49,7 +46,8 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     # We keep the original input for when we resize the stellar model.
     structure_equations_original::Vector{Function}
     # List of equations to be solved.
-    structure_equations::Vector{TypeStableEquation{StellarModel{TNUMBER,TDUALFULL,TPROPS,TEOS,TKAP,TNET,TSOLVER},TDUALFULL}}
+    structure_equations::Vector{
+        TypeStableEquation{StellarModel{TNUMBER,TDUALFULL,TPROPS,TEOS,TKAP,TNET,TSOLVER},TDUALFULL}}
     # cache to store residuals and solver matrices
     solver_data::TSOLVER
 
@@ -78,6 +76,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
 end
 
 """
+
     StellarModel(varnames::Vector{Symbol}, structure_equations::Vector{Function},
                 nvars::Int, nspecies::Int, nz::Int, eos::AbstractEOS, opacity::AbstractOpacity)
 
@@ -128,7 +127,7 @@ function StellarModel(var_names::Vector{Symbol},
     plt = Plotter()
 
     # create the stellar model
-    sm = StellarModel(;nvars=nvars,
+    sm = StellarModel(; nvars=nvars,
                       var_names=var_names_full, vari=vari, nextra=nextra,
                       solver_data = solver_data,
                       structure_equations_original=structure_equations,
