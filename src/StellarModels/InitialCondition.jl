@@ -109,7 +109,7 @@ function RungeKutta_LaneEmden(n)
 end
 
 """
-    getlnT_NewtonRhapson(lnT_initial, lnρ, P, xa, species, eos)
+    getlnT_NewtonRhapson(lnT_initial, lnρ, P, massfractions, eos)
 
 Computes the temperature lnT starting from a density `lnρ`, a pressure `P`, a composition `xa`,
 a species `species` and an equation of state `eos`. The equation of state gives us the pressure, 
@@ -122,14 +122,15 @@ the difference between the calculated pressure and the given pressure is smaller
 The temperature at which this occurs is returned.
 
 """
-function getlnT_NewtonRhapson(lnT_initial, lnρ, P, xa, species, eos)
+function getlnT_NewtonRhapson(lnT_initial, lnρ, P, massfractions, eos)
+    (species_names, xa) = (collect(Symbol,keys(massfractions)), collect(Float64,values(massfractions)))
     ΔlnPmin = 1e-4
     lnT = lnT_initial
     lnT_dual = ForwardDiff.Dual(lnT_initial,1.0)
     lnρ_dual = ForwardDiff.Dual(lnρ,0.0)
     xa_dual = [ForwardDiff.Dual(xa[i],0.0) for i in eachindex(xa)]
     r = EOSResults{typeof(lnT_dual)}()
-    set_EOS_resultsTρ!(eos,r,lnT_dual,lnρ_dual,xa_dual,species)
+    set_EOS_resultsTρ!(eos,r,lnT_dual,lnρ_dual,xa_dual,species_names)
     lnP = log(r.P)
     dlnPdlnT = lnP.partials[1]
     i = 0
@@ -137,7 +138,7 @@ function getlnT_NewtonRhapson(lnT_initial, lnρ, P, xa, species, eos)
     while abs(log(P) - lnP.value) > ΔlnPmin
         lnT = lnT + (log(P) - lnP.value) / dlnPdlnT  # go to the next guess
         lnT_dual = ForwardDiff.Dual(lnT,1.0)  # setting new lnT_dual
-        set_EOS_resultsTρ!(eos,r,lnT_dual,lnρ_dual,xa_dual,[:H1,:He4])
+        set_EOS_resultsTρ!(eos,r,lnT_dual,lnρ_dual,xa_dual,species_names)
         lnP = log(r.P)
         dlnPdlnT = lnP.partials[1]
         i = i+1
@@ -157,7 +158,7 @@ index `n`, setting `sm.props.m`, `sm.props.dm` and the independent variables `sm
 sets the initial timestep to be taken, `initial_dt`. It first calls the solution to the Lane-Emden equation for index
 `n` and then sets radii, densities, pressures and luminosities.
 """
-function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, M::Real, R::Real; initial_dt=100 * SECYEAR)
+function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfraction, abundanceList::AbundanceList, M::Real, R::Real; initial_dt=100 * SECYEAR)
     xvals, yvals, zvals = RungeKutta_LaneEmden(n)
     (θ_n, ξ_1, derivative_θ_n) = (linear_interpolation(xvals,yvals), xvals[end],linear_interpolation(xvals,zvals))
     
@@ -207,7 +208,8 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, M::Real, R
     end
     mfunc_anon = ξ -> mfunc(ξ, 0.99999*M)
 
-    # set radii, pressure and temperature
+    # set radii, pressure and temperature, and mass fractions
+    massfractions = get_mass_fractions(abundanceList, sm.network.species_names, X, Z, Dfraction)
     for i = 1:nz
         μ = 0.5
         XH = 1.0
@@ -221,12 +223,16 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, M::Real, R
         end
         lnT_initial = log(P * μ / (CGAS * ρ))  # ideal gas temperature as intial guess
         # fit the temperature using the equation of state
-        lnT = getlnT_NewtonRhapson(lnT_initial, log(ρ),P,[1.0,0],[:H1,:He4],sm.eos)
+        #lnT = getlnT_NewtonRhapson(lnT_initial, log(ρ),P,[1.0,0],[:H1,:He4],sm.eos)
+        lnT = getlnT_NewtonRhapson(lnT_initial, log(ρ),P,massfractions,sm.eos)
 
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]] = log(ρ)
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = lnT
-        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:H1]] = 1.0
-        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:He4]] = 0
+
+        #set mass fractions
+        for (isotope, massfraction) in massfractions
+            sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[isotope]] = massfraction
+        end
     end
 
     # set m and dm
@@ -240,7 +246,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, M::Real, R
         Pface = Pc * (θ_n(ξ_face[i]))^(n + 1)
         ρface = ρc * (θ_n(ξ_face[i]))^(n)
         Tfaceinit = Pface * μ / (CGAS * ρface)
-        lnTface = getlnT_NewtonRhapson(log(Tfaceinit),log(ρface), Pface, [1.0,0.0],[:H1,:He4],sm.eos)
+        lnTface = getlnT_NewtonRhapson(log(Tfaceinit),log(ρface), Pface, massfractions,sm.eos)
         Tface = exp(lnTface)
        
         dlnT = sm.props.ind_vars[(i) * sm.nvars + sm.vari[:lnT]] - sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
@@ -249,7 +255,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, M::Real, R
         else
             dlnP = log(Pc * (θ_n(ξ_cell[i+1]))^(n + 1)) - log(Pc)
         end
-        κ = get_opacity_resultsTρ(sm.opacity, lnTface, log(ρface) ,[1.0,0.0], [:H1,:He4])
+        κ = get_opacity_resultsTρ(sm.opacity, lnTface, log(ρface) ,collect(Float64,values(massfractions)), collect(Symbol,keys(massfractions)))
 
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (dlnT / dlnP) *
                                                           (16π * CRAD * CLIGHT * CGRAV * m_face[i] * Tface^4) /

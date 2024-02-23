@@ -32,7 +32,7 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
-net = NuclearNetwork([:H1,:He4,:C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+net = NuclearNetwork([:H1,:He4,:C12,:N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(false)
@@ -55,7 +55,7 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 At last we are in position to evaluate the equations and compute the Jacobian.
 =#
 n = 3
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
 Evolution.cycle_props!(sm);
 StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
@@ -63,6 +63,7 @@ StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props) 
 StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
 StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
 StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
+
 ##
 #=
 ### Benchmarking
@@ -115,18 +116,21 @@ open("example_options.toml", "w") do file
           [solver]
           newton_max_iter_first_step = 1000
           newton_max_iter = 200
+          scale_max_correction = 0.1
+          report_solver_progress = false
 
           [timestep]
-          dt_max_increase = 10.0
+          dt_max_increase = 1.5
           delta_R_limit = 0.01
           delta_Tc_limit = 0.01
+          delta_Xc_limit = 0.002
 
           [termination]
           max_model_number = 2000
-          max_center_T = 1e8
+          max_center_T = 5e7
 
           [plotting]
-          do_plotting = false
+          do_plotting = true
           wait_at_termination = false
           plotting_interval = 1
 
@@ -155,7 +159,7 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 n = 3
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, 1 * MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
+StellarModels.n_polytrope_initial_condition!(n,sm,nz,0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],1.0*MSUN,100 * RSUN;initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
 
 ##
