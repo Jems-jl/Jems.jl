@@ -152,30 +152,30 @@ end
 """
     n_polytrope_initial_condition(n,sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
 
-Initializes a stellar model `sm` with values corresponding to a polytrope of index `n`, setting the independent
-variables `sm.ind_vars`, etc. accordingly. Also sets the initial timestep to be taken, `initial_dt`. The function first
-calls the solution to the Lane-Emden equation for index `n` and then sets radii, densities, pressures
-and luminosities.
+Initializes the stellar model properties `sm.props` with a mesh of size `nz` with values corresponding to a polytrope of
+index `n`, setting `sm.props.m`, `sm.props.dm` and the independent variables `sm.props.ind_vars`, etc. accordingly. Also
+sets the initial timestep to be taken, `initial_dt`. It first calls the solution to the Lane-Emden equation for index
+`n` and then sets radii, densities, pressures and luminosities.
 """
-function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; initial_dt=100 * SECYEAR)
+function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, M::Real, R::Real; initial_dt=100 * SECYEAR)
     xvals, yvals, zvals = RungeKutta_LaneEmden(n)
     (θ_n, ξ_1, derivative_θ_n) = (linear_interpolation(xvals,yvals), xvals[end],linear_interpolation(xvals,zvals))
     
-    logdqs = zeros(length(sm.dm))
-    for i in 1:sm.nz
-        logdqs[i] = get_logdq(i, sm.nz, -10.0, 0.0, -6.0, 200)
+    logdqs = zeros(length(sm.props.dm))
+    for i in 1:nz
+        logdqs[i] = get_logdq(i, nz, -10.0, 0.0, -6.0, 200)
     end
     dqs = 10 .^ logdqs
-    dqs[sm.nz+1:end] .= 0  # extra entries beyond nz have no mass
+    dqs[nz+1:end] .= 0  # extra entries beyond nz have no mass
     dqs = dqs ./ sum(dqs)
     dms = dqs .* M
     m_face = cumsum(dms)
     m_cell = cumsum(dms)
     # correct m_center
-    for i = 1:(sm.nz)
+    for i = 1:nz
         if i == 1
             m_cell[i] = 0
-        elseif i != sm.nz
+        elseif i != nz
             m_cell[i] = m_cell[i] - 0.5 * dms[i]
         end
     end
@@ -183,22 +183,22 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
     rn = R / ξ_1  # ξ is defined as r/rn, where rn^2=(n+1)Pc/(4π G ρc^2)
     ρc = M / (4π * rn^3 * (-ξ_1^2 * derivative_θ_n(ξ_1)))
     Pc = 4π * CGRAV * rn^2 * ρc^2 / (n + 1)
-    ξ_cell = zeros(sm.nz)
-    ξ_face = zeros(sm.nz)
+    ξ_cell = zeros(nz)
+    ξ_face = zeros(nz)
     function mfunc(ξ, m)
         return m - 4π * rn^3 * ρc * (-ξ^2 * derivative_θ_n(ξ))
     end
 
-    for i = 1:(sm.nz)
+    for i = 1:(nz)
         if i == 1
             ξ_cell[i] = 0
-        elseif i == sm.nz
+        elseif i == nz
             ξ_cell[i] = ξ_1
         else
             mfunc_anon = ξ -> mfunc(ξ, m_cell[i])
             ξ_cell[i] = find_zero(mfunc_anon, (0, ξ_1), Bisection())
         end
-        if i == sm.nz
+        if i == nz
             ξ_face[i] = ξ_1
         else
             mfunc_anon = ξ -> mfunc(ξ, m_face[i])
@@ -208,10 +208,10 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
     mfunc_anon = ξ -> mfunc(ξ, 0.99999*M)
 
     # set radii, pressure and temperature
-    for i = 1:(sm.nz)
+    for i = 1:nz
         μ = 0.5
         XH = 1.0
-        sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]] = log(rn * ξ_face[i])
+        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]] = log(rn * ξ_face[i])
         if i > 1
             P = Pc * (θ_n(ξ_cell[i]))^(n + 1)
             ρ = ρc * (θ_n(ξ_cell[i]))^(n)
@@ -223,19 +223,19 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
         # fit the temperature using the equation of state
         lnT = getlnT_NewtonRhapson(lnT_initial, log(ρ),P,[1.0,0],[:H1,:He4],sm.eos)
 
-        sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]] = log(ρ)
-        sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = lnT
-        sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:H1]] = 1.0
-        sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:He4]] = 0
+        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]] = log(ρ)
+        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = lnT
+        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:H1]] = 1.0
+        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:He4]] = 0
     end
 
     # set m and dm
-    sm.mstar = M
-    sm.dm = dms
-    sm.m = m_face
+    sm.props.mstar = M
+    sm.props.dm = dms
+    sm.props.m = m_face
 
     # set luminosity
-    for i = 1:(sm.nz - 1)
+    for i = 1:nz - 1
         μ = 0.5
         Pface = Pc * (θ_n(ξ_face[i]))^(n + 1)
         ρface = ρc * (θ_n(ξ_face[i]))^(n)
@@ -243,7 +243,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
         lnTface = getlnT_NewtonRhapson(log(Tfaceinit),log(ρface), Pface, [1.0,0.0],[:H1,:He4],sm.eos)
         Tface = exp(lnTface)
        
-        dlnT = sm.ind_vars[(i) * sm.nvars + sm.vari[:lnT]] - sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
+        dlnT = sm.props.ind_vars[(i) * sm.nvars + sm.vari[:lnT]] - sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]]
         if i != 1
             dlnP = log(Pc * (θ_n(ξ_cell[i+1]))^(n + 1)) - log(Pc * (θ_n(ξ_cell[i]))^(n + 1))
         else
@@ -251,20 +251,22 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, M::Real, R::Real; i
         end
         κ = get_opacity_resultsTρ(sm.opacity, lnTface, log(ρface) ,[1.0,0.0], [:H1,:He4])
 
-        sm.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (dlnT / dlnP) *
+        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (dlnT / dlnP) *
                                                           (16π * CRAD * CLIGHT * CGRAV * m_face[i] * Tface^4) /
                                                           (3κ * Pface * LSUN)
     end
 
-    # special cases, just copy values at edges
-    sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lnρ]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lnρ]]
-    sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lnT]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lnT]]
-    # sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lum]]
-    sm.ind_vars[(sm.nz - 1) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 3) * sm.nvars + sm.vari[:lum]]
-    sm.ind_vars[(sm.nz - 2) * sm.nvars + sm.vari[:lum]] = sm.ind_vars[(sm.nz - 3) * sm.nvars + sm.vari[:lum]]
+    # modify special cases, just copy values at edges
+    sm.props.ind_vars[(nz - 1) * sm.nvars + sm.vari[:lnρ]] = sm.props.ind_vars[(nz - 2) * sm.nvars + sm.vari[:lnρ]]
+    sm.props.ind_vars[(nz - 1) * sm.nvars + sm.vari[:lnT]] = sm.props.ind_vars[(nz - 2) * sm.nvars + sm.vari[:lnT]]
+    # sm.props.ind_vars[(nz - 1) * sm.nvars + sm.vari[:lum]] = sm.props.ind_vars[(nz - 2) * sm.nvars + sm.vari[:lum]]
+    sm.props.ind_vars[(nz - 1) * sm.nvars + sm.vari[:lum]] = sm.props.ind_vars[(nz - 3) * sm.nvars + sm.vari[:lum]]
+    sm.props.ind_vars[(nz - 2) * sm.nvars + sm.vari[:lum]] = sm.props.ind_vars[(nz - 3) * sm.nvars + sm.vari[:lum]]
 
-    sm.time = 0.0
-    sm.dt = initial_dt
-    sm.model_number = 0
+    sm.props.time = 0.0
+    sm.props.dt = initial_dt
+    sm.props.dt_next = initial_dt
+    sm.props.model_number = 0
+    sm.props.nz = nz
 end
 
