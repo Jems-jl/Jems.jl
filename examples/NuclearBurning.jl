@@ -117,18 +117,20 @@ open("example_options.toml", "w") do file
           newton_max_iter_first_step = 1000
           newton_max_iter = 200
           scale_max_correction = 0.1
+          report_solver_progress = false
 
           [timestep]
-          dt_max_increase = 10.0
-          delta_R_limit = 0.005
-          delta_Tc_limit = 0.005
+          dt_max_increase = 1.5
+          delta_R_limit = 0.01
+          delta_Tc_limit = 0.01
+          delta_Xc_limit = 0.002
 
           [termination]
           max_model_number = 2000
           max_center_T = 5e7
 
           [plotting]
-          do_plotting = false
+          do_plotting = true
           wait_at_termination = false
           plotting_interval = 1
 
@@ -157,8 +159,8 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 n = 3
-StellarModels.n_polytrope_initial_condition!(n,sm,nz,0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],0.5*MSUN,100 * RSUN;initial_dt=10 * SECYEAR)
-@time sm = Evolution.do_evolution_loop!(sm);
+StellarModels.n_polytrope_initial_condition!(n,sm,nz,0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],1.0*MSUN,100 * RSUN;initial_dt=10 * SECYEAR)
+@time Evolution.do_evolution_loop!(sm);
 
 ##
 #=

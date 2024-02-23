@@ -41,9 +41,9 @@ function get_dt_next(sm::StellarModel)
     Tc_old = exp(get_cell_value(sm.prv_step_props.lnT[sm.prv_step_props.nz]))
     ΔTc_div_Tc = abs(Tc - Tc_old) / Tc
 
-    X = get_cell_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:H1]])
-    Xold = get_cell_value(sm.prv_step_props.xa[sm.prv_step_props.nz, sm.network.xa_index[:H1]])
-    ΔX = abs(X - Xold) / (X)
+    X = get_cell_value(sm.props.xa[1, sm.network.xa_index[:H1]])
+    Xold = get_cell_value(sm.prv_step_props.xa[1, sm.network.xa_index[:H1]])
+    ΔX = abs(X - Xold)
 
     dt_nextR = dt_next * sm.opt.timestep.delta_R_limit / ΔR_div_R
     dt_nextTc = dt_next * sm.opt.timestep.delta_Tc_limit / ΔTc_div_Tc
@@ -194,5 +194,4 @@ function do_evolution_loop!(sm::StellarModel)
         Plotting.end_of_evolution(sm)
     end
     StellarModels.close_output_files!(sm)
-    # return sm  we don't need to return since sm is never changed anymore.
 end
