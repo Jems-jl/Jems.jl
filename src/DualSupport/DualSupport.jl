@@ -4,19 +4,19 @@ using ForwardDiff
 using StaticArrays
 
 export CellDualData, update_cell_dual_data_value!, update_cell_dual_data!,
-        get_cell_dual, get_m1_dual, get_00_dual, get_p1_dual, get_cell_value
+       get_cell_dual, get_m1_dual, get_00_dual, get_p1_dual, get_cell_value
 
 # Inspired by DiffCache from PreallocationTools (https://github.com/SciML/PreallocationTools.jl)
 """
-    struct StarDiffCache{SIZE, TNUMBER}
+    struct StarDiffCache{SIZE,TNUMBER}
 
-Definition of StarDiffCache, a cache that makes room to store partial derivatives.
-Parametric in types `SIZE`, the size of the array, and `TNUMBER`, the type of the number used for calculations. 
+Definition of StarDiffCache, a cache that makes room to store everything needed to construct a dual number. Parametric
+in types `SIZE`, the size of the array (will usually be `nvars+1`), and `TNUMBER`, the type of the number used for
+calculations.
 """
-struct StarDiffCache{SIZE, TNUMBER}
+struct StarDiffCache{SIZE,TNUMBER}
     dual_data::MVector{SIZE,TNUMBER}
 end
-
 
 """
     function StarDiffCache(nvars::Int, ::Type{TNUMBER}) where {TNUMBER}
@@ -24,24 +24,33 @@ end
 Instantiates a StarDiffCache object of size `nvars+1`, and fills it with zeros.
 """
 function StarDiffCache(nvars::Int, ::Type{TNUMBER}) where {TNUMBER}
-    StarDiffCache{nvars+1, TNUMBER}(zeros(TNUMBER, nvars+1))
+    StarDiffCache{nvars + 1,TNUMBER}(zeros(TNUMBER, nvars + 1))
 end
 
-## This uses reinterpret
+## This uses reinterpret, is slower
 #function get_dual(sdc::StarDiffCache{SIZE, TNUMBER}) where{SIZE,TNUMBER}
 #    reinterpret(ForwardDiff.Dual{Nothing, TNUMBER, SIZE}, sdc.dual_data)[1]
 #end
 
-# kudos to user Mason Protter from discourse.julia.com
-# beware of caveats
-# https://discourse.julialang.org/t/reinterpret-vector-into-single-struct/107709
-function get_dual(sdc::StarDiffCache{SIZE, TNUMBER}) where {SIZE,TNUMBER}
-    p::Ptr{ForwardDiff.Dual{Nothing, TNUMBER, SIZE-1}} = pointer(sdc.dual_data)
+"""
+    function get_dual(sdc::StarDiffCache{SIZE,TNUMBER}) where {SIZE,TNUMBER}
+
+Interprets the first element of the given `StarDiffCache` as a dual number of type `TNUMBER` and size `SIZE - 1`.
+Kudos to user Mason Protter from discourse.julia.com; and beware of caveats
+https://discourse.julialang.org/t/reinterpret-vector-into-single-struct/107709.
+"""
+function get_dual(sdc::StarDiffCache{SIZE,TNUMBER}) where {SIZE,TNUMBER}
+    p::Ptr{ForwardDiff.Dual{Nothing,TNUMBER,SIZE - 1}} = pointer(sdc.dual_data)
     unsafe_load(p)         # Load the first element from that pointer
 end
 
-function get_face_dual(sdc::StarDiffCache{SIZE, TNUMBER}) where {SIZE,TNUMBER}
-    p::Ptr{ForwardDiff.Dual{Nothing, TNUMBER, (SIZE-1)*2÷3}} = pointer(sdc.dual_data)
+"""
+    function get_face_dual(sdc::StarDiffCache{SIZE,TNUMBER}) where {SIZE,TNUMBER}
+
+Interprets the first element of the given `StarDiffCache` as a dual number of type `TNUMBER` and size `2/3(SIZE - 1)`
+"""
+function get_face_dual(sdc::StarDiffCache{SIZE,TNUMBER}) where {SIZE,TNUMBER}
+    p::Ptr{ForwardDiff.Dual{Nothing,TNUMBER,(SIZE - 1) * 2 ÷ 3}} = pointer(sdc.dual_data)
     unsafe_load(p)         # Load the first element from that pointer
 end
 
