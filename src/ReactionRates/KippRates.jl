@@ -38,22 +38,28 @@ reaction_list[:kipp_rates] = Dict(
          * AMU * CLIGHT^2))
 )
 
-
-function get_reaction_rate(reaction::KippReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT},
-                           xa_index::Dict{Symbol,Int})::TT where {TT}
 """
+
     function get_reaction_rate(reaction::KippReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT},
                                xa_index::Dict{Symbol,Int})::TT where {TT}
 
-Input:
-reaction: the reaction dictionary that is being used
-eos00: results equation of state
-xa: element mass fractions in the star
-xa_index: index of the elements
+Computes the reaction rate of the type `KippReactionRate`, using the presciptions described in Kippenhahn Weichert,
+Weiss, 2012, Chap. 18.
 
-Output:
-ϵ_nuc / Qvalue, has units s^-1 g^-1
+# Arguments
+
+  - `reaction`: the reaction dictionary that is being used
+  - `eos00`: results from equation of state
+  - `xa`: element mass fractions in the star
+  - `xa_index``: index of the elements
+
+# Returns
+
+`ϵ_nuc / Qvalue`, has units g^-1 s^-1
 """
+function get_reaction_rate(reaction::KippReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT},
+                           xa_index::Dict{Symbol,Int})::TT where {TT}
+
     if reaction.name == :kipp_pp
 
         phi  = 1

@@ -15,8 +15,28 @@ reaction_list[:toy_rates] = Dict(
         ((4 * Chem.isotope_list[:H1].mass - Chem.isotope_list[:He4].mass) * AMU * CLIGHT^2)),
 )
 
+"""
 
-function get_reaction_rate(reaction::ToyReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT}, xa_index::Dict{Symbol,Int})::TT where{TT}
+    function get_reaction_rate(reaction::ToyReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT},
+                               xa_index::Dict{Symbol,Int})::TT where {TT}
+
+Evaluates the reaction rate of type ToyReactionRate, using very simple power-law scalings for pp and cno burning.
+Its pre-factor is arbitrary to give reasonable values for a solar-like star.
+
+# Arguments
+
+  - `reaction`: the reaction dictionary that is being used
+  - `eos00`: results from equation of state
+  - `xa`: element mass fractions in the star
+  - `xa_index``: index of the elements
+
+# Returns
+
+`ϵ_nuc / Qvalue`, has units g^-1 s^-1
+
+"""
+function get_reaction_rate(reaction::ToyReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT},
+                           xa_index::Dict{Symbol,Int})::TT where {TT}
     if reaction.name == :toy_pp # Taken from Onno Pols lectures with arbitrary pre-factor
         ϵnuc = 0.1 * xa[xa_index[:H1]]^2 * eos00.ρ * (eos00.T / 1e6)^4
         return ϵnuc / reaction.Qvalue
