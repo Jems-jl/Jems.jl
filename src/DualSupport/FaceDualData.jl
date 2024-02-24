@@ -59,6 +59,10 @@ function update_face_dual_data!(fd::FaceDualData{SIZE1, SIZE2, TNUMBER}, dual::T
     end
 end
 
+function get_value(fd::FaceDualData)
+    return fd.diff_cache_face.dual_data[1]
+end
+
 function get_face_dual(fd::FaceDualData)
     return get_dual(fd.diff_cache_face)
 end

@@ -122,8 +122,8 @@ function equationLuminosity(sm::StellarModel, k::Int)
     δ = get_00_dual(sm.props.eos_res[k].δ)
     T₀ = get_00_dual(sm.props.eos_res[k].T)
     P₀ = get_00_dual(sm.props.eos_res[k].P)
-    dTdt = (T₀ - get_cell_value(sm.start_step_props.eos_res[k].T)) / sm.props.dt
-    dPdt = (P₀ - get_cell_value(sm.start_step_props.eos_res[k].P)) / sm.props.dt
+    dTdt = (T₀ - get_value(sm.start_step_props.eos_res[k].T)) / sm.props.dt
+    dPdt = (P₀ - get_value(sm.start_step_props.eos_res[k].P)) / sm.props.dt
 
     ϵnuc::typeof(L₀) = 0
     for i in eachindex(sm.network.reactions)
@@ -237,7 +237,7 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
     Dnorm = (4π*exp(get_00_dual(sm.props.lnr[k]))^2*exp(get_00_dual(sm.props.eos_res[k].lnρ)))^2*Dnorm
     Dnorm = Dnorm/(sm.props.dm[k])^2
 
-    Xi = get_cell_value(sm.start_step_props.xa[k, sm.network.xa_index[iso_name]])  # is never a dual!!
+    Xi = get_value(sm.start_step_props.xa[k, sm.network.xa_index[iso_name]])  # is never a dual!!
 
     return ((X00 - Xi) / sm.props.dt - dXdt_nuc - dXdt_mix)#/max(1/sm.ssi.dt, dXdt_nuc, Dnorm)
 end

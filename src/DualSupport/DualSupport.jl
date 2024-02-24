@@ -4,7 +4,7 @@ using ForwardDiff
 using StaticArrays
 
 export CellDualData, update_cell_dual_data_value!, update_cell_dual_data!,
-        get_cell_dual, get_m1_dual, get_00_dual, get_p1_dual, get_cell_value
+        get_cell_dual, get_m1_dual, get_00_dual, get_p1_dual, get_value
 
 # Inspired by DiffCache from PreallocationTools (https://github.com/SciML/PreallocationTools.jl)
 """

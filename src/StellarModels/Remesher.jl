@@ -10,8 +10,8 @@ function remesher!(sm::StellarModel)
     do_split = Vector{Bool}(undef, psp.nz)
     do_split .= false
     Threads.@threads for i in 1:psp.nz-1
-        a = abs(log10(get_cell_value(psp.eos_res[i].P)) -
-                log10(get_cell_value(psp.eos_res[i+1].P)))
+        a = abs(log10(get_value(psp.eos_res[i].P)) -
+                log10(get_value(psp.eos_res[i+1].P)))
         b = sm.opt.remesh.delta_log10P_split
         if a > b
             # if the condition is satisfied, we split the largest of the two cells
@@ -49,7 +49,7 @@ function remesher!(sm::StellarModel)
                 dm_m1 = NaN
                 var_m1 = []
             end
-            if i < ssp.nz
+            if i < psp.nz
                 dm_p1 = psp.dm[i+1]
                 var_p1 = view(psp.ind_vars, ((i)*sm.nvars + 1):((i)*sm.nvars + sm.nvars))
             else

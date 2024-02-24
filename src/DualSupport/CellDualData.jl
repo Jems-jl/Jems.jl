@@ -100,12 +100,12 @@ function update_cell_dual_data!(cd::CellDualData{SIZE1, SIZE2, TNUMBER}, dual::T
     end
 end
 
-function get_cell_dual(cd::CellDualData)
-    return get_dual(cd.diff_cache_cell)
+function get_value(cd::CellDualData)
+    return cd.diff_cache_cell.dual_data[1]
 end
 
-function get_cell_value(cd::CellDualData)
-    return get_cell_dual(cd).value
+function get_cell_dual(cd::CellDualData)
+    return get_dual(cd.diff_cache_cell)
 end
 
 function get_m1_dual(cd::CellDualData)

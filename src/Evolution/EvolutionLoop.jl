@@ -33,16 +33,16 @@ controls (`sm.opt.timestep`).
 function get_dt_next(sm::StellarModel)
     dt_next = sm.props.dt  # this it calculated at end of step, so props.dt is the dt we used to do this step
         
-    Rsurf = exp(get_cell_value(sm.props.lnr[sm.props.nz]))
-    Rsurf_old = exp(get_cell_value(sm.prv_step_props.lnr[sm.prv_step_props.nz]))
+    Rsurf = exp(get_value(sm.props.lnr[sm.props.nz]))
+    Rsurf_old = exp(get_value(sm.prv_step_props.lnr[sm.prv_step_props.nz]))
     ΔR_div_R = abs(Rsurf - Rsurf_old) / Rsurf
 
-    Tc = exp(get_cell_value(sm.props.lnT[sm.props.nz]))
-    Tc_old = exp(get_cell_value(sm.prv_step_props.lnT[sm.prv_step_props.nz]))
+    Tc = exp(get_value(sm.props.lnT[sm.props.nz]))
+    Tc_old = exp(get_value(sm.prv_step_props.lnT[sm.prv_step_props.nz]))
     ΔTc_div_Tc = abs(Tc - Tc_old) / Tc
 
-    X = get_cell_value(sm.props.xa[1, sm.network.xa_index[:H1]])
-    Xold = get_cell_value(sm.prv_step_props.xa[1, sm.network.xa_index[:H1]])
+    X = get_value(sm.props.xa[1, sm.network.xa_index[:H1]])
+    Xold = get_value(sm.prv_step_props.xa[1, sm.network.xa_index[:H1]])
     ΔX = abs(X - Xold)
 
     dt_nextR = dt_next * sm.opt.timestep.delta_R_limit / ΔR_div_R
@@ -188,7 +188,7 @@ function do_evolution_loop!(sm::StellarModel)
             println("Reached maximum model number")
             break
         end
-        if (exp(get_cell_value(sm.props.lnT[1])) > sm.opt.termination.max_center_T)
+        if (exp(get_value(sm.props.lnT[1])) > sm.opt.termination.max_center_T)
             StellarModels.write_terminal_info(sm; now=true)
             println("Reached maximum central temperature")
             break
