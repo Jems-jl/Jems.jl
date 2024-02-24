@@ -142,7 +142,6 @@ function StellarModel(var_names::Vector{Symbol},
     return sm
 end
 
-=======
 """
     adjusted_stellar_model_data(sm, new_nz::Int, new_nextra::Int)
 

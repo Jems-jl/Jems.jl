@@ -29,7 +29,7 @@ Substructure of Options containing controls relating to the Newton solver
     initial_model_scale_max_correction::Float64 = 3.0
     scale_max_correction::Float64 = 0.5
 
-    relative_correction_tolerance::Float64 = 1e3 # measured in terms of variable epsilon, 1 would be machine precision limit, 1e16 is on the scale of the variable
+    relative_correction_tolerance::Float64 = 1e4 # measured in terms of variable epsilon, 1 would be machine precision limit, 1e16 is on the scale of the variable
     maximum_residual_tolerance::Float64 = 1e-4
 
     report_solver_progress::Bool = true
