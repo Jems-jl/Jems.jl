@@ -38,20 +38,20 @@ add_history_option("model_number", "unitless", sm -> sm.props.model_number)
 add_history_option("star_mass", "Msun", sm -> sm.props.mstar / MSUN)
 
 # surface properties
-add_history_option("R_surf", "Rsun", sm -> exp(get_cell_value(sm.props.lnr[sm.props.nz])) / RSUN)
-add_history_option("L_surf", "Lsun", sm -> get_cell_value(sm.props.L[sm.props.nz]))
-add_history_option("T_surf", "K", sm -> exp(get_cell_value(sm.props.lnT[sm.props.nz])))
-add_history_option("ρ_surf", "g*cm^-3", sm -> exp(get_cell_value(sm.props.lnρ[sm.props.nz])))
-add_history_option("P_surf", "dyne", sm -> exp(get_cell_value(sm.props.eos_res[sm.props.nz].P)))
-add_history_option("X_surf", "unitless", sm -> get_cell_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:H1]]))
-add_history_option("Y_surf", "unitless", sm -> get_cell_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:He4]]))
+add_history_option("R_surf", "Rsun", sm -> exp(get_value(sm.props.lnr[sm.props.nz])) / RSUN)
+add_history_option("L_surf", "Lsun", sm -> get_value(sm.props.L[sm.props.nz]))
+add_history_option("T_surf", "K", sm -> exp(get_value(sm.props.lnT[sm.props.nz])))
+add_history_option("ρ_surf", "g*cm^-3", sm -> exp(get_value(sm.props.lnρ[sm.props.nz])))
+add_history_option("P_surf", "dyne", sm -> exp(get_value(sm.props.eos_res[sm.props.nz].P)))
+add_history_option("X_surf", "unitless", sm -> get_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:H1]]))
+add_history_option("Y_surf", "unitless", sm -> get_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:He4]]))
 
 # central properties
-add_history_option("T_center", "K", sm -> exp(get_cell_value(sm.props.lnT[1])))
-add_history_option("ρ_center", "g*cm^-3", sm -> exp(get_cell_value(sm.props.lnρ[1])))
-add_history_option("P_center", "dyne", sm -> exp(get_cell_value(sm.props.eos_res[1].P)))
-add_history_option("X_center", "unitless", sm -> get_cell_value(sm.props.xa[1, sm.network.xa_index[:H1]]))
-add_history_option("Y_center", "unitless", sm -> get_cell_value(sm.props.xa[1, sm.network.xa_index[:He4]]))
+add_history_option("T_center", "K", sm -> exp(get_value(sm.props.lnT[1])))
+add_history_option("ρ_center", "g*cm^-3", sm -> exp(get_value(sm.props.lnρ[1])))
+add_history_option("P_center", "dyne", sm -> exp(get_value(sm.props.eos_res[1].P)))
+add_history_option("X_center", "unitless", sm -> get_value(sm.props.xa[1, sm.network.xa_index[:H1]]))
+add_history_option("Y_center", "unitless", sm -> get_value(sm.props.xa[1, sm.network.xa_index[:He4]]))
 
 function add_profile_option(name, unit, func)
     if haskey(profile_output_units, name)
@@ -67,15 +67,21 @@ add_profile_option("mass", "Msun", (sm, k) -> sm.props.m[k] / MSUN)
 add_profile_option("dm", "Msun", (sm, k) -> sm.props.dm[k] / MSUN)
 
 # thermodynamic properties
-add_profile_option("log10_r", "log10(Rsun)", (sm, k) -> get_cell_value(sm.props.lnr[k]) * log10_e - log10(RSUN))
-add_profile_option("log10_P", "log10(dyne)", (sm, k) -> get_cell_value(sm.props.eos_res[k].P) * log10_e)
-add_profile_option("log10_T", "log10(K)", (sm, k) -> get_cell_value(sm.props.lnT[k]) * log10_e)
-add_profile_option("log10_ρ", "log10_(g*cm^-3)", (sm, k) -> get_cell_value(sm.props.lnρ[k]) * log10_e)
-add_profile_option("luminosity", "Lsun", (sm, k) -> get_cell_value(sm.props.L[k]) / LSUN)
+add_profile_option("log10_r", "log10(Rsun)", (sm, k) -> get_value(sm.props.lnr[k]) * log10_e - log10(RSUN))
+add_profile_option("log10_P", "log10(dyne)", (sm, k) -> get_value(sm.props.eos_res[k].P) * log10_e)
+add_profile_option("log10_T", "log10(K)", (sm, k) -> get_value(sm.props.lnT[k]) * log10_e)
+add_profile_option("log10_ρ", "log10_(g*cm^-3)", (sm, k) -> get_value(sm.props.lnρ[k]) * log10_e)
+add_profile_option("luminosity", "Lsun", (sm, k) -> get_value(sm.props.L[k]) / LSUN)
 
 # abundances
-add_profile_option("X", "unitless", (sm, k) -> get_cell_value(sm.props.xa[k, sm.network.xa_index[:H1]]))
-add_profile_option("Y", "unitless", (sm, k) -> get_cell_value(sm.props.xa[k, sm.network.xa_index[:He4]]))
+add_profile_option("X", "unitless", (sm, k) -> get_value(sm.props.xa[k, sm.network.xa_index[:H1]]))
+add_profile_option("Y", "unitless", (sm, k) -> get_value(sm.props.xa[k, sm.network.xa_index[:He4]]))
+
+# temperature gradients
+add_profile_option("nabla_a_face", "unitless", (sm, k) -> get_value(sm.props.∇ₐ_face[k]))
+add_profile_option("nabla_r_face", "unitless", (sm, k) -> get_value(sm.props.∇ᵣ_face[k]))
+add_profile_option("nabla_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇))
+add_profile_option("D_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].D_turb))
 
 """
     create_output_files(sm::StellarModel)
@@ -212,20 +218,20 @@ function write_terminal_info(sm::StellarModel; now::Bool=false)
         Printf.format(stdout, line1fmt,
                       sm.props.model_number,
                       log10(sm.props.dt / SECYEAR),
-                      log10(get_cell_value(sm.props.L[sm.props.nz])),
-                      log10_e * get_cell_value(sm.props.lnT[sm.props.nz]),
-                      log10(get_cell_value(sm.props.eos_res[sm.props.nz].P)),
-                      log10_e * get_cell_value(sm.props.lnρ[sm.props.nz]),
-                      get_cell_value(sm.props.xa[1, sm.network.xa_index[:H1]]),
+                      log10(get_value(sm.props.L[sm.props.nz])),
+                      log10_e * get_value(sm.props.lnT[sm.props.nz]),
+                      log10(get_value(sm.props.eos_res[sm.props.nz].P)),
+                      log10_e * get_value(sm.props.lnρ[sm.props.nz]),
+                      get_value(sm.props.xa[1, sm.network.xa_index[:H1]]),
                       sm.solver_data.newton_iters)
         Printf.format(stdout, line2fmt,
                       sm.props.mstar / MSUN,
                       sm.props.time / SECYEAR,
-                      log10_e * get_cell_value(sm.props.lnr[sm.props.nz]) - log10(RSUN),
-                      log10_e * get_cell_value(sm.props.lnT[1]),
-                      log10(get_cell_value(sm.props.eos_res[1].P)), 
-                      log10_e * get_cell_value(sm.props.lnρ[1]),
-                      get_cell_value(sm.props.xa[1, sm.network.xa_index[:He4]]),
+                      log10_e * get_value(sm.props.lnr[sm.props.nz]) - log10(RSUN),
+                      log10_e * get_value(sm.props.lnT[1]),
+                      log10(get_value(sm.props.eos_res[1].P)), 
+                      log10_e * get_value(sm.props.lnρ[1]),
+                      get_value(sm.props.xa[1, sm.network.xa_index[:He4]]),
                       sm.props.nz)
         println()
     end

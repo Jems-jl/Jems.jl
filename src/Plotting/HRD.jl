@@ -6,13 +6,13 @@ using Jems.DualSupport
 Creates teff and L observables and adds them to the observable list of the given plot
 """
 function create_HR_observables!(plot::StellarModels.JemsPlot, props::StellarModelProperties)
-    teff = exp(get_cell_value(props.lnT[props.nz]))
+    teff = exp(get_value(props.lnT[props.nz]))
     plot.x_obs[:Teff_now] = Observable{Float64}(teff)
     plot.x_obs[:Teff] = Observable(Float64[])
     push!(plot.x_obs[:Teff][], teff)
-    plot.y_obs[:L_now] = Observable{Float64}(get_cell_value(props.L[props.nz]))
+    plot.y_obs[:L_now] = Observable{Float64}(get_value(props.L[props.nz]))
     plot.y_obs[:L] = Observable(Float64[])
-    push!(plot.y_obs[:L][], get_cell_value(props.L[props.nz]))
+    push!(plot.y_obs[:L][], get_value(props.L[props.nz]))
 end
 
 """
@@ -36,8 +36,8 @@ end
 Updates the given `plot` with the relevant HR data from the properties of the stellar model `props`.
 """
 function update_HR_plot!(plot::StellarModels.JemsPlot, props::StellarModelProperties)
-    push!(plot.x_obs[:Teff].val, exp(get_cell_value(props.lnT[props.nz])))
-    plot.x_obs[:Teff_now].val = exp(get_cell_value(props.lnT[props.nz]))
-    push!(plot.y_obs[:L].val, get_cell_value(props.L[props.nz]))
-    plot.y_obs[:L_now].val = get_cell_value(props.L[props.nz])
+    push!(plot.x_obs[:Teff].val, exp(get_value(props.lnT[props.nz])))
+    plot.x_obs[:Teff_now].val = exp(get_value(props.lnT[props.nz]))
+    push!(plot.y_obs[:L].val, get_value(props.L[props.nz]))
+    plot.y_obs[:L_now].val = get_value(props.L[props.nz])
 end
