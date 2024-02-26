@@ -24,8 +24,8 @@ makedocs(modules=[Jems],
                                 assets=String[]),
          pages=["Home" => "index.md",
                 "Examples" => ["NuclearBurning.md"],
-                "Modules" => ["Chem.md", "Constants.md", "DualSupport.md", "EOS.md", "Opacity.md",
-                              "StellarModels.md", "Evolution.md", "Plotting.md"],
+                "Modules" => ["Chem.md", "Constants.md", "DualSupport.md", "EOS.md", "Evolution.md", "Opacity.md",
+                              "Plotting.md", "StellarModels.md", "Turbulence.md"],
                 "Developing" => ["style.md"]])
 
 deploydocs(repo="github.com/Jems-jl/Jems.jl", devbranch="main")

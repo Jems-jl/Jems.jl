@@ -18,13 +18,13 @@ abstract type AbstractTurb end
 
 Structure that holds various results from the evaluation of the turbulence model of a certain cell.
 """
-@kwdef mutable struct TurbResults{T1}
-    ∇::T1 = 0 # Actual temperature gradient d lnT/ d lnP
-    ∇ᵣ::T1 = 0 # Radiative temperature gradient
-    v_turb::T1 = 0 # velocity of turbulent motion
-    D_turb::T1 = 0 # mixing coefficient from turbulent motion
-    Γ::T1 = 0 # convective efficiency
-    Hₚ::T1 = 0 # pressure scale height
+@kwdef mutable struct TurbResults{T1<:Real}
+    ∇::T1 = 0  # Actual temperature gradient d lnT/ d lnP
+    ∇ᵣ::T1 = 0  # Radiative temperature gradient
+    v_turb::T1 = 0  # velocity of turbulent motion
+    D_turb::T1 = 0  # mixing coefficient from turbulent motion
+    Γ::T1 = 0  # convective efficiency
+    Hₚ::T1 = 0  # pressure scale height
 end
 
 include("BasicMLT.jl")
