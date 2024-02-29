@@ -16,6 +16,7 @@ Jems contains the following modules:
 Pages = [
     "Chem.md",
     "Constants.md",
+    "DualSupport.md",
     "EOS.md",
     "StellarModels.md",
     "Evolution.md",

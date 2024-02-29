@@ -44,21 +44,10 @@ function AbundanceList(path) #returns object of type AbundanceList
     return AbundanceList(massfractions, abundance_sources, species_names)
 end
 
-#################################################################################################
 #prepare a dictionary that contains mixtures
 abundance_lists = Dict{Symbol, AbundanceList}()
 #add the Asplund 2009 mixture
 abundance_lists[:ASG_09] = AbundanceList(pkgdir(Chem, "data/ChemData", "asplund2009.data"))
-
-#Some functionalities:
-#Check the species included
-#    abundance_lists[:ASG_09].species_names
-#get the mass fraction of a specific isotope of the :ASG_09 mixture
-#    abundance_lists[:ASG_09].massfractions[:Li7]
-#get the source of the abundance of a specific isotope of the :ASG_09 mixture
-#    abundance_lists[:ASG_09].abundance_sources[:Li7]
-#
-##################################################################################################
 
 """
     get_mass_fractions(abundance_list::AbundanceList, network, X, Z, Dfraction)
@@ -95,7 +84,7 @@ function get_mass_fractions(abundance_list::AbundanceList, species_names, X, Z, 
     end
     #now put hydrogen and helium mass fractions
     massfractions[:H1] = X * (1-Dfraction)
-    if Dfraction ≠ 0.0
+    if Dfraction ≠ 0.0 && :D2 ∈ species_names
         massfractions[:D2] = X * Dfraction #choose some fraction of hydrogen to be deuterium
     end
     massfractions[:He4] = 1-X-Z

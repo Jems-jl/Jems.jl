@@ -60,13 +60,13 @@ updates the observables of this `plot` with relevant data of the stellar model `
 """
 function update_profile_plot!(plot::StellarModels.JemsPlot, sm::StellarModel)
     for (key, obs) in pairs(plot.x_obs)
-        obs.val = StellarModels.profile_output_functions[String(key)].((sm,), 1:(sm.nz))
+        obs.val = StellarModels.profile_output_functions[String(key)].((sm,), 1:(sm.props.nz))
     end
     for (key, obs) in pairs(plot.y_obs)
-        obs.val = StellarModels.profile_output_functions[String(key)].((sm,), 1:(sm.nz))
+        obs.val = StellarModels.profile_output_functions[String(key)].((sm,), 1:(sm.props.nz))
     end
     for (key, obs) in pairs(plot.alt_y_obs)
-        obs.val = StellarModels.profile_output_functions[String(key)].((sm,), 1:(sm.nz))
+        obs.val = StellarModels.profile_output_functions[String(key)].((sm,), 1:(sm.props.nz))
     end
 end
 

@@ -6,14 +6,14 @@ using TOML
 Substructure of Options containing controls relating to remeshing
 """
 @kwdef mutable struct RemeshOptions
-    delta_log10P_split::Float64 = 0.1 # split two cells if difference in log10P is greater than this
-    max_cell_mass_ratio::Float64 = 5.0 # split cell if neighboring cell masses are smaller than this
-    max_dq_center::Float64 = 1e-5 # maximum dm/M for center cell
-    max_dq_surface::Float64 = 1e-5 # maximum dm/M for surface cell
+    delta_log10P_split::Float64 = 0.1  # split two cells if difference in log10P is greater than this
+    max_cell_mass_ratio::Float64 = 5.0  # split cell if neighboring cell masses are smaller than this
+    max_dq_center::Float64 = 1e-5  # maximum dm/M for center cell
+    max_dq_surface::Float64 = 1e-5  # maximum dm/M for surface cell
 
-    delta_log10P_merge = 0.001 # merge two cells if difference in log10P is smaller than this, and all other conditions are satisfied
-    delta_log10r_merge = 0.001 # merge two cells if difference in log10P is smaller than this, and all other conditions are satisfied
-    delta_xa_merge = 1e-5 # merge two cells if difference in any isotope abundance is smaller than this, and all other conditions are satisfied
+    delta_log10P_merge = 0.001  # merge two cells if difference in log10P is smaller than this, and all other conditions are satisfied
+    delta_log10r_merge = 0.001  # merge two cells if difference in log10P is smaller than this, and all other conditions are satisfied
+    delta_xa_merge = 1e-5  # merge two cells if difference in any isotope abundance is smaller than this, and all other conditions are satisfied
 
     do_remesh::Bool = false
 end
@@ -42,7 +42,7 @@ end
 Substructure of Options containing controls relating to timestepping
 """
 @kwdef mutable struct TimestepOptions
-    initial_dt::Int = 1 # in years
+    initial_dt::Int = 1  # in years
 
     delta_R_limit::Float64 = 0.005
     delta_Tc_limit::Float64 = 0.005
@@ -50,7 +50,7 @@ Substructure of Options containing controls relating to timestepping
 
     dt_max_increase::Float64 = 2
     dt_max_decrease::Float64 = 0.5
-    dt_retry_decrease::Float64 = 2
+    dt_retry_decrease::Float64 = 0.5
 end
 
 """
