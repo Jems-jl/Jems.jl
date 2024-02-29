@@ -18,6 +18,15 @@ function thomas_algorithm!(sm)
     solver_x = sm.solver_data.solver_x
     solver_β = sm.solver_data.solver_β
     solver_corr = sm.solver_data.solver_corr
+    ## Simple diagonal pre-conditioning
+    #for i in 1:sm.nz
+    #    inv_D = inv(jacobian_D[i])
+    #    b_i = @view eqs_numbers[sm.nvars*(i-1)+1:sm.nvars*i]
+    #    jacobian_D[i] .= inv_D*jacobian_D[i]
+    #    jacobian_L[i] .= inv_D*jacobian_L[i]
+    #    jacobian_U[i] .= inv_D*jacobian_U[i]
+    #    b_i .= inv_D*b_i
+    #end
 
     # We store Δ_i in the diagonal
     b_1 = @view eqs_numbers[1:sm.nvars]

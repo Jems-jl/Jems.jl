@@ -33,16 +33,16 @@ controls (`sm.opt.timestep`).
 function get_dt_next(sm::StellarModel)
     dt_next = sm.props.dt  # this it calculated at end of step, so props.dt is the dt we used to do this step
         
-    Rsurf = exp(get_cell_value(sm.props.lnr[sm.props.nz]))
-    Rsurf_old = exp(get_cell_value(sm.prv_step_props.lnr[sm.prv_step_props.nz]))
+    Rsurf = exp(get_value(sm.props.lnr[sm.props.nz]))
+    Rsurf_old = exp(get_value(sm.prv_step_props.lnr[sm.prv_step_props.nz]))
     ΔR_div_R = abs(Rsurf - Rsurf_old) / Rsurf
 
-    Tc = exp(get_cell_value(sm.props.lnT[sm.props.nz]))
-    Tc_old = exp(get_cell_value(sm.prv_step_props.lnT[sm.prv_step_props.nz]))
+    Tc = exp(get_value(sm.props.lnT[sm.props.nz]))
+    Tc_old = exp(get_value(sm.prv_step_props.lnT[sm.prv_step_props.nz]))
     ΔTc_div_Tc = abs(Tc - Tc_old) / Tc
 
-    X = get_cell_value(sm.props.xa[1, sm.network.xa_index[:H1]])
-    Xold = get_cell_value(sm.prv_step_props.xa[1, sm.network.xa_index[:H1]])
+    X = get_value(sm.props.xa[1, sm.network.xa_index[:H1]])
+    Xold = get_value(sm.prv_step_props.xa[1, sm.network.xa_index[:H1]])
     ΔX = abs(X - Xold)
 
     dt_nextR = dt_next * sm.opt.timestep.delta_R_limit / ΔR_div_R
@@ -103,6 +103,7 @@ function do_evolution_loop!(sm::StellarModel)
             equs = @view sm.solver_data.eqs_numbers[1:sm.nvars*sm.props.nz]
 
             (abs_max_corr, i_corr) = findmax(abs, corr)
+            signed_max_corr = corr[i_corr]
             corr_nz = i_corr÷sm.nvars + 1
             corr_equ = i_corr%sm.nvars
             rel_corr = abs_max_corr/eps(sm.props.ind_vars[i_corr])
@@ -113,9 +114,15 @@ function do_evolution_loop!(sm::StellarModel)
 
             # scale correction
             if sm.props.model_number == 0
-                corr .*= min(1, sm.opt.solver.initial_model_scale_max_correction / abs_max_corr)
+                correction_multiplier = min(1.0, sm.opt.solver.initial_model_scale_max_correction / abs_max_corr)
             else
-                corr .*= min(1, sm.opt.solver.scale_max_correction / abs_max_corr)
+                correction_multiplier = min(1.0, sm.opt.solver.scale_max_correction / abs_max_corr)
+            end
+            if (sm.solver_data.newton_iters > 10 && i%3!=0)
+                correction_multiplier = correction_multiplier*(rand()*0.5+0.5)
+            end
+            if correction_multiplier < 1
+                corr .*= correction_multiplier
             end
             if sm.opt.solver.report_solver_progress &&
                 i % sm.opt.solver.solver_progress_iter == 0
@@ -181,7 +188,7 @@ function do_evolution_loop!(sm::StellarModel)
             println("Reached maximum model number")
             break
         end
-        if (exp(get_cell_value(sm.props.lnT[1])) > sm.opt.termination.max_center_T)
+        if (exp(get_value(sm.props.lnT[1])) > sm.opt.termination.max_center_T)
             StellarModels.write_terminal_info(sm; now=true)
             println("Reached maximum central temperature")
             break

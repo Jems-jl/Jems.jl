@@ -91,18 +91,11 @@ function equationT(sm::StellarModel, k::Int)
     Pface = exp(get_00_dual(sm.props.lnP_face[k]))
     Tface = exp(get_00_dual(sm.props.lnT_face[k]))
 
-    ∇ᵣ = get_00_dual(sm.props.∇ᵣ_face[k])
-    ∇ₐ = get_00_dual(sm.props.∇ₐ_face[k])
+    ∇ = get_00_dual(sm.props.turb_res[k].∇)
+    return (Tface * (lnT₊ - lnT₀) / sm.props.dm[k] +
+            CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface) * ∇) /
+           (CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface))
 
-    if (∇ᵣ < ∇ₐ)
-        return (Tface * (lnT₊ - lnT₀) / sm.props.dm[k] +
-                CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface) * ∇ᵣ) /
-               (CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
-    else  # should do convection here
-        return (Tface * (lnT₊ - lnT₀) / sm.props.dm[k] +
-                CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface) * ∇ₐ) /
-               (CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface))  # only radiative transport
-    end
 end
 
 """
@@ -129,8 +122,8 @@ function equationLuminosity(sm::StellarModel, k::Int)
     δ = get_00_dual(sm.props.eos_res[k].δ)
     T₀ = get_00_dual(sm.props.eos_res[k].T)
     P₀ = get_00_dual(sm.props.eos_res[k].P)
-    dTdt = (T₀ - get_cell_value(sm.start_step_props.eos_res[k].T)) / sm.props.dt
-    dPdt = (P₀ - get_cell_value(sm.start_step_props.eos_res[k].P)) / sm.props.dt
+    dTdt = (T₀ - get_value(sm.start_step_props.eos_res[k].T)) / sm.props.dt
+    dPdt = (P₀ - get_value(sm.start_step_props.eos_res[k].P)) / sm.props.dt
 
     ϵnuc::typeof(L₀) = 0
     for i in eachindex(sm.network.reactions)
@@ -194,9 +187,9 @@ Residual of comparing dX_i/dt with its computed reaction rate
 """
 function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
     # Get mass fraction for this iso
-    X = get_00_dual(sm.props.xa[k, sm.network.xa_index[iso_name]])
+    X00 = get_00_dual(sm.props.xa[k, sm.network.xa_index[iso_name]])
 
-    dXdt_nuc::typeof(X) = 0
+    dXdt_nuc::typeof(X00) = 0
     reactions_in = sm.network.species_reactions_in[sm.network.xa_index[iso_name]]
     for reaction_in in reactions_in
         rate = get_00_dual(sm.props.rates[k,reaction_in[1]])
@@ -208,7 +201,43 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
         dXdt_nuc = dXdt_nuc + rate*reaction_out[2]*Chem.isotope_list[iso_name].A*AMU
     end
 
-    Xi = get_cell_value(sm.start_step_props.xa[k, sm.network.xa_index[iso_name]])  # is never a dual!!
+    #mixing terms
+    lnρ_00 = get_00_dual(sm.props.eos_res[k].lnρ)
 
-    return (X - Xi) / sm.props.dt - dXdt_nuc
+    flux_down::typeof(X00) = 0
+    flux_up::typeof(X00) = 0
+    Dnorm::typeof(X00) = 0
+
+    if k != sm.props.nz
+        Xp1 = get_p1_dual(sm.props.xa[k+1, sm.network.xa_index[iso_name]])
+        lnρ_p1 = get_p1_dual(sm.props.eos_res[k+1].lnρ)
+        ρface_up = exp((sm.props.dm[k+1] * lnρ_00 + sm.props.dm[k] * lnρ_p1) /
+                (sm.props.dm[k] + sm.props.dm[k + 1]))
+        rface_up = exp(get_00_dual(sm.props.lnr[k]))
+        Dface_up = get_00_dual(sm.props.turb_res[k].D_turb)
+        #Dface_up = sm.props.turb_res[k].D_turb.diff_cache_00.dual_data[1]
+        Dnorm = max(Dnorm, Dface_up)
+        flux_up = (4π*rface_up^2*ρface_up)^2*Dface_up*
+                    (Xp1-X00)/(0.5*(sm.props.dm[k]+sm.props.dm[k+1]))
+    end
+    if k != 1
+        Xm1 = get_m1_dual(sm.props.xa[k-1, sm.network.xa_index[iso_name]])
+        lnρ_m1 = get_m1_dual(sm.props.eos_res[k-1].lnρ)
+        ρface_down = exp((sm.props.dm[k] * lnρ_m1 + sm.props.dm[k-1] * lnρ_00) /
+                (sm.props.dm[k - 1] + sm.props.dm[k]))
+        rface_down = exp(get_m1_dual(sm.props.lnr[k-1]))
+        Dface_down = get_m1_dual(sm.props.turb_res[k-1].D_turb)
+        #Dface_down = sm.props.turb_res[k-1].D_turb.diff_cache_00.dual_data[1]
+        Dnorm = max(Dnorm, Dface_down)
+        flux_down = (4π*rface_down^2*ρface_down)^2*Dface_down*
+                    (X00-Xm1)/(0.5*(sm.props.dm[k-1]+sm.props.dm[k]))
+    end
+    dXdt_mix =  (flux_up - flux_down)/(sm.props.dm[k])
+
+    Dnorm = (4π*exp(get_00_dual(sm.props.lnr[k]))^2*exp(get_00_dual(sm.props.eos_res[k].lnρ)))^2*Dnorm
+    Dnorm = Dnorm/(sm.props.dm[k])^2
+
+    Xi = get_value(sm.start_step_props.xa[k, sm.network.xa_index[iso_name]])  # is never a dual!!
+
+    return ((X00 - Xi) / sm.props.dt - dXdt_nuc - dXdt_mix)#/max(1/sm.ssi.dt, dXdt_nuc, Dnorm)
 end
