@@ -4,8 +4,8 @@
 Acts on sm.start_step_props using info from sm.prv_step_props to decide whether to merge/split cells
 """
 function remesher!(sm::StellarModel)
-    psp::StellarModelProperties = sm.prv_step_props  # for brevity
-    ssp::StellarModelProperties = sm.start_step_props
+    psp = sm.prv_step_props  # for brevity
+    ssp = sm.start_step_props
     # we first do cell splitting
     do_split = Vector{Bool}(undef, psp.nz)
     do_split .= false
@@ -28,6 +28,11 @@ function remesher!(sm::StellarModel)
     # if allocated space is not enough, we need to reallocate everything
     if psp.nz + extra_cells > length(psp.dm)
         adjust_props_size!(sm, psp.nz + extra_cells, sm.nextra)
+        # need to reassign psp and ssp since they point to the preallocated ones
+        psp = sm.prv_step_props
+        ssp = sm.start_step_props
+        # have the garbage collector do its job right away
+        GC.gc()
     end
     for i=psp.nz:-1:1
         if !do_split[i]
@@ -186,19 +191,26 @@ function adjust_props_size!(sm::StellarModel, new_nz::Int, nextra::Int)
     adj_props = StellarModelProperties(sm.nvars, new_nz, nextra, length(sm.network.reactions),
                                        sm.network.nspecies, sm.vari, eltype(sm.prv_step_props.ind_vars))
     # backup scalar quantities
-    StellarModels.copy_scalar_properties!(adj_props, sm.prv_step_props)
-    # copy the mesh qyantities (other properties are updated later)
-    StellarModels.copy_mesh_properties!(sm, adj_props, sm.prv_step_props)
+    StellarModels.copy_scalar_properties!(adj_props, sm.start_step_props)
+    # copy the mesh quantities (other properties are updated later)
+    StellarModels.copy_mesh_properties!(sm, adj_props, sm.start_step_props)
     sm.start_step_props = adj_props
 
     # also the props used later need new size:
     adj_props = StellarModelProperties(sm.nvars, new_nz, nextra, length(sm.network.reactions),
                                        sm.network.nspecies, sm.vari, eltype(sm.prv_step_props.ind_vars))
-    StellarModels.copy_scalar_properties!(adj_props, sm.prv_step_props)
-    StellarModels.copy_mesh_properties!(sm, adj_props, sm.prv_step_props)
+    StellarModels.copy_scalar_properties!(adj_props, sm.props)
+    StellarModels.copy_mesh_properties!(sm, adj_props, sm.props)
     sm.props = adj_props
 
+    # prv_step_props is also reallocated to be sure all have the same size
+    adj_props = StellarModelProperties(sm.nvars, new_nz, nextra, length(sm.network.reactions),
+                                       sm.network.nspecies, sm.vari, eltype(sm.prv_step_props.ind_vars))
+    StellarModels.copy_scalar_properties!(adj_props, sm.prv_step_props)
+    StellarModels.copy_mesh_properties!(sm, adj_props, sm.prv_step_props)
+    sm.prv_step_props = adj_props
+
     # also the solver needs new arrays!
-    sm.solver_data = StellarModels.SolverData(sm.nvars, new_nz, nextra, use_static_arrays,
+    sm.solver_data = StellarModels.SolverData(sm.nvars, new_nz, nextra, sm.solver_data.use_static_arrays,
                                               eltype(sm.prv_step_props.ind_vars))
 end

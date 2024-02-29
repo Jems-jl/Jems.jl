@@ -126,7 +126,7 @@ open("example_options.toml", "w") do file
           dt_max_increase = 1.5
           delta_R_limit = 0.01
           delta_Tc_limit = 0.01
-          delta_Xc_limit = 0.002
+          delta_Xc_limit = 0.005
 
           [termination]
           max_model_number = 2000

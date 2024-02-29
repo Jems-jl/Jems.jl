@@ -15,6 +15,7 @@ abstract type AbstractSolverData end
     solver_x::Vector{TVECTOR}
     solver_corr::Vector{TNUMBER}
     newton_iters::Int
+    use_static_arrays::Bool
 end
 
 function SolverData(nvars, nz, nextra, use_static_arrays, number_type)
@@ -69,5 +70,6 @@ function SolverData(nvars, nz, nextra, use_static_arrays, number_type)
                solver_β = solver_β,
                solver_x = solver_x,
                solver_corr = solver_corr,
-               newton_iters = 0)
+               newton_iters = 0,
+               use_static_arrays = use_static_arrays)
 end
