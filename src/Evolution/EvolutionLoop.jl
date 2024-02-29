@@ -95,22 +95,21 @@ function do_evolution_loop!(sm::StellarModel)
         retry_step = false
         StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
         StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
+
+        corr = @view sm.solver_data.solver_corr[1:sm.nvars*sm.props.nz]
+        equs = @view sm.solver_data.eqs_numbers[1:sm.nvars*sm.props.nz]
+
+        # evaluate the equations for the first step
+        StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+        eval_jacobian_eqs!(sm)  # heavy lifting happens here!
         for i = 1:max_steps
-            StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
-            eval_jacobian_eqs!(sm)  # heavy lifting happens here!
             thomas_algorithm!(sm)  # here as well
-            corr = @view sm.solver_data.solver_corr[1:sm.nvars*sm.props.nz]
-            equs = @view sm.solver_data.eqs_numbers[1:sm.nvars*sm.props.nz]
 
             (abs_max_corr, i_corr) = findmax(abs, corr)
             signed_max_corr = corr[i_corr]
             corr_nz = i_corr÷sm.nvars + 1
             corr_equ = i_corr%sm.nvars
             rel_corr = abs_max_corr/eps(sm.props.ind_vars[i_corr])
-
-            (max_res, i_res) = findmax(abs, equs)
-            res_nz = i_res÷sm.nvars + 1
-            res_equ = i_res%sm.nvars
 
             # scale correction
             if sm.props.model_number == 0
@@ -124,19 +123,38 @@ function do_evolution_loop!(sm::StellarModel)
             if correction_multiplier < 1
                 corr .*= correction_multiplier
             end
-            if sm.opt.solver.report_solver_progress &&
-                i % sm.opt.solver.solver_progress_iter == 0
-                @show sm.props.model_number, i, rel_corr, abs_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ
-            end
+
             # first try applying correction and see if it would give negative luminosity
             sm.props.ind_vars[1:sm.nvars*sm.props.nz] .+= corr[1:sm.nvars*sm.props.nz]
-            if rel_corr < sm.opt.solver.relative_correction_tolerance &&
-                    max_res < sm.opt.solver.maximum_residual_tolerance
-                if sm.props.model_number == 0
-                    println("Found first model")
+            sm.solver_data.newton_iters = i
+
+            # evaluate the equations after correction and get residuals
+            try
+                StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+                eval_jacobian_eqs!(sm)  # heavy lifting happens here!
+
+                (max_res, i_res) = findmax(abs, equs)
+                res_nz = i_res÷sm.nvars + 1
+                res_equ = i_res%sm.nvars
+
+                #reporting
+                if sm.opt.solver.report_solver_progress &&
+                    i % sm.opt.solver.solver_progress_iter == 0
+                    @show sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ
                 end
-                break  # successful, break the step loop
+                #check if tolerances are satisfied
+                if rel_corr < sm.opt.solver.relative_correction_tolerance &&
+                        max_res < sm.opt.solver.maximum_residual_tolerance
+                    if sm.props.model_number == 0
+                        println("Found first model")
+                    end
+                    break  # successful, break the step loop
+                end
+            catch e
+                println("Error while evaluating equations")
+                showerror(stdout, e)
             end
+            #if not, determine if we give up or retry
             if i == max_steps
                 if retry_count > 10
                     exit_evolution = true
@@ -147,7 +165,6 @@ function do_evolution_loop!(sm::StellarModel)
                     println("Failed to converge step $(sm.props.model_number) with timestep $(sm.props.dt/SECYEAR), retrying")
                 end
             end
-            sm.solver_data.newton_iters = i
         end
 
         if retry_step
