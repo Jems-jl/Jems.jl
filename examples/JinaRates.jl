@@ -1,18 +1,3 @@
-# JINA database - test file
-
-##
-
-using BenchmarkTools
-using Jems.Chem
-using Jems.Constants
-using Jems.EOS
-using Jems.Opacity
-using Jems.NuclearNetworks
-using Jems.StellarModels
-using Jems.Evolution
-using Jems.ReactionRates
-
-##
 
 # open file --> Question: when this is on github, to what change the path name?
 file_path = "/Users/evakuipers/Documents/Master sterrenkunde/Thesis/results11271425"
@@ -20,7 +5,6 @@ file = open(file_path, "r")
 file_contents = read(file, String)
 close(file)
 
-##
 
 """
     JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
@@ -52,8 +36,6 @@ struct JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
     rev_rate::Symbol
     chapter::Int64
 end
-
-## 
 
 
 """
@@ -137,10 +119,6 @@ function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReaction
     
 end
 
-# we willen dat de dict niet leeg is als het element de enige is
-
-##
-
 """
 
     correct_names(JINA_name)
@@ -164,8 +142,6 @@ function correct_names(JINA_name)
     return RETURN_name
 end
 
-
-##
 
 """
 
@@ -353,11 +329,13 @@ function read_set(dataset, dictionary, reference_dictionary)
         
 end
 
-##
+"""
 
-##
+    get_reaction_rate(reaction, eos00, xa, xa_index)
 
-# function to determine the reaction rate
+    * uitleg *
+
+"""
 
 function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT}, xa_index::Dict{Symbol,Int})::TT where{TT}
 
@@ -421,7 +399,7 @@ function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa
     # Calculate the reaction rate
 
     ρ = eos00.ρ
-    RR = ρ^ν * λ
+    RR = ρ^ν * λ * (Constants.AVO)  * (Constants.MEV_TO_ERG)
 
     for factor in factors
         RR = RR * factor
@@ -432,94 +410,6 @@ function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa
 
 end
 
-##
-
-###############################
-######### TEST CODE ###########
-###############################
-
-##
-
-# test of reading functions
-
-##
-
-References = Dict()
-Jina_Rates = Dict()
-read_set(file_contents, Jina_Rates, References)
-
-##
-
-References = Dict()
-Jina_Rates = Dict()
-
-using BenchmarkTools
-@benchmark read_set(file_contents, Jina_Rates, References)
-
-##
-
-
-for (key, value) in Jina_Rates
-    println("$key: $value")
-end
-
-
-##
-
-
-########################
-### Big bang testing ###
-########################
-
-##
-
-# Starting conditions
-
-r = EOSResults{Float64}();          # zet een standaard EOS data file met alle waarden 0 --> hierin worden EOS resultaten opgeslagen
-eos = EOS.IdealEOS(false);          # IdealEOS op false
-logT = LinRange(8,9,100);           # Temperature range in log
-rates = zeros(100);                 # standaard rates values van 0 --> hierin worden rate values opgeslagen
-
-##
-
-for i in eachindex(logT)                    # voor elke temperatuurwaarde --> index
-
-    set_EOS_resultsTρ!(eos,                 # state of eos (niet te veel op letten) 
-                       r,                   # data storage (niet te veel op letten) 
-                       logT[i]*log(10),     # lnT --> varieert dus voor elke i      
-                       log(1),              # lnρ --> nu op 1 gezet                 
-                       [0.2, 0.8, 0.0],             # xa --> mixture quantity: wat is de fractie van het element  
-                       [:C12, :He4, :O16])          # de elementen in de mixture            
-
-
-    rates[i] = get_reaction_rate(Jina_Rates[:He4_C12_to_O16],
-                                 r,
-                                 [0.2, 0.8, 0.0],
-                                 Dict{Symbol, Int64}(:C12 => 1, :He4 => 2, :O16 => 3))
- 
-end
-
-
-
-##
-
-rates .= rates .* (Constants.AVO)
-
-##
-
-using CairoMakie
-
-f = Figure();
-ax = Axis(f[1, 1]; xlabel=L"\log_{10}(T_\mathrm{eff}/[K])", ylabel="Reaction rate Jina [mol / g * s]", xreversed=false)
-# history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
-lines!(ax, logT, log10.(rates))
-# ylims!(ax, -3,5)
-f
-
-##
-
-# extra dict with all references (how many rates of that type)
-# add returns to kipp_rates
 
 
 
