@@ -65,7 +65,6 @@ function do_evolution_loop!(sm::StellarModel)
     # before loop actions
     StellarModels.create_output_files!(sm)
     StellarModels.evaluate_stellar_model_properties!(sm, sm.props)  # set the initial condition as the result of a previous phantom step
-    dt_factor = 1.0  # this is changed during retries to lower the timestep
     retry_count = 0
 
     # evolution loop, be sure to have sensible termination conditions or this will go on forever!
@@ -151,8 +150,12 @@ function do_evolution_loop!(sm::StellarModel)
                     break  # successful, break the step loop
                 end
             catch e
+                if isa(e, InterruptException)
+                    throw(e)
+                end
                 println("Error while evaluating equations")
                 showerror(stdout, e)
+                retry_step = true
             end
             #if not, determine if we give up or retry
             if i == max_steps
@@ -168,12 +171,9 @@ function do_evolution_loop!(sm::StellarModel)
         end
 
         if retry_step
-            dt_factor *= sm.opt.timestep.dt_retry_decrease
             uncycle_props!(sm)  # reset props to what prv_step_props contains, ie mimic state at end of previous step
-            sm.props.dt_next *= dt_factor  # adapt dt
+            sm.props.dt_next *= sm.opt.timestep.dt_retry_decrease # adapt dt
             continue  # go back to top of evolution loop
-        else
-            dt_factor = 1.0
         end
 
         if (exit_evolution)
