@@ -117,7 +117,7 @@ open("example_options.toml", "w") do file
 
           [solver]
           newton_max_iter_first_step = 1000
-          initial_model_scale_max_correction = 0.1
+          initial_model_scale_max_correction = 0.5
           newton_max_iter = 30
           scale_max_correction = 0.1
           report_solver_progress = false
@@ -126,7 +126,7 @@ open("example_options.toml", "w") do file
           dt_max_increase = 1.5
           delta_R_limit = 0.01
           delta_Tc_limit = 0.01
-          delta_Xc_limit = 0.002
+          delta_Xc_limit = 0.005
 
           [termination]
           max_model_number = 2000
