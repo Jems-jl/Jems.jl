@@ -30,27 +30,27 @@ StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
 StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)</code></pre><h2 id="Benchmarking"><a class="docs-heading-anchor" href="#Benchmarking">Benchmarking</a><a id="Benchmarking-1"></a><a class="docs-heading-anchor-permalink" href="#Benchmarking" title="Permalink"></a></h2><p>The previous code leaves everything ready to solve the linearized system. For now we make use of a the serial Thomas algorithm for tridiagonal block matrices. We first show how long it takes to evaluate the Jacobian matrix. This requires two steps, the first is to evaluate properties across the model (for example, the EOS) and then evaluate all differential equations.</p><pre><code class="language-julia hljs">@benchmark begin
     StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
     Evolution.eval_jacobian_eqs!($sm)
-end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BenchmarkTools.Trial: 603 samples with 1 evaluation.
- Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1">7.709 ms</span></span> … <span class="sgr35"> 10.131 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 0.00%
- Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">8.259 ms               </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
- Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">8.278 ms</span></span> ± <span class="sgr32">134.044 μs</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>0.00% ± 0.00%
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BenchmarkTools.Trial: 550 samples with 1 evaluation.
+ Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1">8.159 ms</span></span> … <span class="sgr35"> 10.466 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 0.00%
+ Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">8.978 ms               </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
+ Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">9.075 ms</span></span> ± <span class="sgr32">375.119 μs</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>0.00% ± 0.00%
 
-                                 ▁▂█▇█<span class="sgr34">▆</span><span class="sgr32">▄</span>▂▂                     
-  ▂▁▁▁▁▁▁▁▁▂▁▁▁▁▁▁▁▁▁▂▁▁▁▂▂▃▃▃▄▅▆█████<span class="sgr34">█</span><span class="sgr32">█</span>██▅▆▆▅▃▄▃▄▄▃▃▂▁▃▂▂▁▂▂ ▃
-  7.71 ms<span class="sgr90">         Histogram: frequency by time</span>        8.61 ms <span class="sgr1">&lt;</span>
+                 ▃▂▃▃▅█▄<span class="sgr34">▃</span>▂ <span class="sgr32">▁</span>▁ ▁                                
+  ▃▁▂▁▁▁▁▂▂▃▂▄▄▆████████<span class="sgr34">█</span>█▇<span class="sgr32">█</span>███▆▅▇▃▄▅▄▅▃▄▃▃▄▂▄▂▃▄▁▄▃▃▂▃▁▃▂▂▁▃ ▄
+  8.16 ms<span class="sgr90">         Histogram: frequency by time</span>        10.3 ms <span class="sgr1">&lt;</span>
 
  Memory estimate<span class="sgr90">: </span><span class="sgr33">1.77 KiB</span>, allocs estimate<span class="sgr90">: </span><span class="sgr33">18</span>.</code></pre><p>To get an idea of how much a complete iteration of the solver takes, we need to benchmark both the calculation of the Jacobian and the matrix solver. This is because the matrix solver is destructive, as it uses the allocated Jacobian to store intermediate results. The time it takes to run only the matrix solver can be determined by substracting the previous benchmark from this one.</p><pre><code class="language-julia hljs">@benchmark begin
     StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
     Evolution.eval_jacobian_eqs!($sm)
     Evolution.thomas_algorithm!($sm)
-end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BenchmarkTools.Trial: 490 samples with 1 evaluation.
- Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1"> 9.624 ms</span></span> … <span class="sgr35"> 11.639 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 0.00%
- Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">10.187 ms               </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
- Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">10.207 ms</span></span> ± <span class="sgr32">132.897 μs</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>0.00% ± 0.00%
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BenchmarkTools.Trial: 451 samples with 1 evaluation.
+ Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1">10.468 ms</span></span> … <span class="sgr35"> 13.069 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 0.00%
+ Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">10.961 ms               </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
+ Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">11.098 ms</span></span> ± <span class="sgr32">434.146 μs</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>0.00% ± 0.00%
 
-                              ▁▅▅▆█▆<span class="sgr34">▇</span><span class="sgr32">▁</span>▄▁                        
-  ▂▁▁▁▁▂▂▂▁▁▁▁▁▁▁▁▁▁▁▃▃▂▂▂▃▃▄▄██████<span class="sgr34">█</span><span class="sgr32">█</span>███▇▇▅▄▄▃▃▄▃▃▃▂▂▃▂▃▂▂▁▁▂ ▃
-  9.62 ms<span class="sgr90">         Histogram: frequency by time</span>         10.6 ms <span class="sgr1">&lt;</span>
+         ▁▃▆▃▆█▄<span class="sgr34">▅</span>▄▁ <span class="sgr32"> </span>                                           
+  ▂▃▄▃▅▅▇███████<span class="sgr34">█</span>██▄<span class="sgr32">▄</span>█▄▇▆▃▄▃▄▄▄▄▅▄▄▁▃▂▃▃▃▃▂▂▃▃▃▃▁▂▂▂▁▃▂▃▂▃▂▃▁▂ ▄
+  10.5 ms<span class="sgr90">         Histogram: frequency by time</span>         12.6 ms <span class="sgr1">&lt;</span>
 
  Memory estimate<span class="sgr90">: </span><span class="sgr33">126.77 KiB</span>, allocs estimate<span class="sgr90">: </span><span class="sgr33">1018</span>.</code></pre><h2 id="Evolving-our-model"><a class="docs-heading-anchor" href="#Evolving-our-model">Evolving our model</a><a id="Evolving-our-model-1"></a><a class="docs-heading-anchor-permalink" href="#Evolving-our-model" title="Permalink"></a></h2><p>We can now evolve our star! We will initiate a <span>$1M_\odot$</span> star with a radius of <span>$100R_\odot$</span> using an n=1 polytrope (it would be much better to use n=3 or n=3/2 polytropes, for now I only use this because there is a simple analytical solution). The star is expected to contract until it ignites hydrogen. We set a few options for the simulation with a toml file, which we generate dynamically. These simulation should complete in about a thousand steps once it reaches the <code>max_center_T</code> limit.</p><p>Output is stored in HDF5 files, and easy to use functions are provided with the Evolution module to turn these HDF5 files into DataFrame objects. HDF5 output is compressed by default.</p><pre><code class="language-julia hljs">open(&quot;example_options.toml&quot;, &quot;w&quot;) do file
     write(file,
@@ -206,29 +206,28 @@ Failed to converge step 697 with timestep 3.9764242540887003e6, retrying
     1.000 1.139e+09  -0.04106     7.371     17.53     2.301    0.8855      1034
 
 Failed to converge step 701 with timestep 3.811140767982239e6, retrying
-Failed to converge step 722 with timestep 494471.31532467477, retrying
-Failed to converge step 723 with timestep 370853.4864935061, retrying
-Failed to converge step 724 with timestep 278140.1148701296, retrying
+Failed to converge step 722 with timestep 494471.31532387447, retrying
+Failed to converge step 723 with timestep 370853.4864929058, retrying
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      800     4.864     1.349     3.967     4.199    -7.900 4.644e-183         5
-    1.000 1.259e+09    0.2635     7.715     20.25     4.745    0.9858      1034
+      800     4.850     1.350     3.964     4.187    -7.910 1.661e-190         5
+    1.000 1.259e+09    0.2696     7.721     20.27     4.759    0.9858      1034
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      900     4.266     1.392     3.757     3.314    -8.575 -7.124e-321         6
-    1.000 1.263e+09    0.7061     7.944     21.00     5.262    0.9858      1047
+      900     4.258     1.393     3.754     3.302    -8.584 -6.339e-321         7
+    1.000 1.263e+09    0.7120     7.945     21.00     5.265    0.9858      1048
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      970     4.006     1.412     3.608     2.698    -9.042 -2.065e-321         6
-    1.000 1.264e+09     1.014     8.000     21.18     5.392    0.9858      1060
+      969     4.004     1.412     3.607     2.695    -9.045 -1.561e-321         6
+    1.000 1.264e+09     1.016     8.000     21.19     5.392    0.9858      1060
 
 Reached maximum central temperature
-169.222991 seconds (124.33 M allocations: 5.908 GiB, 0.70% gc time, 10.59% compilation time: 4% of which was recompilation)</code></pre><h2 id="Plotting-with-Makie"><a class="docs-heading-anchor" href="#Plotting-with-Makie">Plotting with Makie</a><a id="Plotting-with-Makie-1"></a><a class="docs-heading-anchor-permalink" href="#Plotting-with-Makie" title="Permalink"></a></h2><p>Now that our simulation is complete we can analyze the results. We make use of the Makie package for this. I&#39;m not a fan of the Makie defaults, so I adjust them. I normally also adjust the fonts to be consistent with \LaTeX, but I avoid that here so we don&#39;t need to distribute those fonts together with Jems.</p><pre><code class="language-julia hljs">using CairoMakie, LaTeXStrings, MathTeXEngine
+170.867894 seconds (124.29 M allocations: 5.902 GiB, 0.68% gc time, 10.83% compilation time: 4% of which was recompilation)</code></pre><h2 id="Plotting-with-Makie"><a class="docs-heading-anchor" href="#Plotting-with-Makie">Plotting with Makie</a><a id="Plotting-with-Makie-1"></a><a class="docs-heading-anchor-permalink" href="#Plotting-with-Makie" title="Permalink"></a></h2><p>Now that our simulation is complete we can analyze the results. We make use of the Makie package for this. I&#39;m not a fan of the Makie defaults, so I adjust them. I normally also adjust the fonts to be consistent with \LaTeX, but I avoid that here so we don&#39;t need to distribute those fonts together with Jems.</p><pre><code class="language-julia hljs">using CairoMakie, LaTeXStrings, MathTeXEngine
 basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                            italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
                     fontsize=30, size=(1000, 750), linewidth=7,
@@ -288,6 +287,6 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 ax = Axis(f[1, 1]; xlabel=L&quot;\log_{10}(T_\mathrm{eff}/[K])&quot;, ylabel=L&quot;\log_{10}(L/L_\odot)&quot;, xreversed=true)
 history = StellarModels.get_history_dataframe_from_hdf5(&quot;history.hdf5&quot;)
 lines!(ax, log10.(history[!, &quot;T_surf&quot;]), log10.(history[!, &quot;L_surf&quot;]))
-f</code></pre><img src="c470e025.png" alt="Example block output"/><h2 id="Perform-some-cleanup"><a class="docs-heading-anchor" href="#Perform-some-cleanup">Perform some cleanup</a><a id="Perform-some-cleanup-1"></a><a class="docs-heading-anchor-permalink" href="#Perform-some-cleanup" title="Permalink"></a></h2><p>Internally we want to prevent storing any of the hdf5 files into our git repos, so I remove them. You can also take advantage of <code>julia</code> as a scripting language to post-process your simulation output in a similar way.</p><pre><code class="language-julia hljs">rm(&quot;history.hdf5&quot;)
+f</code></pre><img src="75cc977a.png" alt="Example block output"/><h2 id="Perform-some-cleanup"><a class="docs-heading-anchor" href="#Perform-some-cleanup">Perform some cleanup</a><a id="Perform-some-cleanup-1"></a><a class="docs-heading-anchor-permalink" href="#Perform-some-cleanup" title="Permalink"></a></h2><p>Internally we want to prevent storing any of the hdf5 files into our git repos, so I remove them. You can also take advantage of <code>julia</code> as a scripting language to post-process your simulation output in a similar way.</p><pre><code class="language-julia hljs">rm(&quot;history.hdf5&quot;)
 rm(&quot;profiles.hdf5&quot;)
-rm(&quot;example_options.toml&quot;)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../Chem/">Chem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Thursday 29 February 2024 22:19">Thursday 29 February 2024</span>. Using Julia version 1.10.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+rm(&quot;example_options.toml&quot;)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../Chem/">Chem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Friday 1 March 2024 09:04">Friday 1 March 2024</span>. Using Julia version 1.10.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
