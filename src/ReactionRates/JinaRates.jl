@@ -1,178 +1,26 @@
-##
-
-using BenchmarkTools
-using Jems.Chem
-using Jems.Constants
-using Jems.EOS
-using Jems.Opacity
-using Jems.NuclearNetworks
-using Jems.StellarModels
-using Jems.Evolution
-using Jems.ReactionRates
-
-### Kippenhahn Rates ###
-
-struct KippReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
-    name::Symbol
-    iso_in::Vector{Symbol}
-    num_iso_in::Vector{Int64}
-    iso_out::Vector{Symbol}
-    num_iso_out::Vector{Int64}
-    Qvalue::TT
-end
-reaction_list = Dict()
-reaction_list[:kipp_rates] = Dict(
-    :kipp_pp => KippReactionRate(:kipp_pp, [:H1], [4], [:He4], [1],
-        ((4 * Chem.isotope_list[:H1].mass - Chem.isotope_list[:He4].mass) * AMU * CLIGHT^2)),
-        
-    :kipp_cno => KippReactionRate(:kipp_cno, [:H1], [4], [:He4], [1],
-        ((4 * Chem.isotope_list[:H1].mass - Chem.isotope_list[:He4].mass) * AMU * CLIGHT^2)),
-
-    :kipp_3alphaCF88 => KippReactionRate(:kipp_3alphaCF88, [:He4], [3], [:C12], [1],
-        ((3 * Chem.isotope_list[:He4].mass - Chem.isotope_list[:C12].mass) * AMU * CLIGHT^2)),
-
-    :kipp_3alphaA99 => KippReactionRate(:kipp_3alphaA99, [:He4], [3], [:C12], [1],
-        ((3 * Chem.isotope_list[:He4].mass - Chem.isotope_list[:C12].mass) * AMU * CLIGHT^2)),
-
-    :kipp_C12alpha => KippReactionRate(:kipp_C12alpha, [:C12, :He4], [1,1], [:O16], [1],
-        ((1 * Chem.isotope_list[:He4].mass + 1 * Chem.isotope_list[:C12].mass - Chem.isotope_list[:O16].mass) * AMU * CLIGHT^2)),
-
-    :kipp_O16alpha => KippReactionRate(:kipp_O16alpha, [:O16, :He4], [1,1], [:Ne20], [1],
-        ((Chem.isotope_list[:He4].mass + Chem.isotope_list[:O16].mass - Chem.isotope_list[:Ne20].mass) * AMU * CLIGHT^2)),
-
-    :kipp_CC => KippReactionRate(:kipp_CC, [:C12], [2], [:O16, :He4], [1,2],
-        ((2 * Chem.isotope_list[:C12].mass - Chem.isotope_list[:O16].mass - 2 * Chem.isotope_list[:He4].mass) * AMU * CLIGHT^2)),
-
-    :kipp_OO => KippReactionRate(:kipp_OO, [:O16], [2], [:Mg24, :He4], [1,2],
-        ((2 * Chem.isotope_list[:O16].mass - Chem.isotope_list[:Mg24].mass - 2 * Chem.isotope_list[:He4].mass) * AMU * CLIGHT^2))   
-)
-function get_reaction_rate_Kipp(reaction::KippReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT}, xa_index::Dict{Symbol,Int})::TT where{TT}
-    
-    """
-    Input:
-    reaction: the reactions dictionary that is being used
-    eos00: results equation of state
-    xa: element fractions in the star
-    xa_index: index of the elements
-
-    Output:
-    for each reaction, the ϵnuc value is calculated in the function.
-        
-    """
-    
-    if reaction.name == :kipp_pp 
-
-        phi  = 1
-        f_11 = 1
-        T9   = (eos00.T / 1e9)
-        X1   = xa[xa_index[:H1]]
-
-        g_11 = (1 + 3.82 * T9 + 1.51 * T9^2 + 0.144 * T9^3 - 0.0114 * T9^4)
-        ϵnuc = 2.57e4 * phi * f_11 * g_11 * eos00.ρ * X1^2 * cbrt(T9^(-2)) * exp(-3.381 * cbrt(T9^(-1)))
-
-        return ϵnuc / reaction.Qvalue
-
-    elseif reaction.name == :kipp_cno 
-
-        T9    = (eos00.T / 1e9)
-        X1    = xa[xa_index[:H1]]
-        X_CNO = xa[xa_index[:C12]] + xa[xa_index[:N14]] + xa[xa_index[:O16]]
-
-        g_14  = (1 - 2.00 * T9 + 3.41 * T9^2 - 2.43 * T9^3 )
-        ϵnuc  = 8.24e25 * g_14 * X_CNO * X1 * eos00.ρ * 
-                cbrt(T9^(-2)) * exp(-15.231 * cbrt(T9^(-1)) - (T9/0.8)^2)
-
-        return ϵnuc / reaction.Qvalue
-
-    elseif reaction.name == :kipp_3alphaCF88
-
-        f_3alpha = 1
-        X4   = xa[xa_index[:He4]]
-        T8   = eos00.T / 1e8
-
-        ϵnuc = 5.09e11 * f_3alpha * (eos00.ρ)^2 * X4^3 * 
-               T8^-3 * exp(-44.027 / T8)
-
-    elseif reaction.name == :kipp_3alphaA99
-
-        f_3alpha = 1
-        X4   = xa[xa_index[:He4]]
-        T9   = eos00.T / 1e9
-
-        ϵnuc = 6.272*(eos00.ρ)^2*X4^3*(1+0.0158*T9^(-0.65))*
-                (2.43e9*cbrt(T9^(-2))*exp(-13.490*cbrt(T9^(-1))-(T9/0.15)^2)*(1+74.5*T9)
-                    + 6.09e5*sqrt(T9^(-3))*exp(-1.054/T9))*
-                (2.76e7*cbrt(T9^(-2))*exp(-23.570*cbrt(T9^(-1))-(T9/0.4)^2)
-                    * (1+5.47*T9+326*T9^2) + 130.7*sqrt(T9^(-3))*exp(-3.338/T9)
-                    + 2.51e4*sqrt(T9^(-3))*exp(-20.307/T9))
-
-    elseif reaction.name == :kipp_C12alpha
-
-        f_12alpha = 1
-        X4   = xa[xa_index[:He4]]
-        X12  = xa[xa_index[:C12]]
-        T8   = eos00.T / 1e8
-        
-        ϵnuc = 1.3e27 * f_12alpha * eos00.ρ * X4 * X12 * T8^(-2) *
-                ((1 + 0.134 * cbrt(T8^(2)))/(1 + 0.017 * cbrt(T8^(2))))^2 * exp(-69.20 / cbrt(T8))
-
-    elseif reaction.name == :kipp_O16alpha
-
-        f_16alpha = 1
-        X4   = xa[xa_index[:He4]]
-        X16  = xa[xa_index[:O16]]
-        T9   = eos00.T / 1e9
-                
-        #ϵnuc = 1.91e27 * cbrt(T9^(-2)) * X16 * X4 * eos00.ρ * f_16alpha *
-        #        exp(-39.76 * T9^(-1/3) - (T9/1.6)^2) 
-        #        + 3.64 * 10^18 * sqrt(T9^(-3)) * exp(-10.32 / T9)
-        #        + 4.39 * 10^19 * sqrt(T9^(-3)) * exp(-12.20 / T9)
-        #        + 2.92 * 10^16 * T9^(2.966) * exp(-11.90 / T9)
-        # Pablo: I think the above one has a typo in the Kippenhahn book itself,
-        # otherwise it does not make sense that part of the rate is independent
-        # of density and mass fractions. I think the one below would make sense.
-        ϵnuc = X16 * X4 * eos00.ρ * f_16alpha * (
-                1.91e27 * cbrt(T9^(-2)) * exp(-39.76 * T9^(-1/3) - (T9/1.6)^2) 
-                + 3.64e18 * sqrt(T9^(-3)) * exp(-10.32 / T9)
-                + 4.39e19 * sqrt(T9^(-3)) * exp(-12.20 / T9)
-                + 2.92e16 * T9^(2.966) * exp(-11.90 / T9)
-            )
-
-
-    elseif reaction.name == :kipp_CC
-
-        f_CC = 1
-        T9   = (eos00.T / 1e9)
-        T_9a = T9 / (1 + 0.0396 * T9) 
-        X12  = xa[xa_index[:C12]]
-
-        ϵnuc = 1.86e43 * f_CC * eos00.ρ * X12^2 * sqrt(T9^(-3)) * T_9a^(5/6) *
-               exp(-84.165 / cbrt(T_9a) - 2.12e-3 * T9^3)
-
-    elseif reaction.name == :kipp_OO
-
-        f_OO = 1
-        T9   = (eos00.T / 1e9)
-        X16  = xa[xa_index[:O16]]
-
-        exp_func = -135.93 / cbrt(T9) - 0.629 * cbrt(T9^(2)) - 0.445 * cbrt(T9^(4)) + 0.0103 * T9^2
-        ϵnuc = 2.14e53 * f_OO * eos00.ρ * X16^2 * cbrt(T9^(-2)) * exp(exp_func)
-
-    else
-        throw(ArgumentError("No method to compute rate for $(reaction.name)"))
-    end
+file_contents = open(pkgdir(Chem, "data/ReactionRatesData", "Jina_reactionrates.data")) do io
+    read(io, String)
 end
 
+"""
+    JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
 
-##
+Struct that holds the following information for a given reaction rate:
+    name: name of the reaction as a symbol
+    iso_in: vector that contains all elements on the LHS of the reaction
+    iso_out: vector that contains all elements on the RHS of the reaction
+    Qvalue: Q-value of the reaction
+    coeff: different a_i values of the reaction. Contains a vector of 7 values
+    set_label: Symbol containing set label of the reaction
+    res_rate: A 1 character flag symbol:
+        when blank or n it is a non-resonant rate
+        when r it is a resonant rate
+        when w it is a weak rate.
+    rev_rate: a 1 character flag symbol which is set to 'v' when it is a reverse rate.
+    chapter: chapter this reaction is in
 
-### Jina Rates ###
+"""
 
-# open file --> Question: when this is on github, to what change the path name?
-file_path = "/Users/evakuipers/Documents/Master sterrenkunde/Thesis/results11271425"
-file = open(file_path, "r")
-file_contents = read(file, String)
-close(file)
 struct JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
     name::Symbol
     iso_in::Vector{Symbol}
@@ -181,9 +29,30 @@ struct JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
     coeff::Vector{TT}
     set_label::Symbol
     res_rate::Symbol
-    rev_rate::Symbol
+    rev_rate::Symbol    
     chapter::Int64
 end
+
+
+"""
+
+    add_to_references(main_dict, ref_dict, reaction, new_info::JinaReactionRate)
+
+Function to identify rates with the same reaction equation
+Evaluates if a reaction rate is already in the reference dictionary ref_dict
+
+If the reaction rate does not exist allready in the reference dictionary:
+    added as a new key to the reference dictionary
+    the value of the key is a list containing all variations of the specific reaction
+    the reaction will be added to the main dictionary 
+
+If the reaction rate allready exists in the reference dictionary:
+    keys in the main dictionary update so they have unique keys
+    value of the key of the reaction in ref_dict is updated so all the unique versions of the rate are in
+
+"""
+
+
 function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReactionRate)
 
     # main_dict = general dictionary containing all JINA Reaction rates
@@ -245,6 +114,18 @@ function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReaction
     end
     
 end
+
+"""
+
+    correct_names(JINA_name)
+
+This function will return the name that corresponds with the JEMS isotope database
+
+JINA_name is the name of the element as it is given in the JINA library (without the extra spaces) as a string
+RETURN_name is the corrected name given as a string
+
+"""
+
 function correct_names(JINA_name)
     change_name = Dict("p" => "H1", "d" => "D2", "t" => "T3", "n" => "n")
 
@@ -256,6 +137,16 @@ function correct_names(JINA_name)
 
     return RETURN_name
 end
+
+"""
+
+    read_set(dataset, dictionary, reference_dictionary)
+
+    * explanation *
+
+"""
+
+
 function read_set(dataset, dictionary, reference_dictionary)
 
     chap = 0 
@@ -432,7 +323,17 @@ function read_set(dataset, dictionary, reference_dictionary)
     end
         
 end
-function get_reaction_rate_Jina(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT}, xa_index::Dict{Symbol,Int})::TT where{TT}
+
+
+"""
+
+    get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT}, xa_index::Dict{Symbol,Int})
+
+    * explanation *
+
+"""
+
+function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT}, xa_index::Dict{Symbol,Int})::TT where{TT}
 
     # determine λ
 
@@ -447,7 +348,6 @@ function get_reaction_rate_Jina(reaction::JinaReactionRate, eos00::EOSResults{TT
     end
 
     λ = exp(x)
-
 
     # determine elements and how many times they occur
     # code gives a dictionary with the elements and how many times they occur
@@ -489,8 +389,6 @@ function get_reaction_rate_Jina(reaction::JinaReactionRate, eos00::EOSResults{TT
     end
 
 
-
-
     # Calculate the reaction rate
 
     ρ = eos00.ρ
@@ -507,100 +405,15 @@ end
 
 
 
-##
-
-# TEST #
-
-##
-
-References = Dict()
-Jina_Rates = Dict()
-read_set(file_contents, Jina_Rates, References)
-
-##
-
-r = EOSResults{Float64}();
-eos = EOS.IdealEOS(false);     
-logT = LinRange(8,9,100);      
-rates_Kipp_O16alpha = zeros(100);            
-rates_Jina_O16alpha = zeros(100); 
-rates_Kipp_3alphaCF88 = zeros(100)
-rates_Kipp_3alphaA99  = zeros(100)
-rates_Jina_3alpha = zeros(100)
-rates_Kipp_C12alpha = zeros(100)
-rates_Jina_C12alpha = zeros(100)
-
-
-##
-
-for i in eachindex(logT)                    
-
-    # kipp_C12alpha
-
-    # set_EOS_resultsTρ!(eos, r, logT[i]*log(10), log(1), [0.2, 0.8, 0.0], [:C12, :He4, :O16])              
-    # rates_Kipp_C12log10.(rates_Kipp_O16alpha)alpha[i] = get_reaction_rate_Kipp(reaction_list[:kipp_rates][:kipp_C12alpha], r, [0.2, 0.8, 0.0], Dict{Symbol, Int64}(:He4 => 1, :C12 => 2, :O16 => 3))
-    # rates_Jina_C12alpha[i] = get_reaction_rate_Jina(Jina_Rates[:He4_C12_to_O16], r, [0.2, 0.8, 0.0], Dict{Symbol, Int64}(:He4 => 1, :C12 => 2, :O16 => 3))                            
-
-    # 016 alpha
-
-    set_EOS_resultsTρ!(eos, r, logT[i]*log(10), log(1), [0.2, 0.8, 0.0], [:O16, :He4, :Ne20])              
-    rates_Kipp_O16alpha[i] = get_reaction_rate_Kipp(reaction_list[:kipp_rates][:kipp_O16alpha], r, [0.2, 0.8, 0.0], Dict{Symbol, Int64}(:O16 => 1, :He4 => 2, :Ne20 => 3))
-    rates_Jina_O16alpha[i] = get_reaction_rate_Jina(Jina_Rates[:He4_O16_to_Ne20_co10_n_x], r, [0.2, 0.8, 0.0], Dict{Symbol, Int64}(:O16 => 1, :He4 => 2, :Ne20 => 3))                            
-    rates_Jina_O16alpha[i] += get_reaction_rate_Jina(Jina_Rates[:He4_O16_to_Ne20_co10_r_x], r, [0.2, 0.8, 0.0], Dict{Symbol, Int64}(:O16 => 1, :He4 => 2, :Ne20 => 3))                            
-    rates_Jina_O16alpha[i] += get_reaction_rate_Jina(Jina_Rates[:He4_O16_to_Ne20], r, [0.2, 0.8, 0.0], Dict{Symbol, Int64}(:O16 => 1, :He4 => 2, :Ne20 => 3))                            
-
-    # H + H
-
-    rates_Jina_HH[i] = get_reaction_rate_Jina(Jina_Rates[:H2_H2_to_], r, [0.2, 0.8, 0.0], Dict{Symbol, Int64}(:O16 => 1, :He4 => 2, :Ne20 => 3))                            
-    
-
-    # Triple alpha
-
-    # set_EOS_resultsTρ!(eos, r, logT[i]*log(10), log(1), [0.2, 0.8, 0.0], [:C12, :He4])              
-    # rates_Kipp_3alphaCF88[i] = get_reaction_rate_Kipp(reaction_list[:kipp_rates][:kipp_3alphaCF88], r, [0.2, 0.8], Dict{Symbol, Int64}(:He4 => 1, :C12 => 2))
-    # rates_Kipp_3alphaA99[i]  = get_reaction_rate_Kipp(reaction_list[:kipp_rates][:kipp_3alphaA99],  r, [0.2, 0.8], Dict{Symbol, Int64}(:He4 => 1, :C12 => 2))
-    # rates_Jina_3alpha[i] = get_reaction_rate_Jina(Jina_Rates[:He4_He4_He4_to_C12], r, [0.2, 0.8], Dict{Symbol, Int64}(:He4 => 1, :C12 => 2))                            
-
-
-end
-
-
-##
-
-rates_Kipp_C12alpha .= rates_Kipp_C12alpha .* (Constants.MEV_TO_ERGS)^(-1)
-rates_Jina_C12alpha .= rates_Jina_C12alpha .* (Constants.AVO)
-
-rates_Kipp_O16alpha .= rates_Kipp_O16alpha .* (Constants.MEV_TO_ERGS)^(-1)
-rates_Jina_O16alpha .= rates_Jina_O16alpha .* (Constants.AVO)
-
-rates_Kipp_3alphaCF88 .= rates_Kipp_3alphaCF88 .* (Constants.MEV_TO_ERGS)^(-1)
-rates_Kipp_3alphaA99 .= rates_Kipp_3alphaA99 .* (Constants.MEV_TO_ERGS)^(-1)
-rates_Jina_3alpha .= rates_Jina_3alpha .* (Constants.AVO)
 
 
 
-##
 
 
 
-using CairoMakie
 
-f = Figure();
-ax = Axis(f[1, 1]; xlabel=L"\log_{10}(T_\mathrm{eff}/[K])", ylabel="Reaction rate Kipp [mol / g * s]", xreversed=false)
-# lines!(ax, logT, log10.(rates_Kipp_3alphaCF88), label = "rates_Kipp_3alphaCF88")
-# lines!(ax, logT, log10.(rates_Kipp_3alphaA99), label = "rates_Kipp_3alphaA99")
-# lines!(ax, logT, log10.(rates_Jina_3alpha) .+ 0.9, label = "rates_Jina_3alpha")
 
-lines!(ax, logT, log10.(rates_Kipp_O16alpha), label = "rates_Kipp_O16alpha")
-lines!(ax, logT, log10.(rates_Jina_O16alpha) .+0.8, label = "rates_Jina_O16alpha")
 
-# lines!(ax, logT, log10.(rates_Kipp_C12alpha), label = "rates_Kipp_C12log10")
-# lines!(ax, logT, log10.(rates_Jina_C12alpha) .+ 0.9, label = "rates_Jina_C12alpha")
-
-axislegend(ax; position=:rb)
-f
-
-##
 
 
 

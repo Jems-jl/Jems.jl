@@ -20,6 +20,11 @@ file = open(file_path, "r")
 file_contents = read(file, String)
 close(file)
 
+# file_contents = open(pkgdir(Chem, "data/ReactionRatesData", "Jina_reactionrates.data")) do io
+#     read(io, String)
+# end
+
+
 ##
 
 """
@@ -49,7 +54,7 @@ struct JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
     coeff::Vector{TT}
     set_label::Symbol
     res_rate::Symbol
-    rev_rate::Symbol
+    rev_rate::Symbol    # Bool
     chapter::Int64
 end
 
@@ -84,54 +89,29 @@ function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReaction
 
     if haskey(ref_dict, reaction)
 
-        if ref_dict[reaction] == []
+        new_set_label = new_info.set_label
+        new_res_rate  = new_info.res_rate
+        new_rev_rate  = new_info.rev_rate
 
-            cur_info = main_dict[reaction]
+        reaction_string_new = "$(reaction)_$(new_set_label)_$(new_res_rate)_$(new_rev_rate)"
+        reaction_symbol_new = Symbol(replace(reaction_string_new, ' ' => 'x'))
 
-            cur_set_label = cur_info.set_label
-            cur_res_rate  = cur_info.res_rate
-            cur_rev_rate = cur_info.rev_rate
-
-            new_set_label = new_info.set_label
-            new_res_rate  = new_info.res_rate
-            new_rev_rate = new_info.rev_rate
-
-            reaction_string_cur = "$(reaction)_$(cur_set_label)_$(cur_res_rate)_$(cur_rev_rate)"
-            reaction_string_new = "$(reaction)_$(new_set_label)_$(new_res_rate)_$(new_rev_rate)"
-
-            reaction_symbol_cur = Symbol(replace(reaction_string_cur, ' ' => 'x'))
-            reaction_symbol_new = Symbol(replace(reaction_string_new, ' ' => 'x'))
-
-            list = []
-            push!(list, reaction_symbol_cur)
-            push!(list, reaction_symbol_new)
-            ref_dict[reaction] = list
-
-            main_dict[reaction_symbol_cur] = cur_info
-            main_dict[reaction_symbol_new] = new_info
-
-        else
-
-            new_set_label = new_info.set_label
-            new_res_rate  = new_info.res_rate
-            new_rev_rate = new_info.rev_rate
-
-            reaction_string_new = "$(reaction)_$(new_set_label)_$(new_res_rate)_$(new_rev_rate)"
-            reaction_symbol_new = Symbol(replace(reaction_string_new, ' ' => 'x'))
-
-            list = ref_dict[reaction]
-            push!(list, reaction_symbol_new)
-            ref_dict[reaction] = list
-
-
-            main_dict[reaction_symbol_new] = new_info
-
-        end
+        list = ref_dict[reaction]
+        push!(list, reaction_symbol_new)
+        ref_dict[reaction] = list
+        main_dict[reaction_symbol_new] = new_info
 
     else 
         
-        ref_dict[reaction]  = []        
-        main_dict[reaction] = new_info 
+        new_set_label = new_info.set_label
+        new_res_rate  = new_info.res_rate
+        new_rev_rate  = new_info.rev_rate
+
+        reaction_string_new = "$(reaction)_$(new_set_label)_$(new_res_rate)_$(new_rev_rate)"
+        reaction_symbol_new = Symbol(replace(reaction_string_new, ' ' => 'x'))
+
+        ref_dict[reaction]  = [reaction_symbol_new]        
+        main_dict[reaction_symbol_new] = new_info 
 
     end
     
@@ -171,7 +151,7 @@ end
 
     read_set(dataset, dictionary, reference_dictionary)
 
-    * uitleg *
+    * explanation *
 
 """
 
@@ -446,6 +426,10 @@ end
 
 References = Dict()
 Jina_Rates = Dict()
+
+##
+
+
 read_set(file_contents, Jina_Rates, References)
 
 ##
