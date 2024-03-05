@@ -57,7 +57,7 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 At last we are in position to evaluate the equations and compute the Jacobian.
 =#
 n = 3
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],0.1*MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
 Evolution.cycle_props!(sm);
 StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
@@ -162,7 +162,8 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 n = 3
-StellarModels.n_polytrope_initial_condition!(n,sm,nz,0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],1*MSUN,100 * RSUN;initial_dt=10 * SECYEAR)
+#StellarModels.n_polytrope_initial_condition!(n,sm,nz,0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],0.1*MSUN,100 * 7^(3/2)*RSUN;initial_dt=10 * SECYEAR)
+StellarModels.n_polytrope_initial_condition!(n,sm,nz,0.6,0.0142,0.0,Chem.abundance_lists[:ASG_09],0.1*MSUN,100 * 0.1^(3/2)*RSUN;initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
 
 ##
