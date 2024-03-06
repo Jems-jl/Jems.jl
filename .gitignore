@@ -4,7 +4,7 @@ Manifest.toml
 **.DS_store
 history.hdf5
 profiles.hdf5
-HomologyTesting/HDF5Files/*.hdf5
+HomologyTesting/*/*.hdf5
 *.mp4
 *.gif
 *.png

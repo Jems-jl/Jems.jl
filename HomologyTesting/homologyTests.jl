@@ -100,9 +100,9 @@ end
 ##
 
 logmassrange = (-1:0.1:1)
-Xrange = (0.6:0.05:0.9)
-#logmassrange = (0.2:0.4:1.0)
-#Xrange = (0.7:0.1:0.9)
+#Xrange = (0.6:0.05:0.9)
+Xrange = (0.6:0.1:0.9)
+
 luminosities = zeros(length(logmassrange), length(Xrange))
 Z = 0.0134
 Dfraction = 0.0
@@ -111,19 +111,19 @@ for (i, logmass) in enumerate(logmassrange)
     println(" ---------------------------------------------------------------------------------")
     println(" ---------------------------------------------------------------------------------")
     mass = 10^logmass
-    println("Mass = $mass")
+    println("Mass = $mass, logM = $logmass")
 
     for (j,X) in enumerate(Xrange)
 
         #if history file already exists, skip
         path = "HomologyTesting/Histories/" * "toyRates_" * "logM"*string(logmass)*"_X"*string(X)*"_.hdf5"
         if isfile(path)
-            println("history file for mass = $mass and X = $X already exists, skipping")
+            println("history file for mass = $mass / logM = $logmass and X = $X already exists, skipping")
             continue
         end
 
         println(" ---------------------------------------------------------------------------------")
-        println("Mass = $mass , X = $X")
+        println("Mass = $mass, logM = $logmass, X = $X")
 
         ## Model creation
         varnames = [:lnρ, :lnT, :lnr, :lum]
@@ -149,6 +149,7 @@ for (i, logmass) in enumerate(logmassrange)
         cp("history.hdf5", path, force = true)
         println("saved history to $path")
         #luminosities[i,j] = history[!, "L_surf"][end]
+        sleep(100)
     end
 end
 ##
