@@ -100,8 +100,8 @@ end
 ##
 
 logmassrange = (-1:0.1:1)
-#Xrange = (0.6:0.05:0.9)
-Xrange = (0.6:0.1:0.9)
+Xrange = (0.6:0.05:0.9)
+#Xrange = (0.6:0.1:0.9)
 
 luminosities = zeros(length(logmassrange), length(Xrange))
 Z = 0.0134
@@ -134,7 +134,7 @@ for (i, logmass) in enumerate(logmassrange)
         net = NuclearNetwork([:H1,:He4,:C12,:N14, :O16], [(:toy_rates, :toy_pp)])
         nz = 1000
         nextra = 1000
-        eos = EOS.IdealEOS(true)
+        eos = EOS.IdealEOS(false)
         opacity = Opacity.SimpleElectronScatteringOpacity()
         turbulence = Turbulence.BasicMLT(1.0)
         sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence)
