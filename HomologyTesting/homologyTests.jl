@@ -66,7 +66,7 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.002
 
           [termination]
-          max_model_number = 1400
+          max_model_number = 1000
           max_center_T = 1e8
 
           [plotting]
@@ -94,15 +94,18 @@ open("example_options.toml", "w") do file
           terminal_info_interval = 200
 
           """)
-end
+end 
 
 
 ##
 
-logmassrange = (-1:0.1:1)
-Xrange = (0.6:0.05:0.9)
-#Xrange = (0.6:0.1:0.9)
+overwrite = false
 
+logmassrange = (0.5:0.1:0.8)
+Xrange = (0.55:0.05:1.0)
+#ogmassrange = (-1.0:0.1:0.7)
+#range = (0.9:0.05:1.0)
+@show logmassrange, Xrange
 luminosities = zeros(length(logmassrange), length(Xrange))
 Z = 0.0134
 Dfraction = 0.0
@@ -116,10 +119,15 @@ for (i, logmass) in enumerate(logmassrange)
     for (j,X) in enumerate(Xrange)
 
         #if history file already exists, skip
-        path = "HomologyTesting/Histories/" * "toyRates_" * "logM"*string(logmass)*"_X"*string(X)*"_.hdf5"
+        path = "HomologyTesting/Histories_withoutPrad/" * "toyRates_" * "logM"*string(logmass)*"_X"*string(X)*"_.hdf5"
+        
         if isfile(path)
-            println("history file for mass = $mass / logM = $logmass and X = $X already exists, skipping")
-            continue
+            if overwrite == true
+                println("history file for mass = $mass / logM = $logmass and X = $X already exists, overwriting")
+            else
+                println("history file for mass = $mass / logM = $logmass and X = $X already exists, skipping")
+                continue
+            end
         end
 
         println(" ---------------------------------------------------------------------------------")
@@ -134,7 +142,7 @@ for (i, logmass) in enumerate(logmassrange)
         net = NuclearNetwork([:H1,:He4,:C12,:N14, :O16], [(:toy_rates, :toy_pp)])
         nz = 1000
         nextra = 1000
-        eos = EOS.IdealEOS(false)
+        eos = EOS.IdealEOS(false) #now without radiation pressure
         opacity = Opacity.SimpleElectronScatteringOpacity()
         turbulence = Turbulence.BasicMLT(1.0)
         sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence)
@@ -142,14 +150,15 @@ for (i, logmass) in enumerate(logmassrange)
         rm(sm.opt.io.hdf5_history_filename; force=true)
         rm(sm.opt.io.hdf5_profile_filename; force=true)
         n = 3
-        StellarModels.n_polytrope_initial_condition!(n,sm,nz,X,Z,Dfraction,Chem.abundance_lists[:ASG_09],mass*MSUN, mass^(3/2)*100 * RSUN;initial_dt=10 * SECYEAR)
+        StellarModels.n_polytrope_initial_condition!(n,sm,nz,X,Z,Dfraction,Chem.abundance_lists[:ASG_09],mass*MSUN, mass^(3/2)*100 * RSUN + 9000 * RSUN;initial_dt=10 * SECYEAR)
+        #StellarModels.n_polytrope_initial_condition!(n,sm,nz,X,Z,Dfraction,Chem.abundance_lists[:ASG_09],mass*MSUN, mass^(3/2)*100;initial_dt=10 * SECYEAR)
         @time Evolution.do_evolution_loop!(sm);
         history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
         
         cp("history.hdf5", path, force = true)
         println("saved history to $path")
         #luminosities[i,j] = history[!, "L_surf"][end]
-        sleep(100)
+        println("Sleeping ..."); sleep(20)
     end
 end
 ##
