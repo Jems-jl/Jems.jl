@@ -20,7 +20,7 @@ Structure that holds various results from the evaluation of the EOS of a certain
 """
 @kwdef mutable struct EOSResults{T1}
     T::T1 = 0  # Temperature (K)
-    P::T1 = 0  # Pressure (dyn)
+    P::T1 = 0  # Pressure (dyne)
     ρ::T1 = 0  # density (g cm^-3)
     lnT::T1 = 0
     lnP::T1 = 0
