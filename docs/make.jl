@@ -26,6 +26,8 @@ makedocs(modules=[Jems],
                 "Examples" => ["NuclearBurning.md"],
                 "Modules" => ["Chem.md", "Constants.md", "DualSupport.md", "EOS.md", "Evolution.md", "Opacity.md",
                               "Plotting.md", "StellarModels.md", "Turbulence.md"],
-                "Developing" => ["style.md"]])
+                "Developing" => ["style.md"]],
+         checkdocs=:exports
+)
 
 deploydocs(repo="github.com/Jems-jl/Jems.jl", devbranch="main")
