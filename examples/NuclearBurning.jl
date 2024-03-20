@@ -163,12 +163,14 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 StellarModels.n_polytrope_initial_condition!(n, sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
-@time sm = Evolution.do_evolution_loop(sm);
+@time Evolution.do_evolution_loop(sm);
 
 ##
 
-# TRYING TO PLOT STUFF
-# ANNACHIARA
+#=
+### TRYING TO PLOT STUFF
+ANNACHIARA
+=#
 using CairoMakie, LaTeXStrings, MathTeXEngine
 using Jems.Opacity
 i_lnρ = 1
@@ -186,10 +188,11 @@ f
 lnT
 lnρ
 κ
+##
 
 #=
 ### Plotting with Makie
-
+##
 Now that our simulation is complete we can analyze the results. We make use of the Makie package for this. I'm not a fan
 of the Makie defaults, so I adjust them. I normally also adjust the fonts to be consistent with \LaTeX, but I avoid that
 here so we don't need to distribute those fonts together with Jems.
