@@ -6,14 +6,14 @@ using TOML
 Substructure of Options containing controls relating to remeshing
 """
 @kwdef mutable struct RemeshOptions
-    delta_log10P_split::Float64 = 0.1 # split two cells if difference in log10P is greater than this
-    max_cell_mass_ratio::Float64 = 5.0 # split cell if neighboring cell masses are smaller than this
-    max_dq_center::Float64 = 1e-5 # maximum dm/M for center cell
-    max_dq_surface::Float64 = 1e-5 # maximum dm/M for surface cell
+    delta_log10P_split::Float64 = 0.1  # split two cells if difference in log10P is greater than this
+    max_cell_mass_ratio::Float64 = 5.0  # split cell if neighboring cell masses are smaller than this
+    max_dq_center::Float64 = 1e-5  # maximum dm/M for center cell
+    max_dq_surface::Float64 = 1e-5  # maximum dm/M for surface cell
 
-    delta_log10P_merge = 0.001 # merge two cells if difference in log10P is smaller than this, and all other conditions are satisfied
-    delta_log10r_merge = 0.001 # merge two cells if difference in log10P is smaller than this, and all other conditions are satisfied
-    delta_xa_merge = 1e-5 # merge two cells if difference in any isotope abundance is smaller than this, and all other conditions are satisfied
+    delta_log10P_merge = 0.001  # merge two cells if difference in log10P is smaller than this, and all other conditions are satisfied
+    delta_log10r_merge = 0.001  # merge two cells if difference in log10P is smaller than this, and all other conditions are satisfied
+    delta_xa_merge = 1e-5  # merge two cells if difference in any isotope abundance is smaller than this, and all other conditions are satisfied
 
     do_remesh::Bool = false
 end
@@ -28,7 +28,12 @@ Substructure of Options containing controls relating to the Newton solver
     newton_max_iter_first_step::Int = 5000
     initial_model_scale_max_correction::Float64 = 3.0
     scale_max_correction::Float64 = 0.5
-    scale_correction_negative_Lsurf::Float64 = 0.1
+
+    relative_correction_tolerance::Float64 = 1e4 # measured in terms of variable epsilon, 1 would be machine precision limit, 1e16 is on the scale of the variable
+    maximum_residual_tolerance::Float64 = 1e-4
+
+    report_solver_progress::Bool = true
+    solver_progress_iter::Int = 50
 end
 
 """
@@ -37,15 +42,15 @@ end
 Substructure of Options containing controls relating to timestepping
 """
 @kwdef mutable struct TimestepOptions
-    initial_dt::Int = 1 # in years
+    initial_dt::Int = 1  # in years
 
     delta_R_limit::Float64 = 0.005
     delta_Tc_limit::Float64 = 0.005
-    delta_Xc_limit::Float64 = 0.005
+    delta_Xc_limit::Float64 = 0.001
 
     dt_max_increase::Float64 = 2
     dt_max_decrease::Float64 = 0.5
-    dt_retry_decrease::Float64 = 2
+    dt_retry_decrease::Float64 = 0.5
 end
 
 """
@@ -67,11 +72,13 @@ Substructure of Options containing controls relating to input/output of data
     hdf5_history_filename::String = "history.hdf5"
     hdf5_history_chunk_size::Int = 50
     hdf5_history_compression_level::Int = 9
+    hdf5_history_keep_open::Bool = false
 
     hdf5_profile_filename::String = "profiles.hdf5"
     hdf5_profile_chunk_size::Int = 50
     hdf5_profile_compression_level::Int = 9
     hdf5_profile_dataset_name_zero_padding::Int = 10
+    hdf5_profile_keep_open::Bool = false
 
     terminal_header_interval::Int = 10
     terminal_info_interval::Int = 10

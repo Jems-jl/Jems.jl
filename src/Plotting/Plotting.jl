@@ -1,7 +1,11 @@
 module Plotting
 
-using GLMakie, LaTeXStrings, MathTeXEngine, Jems.StellarModels
+using GLMakie, LaTeXStrings, MathTeXEngine, Jems.StellarModels, Jems.DualSupport, Jems.Constants
+
 const colors = Iterators.cycle([:red, :blue, :green])
+const mixing_map = Dict(:no_mixing => 1,
+                        :convection => 2)
+mixing_colors = cgrad(:seaborn_muted, categorical=true)
 const label_dict = Dict("mass" => L"m / M_\odot",
                         "zone" => L"\mathrm{zone}",
                         "dm" => L"dm / \mathrm{g}",
@@ -37,6 +41,7 @@ include("Init.jl")
 include("HRD.jl")
 include("Profile.jl")
 include("History.jl")
+include("TRhoProfile.jl")
 
 """
     update_plots!(sm::StellarModel)
@@ -44,21 +49,28 @@ include("History.jl")
 Updates all plots currently being displayed, by collecting appropriate data and notifying observables
 """
 function update_plotting!(sm::StellarModel)
-    if (sm.model_number % sm.opt.plotting.data_interval == 0)
+    if (sm.props.model_number % sm.opt.plotting.data_interval == 0)
         for plot in sm.plt.plots
             if plot.type == :HR
-                update_HR_plot!(plot, sm)
+                update_HR_plot!(plot, sm.props)
+            elseif plot.type == :TRho
+                update_T_ρ_plot!(plot, sm.props)
             elseif plot.type == :profile
-                update_profile_plot!(plot, sm)
+                update_profile_plot!(plot, sm)  # these cannot be loaded from props, bc they use the IO functions.
             elseif plot.type == :history
                 update_history_plot!(plot, sm)
             end
         end
     end
-    if (sm.model_number % sm.opt.plotting.plotting_interval == 0)
+    if (sm.props.model_number % sm.opt.plotting.plotting_interval == 0)
         for plot in sm.plt.plots
-            for xobs in values(plot.x_obs)
-                notify(xobs)  # notifying only the x observables should replot everything
+            for obs in values(plot.x_obs)
+                notify(obs)  # notifying only the x observables should replot everything
+            end
+            if !isnothing(plot.other_obs)
+                for obs in values(plot.other_obs)
+                    notify(obs)
+                end
             end
             try
                 autolimits!(plot.ax)

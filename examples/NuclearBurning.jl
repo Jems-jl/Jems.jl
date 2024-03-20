@@ -10,6 +10,7 @@ using Jems.Constants
 using Jems.EOS
 using Jems.Opacity
 using Jems.NuclearNetworks
+using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
@@ -32,14 +33,13 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
-net = NuclearNetwork([:H1,:He4,:C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 nz = 1000
 nextra = 100
-eos = EOS.IdealEOS(false)
-# opacity = Opacity.SimpleElectronScatteringOpacity()
-opacity = Opacity.KramerPrescripted()
-sm = StellarModel(varnames, structure_equations, nz, nextra,
-                  remesh_split_functions, net, eos, opacity);
+eos = EOS.IdealEOS(true)
+opacity = Opacity.SimpleElectronScatteringOpacity()
+turbulence = Turbulence.BasicMLT(1.0)
+sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
 
 ##
 #=
@@ -56,39 +56,33 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 (_previous step info_) to populate the information needed before the Newton solver in `sm.ssi` (_start step info_).
 At last we are in position to evaluate the equations and compute the Jacobian.
 =#
-n=3
-StellarModels.n_polytrope_initial_condition!(n, sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-Evolution.set_step_info!(sm, sm.esi)
-Evolution.cycle_step_info!(sm);
-Evolution.set_step_info!(sm, sm.ssi)
-Evolution.eval_jacobian_eqs!(sm)
+n = 3
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+Evolution.cycle_props!(sm);
+StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
+StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props)  # or do StellarModels.remesher!(sm);
+StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
+StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
+StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
 
 ##
 #=
 ### Benchmarking
 
-The previous code leaves everything ready to solve the linearized system. 
+The previous code leaves everything ready to solve the linearized system.
 For now we make use of a the serial Thomas algorithm for tridiagonal block matrices.
-We first show how long it takes to evaluate one row (meaning, one set of lower, diagonal
-and upper block) of the Jacobian matrix.
+We first show how long it takes to evaluate the Jacobian matrix. This requires two
+steps, the first is to evaluate properties across the model (for example, the EOS)
+and then evaluate all differential equations.
 =#
-@benchmark Evolution.eval_jacobian_eqs_row!(sm, 2)
+@benchmark begin
+    StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
+    Evolution.eval_jacobian_eqs!($sm)
+end
 
 ##
 #=
-On my machine, this takes $\sim 3\;\mathrm{\mu s}$. This is a short amount of time, but we have a thousand cells
-to compute. Let's benchmark the calculation of the full jacobian.
-=#
-@benchmark Evolution.eval_jacobian_eqs!(sm)
-
-##
-#=
-And on my computer, this took about $1\;\mathrm{ms}$. Even though we have a thousand cells, the computation time was
-not a thousand times longer than computing the components of the jacobian for a single cell. The reason for this is that
-the calculation is parallelized so cells are done independently. However, I used 8 cores for my calculations, so the
-scaling is less than ideal. One of the main culprits here is the garbage collector. Current versions of julia can only
-perform garbage collection in a serial way, so it does not take advantage of all threads. Starting with julia 1.10, the
-garbage collector will be able to run in multiple threads, so that should alleviate issues with performance scaling.
 
 To get an idea of how much a complete iteration of the solver takes, we need to benchmark
 both the calculation of the Jacobian and the matrix solver. This is because the matrix solver
@@ -97,6 +91,7 @@ to run only the matrix solver can be determined by substracting the previous ben
 =#
 
 @benchmark begin
+    StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
     Evolution.eval_jacobian_eqs!($sm)
     Evolution.thomas_algorithm!($sm)
 end
@@ -122,26 +117,31 @@ open("example_options.toml", "w") do file
 
           [solver]
           newton_max_iter_first_step = 1000
-          newton_max_iter = 200
+          initial_model_scale_max_correction = 0.5
+          newton_max_iter = 30
+          scale_max_correction = 0.1
+          report_solver_progress = false
 
           [timestep]
-          dt_max_increase = 10.0
+          dt_max_increase = 1.5
           delta_R_limit = 0.01
           delta_Tc_limit = 0.01
+          delta_Xc_limit = 0.005
 
           [termination]
           max_model_number = 2000
-          max_center_T = 4e7
+          max_center_T = 1e8
 
           [plotting]
-          do_plotting = false
+          do_plotting = true
           wait_at_termination = false
           plotting_interval = 1
 
-          window_specs = ["HR", "profile", "history"]
+          window_specs = ["HR", "TRho", "profile", "history"]
           window_layouts = [[1, 1],  # arrangement of plots
+                            [1, 2],
                             [2, 1],
-                            [3, 1]
+                            [2, 2]
                             ]
 
           profile_xaxis = 'mass'
@@ -162,8 +162,10 @@ end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
-StellarModels.n_polytrope_initial_condition!(n, sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
-@time Evolution.do_evolution_loop(sm);
+n = 3
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
+                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+@time Evolution.do_evolution_loop!(sm);
 
 ##
 
@@ -200,7 +202,7 @@ here so we don't need to distribute those fonts together with Jems.
 using CairoMakie, LaTeXStrings, MathTeXEngine
 basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                            italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
-                    fontsize=30, resolution=(1000, 750), linewidth=7,
+                    fontsize=30, size=(1000, 750), linewidth=7,
                     Axis=(xlabelsize=40, ylabelsize=40, titlesize=40, xgridvisible=false, ygridvisible=false,
                           spinewidth=2.5, xminorticksvisible=true, yminorticksvisible=true, xtickalign=1, ytickalign=1,
                           xminortickalign=1, yminortickalign=1, xticksize=14, xtickwidth=2.5, yticksize=14,
