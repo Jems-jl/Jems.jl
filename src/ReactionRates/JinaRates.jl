@@ -9,7 +9,7 @@ Struct that holds the following information for a given reaction rate:
     name: name of the reaction as a symbol
     iso_in: vector that contains all elements on the LHS of the reaction
     iso_out: vector that contains all elements on the RHS of the reaction
-    Qvalue: Q-value of the reaction
+    Qvalue: Q-value of the reaction (MeV)
     coeff: different a_i values of the reaction. Contains a vector of 7 values
     set_label: Symbol containing set label of the reaction
     res_rate: A 1 character flag symbol:
@@ -29,7 +29,7 @@ struct JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
     coeff::Vector{TT}
     set_label::Symbol
     res_rate::Symbol
-    rev_rate::Symbol    
+    rev_rate::Symbol
     chapter::Int64
 end
 
@@ -51,8 +51,6 @@ If the reaction rate allready exists in the reference dictionary:
     value of the key of the reaction in ref_dict is updated so all the unique versions of the rate are in
 
 """
-
-
 function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReactionRate)
 
     # main_dict = general dictionary containing all JINA Reaction rates
@@ -116,7 +114,6 @@ function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReaction
 end
 
 """
-
     correct_names(JINA_name)
 
 This function will return the name that corresponds with the JEMS isotope database
@@ -125,7 +122,6 @@ JINA_name is the name of the element as it is given in the JINA library (without
 RETURN_name is the corrected name given as a string
 
 """
-
 function correct_names(JINA_name)
     change_name = Dict("p" => "H1", "d" => "D2", "t" => "T3", "n" => "n")
 
@@ -145,8 +141,6 @@ end
     * explanation *
 
 """
-
-
 function read_set(dataset, dictionary, reference_dictionary)
 
     chap = 0 
@@ -332,7 +326,6 @@ end
     * explanation *
 
 """
-
 function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT}, xa_index::Dict{Symbol,Int})::TT where{TT}
 
     # determine λ
@@ -344,10 +337,11 @@ function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa
 
     for i in 2:6
         x += a[i] * T_9^((2(i-1) - 5)/3)
-        
     end
 
     λ = exp(x)
+
+    println(λ)
 
     # determine elements and how many times they occur
     # code gives a dictionary with the elements and how many times they occur
@@ -367,7 +361,7 @@ function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa
     elements   = collect(keys(sorted_elements))      # elements that occur on the LHS
     N_elements = collect(values(sorted_elements))    # how many times they occur on the LHS
 
-
+    println(elements, N_elements)
     # determine all needed parameters for every element
 
     ν = -1
@@ -388,18 +382,16 @@ function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa
 
     end
 
-
     # Calculate the reaction rate
-
+    println(ν)
     ρ = eos00.ρ
     RR = ρ^ν * λ
 
     for factor in factors
-        RR = RR * factor
-
+        RR *= factor
     end
 
-    return RR
+    return RR * Constants.AVO
 
 end
 
