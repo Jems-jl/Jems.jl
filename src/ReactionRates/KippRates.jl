@@ -54,7 +54,7 @@ xa_index: index of the elements
 Output:
 ϵ_nuc / Qvalue, has units s^-1 g^-1
 """
-    if reaction.name == :kipp_pp
+    if reaction.name == :kipp_pp  # represents the H1_H1_to_D2 rate, since this is the bottleneck
 
         phi  = 1
         f_11 = 1
@@ -62,7 +62,7 @@ Output:
         X1   = xa[xa_index[:H1]]
 
         g_11 = (1 + 3.82 * T9 + 1.51 * T9^2 + 0.144 * T9^3 - 0.0114 * T9^4)
-        ϵnuc = 2.57e4 * phi * f_11 * g_11 * eos00.ρ * X1^2 * cbrt(T9^(-2)) * exp(-3.381 * cbrt(T9^(-1)))
+        ϵnuc = 5.13e4 * phi * f_11 * g_11 * eos00.ρ * X1^2 * cbrt(T9^(-2)) * exp(-3.381 * cbrt(T9^(-1)))
 
     elseif reaction.name == :kipp_cno
 

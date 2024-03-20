@@ -13,13 +13,13 @@ read_set(file_contents, jinarates, ref_dict)
 kipprates = ReactionRates.reaction_list[:kipp_rates]
 
 ##
-logts = LinRange(7.0, 9.0, 30)
+logts = LinRange(6.0, 8.0, 30)
 eosses = [EOS.EOSResults{Float64}() for i in 1:length(logts)]
 for i in eachindex(logts)
     eosses[i].ρ = 1
     eosses[i].T = 10^logts[i]
 end
-xa = [0.2, 0.2, 0.2, 0.2, 0.2]
+xa = [1.0, 0.0, 0.0, 0.0, 0.0]
 xa_index = Dict(:H1 => 1, :He4 => 2, :C12 => 3, :O16 => 4, :N14 => 5)
 
 ##  choose a reaction
@@ -36,7 +36,10 @@ xa_index = Dict(:H1 => 1, :He4 => 2, :C12 => 3, :O16 => 4, :N14 => 5)
 #                jinarates[:He4_He4_He4_to_C12_fy05_n_x],
 #                jinarates[:He4_He4_He4_to_C12_fy05_r_x]]
 # k_reaction = kipprates[:kipp_3alphaA99]
-
+j_reactions = [jinarates[:H1_H1_to_D2],
+            #    jinarates[:H1_H1_to_D2_xxec_w_x]
+               ]
+k_reaction = kipprates[:kipp_pp]
 rates = zeros(length(logts))
 for i in eachindex(logts)
     for reaction in j_reactions
@@ -44,8 +47,19 @@ for i in eachindex(logts)
     end
 end
 j_rates = log10.(rates)
+function angulo_pp(eosr, xa, xa_index)
+    phi = 1
+    f_11 = 1
+    T9 = (eosr.T / 1e9)
+    X1 = xa[xa_index[:H1]]
+
+    g_11 = (1 + 3.82 * T9 + 1.51 * T9^2 + 0.144 * T9^3 - 0.0114 * T9^4)
+    nasigmav = 4.08e-15 * f_11 * phi * g_11 * cbrt(T9^(-2)) * exp(-3.381 * cbrt(T9^(-1)))
+    return nasigmav * eosr.ρ * (X1 / (Chem.isotope_list[:H1].mass * Constants.AMU))^2 / Constants.AVO / 2
+end
 for i in eachindex(logts)
     rates[i] = ReactionRates.get_reaction_rate(k_reaction, eosses[i], xa, xa_index)
+    # rates[i] = angulo_pp(eosses[i], xa, xa_index)  # matches exactly with Jina
 end
 k_rates = log10.(rates)
 ## 
