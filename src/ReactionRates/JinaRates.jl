@@ -143,16 +143,14 @@ end
 """
 function read_set(dataset, dictionary, reference_dictionary)
 
-    chap = 0 
+    chap = 0
     n = 0
 
     while n <= lastindex(dataset) - 225       
     
         if dataset[(n + 1)] == ' '
 
-            reaction = true
-
-            set_label = Symbol(dataset[(n + 44): (n + 47)])
+            set_label = Symbol(dataset[(n + 44):(n + 47)])
             res_rate  = Symbol(dataset[(n + 48)])
             rev_rate = Symbol(dataset[(n + 49)])
 
@@ -167,39 +165,28 @@ function read_set(dataset, dictionary, reference_dictionary)
 
             a  = [a0, a1, a2, a3, a4, a5, a6]
 
-            if chap == 1
+            if chap == 1  # A -> B
 
-                char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA) 
-                char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA) 
+                char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA)
+                char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA)
 
                 reaction_symbol = Symbol(char_1 * "_to_" * char_2)
 
                 elem_1 = [Symbol(char_1)];
                 elem_2 = [Symbol(char_2)];
 
-                Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])
-                
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
-                add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
-                
+            elseif chap == 2  # A -> B + C
 
-            elseif chap == 2
-
-                char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA) 
-                char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA) 
-                char_3_JINA = strip(dataset[(n + 16): (n + 20)]); char_3 = correct_names(char_3_JINA) 
+                char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA)
+                char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA)
+                char_3_JINA = strip(dataset[(n + 16): (n + 20)]); char_3 = correct_names(char_3_JINA)
             
                 reaction_symbol = Symbol(char_1 * "_to_" * char_2 * "_" * char_3)
                 
                 elem_1 = [Symbol(char_1)];
                 elem_2 = [Symbol(char_2), Symbol(char_3)];
 
-                Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                         
-                
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
-                add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
-                
-            elseif chap == 3
+            elseif chap == 3  # A -> B + C + D
 
                 char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA)
                 char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA)
@@ -211,12 +198,7 @@ function read_set(dataset, dictionary, reference_dictionary)
                 elem_1 = [Symbol(char_1)];
                 elem_2 = [Symbol(char_2), Symbol(char_3), Symbol(char_4)];
 
-                Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                          
-                
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
-                add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
-                
-            elseif chap == 4
+            elseif chap == 4  # A + B -> C
 
                 char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA)
                 char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA)
@@ -227,12 +209,7 @@ function read_set(dataset, dictionary, reference_dictionary)
                 elem_1 = [Symbol(char_1), Symbol(char_2)];
                 elem_2 = [Symbol(char_3)];
 
-                Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                        
-                
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
-                add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
-                
-            elseif chap == 5
+            elseif chap == 5  # A + B -> C + D
 
                 char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA)
                 char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA)
@@ -244,12 +221,7 @@ function read_set(dataset, dictionary, reference_dictionary)
                 elem_1 = [Symbol(char_1), Symbol(char_2)];
                 elem_2 = [Symbol(char_3), Symbol(char_4)];
 
-                Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                          
-                
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
-                add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
-                
-            elseif chap == 6
+            elseif chap == 6  # A + B -> C + D + E
 
                 char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA)
                 char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA)
@@ -262,12 +234,7 @@ function read_set(dataset, dictionary, reference_dictionary)
                 elem_1 = [Symbol(char_1), Symbol(char_2)];
                 elem_2 = [Symbol(char_3), Symbol(char_4), Symbol(char_5)];
 
-                Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                        
-                
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
-                add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
-                
-            elseif chap == 7
+            elseif chap == 7  # A + B -> C + D + E + F
 
                 char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA)
                 char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA)
@@ -276,17 +243,13 @@ function read_set(dataset, dictionary, reference_dictionary)
                 char_5_JINA = strip(dataset[(n + 26): (n + 30)]); char_5 = correct_names(char_5_JINA)
                 char_6_JINA = strip(dataset[(n + 31): (n + 35)]); char_6 = correct_names(char_6_JINA)
 
-                reaction_symbol = Symbol(char_1 * "_" * char_2 * "_to_" * char_3 * "_" * char_4 * "_" * char_5 * "_" * char_6)
+                reaction_symbol = Symbol(char_1 * "_" * char_2 * "_to_" *
+                                         char_3 * "_" * char_4 * "_" * char_5 * "_" * char_6)
                 
                 elem_1 = [Symbol(char_1), Symbol(char_2)];
                 elem_2 = [Symbol(char_3), Symbol(char_4), Symbol(char_5), Symbol(char_6)];
 
-                Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                       
-                
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
-                add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
-                
-            elseif chap == 8
+            elseif chap == 8  # A + B + C -> D
 
                 char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA)
                 char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA)
@@ -298,16 +261,28 @@ function read_set(dataset, dictionary, reference_dictionary)
                 elem_1 = [Symbol(char_1), Symbol(char_2), Symbol(char_3)];
                 elem_2 = [Symbol(char_4)];
 
-                Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                       
+             elseif chap == 9  # A + B + C -> D + E
+
+                char_1_JINA = strip(dataset[(n + 6) : (n + 10)]); char_1 = correct_names(char_1_JINA)
+                char_2_JINA = strip(dataset[(n + 11): (n + 15)]); char_2 = correct_names(char_2_JINA)
+                char_3_JINA = strip(dataset[(n + 16): (n + 20)]); char_3 = correct_names(char_3_JINA)
+                char_4_JINA = strip(dataset[(n + 21): (n + 25)]); char_4 = correct_names(char_4_JINA)
+                char_5_JINA = strip(dataset[(n + 26): (n + 30)]); char_5 = correct_names(char_5_JINA)
+
+                reaction_symbol = Symbol(char_1 * "_" * char_2 * "_" * char_3 * "_to_" * char_4 * "_" * char_5)
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
-                add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
-                
+                elem_1 = [Symbol(char_1), Symbol(char_2), Symbol(char_3)];
+                elem_2 = [Symbol(char_4), Symbol(char_5)];
+
             end
-            
+
+            Q_value = parse(Float64, dataset[(n + 53):(n + 64)])
+
+            reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate,
+                                             chap)
+            add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
         else
 
-            reaction = false
             chap += 1
 
         end
