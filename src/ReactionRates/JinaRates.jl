@@ -1,6 +1,7 @@
-file_contents = open(pkgdir(Chem, "data/ReactionRatesData", "Jina_reactionrates.data")) do io
+file_contents = open(pkgdir(Chem, "data", "Jina_reactionrates.data")) do io
     read(io, String)
 end
+
 
 """
     JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
@@ -24,7 +25,9 @@ Struct that holds the following information for a given reaction rate:
 struct JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
     name::Symbol
     iso_in::Vector{Symbol}
+    num_iso_in::Vector{Int}
     iso_out::Vector{Symbol}
+    num_iso_out::Vector{Int}
     Qvalue::TT
     coeff::Vector{TT}
     set_label::Symbol
@@ -32,6 +35,8 @@ struct JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
     rev_rate::Symbol    
     chapter::Int64
 end
+
+# num_iso_in & out
 
 
 """
@@ -53,6 +58,7 @@ If the reaction rate allready exists in the reference dictionary:
 """
 
 
+
 function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReactionRate)
 
     # main_dict = general dictionary containing all JINA Reaction rates
@@ -60,60 +66,55 @@ function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReaction
     # reaction  = Symbol of the reaction that has to be added to the main dictionary
     # new_info  = JinaReactionRate of the new rate
 
-    if haskey(ref_dict, reaction)
+    # new info die de nieuwe reactie van de oude onderscheid
 
-        if ref_dict[reaction] == []
+    new_set_label = new_info.set_label
+    new_res_rate  = new_info.res_rate
+    new_rev_rate = new_info.rev_rate
 
-            cur_info = main_dict[reaction]
-
-            cur_set_label = cur_info.set_label
-            cur_res_rate  = cur_info.res_rate
-            cur_rev_rate = cur_info.rev_rate
-
-            new_set_label = new_info.set_label
-            new_res_rate  = new_info.res_rate
-            new_rev_rate = new_info.rev_rate
-
-            reaction_string_cur = "$(reaction)_$(cur_set_label)_$(cur_res_rate)_$(cur_rev_rate)"
-            reaction_string_new = "$(reaction)_$(new_set_label)_$(new_res_rate)_$(new_rev_rate)"
-
-            reaction_symbol_cur = Symbol(replace(reaction_string_cur, ' ' => 'x'))
-            reaction_symbol_new = Symbol(replace(reaction_string_new, ' ' => 'x'))
-
-            list = []
-            push!(list, reaction_symbol_cur)
-            push!(list, reaction_symbol_new)
-            ref_dict[reaction] = list
-
-            main_dict[reaction_symbol_cur] = cur_info
-            main_dict[reaction_symbol_new] = new_info
-
-        else
-
-            new_set_label = new_info.set_label
-            new_res_rate  = new_info.res_rate
-            new_rev_rate = new_info.rev_rate
-
-            reaction_string_new = "$(reaction)_$(new_set_label)_$(new_res_rate)_$(new_rev_rate)"
-            reaction_symbol_new = Symbol(replace(reaction_string_new, ' ' => 'x'))
-
-            list = ref_dict[reaction]
-            push!(list, reaction_symbol_new)
-            ref_dict[reaction] = list
+    reaction_string_new = "$(reaction)_$(new_set_label)_$(new_res_rate)_$(new_rev_rate)_0"
+    reaction_string_new = replace(reaction_string_new, ' ' => 'x')
+    reaction_symbol_new = Symbol(replace(reaction_string_new, '+' => "plus"))
 
 
-            main_dict[reaction_symbol_new] = new_info
+    if haskey(ref_dict, reaction) # als de reference dictionary al deze reactie heeft
+
+        # nieuwe reaction naam
+
+        reaction_string_short  = "$(reaction)_$(new_set_label)_$(new_res_rate)_$(new_rev_rate)"
+        reaction_string_short  = replace(reaction_string_short, ' ' => 'x')
+        reaction_symbol_short  = Symbol(replace(reaction_string_short, '+' => "plus"))
+
+        # checken op dubbels
+
+        list = ref_dict[reaction]           # huidige list van die reactie
+
+        if reaction_symbol_new in list  # als het al bestaat
+            new_list = [Symbol(string(symbol)[1:end-2]) for symbol in list]
+            curr_amount = count(x -> x == reaction_symbol_short, new_list)              # telen hoeveel ervan al zijn
+            reaction_symbol_new = Symbol("$(reaction_symbol_short)_$(curr_amount)")     # reaction_symbol_new aanpassen met dit getal erbij
 
         end
 
-    else 
-        
-        ref_dict[reaction]  = []        
-        main_dict[reaction] = new_info 
+        # toevoegen aan de list van deze reaction in References
+
+        push!(list, reaction_symbol_new)    # de nieuwe reactie toevoegen
+        ref_dict[reaction] = list           # de lijst updaten als parameter in References
+
+        # De reactie toevoegen aan de algemene dictionary
+
+        main_dict[reaction_symbol_new] = new_info
+
+
+    else    # de reference dictionary heeft deze reactie nog niet heeft --> de eerste van zijn soort
+
+        ref_dict[reaction]  = [reaction_symbol_new]        
+        main_dict[reaction_symbol_new] = new_info 
 
     end
     
 end
+
 
 """
 
@@ -140,14 +141,52 @@ end
 
 """
 
-    read_set(dataset, dictionary, reference_dictionary)
+    function to arrange the elements needed for the reaction and the N of each element
+
+        * uitleg*
+
+"""
+
+function sort_reaction(elements)
+
+
+    # LHS_elements = reaction.iso_in
+    # RHS_elements = reaction.iso_out --> kan nog niet want reaction bestaat nog niet
+
+    sorted_elements = Dict{Symbol, Int}()       # dict met per element aan een kant het aantal keer dat het voorkomt
+                
+    for element in elements
+        if haskey(sorted_elements, element)
+            sorted_elements[element] += 1
+        else
+            sorted_elements[element] = 1
+        end
+    end
+
+    # sorted_elements = sort(sorted_elements)     # sort alphabetically
+            
+    elements_return   = collect(keys(sorted_elements))         # elements that occur on the LHS
+    N_elements_return = collect(values(sorted_elements))       # reaction.num_iso_in     # how many times they occur on the LHS
+
+    return_array = [elements_return, N_elements_return]
+
+    return return_array
+    
+end
+
+
+
+
+"""
+
+    read_dataset(dataset, dictionary, reference_dictionary)
 
     * explanation *
 
 """
 
 
-function read_set(dataset, dictionary, reference_dictionary)
+function read_dataset(dataset, dictionary, reference_dictionary)
 
     chap = 0 
     n = 0
@@ -180,12 +219,21 @@ function read_set(dataset, dictionary, reference_dictionary)
 
                 reaction_symbol = Symbol(char_1 * "_to_" * char_2)
 
-                elem_1 = [Symbol(char_1)];
-                elem_2 = [Symbol(char_2)];
+                elem_1_u = [Symbol(char_1)];
+                elem_2_u = [Symbol(char_2)];
+
+                num_elem_1 = sort_reaction(elem_1_u)[2]
+                num_elem_2 = sort_reaction(elem_2_u)[2]
+
+                elem_1 = sort_reaction(elem_1_u)[1]
+                elem_2 = sort_reaction(elem_2_u)[1]
+
+                # num_elem_1 = zeros(Int, length(elem_1))
+                # num_elem_2 = zeros(Int, length(elem_2))
 
                 Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
+                reaction_info = JinaReactionRate(reaction_symbol, elem_1, num_elem_1, elem_2, num_elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
                 add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
                 
 
@@ -197,12 +245,18 @@ function read_set(dataset, dictionary, reference_dictionary)
             
                 reaction_symbol = Symbol(char_1 * "_to_" * char_2 * "_" * char_3)
                 
-                elem_1 = [Symbol(char_1)];
-                elem_2 = [Symbol(char_2), Symbol(char_3)];
+                elem_1_u = [Symbol(char_1)];
+                elem_2_u = [Symbol(char_2), Symbol(char_3)];
+
+                num_elem_1 = sort_reaction(elem_1_u)[2]
+                num_elem_2 = sort_reaction(elem_2_u)[2]
+
+                elem_1 = sort_reaction(elem_1_u)[1]
+                elem_2 = sort_reaction(elem_2_u)[1]
 
                 Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                         
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
+                reaction_info = JinaReactionRate(reaction_symbol, elem_1, num_elem_1, elem_2, num_elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
                 add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
                 
             elseif chap == 3
@@ -214,12 +268,18 @@ function read_set(dataset, dictionary, reference_dictionary)
             
                 reaction_symbol = Symbol(char_1 * "_to_" * char_2 * "_" * char_3 * "_" *char_4)
                 
-                elem_1 = [Symbol(char_1)];
-                elem_2 = [Symbol(char_2), Symbol(char_3), Symbol(char_4)];
+                elem_1_u = [Symbol(char_1)];
+                elem_2_u = [Symbol(char_2), Symbol(char_3), Symbol(char_4)];
+
+                num_elem_1 = sort_reaction(elem_1_u)[2]
+                num_elem_2 = sort_reaction(elem_2_u)[2]
+
+                elem_1 = sort_reaction(elem_1_u)[1]
+                elem_2 = sort_reaction(elem_2_u)[1]
 
                 Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                          
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
+                reaction_info = JinaReactionRate(reaction_symbol, elem_1, num_elem_1, elem_2, num_elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
                 add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
                 
             elseif chap == 4
@@ -230,12 +290,18 @@ function read_set(dataset, dictionary, reference_dictionary)
             
                 reaction_symbol = Symbol(char_1 * "_" * char_2 * "_to_" * char_3)
                 
-                elem_1 = [Symbol(char_1), Symbol(char_2)];
-                elem_2 = [Symbol(char_3)];
+                elem_1_u = [Symbol(char_1), Symbol(char_2)];
+                elem_2_u = [Symbol(char_3)];
+
+                num_elem_1 = sort_reaction(elem_1_u)[2]
+                num_elem_2 = sort_reaction(elem_2_u)[2]
+
+                elem_1 = sort_reaction(elem_1_u)[1]
+                elem_2 = sort_reaction(elem_2_u)[1]
 
                 Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                        
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
+                reaction_info = JinaReactionRate(reaction_symbol, elem_1, num_elem_1, elem_2, num_elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
                 add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
                 
             elseif chap == 5
@@ -247,12 +313,18 @@ function read_set(dataset, dictionary, reference_dictionary)
             
                 reaction_symbol = Symbol(char_1 * "_" * char_2 * "_to_" * char_3 * "_" *char_4)
                 
-                elem_1 = [Symbol(char_1), Symbol(char_2)];
-                elem_2 = [Symbol(char_3), Symbol(char_4)];
+                elem_1_u = [Symbol(char_1), Symbol(char_2)];
+                elem_2_u = [Symbol(char_3), Symbol(char_4)];
+
+                num_elem_1 = sort_reaction(elem_1_u)[2]
+                num_elem_2 = sort_reaction(elem_2_u)[2]
+
+                elem_1 = sort_reaction(elem_1_u)[1]
+                elem_2 = sort_reaction(elem_2_u)[1]
 
                 Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                          
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
+                reaction_info = JinaReactionRate(reaction_symbol, elem_1, num_elem_1, elem_2, num_elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
                 add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
                 
             elseif chap == 6
@@ -265,12 +337,18 @@ function read_set(dataset, dictionary, reference_dictionary)
 
                 reaction_symbol = Symbol(char_1 * "_" * char_2 * "_to_" * char_3 * "_" * char_4 * "_" * char_5)
                 
-                elem_1 = [Symbol(char_1), Symbol(char_2)];
-                elem_2 = [Symbol(char_3), Symbol(char_4), Symbol(char_5)];
+                elem_1_u = [Symbol(char_1), Symbol(char_2)];
+                elem_2_u = [Symbol(char_3), Symbol(char_4), Symbol(char_5)];
+
+                num_elem_1 = sort_reaction(elem_1_u)[2]
+                num_elem_2 = sort_reaction(elem_2_u)[2]
+
+                elem_1 = sort_reaction(elem_1_u)[1]
+                elem_2 = sort_reaction(elem_2_u)[1]
 
                 Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                        
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
+                reaction_info = JinaReactionRate(reaction_symbol, elem_1, num_elem_1, elem_2, num_elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
                 add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
                 
             elseif chap == 7
@@ -284,12 +362,18 @@ function read_set(dataset, dictionary, reference_dictionary)
 
                 reaction_symbol = Symbol(char_1 * "_" * char_2 * "_to_" * char_3 * "_" * char_4 * "_" * char_5 * "_" * char_6)
                 
-                elem_1 = [Symbol(char_1), Symbol(char_2)];
-                elem_2 = [Symbol(char_3), Symbol(char_4), Symbol(char_5), Symbol(char_6)];
+                elem_1_u = [Symbol(char_1), Symbol(char_2)];
+                elem_2_u = [Symbol(char_3), Symbol(char_4), Symbol(char_5), Symbol(char_6)];
+
+                num_elem_1 = sort_reaction(elem_1_u)[2]
+                num_elem_2 = sort_reaction(elem_2_u)[2]
+
+                elem_1 = sort_reaction(elem_1_u)[1]
+                elem_2 = sort_reaction(elem_2_u)[1]
 
                 Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                       
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
+                reaction_info = JinaReactionRate(reaction_symbol, elem_1, num_elem_1, elem_2, num_elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
                 add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
                 
             elseif chap == 8
@@ -301,12 +385,18 @@ function read_set(dataset, dictionary, reference_dictionary)
 
                 reaction_symbol = Symbol(char_1 * "_" * char_2 * "_" * char_3 * "_to_" * char_4)
                 
-                elem_1 = [Symbol(char_1), Symbol(char_2), Symbol(char_3)];
-                elem_2 = [Symbol(char_4)];
+                elem_1_u = unique([Symbol(char_1), Symbol(char_2), Symbol(char_3)]);
+                elem_2_u = [Symbol(char_4)];
+
+                num_elem_1 = sort_reaction(elem_1_u)[2]
+                num_elem_2 = sort_reaction(elem_2_u)[2]
+
+                elem_1 = sort_reaction(elem_1_u)[1]
+                elem_2 = sort_reaction(elem_2_u)[1]
 
                 Q_value = parse(Float64, dataset[(n + 53): (n+ 64)])                       
                 
-                reaction_info = JinaReactionRate(reaction_symbol, elem_1, elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
+                reaction_info = JinaReactionRate(reaction_symbol, elem_1, num_elem_1, elem_2, num_elem_2, Q_value, a, set_label, res_rate, rev_rate, chap)
                 add_to_references(dictionary, reference_dictionary, reaction_symbol, reaction_info)
                 
             end
@@ -352,20 +442,21 @@ function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa
     # determine elements and how many times they occur
     # code gives a dictionary with the elements and how many times they occur
 
-    LHS_elements = reaction.iso_in
+    elements = reaction.iso_in
+    N_elements = reaction.num_iso_in
 
-    sorted_elements = Dict{Symbol, Int}()
+    # sorted_elements = Dict{Symbol, Int}()
     
-    for element in LHS_elements
-        if haskey(sorted_elements, element)
-            sorted_elements[element] += 1
-        else
-            sorted_elements[element] = 1
-        end
-    end
+    # for element in LHS_elements
+    #     if haskey(sorted_elements, element)
+    #         sorted_elements[element] += 1
+    #     else
+    #         sorted_elements[element] = 1
+    #     end
+    # end
 
-    elements   = collect(keys(sorted_elements))      # elements that occur on the LHS
-    N_elements = collect(values(sorted_elements))    # how many times they occur on the LHS
+    # elements   = collect(keys(sorted_elements))         # elements that occur on the LHS
+    # N_elements = collect(values(sorted_elements))       # reaction.num_iso_in     # how many times they occur on the LHS
 
 
     # determine all needed parameters for every element
@@ -405,6 +496,11 @@ end
 
 
 
+reaction_list = Dict()
+jina_references = Dict()
+jina_rates = Dict()
+read_dataset(file_contents, jina_rates, jina_references)
+reaction_list[:jina_rates] = jina_rates
 
 
 

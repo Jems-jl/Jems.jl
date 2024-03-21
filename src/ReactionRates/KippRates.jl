@@ -2,9 +2,9 @@ struct KippReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
     name::Symbol
     # num_iso_in of isotopes iso_in are converted into num_iso_out of isotopes iso_out
     iso_in::Vector{Symbol}
-    num_iso_in::Vector{Int64}
+    num_iso_in::Vector{Int}
     iso_out::Vector{Symbol}
-    num_iso_out::Vector{Int64}
+    num_iso_out::Vector{Int}
     Qvalue::TT  # energy released per reaction of this type (i.e. the mass defect), in erg
 end
 
