@@ -3,13 +3,14 @@ using Jems.Turbulence
 
 abstract type AbstractStellarModelProperties end
 
-@kwdef mutable struct StellarModelProperties{TN, TDual, TDualFace, TCellDualData, TFaceDualData} <: AbstractStellarModelProperties
+@kwdef mutable struct StellarModelProperties{TN, TDual, TDualM, TDualFace, TCellDualData, TFaceDualData} <: AbstractStellarModelProperties
     # scalar quantities
     dt::TN  # Timestep of the current evolutionary step (s)
     dt_next::TN
     time::TN  # Age of the model (s)
     model_number::Int
-    mstar::TN  # Total model mass (g)
+    #mstar::TN  # Total model mass (g)
+    mstar::TDualM  # Total model mass (g)
 
     # array of the values of the independent variables, everything should be reconstructable from this (mesh dependent)
     ind_vars::Vector{TN}
@@ -59,9 +60,11 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
     # define the types
     CDDTYPE = CellDualData{nvars+1,3*nvars+1,TN}  # full dual arrays
     FDDTYPE = FaceDualData{2*nvars+1,3*nvars+1,TN}
-    TD = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, nvars))...))  # only the cell duals
-    TDF = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, 2*nvars))...))  # only the face duals
 
+    TDualM = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, 1))...))  # only the mass dual
+    TD = typeof(ForwardDiff.Dual(zero(TDualM), (zeros(TDualM, nvars))...))  # only the cell duals
+    TDF = typeof(ForwardDiff.Dual(zero(TDualM), (zeros(TDualM, 2*nvars))...))  # only the face duals
+      # for mstar
     # create the vector containing the independent variables
     ind_vars = zeros(TN, nvars * (nz + nextra))
 
@@ -105,7 +108,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
     mixing_type::Vector{Symbol} = repeat([:no_mixing], nz+nextra)
     for k in 1:(nz+nextra)
         lnP_face[k] = FaceDualData(nvars, TN)
-        lnρ_face[k] = FaceDualData(nvars, TN)
+        lnρ_face[k] = FaceDualData(nvars, TN).
         lnT_face[k] = FaceDualData(nvars, TN)
         κ_face[k] = FaceDualData(nvars, TN)
         ∇ₐ_face[k] = FaceDualData(nvars, TN)
@@ -121,8 +124,10 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
         end
     end
 
+    mstar = ForwardDiff.Dual(zero(TN),one(TN))
+
     return StellarModelProperties(;ind_vars=ind_vars, model_number=zero(Int),
-                                  nz=nz, m=m, dm=dm, mstar=zero(TN),
+                                  nz=nz, m=m, dm=dm, mstar=mstar,
                                   dt=zero(TN), dt_next=zero(TN), time=zero(TN),
                                   eos_res_dual=eos_res_dual,
                                   eos_res=eos_res,
