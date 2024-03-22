@@ -99,10 +99,10 @@ end
 
 ##
 
-overwrite = false
+overwrite = true
 
-logmassrange = (0.5:0.1:0.8)
-Xrange = (0.55:0.05:1.0)
+logmassrange = (-0.1:0.1:0.8)
+Xrange = (0.6:0.05:0.7)
 #ogmassrange = (-1.0:0.1:0.7)
 #range = (0.9:0.05:1.0)
 @show logmassrange, Xrange
