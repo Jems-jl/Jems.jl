@@ -164,7 +164,7 @@ function sort_reaction(elements)
     end
 
     # sorted_elements = sort(sorted_elements)     # sort alphabetically
-            
+    
     elements_return   = collect(keys(sorted_elements))         # elements that occur on the LHS
     N_elements_return = collect(values(sorted_elements))       # reaction.num_iso_in     # how many times they occur on the LHS
 
@@ -385,7 +385,7 @@ function read_dataset(dataset, dictionary, reference_dictionary)
 
                 reaction_symbol = Symbol(char_1 * "_" * char_2 * "_" * char_3 * "_to_" * char_4)
                 
-                elem_1_u = unique([Symbol(char_1), Symbol(char_2), Symbol(char_3)]);
+                elem_1_u = [Symbol(char_1), Symbol(char_2), Symbol(char_3)];
                 elem_2_u = [Symbol(char_4)];
 
                 num_elem_1 = sort_reaction(elem_1_u)[2]
@@ -439,11 +439,16 @@ function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa
 
     λ = exp(x)
 
+    # println("Lambda is equal to", λ)
+
     # determine elements and how many times they occur
     # code gives a dictionary with the elements and how many times they occur
 
     elements = reaction.iso_in
     N_elements = reaction.num_iso_in
+
+    # println("elements are ", elements)
+    # println("N_elements are", N_elements)
 
     # sorted_elements = Dict{Symbol, Int}()
     
@@ -467,28 +472,41 @@ function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa
     for index in eachindex(elements)
 
         elem = elements[index]                                       # A
+        # println("elem = ", elem)
         N_elem  = N_elements[index]                                  # N_A
+        # println("N_elem = ", N_elem)
         X_elem  = xa[xa_index[elem]]                                 # X_A
+        # println("X_elem = ", X_elem)
         m_elem  = Chem.isotope_list[elem].mass * Constants.AMU       # m_A
+        # println("m_elem = ", m_elem)
 
         Y_elem = X_elem / (m_elem * Constants.AVO)                   # Y_A
+        # println("Y_elem = ", Y_elem)
         ν += N_elem
+        # println("ν = ", ν)
         factor_elem = Y_elem^(N_elem) / factorial(N_elem)
+        # println("factor_elem = ", factor_elem)
 
         push!(factors, factor_elem)
 
     end
 
 
+    # println(factors)
+
     # Calculate the reaction rate
 
     ρ = eos00.ρ
     RR = ρ^ν * λ
 
+    # println("RR is at this point", RR)
+
     for factor in factors
         RR = RR * factor
 
     end
+
+    # println("RR is at the end", RR)
 
     return RR
 

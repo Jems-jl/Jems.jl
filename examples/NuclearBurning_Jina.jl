@@ -35,77 +35,88 @@ remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
 # net = NuclearNetwork([:H1,:He4,:C12,:N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 
-net = NuclearNetwork([:H1,      :D2,    :He3,   :He4,   :C12,    :O16,
-                      :Ne20,    :Be7,   :Li7,   :B8,    :Be9,    :Mg24,
-                      :Si28,    :S32,   :Ar36,  :Ca40,  :Ti44,   :N13,
-                      :C13,     :N14,   :O15,   :N15,   :F17,    :O17,
-                      :F18,     :O18,   :F19,   :O14,   :Ne18], 
+net = NuclearNetwork([  :H1,    :D2,    :T3,
+                        :He3,   :He4, 
+                        :Be7,   :Be9,
+                        :Li7,   
+                        :B8,    
+                        :C12,   :C13,   
+                        :N13,   :N14,   :N15,
+                        :O14,   :O15,   :O16,   :O17,   :O18,   
+                        :F17,   :F18,   :F19,   
+                        :Ne18,  :Ne20,
+                        :Mg24,
+                        :Si28,
+                        :S32,
+                        :Ar36,
+                        :Ca40,
+                        :Ti44   ], 
 
                      [  
                         # Big Bang rates
                         
-                        (:jina_rates, :n_to_H1_wc12_w_x_0),
+                        # (:jina_rates, :n_to_H1_wc12_w_x_0),
 
-                        (:jina_rates, :n_H1_to_D2_an06_n_x_0),
-                        (:jina_rates, :n_H1_to_D2_an06_n_x_1),
-                        (:jina_rates, :n_H1_to_D2_an06_n_x_2),
+                        # (:jina_rates, :n_H1_to_D2_an06_n_x_0),
+                        # (:jina_rates, :n_H1_to_D2_an06_n_x_1),
+                        # (:jina_rates, :n_H1_to_D2_an06_n_x_2),
                         
-                        (:jina_rates, :H1_D2_to_He3_de04_n_x_0),
-                        (:jina_rates, :H1_D2_to_He3_de04_x_x_0),
+                        # (:jina_rates, :H1_D2_to_He3_de04_n_x_0),
+                        # (:jina_rates, :H1_D2_to_He3_de04_x_x_0),
                         
-                        (:jina_rates, :D2_D2_to_H1_T3_go17_n_x_0),
+                        # (:jina_rates, :D2_D2_to_H1_T3_go17_n_x_0),
                         
-                        (:jina_rates, :D2_D2_to_n_He3_gi17_n_x_0),
+                        # (:jina_rates, :D2_D2_to_n_He3_gi17_n_x_0),
 
-                        (:jina_rates, :D2_T3_to_n_He4_de04_x_x_0),
-                        (:jina_rates, :D2_T3_to_n_He4_de04_x_x_1),
+                        # (:jina_rates, :D2_T3_to_n_He4_de04_x_x_0),
+                        # (:jina_rates, :D2_T3_to_n_He4_de04_x_x_1),
                         
-                        (:jina_rates, :D2_He3_to_H1_He4_de04_x_x_0),
-                        (:jina_rates, :D2_He3_to_H1_He4_de04_x_x_1),
+                        # (:jina_rates, :D2_He3_to_H1_He4_de04_x_x_0),
+                        # (:jina_rates, :D2_He3_to_H1_He4_de04_x_x_1),
                         
-                        (:jina_rates, :He4_T3_to_Li7_de04_x_x_0),
+                        # (:jina_rates, :He4_T3_to_Li7_de04_x_x_0),
                         
-                        (:jina_rates, :He4_He3_to_Be7_cd08_n_x_0),
-                        (:jina_rates, :He4_He3_to_Be7_cd08_n_x_1),
+                        # (:jina_rates, :He4_He3_to_Be7_cd08_n_x_0),
+                        # (:jina_rates, :He4_He3_to_Be7_cd08_n_x_1),
                         
-                        (:jina_rates, :n_He3_to_H1_T3_de04_x_x_0),
-                        (:jina_rates, :n_He3_to_H1_T3_de04_x_x_1),
+                        # (:jina_rates, :n_He3_to_H1_T3_de04_x_x_0),
+                        # (:jina_rates, :n_He3_to_H1_T3_de04_x_x_1),
                         
-                        (:jina_rates, :n_Be7_to_H1_Li7_db18_x_x_0),
+                        # (:jina_rates, :n_Be7_to_H1_Li7_db18_x_x_0),
                         
-                        (:jina_rates, :H1_Li7_to_He4_He4_de04_x_x_0),
-                        (:jina_rates, :H1_Li7_to_He4_He4_de04_r_x_0),
-                        (:jina_rates, :H1_Li7_to_He4_He4_de04_x_x_1),
-                        (:jina_rates, :H1_Li7_to_He4_He4_de04_r_x_1),
+                        # (:jina_rates, :H1_Li7_to_He4_He4_de04_x_x_0),
+                        # (:jina_rates, :H1_Li7_to_He4_He4_de04_r_x_0),
+                        # (:jina_rates, :H1_Li7_to_He4_He4_de04_x_x_1),
+                        # (:jina_rates, :H1_Li7_to_He4_He4_de04_r_x_1),
                         
 
 
                         # PP    
 
-                        # (:jina_rates, :H1_H1_to_D2_betplus_w_x_0),
-                        # (:jina_rates, :H1_H1_to_D2_xxec_w_x_0),
+                        (:jina_rates, :H1_H1_to_D2_betplus_w_x_0),
+                        (:jina_rates, :H1_H1_to_D2_xxec_w_x_0),
 
-                        # # (:jina_rates, :H1_D2_to_He3_de04_n_x_0),
-                        # # (:jina_rates, :H1_D2_to_He3_de04_x_x_0),
+                        (:jina_rates, :H1_D2_to_He3_de04_n_x_0),
+                        (:jina_rates, :H1_D2_to_He3_de04_x_x_0),
 
-                        # (:jina_rates, :He3_He3_to_H1_H1_He4_nacr_n_x_0),
+                        (:jina_rates, :He3_He3_to_H1_H1_He4_nacr_n_x_0),
 
-                        # (:jina_rates, :He4_He3_to_Be7_cd08_n_x_0),
-                        # (:jina_rates, :He4_He3_to_Be7_cd08_n_x_1),
+                        (:jina_rates, :He4_He3_to_Be7_cd08_n_x_0),
+                        (:jina_rates, :He4_He3_to_Be7_cd08_n_x_1),
 
-                        # (:jina_rates, :Be7_to_Li7_xxec_w_x_0),
+                        (:jina_rates, :Be7_to_Li7_xxec_w_x_0),
 
-                        # (:jina_rates, :H1_Li7_to_He4_He4_de04_x_x_0),
-                        # (:jina_rates, :H1_Li7_to_He4_He4_de04_r_x_0),
+                        (:jina_rates, :H1_Li7_to_He4_He4_de04_x_x_0),
+                        (:jina_rates, :H1_Li7_to_He4_He4_de04_r_x_0),
                         # (:jina_rates, :H1_Li7_to_He4_He4_de04_x_x_1),
                         # (:jina_rates, :H1_Li7_to_He4_He4_de04_r_x_1),
 
-                        # (:jina_rates, :H1_Be7_to_B8_nacr_r_x_0),
-                        # (:jina_rates, :H1_Be7_to_B8_nacr_n_x_0),
+                        (:jina_rates, :H1_Be7_to_B8_nacr_r_x_0),
+                        (:jina_rates, :H1_Be7_to_B8_nacr_n_x_0),
 
-                        # (:jina_rates, :B8_to_He4_He4_wc12_w_x_0),
+                        (:jina_rates, :B8_to_He4_He4_wc12_w_x_0),
 
-                        # (:jina_rates, :H1_He3_to_He4_betplus_w_x_0),
+                        (:jina_rates, :H1_He3_to_He4_betplus_w_x_0),
 
 
                         # CNO Cycle 1
@@ -203,26 +214,26 @@ net = NuclearNetwork([:H1,      :D2,    :He3,   :He4,   :C12,    :O16,
                         
                         # Hot CNO
 
-                        (:jina_rates, :H1_N13_to_O14_lg06_r_x_0),
-                        (:jina_rates, :H1_N13_to_O14_lg06_n_x_0),
+                        # (:jina_rates, :H1_N13_to_O14_lg06_r_x_0),
+                        # (:jina_rates, :H1_N13_to_O14_lg06_n_x_0),
                         
-                        (:jina_rates, :O14_to_N14_wc12_w_x_0),
+                        # (:jina_rates, :O14_to_N14_wc12_w_x_0),
                         
-                        (:jina_rates, :He4_O14_to_H1_F17_Ha96_r_x_0),
-                        (:jina_rates, :He4_O14_to_H1_F17_Ha96_r_x_1),
-                        (:jina_rates, :He4_O14_to_H1_F17_Ha96_r_x_2),
-                        (:jina_rates, :He4_O14_to_H1_F17_Ha96_n_x_0),
-                        (:jina_rates, :He4_O14_to_H1_F17_Ha96_r_x_3),
-                        (:jina_rates, :He4_O14_to_H1_F17_Ha96_r_x_4),
+                        # (:jina_rates, :He4_O14_to_H1_F17_Ha96_r_x_0),
+                        # (:jina_rates, :He4_O14_to_H1_F17_Ha96_r_x_1),
+                        # (:jina_rates, :He4_O14_to_H1_F17_Ha96_r_x_2),
+                        # (:jina_rates, :He4_O14_to_H1_F17_Ha96_n_x_0),
+                        # (:jina_rates, :He4_O14_to_H1_F17_Ha96_r_x_3),
+                        # (:jina_rates, :He4_O14_to_H1_F17_Ha96_r_x_4),
                         
-                        (:jina_rates, :H1_F17_to_Ne18_cb09_x_x_0),
-                        (:jina_rates, :H1_F17_to_Ne18_cb09_x_x_1),
+                        # (:jina_rates, :H1_F17_to_Ne18_cb09_x_x_0),
+                        # (:jina_rates, :H1_F17_to_Ne18_cb09_x_x_1),
                         
-                        (:jina_rates, :Ne18_to_F18_wc12_w_x_0),
+                        # (:jina_rates, :Ne18_to_F18_wc12_w_x_0),
                         
-                        (:jina_rates, :H1_F18_to_He4_O15_il10_r_x_0),
-                        (:jina_rates, :H1_F18_to_He4_O15_il10_r_x_1),
-                        (:jina_rates, :H1_F18_to_He4_O15_il10_n_x_0),
+                        # (:jina_rates, :H1_F18_to_He4_O15_il10_r_x_0),
+                        # (:jina_rates, :H1_F18_to_He4_O15_il10_r_x_1),
+                        # (:jina_rates, :H1_F18_to_He4_O15_il10_n_x_0),
                         
 
                         # Helium Burning light
@@ -357,9 +368,9 @@ open("example_options.toml", "w") do file
 
           [solver]
           newton_max_iter_first_step = 1000
-          initial_model_scale_max_correction = 0.5
-          newton_max_iter = 30
-          scale_max_correction = 0.1
+          initial_model_scale_max_correction = 0.7
+          newton_max_iter = 50
+          scale_max_correction = 0.2
           report_solver_progress = false
 
           [timestep]
@@ -402,7 +413,7 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 n = 3
-StellarModels.n_polytrope_initial_condition!(n,sm,nz,0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],1*MSUN,100 * RSUN;initial_dt=10 * SECYEAR)
+StellarModels.n_polytrope_initial_condition!(n,sm,nz,0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],0.5*MSUN,50 * RSUN;initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
 
 ##
