@@ -108,7 +108,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
     mixing_type::Vector{Symbol} = repeat([:no_mixing], nz+nextra)
     for k in 1:(nz+nextra)
         lnP_face[k] = FaceDualData(nvars, TN)
-        lnρ_face[k] = FaceDualData(nvars, TN).
+        lnρ_face[k] = FaceDualData(nvars, TN)
         lnT_face[k] = FaceDualData(nvars, TN)
         κ_face[k] = FaceDualData(nvars, TN)
         ∇ₐ_face[k] = FaceDualData(nvars, TN)
