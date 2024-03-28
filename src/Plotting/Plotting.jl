@@ -7,11 +7,11 @@ const mixing_map = Dict(:no_mixing => 1,
                         :convection => 2)
 mixing_colors = [RGBAf(1, 1, 1, 0), RGBAf(0, 0, 1, 1)]
 burning_colors = cgrad(:linear_wyor_100_45_c55_n256)
-function burning_map(log_eps_nuc)  # map log eps nuc to interval [0, 1]
+function burning_map(log_eps_nuc)  # map log eps nuc to interval [0.0, 1.0]
     if log_eps_nuc < 0.0
-        return 0
+        return 0.0
     elseif log_eps_nuc > 15.0
-        return 1
+        return 1.0
     else
         return log_eps_nuc / 15.0
     end

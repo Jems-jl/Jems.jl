@@ -89,9 +89,7 @@ function init_plots!(sm::StellarModel)
                                alt_ax=plot.alt_ax, alt_yvals=plot.alt_y_obs, alt_ylabels=alt_ylabels)
         elseif plot.type == :Kippenhahn
             # we need no observables as we need no updating of already-plotted stuff
-            make_Kipp_plot!(plot.ax, sm.props.model_number, sm.props.m[1:(sm.props.nz)] / MSUN,
-                            mixing_colors[get.(Ref(mixing_map), sm.props.mixing_type[1:(sm.props.nz)], missing)],
-                            burning_map.(log10.(sm.props.eps_nuc[1:(sm.props.nz)])))
+            update_Kipp_plot!(plot, sm.props)
         end
     end
 
