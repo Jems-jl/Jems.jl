@@ -29,7 +29,7 @@ struct JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
     coeff::Vector{TT}
     set_label::Symbol
     res_rate::Symbol
-    rev_rate::Symbol    
+    rev_rate::Symbol
     chapter::Int64
 end
 

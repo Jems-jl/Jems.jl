@@ -137,7 +137,7 @@ open("example_options.toml", "w") do file
           wait_at_termination = false
           plotting_interval = 1
 
-          window_specs = ["HR", "TRho", "profile", "history"]
+          window_specs = ["HR", "Kippenhahn", "profile", "TRhoProfile"]
           window_layouts = [[1, 1],  # arrangement of plots
                             [1, 2],
                             [2, 1],
