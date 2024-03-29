@@ -195,7 +195,7 @@ function read_dataset(dataset, dictionary, reference_dictionary)
                 # num_elem_1 = zeros(Int, length(elem_1))
                 # num_elem_2 = zeros(Int, length(elem_2))
 
-                Q_value = parse(Float64, dataset[(n + 53):(n + 64)]) * Constants.MEV_TO_ERGS* Constants.MEV_TO_ERGS
+                Q_value = parse(Float64, dataset[(n + 53):(n + 64)]) * Constants.MEV_TO_ERGS
 
                 reaction_info = JinaReactionRate(reaction_symbol, elem_1, num_elem_1, elem_2, num_elem_2, Q_value, a,
                                                  set_label, res_rate, rev_rate, chap)
@@ -456,7 +456,7 @@ function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa
     ρ = eos00.ρ
     RR = ρ^ν * λ * factors
 
-    return RR
+    return RR * Constants.AVO
 end
 
 # executes when laoding in ReactionRates
