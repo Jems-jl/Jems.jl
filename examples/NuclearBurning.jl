@@ -152,6 +152,8 @@ open("example_options.toml", "w") do file
           history_yaxes = ['R_surf']
           history_alt_yaxes = ['T_center']
 
+          max_log_eps = 5.0
+
           [io]
           profile_interval = 50
           terminal_header_interval = 100
@@ -162,6 +164,7 @@ end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
+
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)

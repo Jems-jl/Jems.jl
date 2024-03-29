@@ -18,7 +18,7 @@ function init_plots!(sm::StellarModel)
                         Legend=(patchsize=(70, 10), framevisible=false, patchlabelgap=20, rowgap=10, fontsize=12))
 
     GLMakie.set_theme!(basic_theme)
-    GLMakie.activate!()
+    GLMakie.activate!(fxaa=false,ssao=false)
     #GLMakie.set_window_config!(; float=true)  # place windows on top # this does not work in newer GLMakie versions it seems
 
     # create figure/axes objects
@@ -89,7 +89,7 @@ function init_plots!(sm::StellarModel)
                                alt_ax=plot.alt_ax, alt_yvals=plot.alt_y_obs, alt_ylabels=alt_ylabels)
         elseif plot.type == :Kippenhahn
             # we need no observables as we need no updating of already-plotted stuff
-            update_Kipp_plot!(plot, sm.props)
+            update_Kipp_plot!(plot, sm.props, sm.opt.plotting)
         end
     end
 

@@ -22,8 +22,8 @@ One line contains info on the mixing state, the other on the burning regions.
 function make_Kipp_plot!(ax::Axis, model_number, mass, mixing, burn; line_kwargs=Dict())
     ax.xlabel = label_dict["model_number"]
     ax.ylabel = label_dict["mass"]
-    lines!(ax, model_number * ones(length(mass)), mass, line_kwargs..., linewidth=2, color=burn)
-    lines!(ax, model_number * ones(length(mass)), mass, line_kwargs..., linewidth=1, color=mixing)
+    lines!(ax, model_number * ones(length(mass)), mass, line_kwargs..., width=1, color=burn)
+    lines!(ax, (model_number + 0.5) * ones(length(mass)), mass, line_kwargs..., width=1, color=mixing)
 end
 
 """
@@ -31,8 +31,10 @@ end
 
 updates the observables of this Tρ `plot` with relevant data of the stellar model properties `props`.
 """
-function update_Kipp_plot!(plot::StellarModels.JemsPlot, props::StellarModelProperties)
-    make_Kipp_plot!(plot.ax, props.model_number, props.m[1:(props.nz)] / MSUN,
-                    mixing_colors[(get.(Ref(mixing_map), props.mixing_type[1:(props.nz)], missing))],
-                    burning_colors[burning_map.(log10.(abs.(props.eps_nuc[1:(props.nz)])))])
+function update_Kipp_plot!(plot::StellarModels.JemsPlot, props::StellarModelProperties,
+                           plotopt::StellarModels.PlottingOptions)
+    make_Kipp_plot!(plot.ax, props.model_number, (@view props.m[1:(props.nz)]) / MSUN,
+                    kipp_mixing_colors[(get.(Ref(mixing_map), (@view props.mixing_type[1:(props.nz)]), missing))],
+                    burning_colors[burning_map.(log10.(abs.(@view props.eps_nuc[1:(props.nz)]));
+                                                min_log_eps=plotopt.min_log_eps, max_log_eps=plotopt.max_log_eps)])
 end

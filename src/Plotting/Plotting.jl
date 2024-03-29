@@ -5,15 +5,17 @@ using GLMakie, LaTeXStrings, MathTeXEngine, Jems.StellarModels, Jems.DualSupport
 const colors = Iterators.cycle([:red, :blue, :green])
 const mixing_map = Dict(:no_mixing => 1,
                         :convection => 2)
-mixing_colors = [RGBAf(1, 1, 1, 0), RGBAf(0, 0, 1, 1)]
+mixing_colors = [RGBAf(0, 0, 0, 0.5), RGBAf(0, 0, 1, 1)]
+kipp_mixing_colors = copy(mixing_colors)
+kipp_mixing_colors[1] = RGBAf(0, 0, 0, 0)
 burning_colors = cgrad(:linear_wyor_100_45_c55_n256)
-function burning_map(log_eps_nuc)  # map log eps nuc to interval [0.0, 1.0]
-    if log_eps_nuc < 0.0
+function burning_map(log_eps_nuc; min_log_eps=0.0, max_log_eps=15.0)  # map log eps nuc to interval [0.0, 1.0]
+    if log_eps_nuc < min_log_eps
         return 0.0
-    elseif log_eps_nuc > 15.0
+    elseif log_eps_nuc > max_log_eps
         return 1.0
     else
-        return log_eps_nuc / 15.0
+        return log_eps_nuc / (max_log_eps - min_log_eps)
     end
 end
 
@@ -73,7 +75,7 @@ function update_plotting!(sm::StellarModel)
             elseif plot.type == :history
                 update_history_plot!(plot, sm)
             elseif plot.type == :Kippenhahn
-                update_Kipp_plot!(plot, sm.props)
+                update_Kipp_plot!(plot, sm.props, sm.opt.plotting)
             end
         end
     end

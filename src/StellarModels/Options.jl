@@ -114,6 +114,9 @@ Options relating to the live plotting of the simulation
     history_xaxis::String = ""
     history_yaxes::Vector{String} = []
     history_alt_yaxes::Vector{String} = []
+
+    min_log_eps::Float64 = 0.0
+    max_log_eps::Float64 = 9.0
 end
 
 """
