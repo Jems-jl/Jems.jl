@@ -47,6 +47,8 @@ abstract type AbstractStellarModelProperties end
     # turbulence (i.e. convection, face valued)
     turb_res_dual::Vector{TurbResults{TDualFace}}
     turb_res::Vector{TurbResults{TFaceDualData}}
+
+    ϵ_nuc::Vector{TN}
 end
 
 function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
@@ -131,6 +133,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                   ∇ᵣ_face=∇ᵣ_face,
                                   κ=κ,
                                   rates=rates,
+                                  ϵ_nuc=zeros(nz + nextra),
                                   rates_dual=rates_dual)
 end
 
@@ -193,8 +196,7 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         update_cell_dual_data!(props.eos_res[i].Γ₁, props.eos_res_dual[i].Γ₁)
 
         # evaluate opacity
-        κ_dual = get_opacity_resultsTρ(sm.opacity, lnT, lnρ,
-                    xa, sm.network.species_names)
+        κ_dual = get_opacity_resultsTρ(sm.opacity, lnT, lnρ, xa, sm.network.species_names)
         update_cell_dual_data!(props.κ[i], κ_dual)
 
         # evaluate rates
@@ -202,6 +204,11 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         set_rates_for_network!(rates, sm.network, props.eos_res_dual[i], xa)
         for j in eachindex(rates)
             update_cell_dual_data!(props.rates[i,j], rates[j])
+        end
+
+        props.ϵ_nuc[i] = 0.0
+        for j in eachindex(rates)
+            props.ϵ_nuc[i] += rates[j].value * sm.network.reactions[j].Qvalue
         end
     end
 

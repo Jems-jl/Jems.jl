@@ -5,25 +5,20 @@ using Jems.Constants
 using CairoMakie
 
 ##
-include("../src/ReactionRates/JinaRates.jl")
-
-jinarates       = ReactionRates.jina_rates
-jinareferences  = ReactionRates.jina_references
-# ReactionRates.read_set(file_contents, jinarates, ref_dict)
+jinarates = ReactionRates.reaction_list[:jina_rates]
 kipprates = ReactionRates.reaction_list[:kipp_rates]
 
 ##
-
-logts = LinRange(6.0, 9.0, 30)
+logts = LinRange(3.0, 9.0, 30)
 eosses = [EOS.EOSResults{Float64}() for i in 1:length(logts)]
 for i in eachindex(logts)
-    eosses[i].ρ = 1
+    eosses[i].ρ = 0.0003053927091989808
     eosses[i].T = 10^logts[i]
 end
-xa = [0.0, 1.0, 0.0, 0.0, 0.0]
+xa = [1.0, 0.0, 0.0, 0.0, 0.0]
 xa_index = Dict(:H1 => 1, :He4 => 2, :C12 => 3, :O16 => 4, :N14 => 5)
 
-##  
+##
 
 # choose a reaction
 
@@ -44,23 +39,21 @@ xa_index = Dict(:H1 => 1, :He4 => 2, :C12 => 3, :O16 => 4, :N14 => 5)
 
 ### triple α ###
 
-j_reactions = [# jinarates[:He4_He4_He4_to_C12_fy05_r_x_0],
-               jinarates[:He4_He4_He4_to_C12_fy05_r_x_1],
-               jinarates[:He4_He4_He4_to_C12_fy05_n_x_0]]
+# j_reactions = [# jinarates[:He4_He4_He4_to_C12_fy05_r_x_0],
+#                jinarates[:He4_He4_He4_to_C12_fy05_r_x_1],
+#                jinarates[:He4_He4_He4_to_C12_fy05_n_x_0]]
               
                
-k_reaction = kipprates[:kipp_3alphaA99]
+# k_reaction = kipprates[:kipp_3alphaA99]
 
 ### PP ###
 
-# j_reactions = [jinarates[:H1_H1_to_D2_betplus_w_x_0],
-#                jinarates[:H1_H1_to_D2_xxec_w_x_0]
-#                ]
-# k_reaction = kipprates[:kipp_pp]
-
+j_reactions = [jinarates[:H1_H1_to_D2_betplus_w_x_0],
+            #    jinarates[:H1_H1_to_D2_xxec_w_x_0]
+               ]
+k_reaction = kipprates[:kipp_pp]
 
 ### CNO ###
-
 # j_reactions = [jinarates[:H1_N14_to_O15_im05_r_x_0],
 #                jinarates[:H1_N14_to_O15_im05_n_x_0],
 #                jinarates[:H1_N14_to_O15_im05_n_x_1],
@@ -70,21 +63,17 @@ k_reaction = kipprates[:kipp_3alphaA99]
 # k_reaction = kipprates[:kipp_cno]
 
 ##
-
-rates = zeros(length(logts))
+rates = zeros(length(logts));
 # println(rates)
 for i in eachindex(logts)
     for reaction in j_reactions
-        rates[i] += ReactionRates.get_reaction_rate(reaction, eosses[i], xa, xa_index) # * Constants.AVO^(-1)
+        rates[i] += ReactionRates.get_reaction_rate(reaction, eosses[i], xa, xa_index)
     end
 end
 # println(rates)
-j_rates_old = rates.*(Constants.AVO)
-j_rates     = log10.(j_rates_old)
-
+j_rates = log10.(rates);
 
 ##
-
 function angulo_pp(eosr, xa, xa_index)
     phi = 1
     f_11 = 1
@@ -116,7 +105,6 @@ function angulo_cno(eosr, xa, xa_index)
             (Constants.AVO)
 
 end
-
 
 function angulo_3α(eosr, xa, xa_index)
 
@@ -151,26 +139,19 @@ function angulo_3α(eosr, xa, xa_index)
     
 end
 
-
 for i in eachindex(logts)
     # rates[i] = ReactionRates.get_reaction_rate(k_reaction, eosses[i], xa, xa_index)
-    # rates[i] = angulo_pp(eosses[i], xa, xa_index)  # matches exactly with Jina
+    rates[i] = angulo_pp(eosses[i], xa, xa_index)  # matches exactly with Jina
     # rates[i] = angulo_cno(eosses[i], xa, xa_index)
-    rates[i] = angulo_3α(eosses[i], xa, xa_index)
+    # rates[i] = angulo_3α(eosses[i], xa, xa_index)
 
 end
 k_rates = log10.(rates)
 
-
 ##
-
-
 f = Figure();
 ax = Axis(f[1, 1], xlabel=L"\log T/\textrm{K}", ylabel=L"\log R / {\textrm{g}}^{-1} {\textrm{s}}^{-1}");
 lines!(ax, logts, j_rates, label="jina")
 lines!(ax, logts, k_rates, label="Kipp")
 axislegend(position=:lt)
 f
-
-
-
