@@ -11,10 +11,10 @@ Parametric in types `TWONVARSP1`, two times the number of independent variables 
 independe variables plus one, and `TNUMBER`, the type of the number used for the calculations (usually floats, but
 can be duals themselves).
 """
-struct FaceDualData{TWONVARSP1, THREENVARSP1, TNUMBER}
-    diff_cache_face::StarDiffCache{TWONVARSP1, TNUMBER}
-    diff_cache_m1::StarDiffCache{THREENVARSP1, TNUMBER}
-    diff_cache_00::StarDiffCache{THREENVARSP1, TNUMBER}
+struct FaceDualData{TWONVARSP1, THREENVARSP1, TNUMBER, TAGTYPE}
+    diff_cache_face::StarDiffCache{TWONVARSP1, TNUMBER, TAGTYPE}
+    diff_cache_m1::StarDiffCache{THREENVARSP1, TNUMBER, TAGTYPE}
+    diff_cache_00::StarDiffCache{THREENVARSP1, TNUMBER, TAGTYPE}
 end
 
 """
@@ -23,21 +23,21 @@ end
 Instantiates an object of type FaceDualData, that holds the information needed to construct partial derivatives wrt its
 own properties as well as its neighbors.
 """
-function FaceDualData(nvars::Int, ::Type{TNUMBER}) where {TNUMBER}
-    diff_cache_face = StarDiffCache(2*nvars, TNUMBER)
-    diff_cache_m1 = StarDiffCache(3*nvars, TNUMBER)
-    diff_cache_00 = StarDiffCache(3*nvars, TNUMBER)
-    fd = FaceDualData{2*nvars+1, 3*nvars+1, TNUMBER}(diff_cache_face, 
+function FaceDualData(nvars::Int, ::Type{TNUMBER}, TAGTYPE::Type) where {TNUMBER}
+    diff_cache_face = StarDiffCache(2*nvars, TNUMBER, TAGTYPE)
+    diff_cache_m1 = StarDiffCache(3*nvars, TNUMBER, TAGTYPE)
+    diff_cache_00 = StarDiffCache(3*nvars, TNUMBER, TAGTYPE)
+    fd = FaceDualData{2*nvars+1, 3*nvars+1, TNUMBER, TAGTYPE}(diff_cache_face, 
                                 diff_cache_00, diff_cache_m1)
     return fd
 end
 
-function Base.zero(::Type{FaceDualData{SIZE1,SIZE2,TNUMBER}}) where {SIZE1, SIZE2, TNUMBER}
-    return FaceDualData((SIZE1-1)÷2, TNUMBER)
+function Base.zero(::Type{FaceDualData{SIZE1,SIZE2,TNUMBER, TAGTYPE}}) where {SIZE1, SIZE2, TNUMBER, TAGTYPE}
+    return FaceDualData((SIZE1-1)÷2, TNUMBER, TAGTYPE)
 end
 
-function Base.convert(::Type{FaceDualData{SIZE1, SIZE2, TN1}}, x::TN2) where {SIZE1, SIZE2, TN1<:Number, TN2<:Number} 
-    cd = zero(FaceDualData{SIZE1,SIZE2,TN1})
+function Base.convert(::Type{FaceDualData{SIZE1, SIZE2, TN1, TAGTYPE}}, x::TN2) where {SIZE1, SIZE2, TN1<:Number, TN2<:Number, TAGTYPE} 
+    cd = zero(FaceDualData{SIZE1,SIZE2,TN1,TAGTYPE})
     update_face_dual_data_value!(cd, x)
     return cd
 end
@@ -48,7 +48,7 @@ function update_face_dual_data_value!(fd::FaceDualData, value)
     fd.diff_cache_00.dual_data[1] = value
 end
 
-function update_face_dual_data!(fd::FaceDualData{SIZE1, SIZE2, TNUMBER}, dual::TDSC) where {SIZE1, SIZE2, TNUMBER, TDSC}
+function update_face_dual_data!(fd::FaceDualData{SIZE1, SIZE2, TNUMBER, TAGTYPE}, dual::TDSC) where {SIZE1, SIZE2, TNUMBER, TDSC, TAGTYPE}
     update_face_dual_data_value!(fd, dual.value)
     twonvars = (SIZE1-1)
     nvars = twonvars÷2

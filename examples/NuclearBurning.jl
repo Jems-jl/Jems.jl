@@ -14,15 +14,8 @@ using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
+using Jems.DualSupport
 using ForwardDiff
-using UUIDs
-
-function simple_tag()
-    x = uuid1().value
-    tag = ForwardDiff.Tag{x,nothing}
-    ForwardDiff.tagcount(tag) # trigger generated function
-    return tag
-end
 
 
 ##
@@ -48,10 +41,10 @@ nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 turbulence = Turbulence.BasicMLT(1.0)
-tag1 = simple_tag() #e.g. for dual mass
-dualnumber = ForwardDiff.Dual{tag1}(5.0,1.0)
-tag2 = simple_tag()
-sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence, number_type = typeof(dualnumber), tag=tag2);
+tag1 = DualSupport.simple_tag() #e.g. for dual mass
+tag2 = DualSupport.simple_tag() #e.g. for dual mass
+dualnumber = ForwardDiff.Dual{tag2}(5.0,1.0)
+sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence, number_type = typeof(dualnumber), tag = tag1);
 
 ##
 #=
@@ -69,8 +62,8 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 At last we are in position to evaluate the kequations and compute the Jacobian.
 =#
 n = 3
-mass_dual = ForwardDiff.Dual{tag1}(1.0*MSUN,1.0) 
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, ForwardDiff.Dual{tag1}(0.7154,0.0),ForwardDiff.Dual{tag1}(0.0142,0.0),ForwardDiff.Dual{tag1}(0.0,0.0),Chem.abundance_lists[:ASG_09],mass_dual, ForwardDiff.Dual{tag1}(100 * RSUN,0.0); initial_dt=10 * SECYEAR)
+mass_dual = ForwardDiff.Dual{tag2}(1.0*MSUN,1.0) 
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, ForwardDiff.Dual{tag2}(0.7154,0.0),ForwardDiff.Dual{tag2}(0.0142,0.0),ForwardDiff.Dual{tag2}(0.0,0.0),Chem.abundance_lists[:ASG_09],mass_dual, ForwardDiff.Dual{tag2}(100 * RSUN,0.0); initial_dt=10 * SECYEAR)
 StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
 Evolution.cycle_props!(sm);
 StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
@@ -146,7 +139,7 @@ open("example_options.toml", "w") do file
           max_center_T = 1e8
 
           [plotting]
-          do_plotting = true
+          do_plotting = false
           wait_at_termination = false
           plotting_interval = 1
 
@@ -166,7 +159,8 @@ open("example_options.toml", "w") do file
           history_alt_yaxes = ['T_center']
 
           [io]
-          profile_interval = 50
+          history_interval = 50000
+          profile_interval = 50000
           terminal_header_interval = 100
           terminal_info_interval = 100
 

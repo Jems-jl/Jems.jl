@@ -12,11 +12,11 @@ Parametric in types `NVARSP1`, the number of independent variables plus one, `TH
 independe variables plus one, and `TNUMBER`, the type of the number used for the calculations (usually floats, but
 can be duals themselves).
 """
-struct CellDualData{NVARSP1, THREENVARSP1, TNUMBER}
-    diff_cache_cell::StarDiffCache{NVARSP1, TNUMBER}
-    diff_cache_m1::StarDiffCache{THREENVARSP1, TNUMBER}
-    diff_cache_00::StarDiffCache{THREENVARSP1, TNUMBER}
-    diff_cache_p1::StarDiffCache{THREENVARSP1, TNUMBER}
+struct CellDualData{NVARSP1, THREENVARSP1, TNUMBER, TAGTYPE}
+    diff_cache_cell::StarDiffCache{NVARSP1, TNUMBER, TAGTYPE}
+    diff_cache_m1::StarDiffCache{THREENVARSP1, TNUMBER, TAGTYPE}
+    diff_cache_00::StarDiffCache{THREENVARSP1, TNUMBER, TAGTYPE}
+    diff_cache_p1::StarDiffCache{THREENVARSP1, TNUMBER, TAGTYPE}
 end
 
 """
@@ -27,12 +27,12 @@ own properties as well as its neighbors.
 Use `is_ind_var=True` and `ind_var_i=i` to instantiate a CellDualData of a base independent variable,
 with ones assigned in the appropriate spots
 """
-function CellDualData(nvars::Int, ::Type{TNUMBER}; is_ind_var=false, ind_var_i=0) where{TNUMBER}
-    diff_cache_cell = StarDiffCache(nvars, TNUMBER)
-    diff_cache_m1 = StarDiffCache(3*nvars, TNUMBER)
-    diff_cache_00 = StarDiffCache(3*nvars, TNUMBER)
-    diff_cache_p1 = StarDiffCache(3*nvars, TNUMBER)
-    cd = CellDualData{nvars+1, 3*nvars+1, TNUMBER}(diff_cache_cell, 
+function CellDualData(nvars::Int, ::Type{TNUMBER}, TAGTYPE::Type; is_ind_var=false, ind_var_i=0) where{TNUMBER}
+    diff_cache_cell = StarDiffCache(nvars, TNUMBER, TAGTYPE)
+    diff_cache_m1 = StarDiffCache(3*nvars, TNUMBER, TAGTYPE)
+    diff_cache_00 = StarDiffCache(3*nvars, TNUMBER, TAGTYPE)
+    diff_cache_p1 = StarDiffCache(3*nvars, TNUMBER, TAGTYPE)
+    cd = CellDualData{nvars+1, 3*nvars+1, TNUMBER, TAGTYPE}(diff_cache_cell, 
                                 diff_cache_m1, diff_cache_00, diff_cache_p1)
     if !is_ind_var
         return cd
@@ -57,8 +57,8 @@ end
 
 Instantiates a CellDualData with zero entries (the neutral element for duals).
 """
-function Base.zero(::Type{CellDualData{SIZE1,SIZE2,TNUMBER}}) where {SIZE1, SIZE2, TNUMBER}
-    return CellDualData(SIZE1-1, TNUMBER)
+function Base.zero(::Type{CellDualData{SIZE1,SIZE2,TNUMBER, TAGTYPE}}) where {SIZE1, SIZE2, TNUMBER, TAGTYPE}
+    return CellDualData(SIZE1-1, TNUMBER, TAGTYPE)
 end
 
 """
@@ -66,8 +66,8 @@ end
 
 Convert `x` of type `TN2` to a CellDualData object of types `SIZE1`, `SIZE2` and `TN1`.
 """
-function Base.convert(::Type{CellDualData{SIZE1, SIZE2, TN1}}, x::TN2) where {SIZE1, SIZE2, TN1<:Number, TN2<:Number} 
-    cd = zero(CellDualData{SIZE1,SIZE2,TN1})
+function Base.convert(::Type{CellDualData{SIZE1, SIZE2, TN1, TAGTYPE}}, x::TN2) where {SIZE1, SIZE2, TN1<:Number, TN2<:Number, TAGTYPE} 
+    cd = zero(CellDualData{SIZE1,SIZE2,TN1,TAGTYPE})
     update_cell_dual_data_value!(cd, x)
     return cd
 end
@@ -89,7 +89,7 @@ end
 
 Updates all data of the CellDualData object to the data of a given dual number.
 """
-function update_cell_dual_data!(cd::CellDualData{SIZE1, SIZE2, TNUMBER}, dual::TDSC) where {SIZE1, SIZE2, TNUMBER, TDSC}
+function update_cell_dual_data!(cd::CellDualData{SIZE1, SIZE2, TNUMBER, TAGTYPE}, dual::TDSC) where {SIZE1, SIZE2, TNUMBER, TDSC, TAGTYPE }
     update_cell_dual_data_value!(cd, dual.value)
     nvars = SIZE1-1
     for i in 1:nvars

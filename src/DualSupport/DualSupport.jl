@@ -2,10 +2,19 @@ module DualSupport
 
 using ForwardDiff
 using StaticArrays
+using UUIDs
 
 export CellDualData, update_cell_dual_data_value!, update_cell_dual_data!,
         get_cell_dual, get_m1_dual, get_00_dual, get_p1_dual, get_value
 
+
+function simple_tag()
+    x = uuid1().value
+    tag = ForwardDiff.Tag{x,nothing}
+    ForwardDiff.tagcount(tag) # trigger generated function
+    return tag
+end
+        
 # Inspired by DiffCache from PreallocationTools (https://github.com/SciML/PreallocationTools.jl)
 """
     struct StarDiffCache{SIZE, TNUMBER}
@@ -13,7 +22,7 @@ export CellDualData, update_cell_dual_data_value!, update_cell_dual_data!,
 Definition of StarDiffCache, a cache that makes room to store partial derivatives.
 Parametric in types `SIZE`, the size of the array, and `TNUMBER`, the type of the number used for calculations. 
 """
-struct StarDiffCache{SIZE, TNUMBER, }
+struct StarDiffCache{SIZE, TNUMBER, TAGTYPE}
     dual_data::MVector{SIZE,TNUMBER}
 end
 
@@ -23,8 +32,8 @@ end
 
 Instantiates a StarDiffCache object of size `nvars+1`, and fills it with zeros.
 """
-function StarDiffCache(nvars::Int, ::Type{TNUMBER}) where {TNUMBER}
-    StarDiffCache{nvars+1, TNUMBER}(zeros(TNUMBER, nvars+1))
+function StarDiffCache(nvars::Int, ::Type{TNUMBER}, TAGTYPE::Type) where {TNUMBER}
+    StarDiffCache{nvars+1, TNUMBER, TAGTYPE}(zeros(TNUMBER, nvars+1))
 end
 
 ## This uses reinterpret
@@ -35,13 +44,13 @@ end
 # kudos to user Mason Protter from discourse.julia.com
 # beware of caveats
 # https://discourse.julialang.org/t/reinterpret-vector-into-single-struct/107709
-function get_dual(sdc::StarDiffCache{SIZE, TNUMBER}, tag ::Type ) where {SIZE,TNUMBER}
-    p::Ptr{ForwardDiff.Dual{tag, TNUMBER, SIZE-1}} = pointer(sdc.dual_data)
+function get_dual(sdc::StarDiffCache{SIZE, TNUMBER, TAGTYPE}) where {SIZE,TNUMBER,TAGTYPE}
+    p::Ptr{ForwardDiff.Dual{TAGTYPE, TNUMBER, SIZE-1}} = pointer(sdc.dual_data)
     unsafe_load(p)         # Load the first element from that pointer
 end
 
-function get_face_dual(sdc::StarDiffCache{SIZE, TNUMBER}, tag ::Type) where {SIZE,TNUMBER}
-    p::Ptr{ForwardDiff.Dual{tag, TNUMBER, (SIZE-1)*2÷3}} = pointer(sdc.dual_data)
+function get_face_dual(sdc::StarDiffCache{SIZE, TNUMBER, TAGTYPE}) where {SIZE,TNUMBER,TAGTYPE}
+    p::Ptr{ForwardDiff.Dual{TAGTYPE, TNUMBER, (SIZE-1)*2÷3}} = pointer(sdc.dual_data)
     unsafe_load(p)         # Load the first element from that pointer
 end
 

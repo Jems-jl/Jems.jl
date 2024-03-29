@@ -102,6 +102,7 @@ function StellarModel(var_names::Vector{Symbol},
     end
 
     solver_data = SolverData(nvars, nz, nextra, use_static_arrays, number_type)
+    #tag = DualSupport.simple_tag()
     @show tag, typeof(tag)
     # properties
     prv_step_props = StellarModelProperties(nvars, nz, nextra,
