@@ -123,7 +123,7 @@ The temperature at which this occurs is returned.
 
 """
 function getlnT_NewtonRhapson(lnT_initial, lnρ, P, massfractions, eos)
-    (species_names, xa) = (collect(Symbol,keys(massfractions)), collect(Float64,values(massfractions)))
+    (species_names, xa) = (collect(Symbol,keys(massfractions)), collect(values(massfractions)))
     ΔlnPmin = 1e-4
     lnT = lnT_initial
     lnT_dual = ForwardDiff.Dual(lnT_initial,1.0)
@@ -255,7 +255,9 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfra
         else
             dlnP = log(Pc * (θ_n(ξ_cell[i+1]))^(n + 1)) - log(Pc)
         end
-        κ = get_opacity_resultsTρ(sm.opacity, lnTface, log(ρface) ,collect(Float64,values(massfractions)), collect(Symbol,keys(massfractions)))
+        #@show massfractions, typeof(massfractions)
+        #@show lnTface
+        κ = get_opacity_resultsTρ(sm.opacity, lnTface, log(ρface) ,collect(typeof(lnTface),values(massfractions)), collect(Symbol,keys(massfractions)))
 
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (dlnT / dlnP) *
                                                           (16π * CRAD * CLIGHT * CGRAV * m_face[i] * Tface^4) /

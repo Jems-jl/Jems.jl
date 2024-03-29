@@ -89,7 +89,7 @@ function StellarModel(var_names::Vector{Symbol},
                       structure_equations::Vector{Function}, nz::Int, nextra::Int,
                       remesh_split_functions::Vector{Function},
                       network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity, turbulence::AbstractTurb;
-                      use_static_arrays=true, number_type=Float64)
+                      use_static_arrays=true, number_type=Float64, tag = nothing)
     nvars = length(var_names) + network.nspecies
 
     # var_names should also contain the name of species, we get them from the network
@@ -102,14 +102,14 @@ function StellarModel(var_names::Vector{Symbol},
     end
 
     solver_data = SolverData(nvars, nz, nextra, use_static_arrays, number_type)
-
+    @show tag, typeof(tag)
     # properties
     prv_step_props = StellarModelProperties(nvars, nz, nextra,
-                                       length(network.reactions), network.nspecies, vari, number_type)
+                                       length(network.reactions), network.nspecies, vari, number_type, tag)
     start_step_props = StellarModelProperties(nvars, nz, nextra,
-                                       length(network.reactions), network.nspecies, vari, number_type)
+                                       length(network.reactions), network.nspecies, vari, number_type, tag)
     props = StellarModelProperties(nvars, nz, nextra,
-                                       length(network.reactions), network.nspecies, vari, number_type)
+                                       length(network.reactions), network.nspecies, vari, number_type, tag)
 
     # create type stable function objects
     dual_sample = ForwardDiff.Dual(zero(number_type), (zeros(number_type, 3*nvars)...))

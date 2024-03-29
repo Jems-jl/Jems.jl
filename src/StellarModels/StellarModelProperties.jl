@@ -50,11 +50,13 @@ abstract type AbstractStellarModelProperties end
     turb_res::Vector{TurbResults{TFaceDualData}}
 
     mixing_type::Vector{Symbol}
+
+    tag::Type
 end
 
 function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                 nrates::Int, nspecies::Int, vari::Dict{Symbol, Int},
-                                ::Type{TN}) where {TN<:Real}
+                                ::Type{TN},tag::Type) where {TN<:Real}
 
     # define the types
     CDDTYPE = CellDualData{nvars+1,3*nvars+1,TN}  # full dual arrays
@@ -144,7 +146,8 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                   κ=κ,
                                   rates=rates,
                                   rates_dual=rates_dual,
-                                  mixing_type=mixing_type)
+                                  mixing_type=mixing_type,
+                                  tag = tag)
 end
 
 """

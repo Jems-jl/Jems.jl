@@ -14,6 +14,16 @@ using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
+using ForwardDiff
+using UUIDs
+
+function simple_tag()
+    x = uuid1().value
+    tag = ForwardDiff.Tag{x,nothing}
+    ForwardDiff.tagcount(tag) # trigger generated function
+    return tag
+end
+
 
 ##
 #=
@@ -27,7 +37,6 @@ The Evolution module has pre-defined equations corresponding to these variables,
 simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple simple electron scattering opacity equal
 to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
-
 varnames = [:lnρ, :lnT, :lnr, :lum]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
@@ -39,7 +48,10 @@ nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 turbulence = Turbulence.BasicMLT(1.0)
-sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
+tag1 = simple_tag() #e.g. for dual mass
+dualnumber = ForwardDiff.Dual{tag1}(5.0,1.0)
+tag2 = simple_tag()
+sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence, number_type = typeof(dualnumber), tag=tag2);
 
 ##
 #=
@@ -54,10 +66,11 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 `set_end_step_info!(sm)`. We then 'cycle' this info into the information of a hypothetical previous step with
 `cycle_step_info`, so now `sm.psi` contains our initial condition. Finally we call `set_start_step_info` to use `sm.psi`
 (_previous step info_) to populate the information needed before the Newton solver in `sm.ssi` (_start step info_).
-At last we are in position to evaluate the equations and compute the Jacobian.
+At last we are in position to evaluate the kequations and compute the Jacobian.
 =#
 n = 3
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+mass_dual = ForwardDiff.Dual{tag1}(1.0*MSUN,1.0) 
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, ForwardDiff.Dual{tag1}(0.7154,0.0),ForwardDiff.Dual{tag1}(0.0142,0.0),ForwardDiff.Dual{tag1}(0.0,0.0),Chem.abundance_lists[:ASG_09],mass_dual, ForwardDiff.Dual{tag1}(100 * RSUN,0.0); initial_dt=10 * SECYEAR)
 StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
 Evolution.cycle_props!(sm);
 StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
@@ -159,6 +172,7 @@ open("example_options.toml", "w") do file
 
           """)
 end
+print("RESTART######################################")
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
