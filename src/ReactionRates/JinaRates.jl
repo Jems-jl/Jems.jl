@@ -195,7 +195,7 @@ function read_dataset(dataset, dictionary, reference_dictionary)
                 # num_elem_1 = zeros(Int, length(elem_1))
                 # num_elem_2 = zeros(Int, length(elem_2))
 
-                Q_value = parse(Float64, dataset[(n + 53):(n + 64)]) * Constants.MEV_TO_ERGS
+                Q_value = parse(Float64, dataset[(n + 53):(n + 64)]) * Constants.MEV_TO_ERGS* Constants.MEV_TO_ERGS
 
                 reaction_info = JinaReactionRate(reaction_symbol, elem_1, num_elem_1, elem_2, num_elem_2, Q_value, a,
                                                  set_label, res_rate, rev_rate, chap)
@@ -431,7 +431,8 @@ function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa
     N_elements = reaction.num_iso_in
     # determine all needed parameters for every element
     ν = -1
-    factor = 1
+    factors = 1
+
     for index in eachindex(elements)
         elem = elements[index]                                       # A
         N_elem = N_elements[index]                                  # N_A
@@ -446,12 +447,15 @@ function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa
         # println("ν = ", ν)
         factor_elem = Y_elem^(N_elem) / factorial(N_elem)
         # println("factor_elem = ", factor_elem)
-        factor *= factor_elem
+
+        factors *= factor_elem
+
     end
+
     # Calculate the reaction rate
     ρ = eos00.ρ
-    RR = ρ^ν * λ * factor
-    RR *= Constants.AVO  # jina result is molar rate of change
+    RR = ρ^ν * λ * factors
+
     return RR
 end
 
