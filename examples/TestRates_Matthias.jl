@@ -14,13 +14,13 @@ kipprates = ReactionRates.reaction_list[:kipp_rates]
 
 ##
 
-logts = LinRange(6.0, 9.0, 30)
+logts = LinRange(6.0, 8.5, 30)
 eosses = [EOS.EOSResults{Float64}() for i in 1:length(logts)]
 for i in eachindex(logts)
     eosses[i].ρ = 1
     eosses[i].T = 10^logts[i]
 end
-xa = [0.0, 1.0, 0.0, 0.0, 0.0]
+xa = [0.0, 0.5, 0.0, 0.5, 0.0]
 xa_index = Dict(:H1 => 1, :He4 => 2, :C12 => 3, :O16 => 4, :N14 => 5)
 
 ##  
@@ -42,10 +42,13 @@ xa_index = Dict(:H1 => 1, :He4 => 2, :C12 => 3, :O16 => 4, :N14 => 5)
 #                ]
 # k_reaction = kipprates[:kipp_C12alpha]
 
+# Apparently the fit used in Kippenhahn
+# is from a different paper that I still need to look at --> TODO
+
 ### triple α ###
 
-j_reactions = [# jinarates[:He4_He4_He4_to_C12_fy05_r_x_0],
-               jinarates[:He4_He4_He4_to_C12_fy05_r_x_1],
+j_reactions = [jinarates[:He4_He4_He4_to_C12_fy05_r_x_0],
+               # jinarates[:He4_He4_He4_to_C12_fy05_r_x_1],
                jinarates[:He4_He4_He4_to_C12_fy05_n_x_0]]
               
                
@@ -151,12 +154,61 @@ function angulo_3α(eosr, xa, xa_index)
     
 end
 
+function angulo_C12α(eosr, xa, xa_index)
+
+    X4   = xa[xa_index[:He4]]
+    X12  = xa[xa_index[:C12]]
+    T9   = eosr.T / 1e9
+    
+    nasigmav_E1 = 6.66e7 * T9^(-2) * exp(-32.123 * T9^(-1/3) - (T9/4.6)^2) *
+                    (1 + 2.54 * T9 + 1.04 * T9^2 - 0.226 * T9^3) +
+                    1.39e3 * T9^(-3/2) * exp(-28.930 / T9)
+
+    nasigmav_E2 = 6.56e7 * T9^(-2) * exp(-32.123 * T9^(-1/3) - (T9/1.3)^2) *
+                    (1 + 9.23 * T9 - 13.7 * T9^2 + 7.4 * T9^3)
+
+    nasigmav_res = 19.2 * T9^2 * exp(-26.9 / T9)
+
+    nasigmav_gs = nasigmav_E1 + nasigmav_E2 + nasigmav_res
+
+    result = nasigmav_gs * (eosr.ρ) *
+                (X4  / (Chem.isotope_list[:He4].mass  * Constants.AMU)) * 
+                (X12 / (Chem.isotope_list[:C12].mass  * Constants.AMU)) / 
+                Constants.AVO 
+
+    return result
+
+end
+
+function angulo_O16α(eosr, xa, xa_index)
+
+    X4   = xa[xa_index[:He4]]
+    X16  = xa[xa_index[:O16]]
+    T9   = eosr.T / 1e9
+
+    nasigmav = 2.68e10 * T9^(-2/3) * exp(-39.760 * T9^(-1/3) - (T9/1.6)^2)
+                + 51.1 * T9^(-3/2) * exp(-10.32 / T9)
+                + 616.1 * T9^(-3/2) * exp(-12.200 / T9)
+                + 0.41 * T9^(2.966) * exp(-11.900 / T9)
+
+    result = nasigmav * eosr.ρ *
+                (X4  / (Chem.isotope_list[:He4].mass  * Constants.AMU)) *
+                (X16 / (Chem.isotope_list[:O16].mass  * Constants.AMU)) /
+                Constants.AVO
+
+    return result
+    
+end
+                
+
 
 for i in eachindex(logts)
     # rates[i] = ReactionRates.get_reaction_rate(k_reaction, eosses[i], xa, xa_index)
     # rates[i] = angulo_pp(eosses[i], xa, xa_index)  # matches exactly with Jina
     # rates[i] = angulo_cno(eosses[i], xa, xa_index)
     rates[i] = angulo_3α(eosses[i], xa, xa_index)
+    # rates[i] = angulo_C12α(eosses[i], xa, xa_index)
+    # rates[i] = angulo_O16α(eosses[i], xa, xa_index)
 
 end
 k_rates = log10.(rates)
