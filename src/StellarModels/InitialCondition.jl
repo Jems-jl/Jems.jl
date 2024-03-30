@@ -211,8 +211,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfra
     # set radii, pressure and temperature, and mass fractions
     massfractions = get_mass_fractions(abundanceList, sm.network.species_names, X, Z, Dfraction)
     for i = 1:nz
-        μ = 0.5
-        XH = 1.0
+        μ = EOS.get_μ_IdealEOS(collect(values(massfractions)), sm.network.species_names)
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]] = log(rn * ξ_face[i])
         if i > 1
             P = Pc * (θ_n(ξ_cell[i]))^(n + 1)
@@ -224,7 +223,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfra
         lnT_initial = log(P * μ / (CGAS * ρ))  # ideal gas temperature as intial guess
         # fit the temperature using the equation of state
         #lnT = getlnT_NewtonRhapson(lnT_initial, log(ρ),P,[1.0,0],[:H1,:He4],sm.eos)
-        lnT = getlnT_NewtonRhapson(lnT_initial, log(ρ),P,massfractions,sm.eos)
+        lnT = getlnT_NewtonRhapson(lnT_initial, log(ρ), P, massfractions, sm.eos)
 
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]] = log(ρ)
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = lnT
