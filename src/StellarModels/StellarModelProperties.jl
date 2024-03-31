@@ -74,15 +74,15 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
     lnρ = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnρ]) for i in 1:(nz+nextra)]
     lnr = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnr]) for i in 1:(nz+nextra)]
     L = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lum]) for i in 1:(nz+nextra)]
+
+    xa_dual = zeros(TD, nz + nextra, nspecies)
     xa = Matrix{CDDTYPE}(undef,nz+nextra, nspecies)
     for k in 1:(nz+nextra)
         for i in 1:nspecies
-            xa[k,i] = CellDualData(nvars, TN;
-                        is_ind_var=true, ind_var_i=4+i)
+            xa[k,i] = CellDualData(nvars, TN; is_ind_var=true, ind_var_i=4+i)
         end
     end
-    xa_dual = zeros(TD, nz+nextra, nspecies)
-    rates_dual = zeros(TD, nz+nextra, nrates)
+
     m = zeros(TN, nz+nextra)
     dm = zeros(TN, nz+nextra)
 
@@ -105,6 +105,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
         κ[k] = CellDualData(nvars, TN)
     end
 
+    rates_dual = zeros(TD, nz + nextra, nrates)
     rates = Matrix{CDDTYPE}(undef, nz+nextra, nrates)
     for k in 1:(nz+nextra)
         for i in 1:nrates

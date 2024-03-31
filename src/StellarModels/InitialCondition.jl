@@ -210,8 +210,8 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfra
 
     # set radii, pressure and temperature, and mass fractions
     massfractions = get_mass_fractions(abundanceList, sm.network.species_names, X, Z, Dfraction)
+    μ = EOS.get_μ_IdealEOS(collect(values(massfractions)), sm.network.species_names)
     for i = 1:nz
-        μ = EOS.get_μ_IdealEOS(collect(values(massfractions)), sm.network.species_names)
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]] = log(rn * ξ_face[i])
         if i > 1
             P = Pc * (θ_n(ξ_cell[i]))^(n + 1)
@@ -241,7 +241,6 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfra
 
     # set luminosity
     for i = 1:nz - 1
-        μ = 0.5
         Pface = Pc * (θ_n(ξ_face[i]))^(n + 1)
         ρface = ρc * (θ_n(ξ_face[i]))^(n)
         Tfaceinit = Pface * μ / (CGAS * ρface)

@@ -58,13 +58,13 @@ function NuclearNetwork(species_names, reaction_names::Vector{Tuple{Symbol, Symb
     )
 end
 
-function set_rates_for_network!(rates::AbstractArray{TT}, net::NuclearNetwork, eos00::EOSResults{TT},
-                                xa::AbstractArray{TT}) where {TT}
+function set_rates_for_network!(rates::AbstractArray{TT}, net::NuclearNetwork, T::T1, ρ::T2,
+                                xa::AbstractArray{TT}) where {TT,T1,T2}
     if length(rates) != length(net.reactions)
         throw(ArgumentError("Length of `rates` and `net.reactions` must be equal"))
     end
     for i in eachindex(rates)
-        rates[i] = ReactionRates.get_reaction_rate(net.reactions[i], eos00, xa, net.xa_index)
+        rates[i] = ReactionRates.get_reaction_rate(net.reactions[i], T, ρ, xa, net.xa_index)
     end
 end
 

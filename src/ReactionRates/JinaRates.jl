@@ -408,12 +408,12 @@ end
 
     * explanation *
 """
-function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT},
-                           xa_index::Dict{Symbol,Int})::TT where {TT}
+function get_reaction_rate(reaction::JinaReactionRate, T::T1, ρ::T2, xa::AbstractVector{TT},
+                           xa_index::Dict{Symbol,Int})::TT where {TT,T1,T2}
 
     # determine λ
 
-    T_9 = (eos00.T / 1e9)
+    T_9 = (T / 1e9)
     a = reaction.coeff
 
     x = a[1] + a[7] * log(T_9)
@@ -453,7 +453,6 @@ function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa
     end
 
     # Calculate the reaction rate
-    ρ = eos00.ρ
     RR = ρ^ν * λ * factors
 
     return RR * Constants.AVO
