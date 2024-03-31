@@ -35,9 +35,9 @@ variables of the model and its equations.
 The struct has four parametric types, `TN` for 'normal' numbers, `TD` for dual numbers used in automatic
 differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type of opacity law being used.
 """
-@kwdef mutable struct StellarModel{TNUMBER<:Real, TDUALFULL<:ForwardDiff.Dual, TPROPS<:AbstractStellarModelProperties,
+@kwdef mutable struct StellarModel{TNUMBER<:Real, TDUALFULL<:ForwardDiff.Dual, TPROPS<:AbstractModelProperties,
                                    TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity,TNET<:NuclearNetworks.AbstractNuclearNetwork,
-                                   TTURB<:Turbulence.AbstractTurb, TSOLVER<:AbstractSolverData}
+                                   TTURB<:Turbulence.AbstractTurb, TSOLVER<:AbstractSolverData} <: AbstractModel
     nvars::Int  # This is the sum of hydro vars and species
     var_names::Vector{Symbol}  # List of variable names
     vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector

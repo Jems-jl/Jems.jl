@@ -1,9 +1,7 @@
 using ForwardDiff
 using Jems.Turbulence
 
-abstract type AbstractStellarModelProperties end
-
-@kwdef mutable struct StellarModelProperties{TN, TDual, TDualFace, TCellDualData, TFaceDualData} <: AbstractStellarModelProperties
+@kwdef mutable struct StellarModelProperties{TN, TDual, TDualFace, TCellDualData, TFaceDualData} <: AbstractModelProperties
     # scalar quantities
     dt::TN  # Timestep of the current evolutionary step (s)
     dt_next::TN
@@ -202,7 +200,7 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
 
         # evaluate rates
         rates = @view props.rates_dual[i,:]
-        set_rates_for_network!(rates, sm.network, props.eos_res_dual[i], xa)
+        set_rates_for_network!(rates, sm.network, exp(lnT), exp(lnρ), xa)
         for j in eachindex(rates)
             update_cell_dual_data!(props.rates[i,j], rates[j])
         end

@@ -1,25 +1,15 @@
-using Jems.StellarModels
+
 using ForwardDiff
-using Jems.NuclearNetworks
-using Jems.Evolution
-using Jems.ReactionRates
-using HDF5
-using Jems.DualSupport
-using Jems.Chem
-using Jems.Constants
 
 @kwdef mutable struct OneZone{TNUMBER<:Real,TDUALFULL<:ForwardDiff.Dual,
-                              TPROPS<:StellarModels.AbstractStellarModelProperties,
+                              TPROPS<:StellarModels.AbstractModelProperties,
                               TNET<:NuclearNetworks.AbstractNuclearNetwork,
-                              TSOLVER<:StellarModels.AbstractSolverData}
+                              TSOLVER<:StellarModels.AbstractSolverData} <: AbstractModel
     nvars::Int  # This is the sum of hydro vars and species
     var_names::Vector{Symbol}  # List of variable names
     vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector
 
     ## Properties related to the solver ##
-    # original vector of functions that are solved. These are turned into TypeStableEquations.
-    # We keep the original input for when we resize the stellar model.
-    composition_equation_original::Function
     # List of equations to be solved.
     composition_equation::StellarModels.TypeStableEquation{OneZone{TNUMBER,TDUALFULL,TPROPS,TNET,TSOLVER},TDUALFULL}
     # cache to store residuals and solver matrices
@@ -40,7 +30,6 @@ using Jems.Constants
 
     # Output files
     history_file::HDF5.File
-    profiles_file::HDF5.File
 end
 
 """
@@ -78,24 +67,22 @@ function OneZone(compostion_equation::Function, network::NuclearNetwork, use_sta
     oz = OneZone(; nvars=nvars,
                  var_names=var_names_full, vari=vari,
                  solver_data=solver_data,
-                 composition_equation_original=compostion_equation,
                  composition_equation=tpe_stbl_func, network=network,
                  prv_step_props=prv_step_props, props=props,
                  opt=opt, plt=plt,
-                 history_file=HDF5.File(-1, ""),
-                 profiles_file=HDF5.File(-1, ""))
+                 history_file=HDF5.File(-1, ""))
     return oz
 end
 
-@kwdef mutable struct OneZoneProperties{TN,TDual,TCellDualData} <: StellarModels.AbstractStellarModelProperties
+@kwdef mutable struct OneZoneProperties{TN,TDual,TCellDualData} <: AbstractModelProperties
     # scalar quantities
     dt::TN  # Timestep of the current evolutionary step (s)
     dt_next::TN
     time::TN  # Age of the model (s)
     model_number::Int
-    nz = 1  # duh
+    nz = 1  # duh; however  solver needs to know what nz is
 
-    # T and ρ for this zone
+    # T and ρ for the zone
     T::TN
     ρ::TN
 
@@ -220,7 +207,7 @@ function do_one_zone_burn!(oz::OneZone)
         # evaluate the equations for the first step
         eval_jacobian_eqs!(oz)  # heavy lifting happens here!
         for i = 1:max_steps
-            Evolution.thomas_algorithm!(oz)  # here as well
+            thomas_algorithm!(oz)  # here as well
 
             (abs_max_corr, i_corr) = findmax(abs, corr)
             signed_max_corr = corr[i_corr]
@@ -306,8 +293,8 @@ function do_one_zone_burn!(oz::OneZone)
 
         # write state in oz.props and potential history/profiles.
         evaluate_one_zone_properties!(oz, oz.props)
-        # StellarModels.write_data(oz)
-        # StellarModels.write_terminal_info(oz)
+        StellarModels.write_data(oz)
+        StellarModels.write_terminal_info(oz)
 
         # if oz.opt.plotting.do_plotting && oz.props.model_number == 1
         #     Plotting.init_plots!(oz)
@@ -330,158 +317,3 @@ function do_one_zone_burn!(oz::OneZone)
     # end
     StellarModels.close_output_files!(oz)
 end
-
-"""
-    eval_cell_eqs(oz::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) where{TT<:Real}
-
-Evaluates the stellar structure equations of the stellar model, `oz`, at cell `k`, given the view of the independent
-variables, `ind_vars_view`.
-"""
-function eval_cell_eqs!(oz::OneZone)
-    # evaluate all equations! (except composition)
-    # for i = 1:(oz.nvars - oz.network.nspecies)
-    #     oz.solver_data.eqs_duals[k, i] = oz.structure_equations[i].func(oz, k)
-    # end
-    # evaluate all composition equations
-    for i = 1:(oz.network.nspecies)
-        oz.solver_data.eqs_duals[1, oz.nvars - oz.network.nspecies + i] = equation_composition(oz,
-                                                                                               oz.network.species_names[i])
-    end
-end
-
-function equation_composition(oz::OneZone, iso_name::Symbol)
-    # Get mass fraction for this iso
-    X00 = get_00_dual(oz.props.xa[oz.network.xa_index[iso_name]])
-
-    dXdt_nuc::typeof(X00) = 0
-    reactions_in = oz.network.species_reactions_in[oz.network.xa_index[iso_name]]
-    for reaction_in in reactions_in
-        rate = get_00_dual(oz.props.rates[reaction_in[1]])
-        dXdt_nuc = dXdt_nuc - rate * reaction_in[2] * Chem.isotope_list[iso_name].A * AMU
-    end
-    reactions_out = oz.network.species_reactions_out[oz.network.xa_index[iso_name]]
-    for reaction_out in reactions_out
-        rate = get_00_dual(oz.props.rates[reaction_out[1]])
-        dXdt_nuc = dXdt_nuc + rate * reaction_out[2] * Chem.isotope_list[iso_name].A * AMU
-    end
-
-    Xi = get_value(oz.prv_step_props.xa[oz.network.xa_index[iso_name]])  # is never a dual!!
-
-    return ((X00 - Xi) / oz.props.dt - dXdt_nuc)
-end
-
-
-function eval_jacobian_eqs!(oz::OneZone)
-    #=
-    Jacobian has is single block:
-    x
-
-    Because this function acts on duals `eqs_duals`, we immediately evaluate the equations also.
-    =#
-    eval_cell_eqs!(oz)  # evaluate equations on the duals, so we have jacobian also
-    # populate the jacobian with the relevant entries
-    jacobian_Lk = oz.solver_data.jacobian_L[1]
-    jacobian_Dk = oz.solver_data.jacobian_D[1]
-    jacobian_Uk = oz.solver_data.jacobian_U[1]
-    eqs_duals = oz.solver_data.eqs_duals
-    for i = 1:(oz.nvars)
-        # for the solver we normalize all rows of the Jacobian so they don't have crazy values
-        for j = 1:(oz.nvars)
-            jacobian_Lk[i, j] = 0
-            jacobian_Dk[i, j] = eqs_duals[1, i].partials[j + oz.nvars]
-            jacobian_Uk[i, j] = 0
-        end
-        # populate the eqs_numbers with relevant entries (will be RHS for linear solver)
-        oz.solver_data.eqs_numbers[i] = eqs_duals[1, i].value
-    end
-end
-
-##
-net = NuclearNetwork([:H1, :D2, :He3, :He4,
-                      :Be7, :Li7, :B8
-                      # :C12,   :C13,   
-                      # :N13,   :N14,   :N15,
-                      # :O14,   :O15,   :O16,   :O17,   :O18,   
-                      # :F17,   :F18,   :F19,   
-                      ],
-                     [
-                      # PP I
-                      (:jina_rates, :H1_H1_to_D2_betplus_w_x_0),
-                      (:jina_rates, :H1_H1_to_D2_xxec_w_x_0),
-                      (:jina_rates, :H1_D2_to_He3_de04_n_x_0),
-                      # (:jina_rates, :H1_D2_to_He3_de04_x_x_0),
-                      (:jina_rates, :He3_He3_to_H1_H1_He4_nacr_n_x_0),
-                      # PP II
-                      (:jina_rates, :He4_He3_to_Be7_cd08_n_x_0),
-                      (:jina_rates, :He4_He3_to_Be7_cd08_n_x_1),
-                      (:jina_rates, :Be7_to_Li7_xxec_w_x_0),
-                      (:jina_rates, :H1_Li7_to_He4_He4_de04_x_x_0),
-                      (:jina_rates, :H1_Li7_to_He4_He4_de04_r_x_0),
-                      # (:jina_rates, :H1_Li7_to_He4_He4_de04_x_x_1),
-                      # (:jina_rates, :H1_Li7_to_He4_He4_de04_r_x_1),
-                      # PP III
-                      (:jina_rates, :H1_Be7_to_B8_nacr_r_x_0),
-                      (:jina_rates, :H1_Be7_to_B8_nacr_n_x_0),
-                      (:jina_rates, :B8_to_He4_He4_wc12_w_x_0),
-                      # PP IV
-                      (:jina_rates, :H1_He3_to_He4_betplus_w_x_0)])
-
-oz = OneZone(Evolution.equation_composition, net);
-
-##
-# set initial conditions
-oz.props.T = 1e7  # K
-oz.props.ρ = 1  # g cm^{-3}
-oz.props.ind_vars[oz.vari[:H1]] = 1.0
-oz.props.dt_next = 100 * SECYEAR
-oz.props.model_number  = 0
-
-open("example_options.toml", "w") do file
-    write(file,
-          """
-
-          [solver]
-          newton_max_iter_first_step = 1000
-          initial_model_scale_max_correction = 0.2
-          newton_max_iter = 50
-          scale_max_correction = 0.2
-          report_solver_progress = true
-          solver_progress_iter = 1
-          relative_correction_tolerance = 1e6
-          maximum_residual_tolerance = 1e-6
-
-          [timestep]
-          dt_max_increase = 5.0
-          delta_Xc_limit = 0.005
-
-          [termination]
-          max_model_number = 200
-
-          [plotting]
-          do_plotting = false
-          wait_at_termination = false
-          plotting_interval = 1
-
-          window_specs = ["HR", "profile", "history"]
-          window_layouts = [[1, 1],  # arrangement of plots
-                            [2, 1],
-                            [3, 1]
-                            ]
-
-          profile_xaxis = 'mass'
-          profile_yaxes = ['log10_T']
-          profile_alt_yaxes = ['X','Y']
-
-          history_xaxis = 'star_age'
-          history_yaxes = ['R_surf']
-          history_alt_yaxes = ['T_center']
-
-          [io]
-          profile_interval = 50
-          terminal_header_interval = 100
-          terminal_info_interval = 100
-
-          """)
-end
-StellarModels.set_options!(oz.opt, "./example_options.toml")
-@time do_one_zone_burn!(oz)

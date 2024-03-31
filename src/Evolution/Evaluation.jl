@@ -1,26 +1,27 @@
 """
-    eval_cell_eqs(sm::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) where{TT<:Real}
+    eval_cell_eqs(m::StellarModel, k::Int, ind_vars_view::Vector{<:TT}) where{TT<:Real}
 
-Evaluates the stellar structure equations of the stellar model, `sm`, at cell `k`, given the view of the independent
+Evaluates the stellar structure equations of the model, `m`, at cell `k`, given the view of the independent
 variables, `ind_vars_view`.
 """
-function eval_cell_eqs!(sm::StellarModel, k::Int)
+function eval_cell_eqs!(m::AbstractModel, k::Int)
     # evaluate all equations! (except composition)
-    for i = 1:(sm.nvars - sm.network.nspecies)
-        sm.solver_data.eqs_duals[k, i] = sm.structure_equations[i].func(sm, k)
+    for i = 1:(m.nvars - m.network.nspecies)
+        m.solver_data.eqs_duals[k, i] = m.structure_equations[i].func(m, k)
     end
     # evaluate all composition equations
-    for i = 1:sm.network.nspecies
-        sm.solver_data.eqs_duals[k, sm.nvars - sm.network.nspecies + i] = equation_composition(sm, k, sm.network.species_names[i])
+    for i = 1:(m.network.nspecies)
+        m.solver_data.eqs_duals[k, m.nvars - m.network.nspecies + i] = equation_composition(m, k,
+                                                                                            m.network.species_names[i])
     end
 end
 
 """
-    eval_jacobian_eqs_row!(sm::StellarModel, k::int)
+    eval_jacobian_eqs_row!(m::AbstractModel, k::int)
 
-Evaluates row `k` of the Jacobian matrix of the given StellarModel `sm`.
+Evaluates row `k` of the Jacobian matrix of the given Model `m`.
 """
-function eval_jacobian_eqs_row!(sm::StellarModel, k::Int)
+function eval_jacobian_eqs_row!(m::AbstractModel, k::Int)
     #=
     Jacobian has tridiagonal block structure:
     x x - - - -
@@ -38,45 +39,44 @@ function eval_jacobian_eqs_row!(sm::StellarModel, k::Int)
 
     Because this function acts on duals `eqs_duals`, we immediately evaluate the equations also.
     =#
-    eval_cell_eqs!(sm, k)  # evaluate equations on the duals, so we have jacobian also
+    eval_cell_eqs!(m, k)  # evaluate equations on the duals, so we have jacobian also
     # populate the jacobian with the relevant entries
-    jacobian_Lk = sm.solver_data.jacobian_L[k]
-    jacobian_Dk = sm.solver_data.jacobian_D[k]
-    jacobian_Uk = sm.solver_data.jacobian_U[k]
-    eqs_duals = sm.solver_data.eqs_duals
-    for i = 1:sm.nvars
-        # for the solver we normalize all rows of the Jacobian so they don't have crazy values
-        if k==1
-            for j=1:sm.nvars
-                jacobian_Lk[i,j] = 0
-                jacobian_Dk[i,j] = eqs_duals[k, i].partials[j + sm.nvars]
-                jacobian_Uk[i,j] = eqs_duals[k, i].partials[j + 2*sm.nvars]
+    jacobian_Lk = m.solver_data.jacobian_L[k]
+    jacobian_Dk = m.solver_data.jacobian_D[k]
+    jacobian_Uk = m.solver_data.jacobian_U[k]
+    eqs_duals = m.solver_data.eqs_duals
+    for i = 1:(m.nvars)
+        if k == 1
+            for j = 1:(m.nvars)
+                jacobian_Lk[i, j] = 0
+                jacobian_Dk[i, j] = eqs_duals[k, i].partials[j + m.nvars]
+                jacobian_Uk[i, j] = eqs_duals[k, i].partials[j + 2 * m.nvars]
             end
-        elseif k==sm.props.nz
-            for j=1:sm.nvars
-                jacobian_Lk[i,j] = eqs_duals[k, i].partials[j]
-                jacobian_Dk[i,j] = eqs_duals[k, i].partials[j + sm.nvars]
-                jacobian_Uk[i,j] = 0
+        elseif k == m.props.nz
+            for j = 1:(m.nvars)
+                jacobian_Lk[i, j] = eqs_duals[k, i].partials[j]
+                jacobian_Dk[i, j] = eqs_duals[k, i].partials[j + m.nvars]
+                jacobian_Uk[i, j] = 0
             end
         else
-            for j=1:sm.nvars
-                jacobian_Lk[i,j] = eqs_duals[k, i].partials[j]
-                jacobian_Dk[i,j] = eqs_duals[k, i].partials[j + sm.nvars]
-                jacobian_Uk[i,j] = eqs_duals[k, i].partials[j + 2*sm.nvars]
+            for j = 1:(m.nvars)
+                jacobian_Lk[i, j] = eqs_duals[k, i].partials[j]
+                jacobian_Dk[i, j] = eqs_duals[k, i].partials[j + m.nvars]
+                jacobian_Uk[i, j] = eqs_duals[k, i].partials[j + 2 * m.nvars]
             end
         end
         # populate the eqs_numbers with relevant entries (will be RHS for linear solver)
-        sm.solver_data.eqs_numbers[(k - 1) * sm.nvars + i] = eqs_duals[k, i].value
+        m.solver_data.eqs_numbers[(k - 1) * m.nvars + i] = eqs_duals[k, i].value
     end
 end
 
 """
-    eval_jacobian_eqs!(sm::StellarModel)
+    eval_jacobian_eqs!(m::StellarModel)
 
-Evaluates the whole Jacobian matrix and equations of the given StellarModel `sm`.
+Evaluates the whole Jacobian matrix and equations of the given StellarModel `m`.
 """
-function eval_jacobian_eqs!(sm::StellarModel)
-    Threads.@threads for k = 1:(sm.props.nz)
-        eval_jacobian_eqs_row!(sm, k)
+function eval_jacobian_eqs!(m::AbstractModel)
+    Threads.@threads for k = 1:(m.props.nz)
+        eval_jacobian_eqs_row!(m, k)
     end
 end
