@@ -84,8 +84,8 @@ function get_mass_fractions(abundance_list::AbundanceList, species_names, X, Z, 
     end
     #now put hydrogen and helium mass fractions
     massfractions[:H1] = X * (1-Dfraction)
-    if Dfraction ≠ 0.0 && :D2 ∈ species_names
-        massfractions[:D2] = X * Dfraction #choose some fraction of hydrogen to be deuterium
+    if :D2 ∈ species_names
+        massfractions[:D2] = X * Dfraction  # choose some fraction of hydrogen to be deuterium
     end
     massfractions[:He4] = 1-X-Z
     return massfractions

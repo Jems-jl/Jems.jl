@@ -25,10 +25,10 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     # original vector of functions that are solved. These are turned into TypeStableEquations.
     # We keep the original input for when we resize the stellar model.
     structure_equations_original::Vector{Function}
-    composition_equation_origial::Function
+    composition_equation_original::Function
     # List of equations to be solved.
     structure_equations::Vector{TypeStableStructureEquation{StellarModel{TNUMBER,TDUALFULL,TPROPS,TEOS,TKAP,TNET,TTURB,
-                                                                        TSOLVER},TDUALFULL}}
+                                                                         TSOLVER},TDUALFULL}}
     composition_equation::TypeStableCompositionEquation{StellarModel{TNUMBER,TDUALFULL,TPROPS,TEOS,TKAP,TNET,TTURB,
                                                                      TSOLVER},TDUALFULL}
     # cache to store residuals and solver matrices
@@ -68,7 +68,7 @@ Constructor for a `StellarModel` instance, using `varnames` for the independent 
 number of zones in the model `nz` and an iterface to the EOS and Opacity laws.
 """
 function StellarModel(var_names::Vector{Symbol},
-                      structure_equations::Vector{Function}, nz::Int, nextra::Int,
+                      structure_equations::Vector{Function}, composition_equation::Function, nz::Int, nextra::Int,
                       remesh_split_functions::Vector{Function},
                       network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity, turbulence::AbstractTurb;
                       use_static_arrays=true, number_type=Float64)
@@ -96,15 +96,19 @@ function StellarModel(var_names::Vector{Symbol},
     # create type stable function objects
     dual_sample = ForwardDiff.Dual(zero(number_type), (zeros(number_type, 3 * nvars)...))
     tpe_stbl_funcs = Vector{TypeStableStructureEquation{StellarModel{number_type,typeof(dual_sample),typeof(props),
-                                                            typeof(eos),typeof(opacity),typeof(network),
-                                                            typeof(turbulence),typeof(solver_data)},
-                                               typeof(dual_sample)}}(undef, length(structure_equations))
+                                                                     typeof(eos),typeof(opacity),typeof(network),
+                                                                     typeof(turbulence),typeof(solver_data)},
+                                                        typeof(dual_sample)}}(undef, length(structure_equations))
     for i in eachindex(structure_equations)
         tpe_stbl_funcs[i] = TypeStableStructureEquation{StellarModel{number_type,typeof(dual_sample),typeof(props),
-                                                            typeof(eos),typeof(opacity),typeof(network),
-                                                            typeof(turbulence),typeof(solver_data)},
-                                               typeof(dual_sample)}(structure_equations[i])
+                                                                     typeof(eos),typeof(opacity),typeof(network),
+                                                                     typeof(turbulence),typeof(solver_data)},
+                                                        typeof(dual_sample)}(structure_equations[i])
     end
+    stbl_comp_eq = TypeStableCompositionEquation{StellarModel{number_type,typeof(dual_sample),typeof(props),
+                                                              typeof(eos),typeof(opacity),typeof(network),
+                                                              typeof(turbulence),typeof(solver_data)},
+                                                              typeof(dual_sample)}(composition_equation)
 
     opt = Options()  # create options object
     plt = Plotter()
@@ -115,6 +119,8 @@ function StellarModel(var_names::Vector{Symbol},
                       solver_data=solver_data,
                       structure_equations_original=structure_equations,
                       structure_equations=tpe_stbl_funcs,
+                      composition_equation_original=composition_equation,
+                      composition_equation=stbl_comp_eq,
                       remesh_split_functions=remesh_split_functions,
                       eos=eos, opacity=opacity, network=network, turbulence=turbulence,
                       start_step_props=start_step_props, prv_step_props=prv_step_props, props=props,
@@ -178,7 +184,7 @@ function adjusted_stellar_model_data(sm, new_nz::Int, new_nextra::Int)
     #get var_names without species
     var_names = sm.var_names[1:(sm.nvars - sm.network.nspecies)]
 
-    new_sm = StellarModel(var_names, sm.structure_equations_original,
+    new_sm = StellarModel(var_names, sm.structure_equations_original, sm.composition_equation_original,
                           new_nz, new_nextra, sm.remesh_split_functions,
                           sm.network, sm.eos, sm.opacity, sm.turbulence)
     new_sm.nz = sm.nz # If this needs to be adjusted it will be done by remeshing routines

@@ -278,7 +278,7 @@ function write_data(m::AbstractModel)
             data_cols = m.opt.io.profile_values
             ncols = length(data_cols)
             # Save current profile
-            profile = create_dataset(smm.profiles_file,
+            profile = create_dataset(m.profiles_file,
                                      "$(lpad(m.props.model_number,m.opt.io.hdf5_profile_dataset_name_zero_padding,"0"))",
                                      Float64, ((m.props.nz, ncols), (m.props.nz, ncols));
                                      chunk=(m.opt.io.hdf5_profile_chunk_size, ncols),

@@ -44,7 +44,7 @@ function do_evolution_loop!(sm::StellarModel)
 
     # evolution loop, be sure to have sensible termination conditions or this will go on forever!
     while true
-        cycle_props!(sm)  # move props of previous step to prv_step_props of current step
+        StellarModels.cycle_props!(sm)  # move props of previous step to prv_step_props of current step
 
         # either remesh, or copy over from prv_step_props
         if sm.opt.remesh.do_remesh
@@ -143,7 +143,7 @@ function do_evolution_loop!(sm::StellarModel)
         end
 
         if retry_step
-            uncycle_props!(sm)  # reset props to what prv_step_props contains, ie mimic state at end of previous step
+            StellarModels.uncycle_props!(sm)  # reset props to what prv_step_props contains, ie mimic state at end of previous step
             sm.props.dt_next *= sm.opt.timestep.dt_retry_decrease # adapt dt
             continue  # go back to top of evolution loop
         end
