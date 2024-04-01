@@ -6,23 +6,24 @@ export add_history_option, add_profile_option,
        history_output_units, history_output_functions,
        profile_output_units, profile_output_functions
 
+ioinit = false
+
 const width = 9
 const decimals = 4
 const floatstr = "%#$width.$decimals" * "g "
 const intstr = "%$width" * "i "
 
-struct TerminalHeader
+mutable struct TerminalHeader
     header::String
-    line1fmt::String
-    line2fmt::String
+    linefmts::Vector{Printf.Format}
 end
 
-const terminal_header = TerminalHeader("", "", "")
-
+const terminal_header = TerminalHeader("", [])
 
 function setup_header(sm::StellarModel)
-    terminal_header.line1fmt = Printf.Format(intstr * floatstr^6 * intstr * "\n")
-    terminal_header.line2fmt = Printf.Format(floatstr^7 * intstr * "\n")
+    terminal_header.linefmts = Vector{String}(undef, 2)
+    terminal_header.linefmts[1] = Printf.Format(intstr * floatstr^6 * intstr * "\n")
+    terminal_header.linefmts[2] = Printf.Format(floatstr^7 * intstr * "\n")
 
     terminal_header.header = """
         model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
@@ -32,14 +33,39 @@ function setup_header(sm::StellarModel)
 end
 
 function setup_header(oz::OneZone)
+    lines = oz.network.nspecies ÷ 6 + 1
+    lastline = oz.network.nspecies % 6
+    if lastline == 0
+        terminal_header.linefmts = Vector{Printf.Format}(undef, lines)
+    else
+        terminal_header.linefmts = Vector{Printf.Format}(undef, lines + 1)
+    end
+    terminal_header.linefmts[1] = Printf.Format(intstr * floatstr^4 * intstr * "\n")
 
-    terminal_header.line1fmt = Printf.Format(instr * floatstr^4 * inistr * "\n")
-    lines = oz.network.nspecies // 6 + 1
+    j = oz.network.nspecies
+    i = 2
+    while j > 6
+        terminal_header.linefmts[i] = Printf.Format(floatstr^6 * "\n")
+        j -= 6
+        i += 1
+    end
+    terminal_header.linefmts[end] = Printf.Format(floatstr^j * "\n")
 
     terminal_header.header = """
-        model     logdt      age      logT      logρ     iters
+        model     logdt       age      logT      logρ     iters
     """
-    
+
+    for (j, species) in enumerate(oz.network.species_names)
+        if j % 6 != 1
+            speciesstr = lpad(String(species), width+1)
+        else
+            speciesstr = lpad(String(species), width)
+        end
+        terminal_header.header *= speciesstr
+        if j == oz.network.nspecies || j % 6 == 0
+            terminal_header.header *= "\n"
+        end
+    end
 end
 
 const history_output_units::Dict{String,String} = Dict()
@@ -55,9 +81,9 @@ function add_history_option(name, unit, func)
     history_output_functions[name] = func
 end
 
-function setup_model_history(sm::StellarModel)
+function setup_model_history_functions(sm::StellarModel)
     # general properties
-    add_history_option("age", "year", sm -> sm.props.time / SECYEAR)
+    add_history_option("star_age", "year", sm -> sm.props.time / SECYEAR)
     add_history_option("dt", "year", sm -> sm.props.dt / SECYEAR)
     add_history_option("model_number", "unitless", sm -> sm.props.model_number)
     add_history_option("star_mass", "Msun", sm -> sm.props.mstar / MSUN)
@@ -87,10 +113,9 @@ function setup_model_history_functions(oz::OneZone)
 
     add_history_option("T", "K", oz -> oz.props.T)
     add_history_option("ρ", "g*cm^-3", oz -> oz.props.ρ)
-    for j in eachindex(oz.network.nspecies)
+    for j in eachindex(oz.network.species_names)
         species = oz.network.species_names[j]
-        add_history_option(String(species),
-                           "unitless", oz -> get_value(oz.props.xa[oz.network.xa_index[species]]))
+        add_history_option(String(species), "unitless", oz -> get_value(oz.props.xa[oz.network.xa_index[species]]))
     end
 end
 
@@ -126,18 +151,31 @@ function setup_model_profile_functions(sm::StellarModel)
     add_profile_option("D_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].D_turb))
 end
 
+function init_IO(m::AbstractModel)
+    setup_header(m)
+    setup_model_history_functions(m)
+    if isa(m, OneZone)
+        global ioinit = true
+        return
+    end
+    setup_model_profile_functions(m)
+    global ioinit = true
+end
+
 """
     create_output_files(sm::StellarModel)
 
 Creates output files for history and profile data
 """
 function create_output_files!(m::AbstractModel)
+    if !ioinit
+        init_IO(m)
+    end
+
     # Create history file
     m.history_file = h5open(m.opt.io.hdf5_history_filename, "w")
     data_cols = m.opt.io.history_values
     ncols = length(data_cols)
-
-    setup_model_history_functions(m)
 
     # verify validity of column names
     for i in eachindex(data_cols)
@@ -169,8 +207,6 @@ function create_output_files!(m::AbstractModel)
         return
     end
 
-    setup_model_profile_functions(m)
-
     # Create profile file
     m.profiles_file = h5open(m.opt.io.hdf5_profile_filename, "w")
     data_cols = m.opt.io.profile_values
@@ -185,12 +221,12 @@ function create_output_files!(m::AbstractModel)
     end
 end
 
-function close_output_files!(sm)
-    if (sm.opt.io.hdf5_history_keep_open)
-        close(sm.history_file)
+function close_output_files!(m)
+    if (m.opt.io.hdf5_history_keep_open)
+        close(m.history_file)
     end
-    if (sm.opt.io.hdf5_profile_keep_open)
-        close(sm.profiles_file)
+    if (m.opt.io.hdf5_profile_keep_open)
+        close(m.profiles_file)
     end
 end
 
@@ -203,11 +239,11 @@ function write_data(m::AbstractModel)
     # do history
     if (m.opt.io.history_interval > 0)
         file_exists = isfile(m.opt.io.hdf5_history_filename)
-        if !file_exists  # create file if it doesn't exist yet
+        if !file_exists
             throw(ErrorException("History file does not exist at $(m.opt.io.hdf5_history_filename)"))
         end
         if (m.props.model_number % m.opt.io.history_interval == 0)
-            if (m.opt.io.hdf5_history_keep_open)
+            if (!m.opt.io.hdf5_history_keep_open)
                 m.history_file = h5open(m.opt.io.hdf5_history_filename, "r+")
             end
             data_cols = m.opt.io.history_values
@@ -266,10 +302,10 @@ end
 
 function write_terminal_info(sm::StellarModel; now::Bool=false)
     if sm.props.model_number == 1 || sm.props.model_number % sm.opt.io.terminal_header_interval == 0 || now
-        print(header)
+        print(terminal_header.header)
     end
     if sm.props.model_number == 1 || sm.props.model_number % sm.opt.io.terminal_info_interval == 0 || now
-        Printf.format(stdout, line1fmt,
+        Printf.format(stdout, terminal_header.linefmts[1],
                       sm.props.model_number,
                       log10(sm.props.dt / SECYEAR),
                       log10(get_value(sm.props.L[sm.props.nz])),
@@ -278,7 +314,7 @@ function write_terminal_info(sm::StellarModel; now::Bool=false)
                       log10_e * get_value(sm.props.lnρ[sm.props.nz]),
                       get_value(sm.props.xa[1, sm.network.xa_index[:H1]]),
                       sm.solver_data.newton_iters)
-        Printf.format(stdout, line2fmt,
+        Printf.format(stdout, terminal_header.linefmts[2],
                       sm.props.mstar / MSUN,
                       sm.props.time / SECYEAR,
                       log10_e * get_value(sm.props.lnr[sm.props.nz]) - log10(RSUN),
@@ -293,17 +329,24 @@ end
 
 function write_terminal_info(oz::OneZone; now::Bool=false)
     if oz.props.model_number == 1 || oz.props.model_number % oz.opt.io.terminal_header_interval == 0 || now
-        print(header)
+        print(terminal_header.header)
     end
     if oz.props.model_number == 1 || oz.props.model_number % oz.opt.io.terminal_info_interval == 0 || now
-        Printf.format(stdout, line1fmt,
+        Printf.format(stdout, terminal_header.linefmts[1],
                       oz.props.model_number,
-                      sm.props.time / SECYEAR,
+                      oz.props.time / SECYEAR,
                       log10(oz.props.dt / SECYEAR),
                       log10(oz.props.T),
                       log10(oz.props.ρ),
-                      sm.solver_data.newton_iters)
-        Printf.format(stdout, line2fmt)
+                      oz.solver_data.newton_iters)
+        j = oz.network.nspecies
+        i = 1
+        while j > 6
+            Printf.format(stdout, terminal_header.linefmts[i + 1], (get_value.(oz.props.xa[((i - 1) * 6 + 1):(6i)]))...)
+            i += 1
+            j -= 6
+        end
+        Printf.format(stdout, terminal_header.linefmts[end], (get_value.(oz.props.xa[((i - 1) * 6 + 1):end]))...)
         println()
     end
 end
