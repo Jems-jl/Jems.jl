@@ -1,28 +1,3 @@
-"""
-    cycle_props!(sm::StellarModel)
-
-Moves the model properties of the StellarModel `sm` over one state:
-start_step_props -> props -> prv_step_props -> start_step_props
-"""
-function cycle_props!(sm::StellarModel)
-    temp_props = sm.prv_step_props
-    sm.prv_step_props = sm.props
-    sm.props = sm.start_step_props
-    sm.start_step_props = temp_props
-end
-
-"""
-    uncycle_props!(sm::StellarModel)
-
-Moves the model properties of the StellarModel `sm` back one state:
-start_step_props <- props <- prv_step_props <- start_step_props
-"""
-function uncycle_props!(sm::StellarModel)
-    temp_props = sm.props
-    sm.props = sm.prv_step_props
-    sm.prv_step_props = sm.start_step_props
-    sm.start_step_props = temp_props
-end
 
 """
     get_dt_next(sm::StellarModel)

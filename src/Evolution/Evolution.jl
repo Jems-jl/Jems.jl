@@ -7,5 +7,6 @@ include("Evaluation.jl")
 include("Equations.jl")
 include("LinearSolver.jl")
 include("EvolutionLoop.jl")
+include("OneZoneBurn.jl")
 
 end  # module Evolution
