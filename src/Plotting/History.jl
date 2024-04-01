@@ -3,7 +3,8 @@
 
 creates the x and y observables and adds them to the observable list of the given plot
 """
-function create_history_observables!(plot::StellarModels.JemsPlot, xval::Dict, yvals::Dict; alt_yvals::Dict=nothing)
+function create_history_observables!(plot::StellarModels.JemsPlot, xval::Dict, yvals::Dict;
+                                     alt_yvals::Union{Dict,Nothing}=nothing)
     xkey = collect(keys(xval))[1]
     plot.x_obs[xkey] = Observable{Vector{Float64}}([0.0])
     plot.x_obs[xkey][][1] = xval[xkey]
@@ -26,8 +27,9 @@ Sets up the plot elements for an history plot
 """
 function make_history_plot!(ax::Axis, xval::Observable, yvals::Dict{Symbol,Observable};
                             xlabel::AbstractString="", ylabels::Dict{Symbol,<:AbstractString}=Dict(),
-                            alt_ax::Axis=nothing, alt_yvals::Dict{Symbol,Observable}=nothing,
-                            alt_ylabels::Dict{Symbol,<:AbstractString}=nothing,
+                            alt_ax::Union{Axis,Nothing}=nothing, 
+                            alt_yvals::Union{Dict{Symbol,Observable},Nothing}=nothing,
+                            alt_ylabels::Union{Dict{Symbol,<:AbstractString},Nothing}=nothing,
                             line_kwargs=Dict())
     ax.xlabel = xlabel
     (color, state) = iterate(colors)
@@ -48,18 +50,18 @@ function make_history_plot!(ax::Axis, xval::Observable, yvals::Dict{Symbol,Obser
 end
 
 """
-    function update_history_plot!(plot::StellarModels.JemsPlot, sm::StellarModel)
+    function update_history_plot!(plot::StellarModels.JemsPlot, m::AbstractModel)
 
-Updates the given `plot` with relevant history data from the stellar model `sm`.
+Updates the given `plot` with relevant history data from the model `m`.
 """
-function update_history_plot!(plot::StellarModels.JemsPlot, sm::StellarModel)
+function update_history_plot!(plot::StellarModels.JemsPlot, m::AbstractModel)
     for (key, obs) in pairs(plot.x_obs)
-        push!(obs.val, StellarModels.history_output_functions[String(key)](sm))
+        push!(obs.val, StellarModels.history_output_functions[String(key)](m))
     end
     for (key, obs) in pairs(plot.y_obs)
-        push!(obs.val, StellarModels.history_output_functions[String(key)](sm))
+        push!(obs.val, StellarModels.history_output_functions[String(key)](m))
     end
     for (key, obs) in pairs(plot.alt_y_obs)
-        push!(obs.val, StellarModels.history_output_functions[String(key)](sm))
+        push!(obs.val, StellarModels.history_output_functions[String(key)](m))
     end
 end

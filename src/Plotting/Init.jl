@@ -3,7 +3,7 @@
 
 Sets up all observables to be traced this run, and creates the figure and axis where they will be plotted
 """
-function init_plots!(sm::StellarModel)
+function init_plots!(m::AbstractModel)
     basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                                italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
                         fontsize=50, size=(1000, 750), linewidth=7,
@@ -21,28 +21,28 @@ function init_plots!(sm::StellarModel)
     #GLMakie.set_window_config!(; float=true)  # place windows on top # this does not work in newer GLMakie versions it seems
 
     # create figure/axes objects
-    init_figure!(sm)
+    init_figure!(m)
 
     # populate observables and plot elements on the respective axes
-    for plot in sm.plt.plots
+    for plot in m.plt.plots
         plot.x_obs = Dict{Symbol,Observable}()
         plot.y_obs = Dict{Symbol,Observable}()
         plot.alt_y_obs = Dict{Symbol,Observable}()
         if plot.type == :HR
-            create_HR_observables!(plot, sm.props)
+            create_HR_observables!(plot, m.props)
             make_HR_plot!(plot.ax, plot.x_obs[:Teff], plot.y_obs[:L], plot.x_obs[:Teff_now],
                           plot.y_obs[:L_now]; scatter_kwargs=Dict(:color => "red", :markersize => 20))
         elseif plot.type == :profile
             # make observables
-            xname = sm.opt.plotting.profile_xaxis
-            xvals = Dict(Symbol(xname) => StellarModels.profile_output_functions[xname].((sm,), 1:(sm.props.nz)))
-            ynames = sm.opt.plotting.profile_yaxes
+            xname = m.opt.plotting.profile_xaxis
+            xvals = Dict(Symbol(xname) => StellarModels.profile_output_functions[xname].((m,), 1:(m.props.nz)))
+            ynames = m.opt.plotting.profile_yaxes
             yvals = Dict([Symbol(name) =>
-                        StellarModels.profile_output_functions[name].((sm,), 1:(sm.props.nz)) for name in ynames])
-            altynames = sm.opt.plotting.profile_alt_yaxes
+                        StellarModels.profile_output_functions[name].((m,), 1:(m.props.nz)) for name in ynames])
+            altynames = m.opt.plotting.profile_alt_yaxes
             if !isnothing(plot.alt_ax)
                 altyvals = Dict([Symbol(name) =>
-                            StellarModels.profile_output_functions[name].((sm,), 1:(sm.props.nz)) for name in altynames])
+                            StellarModels.profile_output_functions[name].((m,), 1:(m.props.nz)) for name in altynames])
             else
                 altyvals = nothing
             end
@@ -55,18 +55,18 @@ function init_plots!(sm::StellarModel)
                 alt_ylabels = nothing
             end
             make_profile_plot!(plot.ax, collect(values(plot.x_obs))[1], plot.y_obs;
-                                xlabel=label_dict[sm.opt.plotting.profile_xaxis], ylabels=ylabels,
+                                xlabel=label_dict[m.opt.plotting.profile_xaxis], ylabels=ylabels,
                                 alt_ax=plot.alt_ax, alt_yvals=plot.alt_y_obs, alt_ylabels=alt_ylabels)
         elseif plot.type == :history
-            xname = sm.opt.plotting.history_xaxis
-            xvals = Dict(Symbol(xname) => StellarModels.history_output_functions[xname](sm))
+            xname = m.opt.plotting.history_xaxis
+            xvals = Dict(Symbol(xname) => StellarModels.history_output_functions[xname](m))
             
-            ynames = sm.opt.plotting.history_yaxes
-            yvals = Dict([Symbol(name) => StellarModels.history_output_functions[name](sm) for name in ynames])
+            ynames = m.opt.plotting.history_yaxes
+            yvals = Dict([Symbol(name) => StellarModels.history_output_functions[name](m) for name in ynames])
             
-            altynames = sm.opt.plotting.history_alt_yaxes
+            altynames = m.opt.plotting.history_alt_yaxes
             if !isnothing(plot.alt_ax)
-                altyvals = Dict([Symbol(name) => StellarModels.history_output_functions[name](sm) for name in altynames])
+                altyvals = Dict([Symbol(name) => StellarModels.history_output_functions[name](m) for name in altynames])
             else
                 altyvals = nothing
             end
@@ -79,39 +79,39 @@ function init_plots!(sm::StellarModel)
                 alt_ylabels = nothing
             end
             make_history_plot!(plot.ax, collect(values(plot.x_obs))[1], plot.y_obs;
-                                xlabel=label_dict[sm.opt.plotting.history_xaxis], ylabels=ylabels,
+                                xlabel=label_dict[m.opt.plotting.history_xaxis], ylabels=ylabels,
                                 alt_ax=plot.alt_ax, alt_yvals=plot.alt_y_obs, alt_ylabels=alt_ylabels)
         end
     end
 
     # display the figure
-    sm.plt.scr = display(sm.plt.fig)
+    m.plt.scr = display(m.plt.fig)
 end
 
 """
-    init_figure!(sm::StellarModel)
+    init_figure!(m<:AbstractModel)
 
 Initializes the plotting figure and adds axes
 """
-function init_figure!(sm::StellarModel)
-    sm.plt.fig = Figure()
-    no_of_plots = length(sm.opt.plotting.window_specs)
-    sm.plt.plots = Vector{StellarModels.JemsPlot}(undef, no_of_plots)
+function init_figure!(m::AbstractModel)
+    m.plt.fig = Figure()
+    no_of_plots = length(m.opt.plotting.window_specs)
+    m.plt.plots = Vector{StellarModels.JemsPlot}(undef, no_of_plots)
     for j = 1:no_of_plots
-        this_axis = Axis(sm.plt.fig[sm.opt.plotting.window_layouts[j]...])
-        this_type = Symbol(sm.opt.plotting.window_specs[j])
-        sm.plt.plots[j] = StellarModels.JemsPlot(this_axis, this_type)
+        this_axis = Axis(m.plt.fig[m.opt.plotting.window_layouts[j]...])
+        this_type = Symbol(m.opt.plotting.window_specs[j])
+        m.plt.plots[j] = StellarModels.JemsPlot(this_axis, this_type)
         
-        if (sm.plt.plots[j].type == :profile && length(sm.opt.plotting.profile_alt_yaxes) > 0) || 
-            (sm.plt.plots[j].type == :history && length(sm.opt.plotting.history_alt_yaxes) > 0)
+        if (m.plt.plots[j].type == :profile && length(m.opt.plotting.profile_alt_yaxes) > 0) || 
+            (m.plt.plots[j].type == :history && length(m.opt.plotting.history_alt_yaxes) > 0)
             # modifications if we have an alt axis
-            sm.plt.plots[j].alt_ax = Axis(sm.plt.fig[sm.opt.plotting.window_layouts[j]...], yaxisposition = :right)
-            hidespines!(sm.plt.plots[j].alt_ax, :l, :t, :b)
-            hidexdecorations!(sm.plt.plots[j].alt_ax)
-            hidespines!(sm.plt.plots[j].ax, :r)
-            sm.plt.plots[j].ax.yticksmirrored = false
-            sm.plt.plots[j].alt_ax.yticksmirrored = false
-            linkxaxes!(sm.plt.plots[j].ax, sm.plt.plots[j].alt_ax)
+            m.plt.plots[j].alt_ax = Axis(m.plt.fig[m.opt.plotting.window_layouts[j]...], yaxisposition = :right)
+            hidespines!(m.plt.plots[j].alt_ax, :l, :t, :b)
+            hidexdecorations!(s.plt.plots[j].alt_ax)
+            hidespines!(m.plt.plots[j].ax, :r)
+            m.plt.plots[j].ax.yticksmirrored = false
+            m.plt.plots[j].alt_ax.yticksmirrored = false
+            linkxaxes!(m.plt.plots[j].ax, m.plt.plots[j].alt_ax)
         end
     end
 end

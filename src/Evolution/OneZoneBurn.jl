@@ -1,8 +1,8 @@
 function get_dt_next(oz::OneZone)
     dt_next = oz.props.dt  # this it calculated at end of step, so props.dt is the dt we used to do this step
 
-    X = get_value(oz.props.xa[1, oz.network.xa_index[:H1]])
-    Xold = get_value(oz.prv_step_props.xa[1, oz.network.xa_index[:H1]])
+    X = get_value(oz.props.xa[oz.network.xa_index[:H1]])
+    Xold = get_value(oz.prv_step_props.xa[oz.network.xa_index[:H1]])
     ΔX = abs(X - Xold)
 
     dt_nextX = dt_next * oz.opt.timestep.delta_Xc_limit / ΔX
@@ -130,11 +130,11 @@ function do_one_zone_burn!(oz::OneZone)
         StellarModels.write_data(oz)
         StellarModels.write_terminal_info(oz)
 
-        # if oz.opt.plotting.do_plotting && oz.props.model_number == 1
-        #     Plotting.init_plots!(oz)
-        # elseif oz.opt.plotting.do_plotting && oz.props.model_number % oz.opt.plotting.plotting_interval == 0
-        #     Plotting.update_plotting!(oz)
-        # end
+        if oz.opt.plotting.do_plotting && oz.props.model_number == 1
+            Plotting.init_plots!(oz)
+        elseif oz.opt.plotting.do_plotting && oz.props.model_number % oz.opt.plotting.plotting_interval == 0
+            Plotting.update_plotting!(oz)
+        end
 
         # check termination conditions
         if (oz.props.model_number > oz.opt.termination.max_model_number)
@@ -146,8 +146,8 @@ function do_one_zone_burn!(oz::OneZone)
         # get dt for coming step
         oz.props.dt_next = get_dt_next(oz)
     end
-    # if oz.opt.plotting.do_plotting
-    #     Plotting.end_of_evolution(oz)
-    # end
+    if oz.opt.plotting.do_plotting
+        Plotting.end_of_evolution(oz)
+    end
     StellarModels.close_output_files!(oz)
 end

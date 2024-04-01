@@ -66,6 +66,10 @@ function setup_header(oz::OneZone)
             terminal_header.header *= "\n"
         end
     end
+
+    terminal_header.header *= """
+    -----------------------------------------------------------
+    """
 end
 
 const history_output_units::Dict{String,String} = Dict()
@@ -83,7 +87,7 @@ end
 
 function setup_model_history_functions(sm::StellarModel)
     # general properties
-    add_history_option("star_age", "year", sm -> sm.props.time / SECYEAR)
+    add_history_option("age", "year", sm -> sm.props.time / SECYEAR)
     add_history_option("dt", "year", sm -> sm.props.dt / SECYEAR)
     add_history_option("model_number", "unitless", sm -> sm.props.model_number)
     add_history_option("star_mass", "Msun", sm -> sm.props.mstar / MSUN)
@@ -334,8 +338,8 @@ function write_terminal_info(oz::OneZone; now::Bool=false)
     if oz.props.model_number == 1 || oz.props.model_number % oz.opt.io.terminal_info_interval == 0 || now
         Printf.format(stdout, terminal_header.linefmts[1],
                       oz.props.model_number,
-                      oz.props.time / SECYEAR,
                       log10(oz.props.dt / SECYEAR),
+                      oz.props.time / SECYEAR,
                       log10(oz.props.T),
                       log10(oz.props.ρ),
                       oz.solver_data.newton_iters)
