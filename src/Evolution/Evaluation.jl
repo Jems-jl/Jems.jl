@@ -11,8 +11,8 @@ function eval_cell_eqs!(m::AbstractModel, k::Int)
     end
     # evaluate all composition equations
     for i = 1:(m.network.nspecies)
-        m.solver_data.eqs_duals[k, m.nvars - m.network.nspecies + i] = equation_composition(m, k,
-                                                                                            m.network.species_names[i])
+        m.solver_data.eqs_duals[k, m.nvars - m.network.nspecies + i] = m.composition_equation.func(m, k,
+                                                                                                   m.network.species_names[i])
     end
 end
 
