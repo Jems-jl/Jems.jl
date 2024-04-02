@@ -166,6 +166,20 @@ function init_IO(m::AbstractModel)
     global ioinit = true
 end
 
+function clear_IO()
+    for i in eachindex(history_output_functions)
+        delete!(history_output_functions, i)
+        delete!(history_output_units, i)
+    end
+    for i in eachindex(profile_output_functions)
+        delete!(profile_output_functions, i)
+        delete!(profile_output_units, i)
+    end
+    terminal_header.header = ""
+    terminal_header.linefmts = []
+    ioinit = false
+end
+
 """
     create_output_files(sm::StellarModel)
 
@@ -225,12 +239,15 @@ function create_output_files!(m::AbstractModel)
     end
 end
 
-function close_output_files!(m)
+function shut_down_IO!(m)
     if (m.opt.io.hdf5_history_keep_open)
         close(m.history_file)
     end
     if (m.opt.io.hdf5_profile_keep_open)
         close(m.profiles_file)
+    end
+    if ioinit
+        clear_IO()
     end
 end
 

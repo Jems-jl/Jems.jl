@@ -2,7 +2,7 @@ module Plotting
 
 using GLMakie, LaTeXStrings, MathTeXEngine, Jems.StellarModels, Jems.DualSupport
 
-const colors = Iterators.cycle([:red, :blue, :green])
+const colors = Iterators.cycle(Makie.wong_colors())
 const label_dict = Dict("mass" => L"m / M_\odot",
                         "zone" => L"\mathrm{zone}",
                         "dm" => L"dm / \mathrm{g}",
