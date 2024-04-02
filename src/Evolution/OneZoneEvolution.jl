@@ -149,5 +149,5 @@ function do_one_zone_burn!(oz::OneZone)
     if oz.opt.plotting.do_plotting
         Plotting.end_of_evolution(oz)
     end
-    StellarModels.close_output_files!(oz)
+    StellarModels.shut_down_IO!(oz)
 end
