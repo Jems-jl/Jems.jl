@@ -49,6 +49,8 @@ abstract type AbstractStellarModelProperties end
     turb_res_dual::Vector{TurbResults{TDualFace}}
     turb_res::Vector{TurbResults{TFaceDualData}}
 
+    ϵ_nuc::Vector{TN}
+
     mixing_type::Vector{Symbol}
 end
 
@@ -143,6 +145,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                   ∇ᵣ=∇ᵣ,
                                   κ=κ,
                                   rates=rates,
+                                  ϵ_nuc=zeros(nz + nextra),
                                   rates_dual=rates_dual,
                                   mixing_type=mixing_type)
 end
@@ -206,8 +209,7 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         update_cell_dual_data!(props.eos_res[i].Γ₁, props.eos_res_dual[i].Γ₁)
 
         # evaluate opacity
-        κ_dual = get_opacity_resultsTρ(sm.opacity, lnT, lnρ,
-                    xa, sm.network.species_names)
+        κ_dual = get_opacity_resultsTρ(sm.opacity, lnT, lnρ, xa, sm.network.species_names)
         update_cell_dual_data!(props.κ[i], κ_dual)
 
         ∇ᵣ_dual = 3 * get_00_dual(props.κ[i]) * get_00_dual(props.L[i])*LSUN * exp(get_00_dual(props.eos_res[i].lnP)) /
@@ -219,6 +221,11 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         set_rates_for_network!(rates, sm.network, props.eos_res_dual[i], xa)
         for j in eachindex(rates)
             update_cell_dual_data!(props.rates[i,j], rates[j])
+        end
+
+        props.ϵ_nuc[i] = 0.0
+        for j in eachindex(rates)
+            props.ϵ_nuc[i] += rates[j].value * sm.network.reactions[j].Qvalue
         end
 
         if get_value(props.eos_res[i].∇ₐ) > get_value(props.∇ᵣ[i])

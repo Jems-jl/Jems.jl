@@ -2,9 +2,9 @@ struct KippReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
     name::Symbol
     # num_iso_in of isotopes iso_in are converted into num_iso_out of isotopes iso_out
     iso_in::Vector{Symbol}
-    num_iso_in::Vector{Int64}
+    num_iso_in::Vector{Int}
     iso_out::Vector{Symbol}
-    num_iso_out::Vector{Int64}
+    num_iso_out::Vector{Int}
     Qvalue::TT  # energy released per reaction of this type (i.e. the mass defect), in erg
 end
 
@@ -38,9 +38,6 @@ reaction_list[:kipp_rates] = Dict(
          * AMU * CLIGHT^2))
 )
 
-
-function get_reaction_rate(reaction::KippReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT},
-                           xa_index::Dict{Symbol,Int})::TT where {TT}
 """
     function get_reaction_rate(reaction::KippReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT},
                                xa_index::Dict{Symbol,Int})::TT where {TT}
@@ -54,6 +51,8 @@ xa_index: index of the elements
 Output:
 ϵ_nuc / Qvalue, has units s^-1 g^-1
 """
+function get_reaction_rate(reaction::KippReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT},
+                           xa_index::Dict{Symbol,Int})::TT where {TT}
     if reaction.name == :kipp_pp
 
         phi  = 1
@@ -87,12 +86,12 @@ Output:
         X4   = xa[xa_index[:He4]]
         T9   = eos00.T / 1e9
 
-        ϵnuc = 6.272*(eos00.ρ)^2*X4^3*(1+0.0158*T9^(-0.65))*
-                (2.43e9*cbrt(T9^(-2))*exp(-13.490*cbrt(T9^(-1))-(T9/0.15)^2)*(1+74.5*T9)
-                    + 6.09e5*sqrt(T9^(-3))*exp(-1.054/T9))*
-                (2.76e7*cbrt(T9^(-2))*exp(-23.570*cbrt(T9^(-1))-(T9/0.4)^2)
-                    * (1+5.47*T9+326*T9^2) + 130.7*sqrt(T9^(-3))*exp(-3.338/T9)
-                    + 2.51e4*sqrt(T9^(-3))*exp(-20.307/T9))
+        ϵnuc = 6.272 * (eos00.ρ)^2 * X4^3 * (1 + 0.0158 * T9^(-0.65)) *
+                (2.43e9 * cbrt(T9^(-2)) * exp(-13.490*cbrt(T9^(-1)) - (T9/0.15)^2) * (1+74.5*T9)
+                    + 6.09e5 * sqrt(T9^(-3)) * exp(-1.054/T9)) *
+                (2.76e7 * cbrt(T9^(-2)) * exp(-23.570*cbrt(T9^(-1)) - (T9/0.4)^2)
+                    * (1 + 5.47 * T9 + 326 * T9^2) + 130.7 * sqrt(T9^(-3)) * exp(-3.338/T9)
+                    + 2.51e4 * sqrt(T9^(-3)) * exp(-20.307/T9))
 
     elseif reaction.name == :kipp_C12alpha
 
