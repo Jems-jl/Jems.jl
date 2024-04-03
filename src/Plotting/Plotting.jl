@@ -2,12 +2,12 @@ module Plotting
 
 using GLMakie, LaTeXStrings, MathTeXEngine, Jems.StellarModels, Jems.DualSupport, Jems.Constants
 
-const colors = Iterators.cycle([:red, :blue, :green])
+const colors = Iterators.cycle(Makie.wong_colors())
 const mixing_map = Dict(:no_mixing => 1,
                         :convection => 2)
-mixing_colors = [RGBAf(0, 0, 0, 0.5), RGBAf(0, 0, 1, 1)]
+mixing_colors = [RGBAf(0.5, 0.5, 0.5), RGBAf(0, 0, 1)]  # mixing colors in TRhoProfile diagrams
 kipp_mixing_colors = copy(mixing_colors)
-kipp_mixing_colors[1] = RGBAf(0, 0, 0, 0)
+kipp_mixing_colors[1] = RGBAf(1, 1, 1)  # make no_mixing white in KippenLine diagram to avoid clutter
 burning_colors = cgrad(:linear_wyor_100_45_c55_n256)
 function burning_map(log_eps_nuc; min_log_eps=0.0, max_log_eps=15.0)  # map log eps nuc to interval [0.0, 1.0]
     if log_eps_nuc < min_log_eps
