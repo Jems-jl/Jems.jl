@@ -2,21 +2,20 @@
     JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
 
 Struct that holds the following information for a given reaction rate:
-    name: name of the reaction as a symbol
-    iso_in: vector that contains all elements on the LHS of the reaction
-    iso_out: vector that contains all elements on the RHS of the reaction
-    Qvalue: Q-value of the reaction
-    coeff: different a_i values of the reaction. Contains a vector of 7 values
-    set_label: Symbol containing set label of the reaction
-    res_rate: A 1 character flag symbol:
-        when blank or n it is a non-resonant rate
-        when r it is a resonant rate
-        when w it is a weak rate.
-    rev_rate: a 1 character flag symbol which is set to 'v' when it is a reverse rate.
-    chapter: chapter this reaction is in
 
+- name: name of the reaction as a symbol
+- iso\\_in: vector that contains all elements on the LHS of the reaction
+- iso\\_out: vector that contains all elements on the RHS of the reaction
+- Qvalue: Q-value of the reaction (in erg)
+- coeff: different a\\_i values of the reaction. Contains a vector of 7 values
+- set_label: Symbol containing set label of the reaction
+- res_rate: A 1 character flag symbol:
+    - when blank or n it is a non-resonant rate
+    - when r it is a resonant rate
+    - when w it is a weak rate.
+- rev_rate: a 1 character flag symbol which is set to 'v' when it is a reverse rate.
+- chapter: chapter this reaction is in
 """
-
 struct JinaReactionRate{TT<:Real} <: ReactionRates.AbstractReactionRate
     name::Symbol
     iso_in::Vector{Symbol}
@@ -45,7 +44,7 @@ the reaction will be added to the main dictionary
 
 If the reaction rate already exists in the reference dictionary:
 keys in the main dictionary update so they have unique keys
-value of the key of the reaction in ref_dict is updated so all the unique versions of the rate are in
+value of the key of the reaction in `ref_dict` is updated so all the unique versions of the rate are in
 """
 function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReactionRate)
 
@@ -90,10 +89,8 @@ end
 """
     correct_names(JINA_name)
 
-This function will return the name that corresponds with the JEMS isotope database
-
-JINA_name is the name of the element as it is given in the JINA library (without the extra spaces) as a string
-RETURN_name is the corrected name given as a string
+Returns the name that corresponds with the JEMS isotope database, given `JINA_name`, the name of the element as it is
+given in the JINA library (without the extra spaces).
 """
 function correct_names(JINA_name)
     change_name = Dict("p" => "H1", "d" => "D2", "t" => "T3", "n" => "n")
@@ -133,17 +130,17 @@ end
 
 Parses a large string object `dataset`, containing JINA reaction rate data, into a main dictionary and a reference
 dictionary. The main dictionary has entries with unique keys for every reaction rate in the database (double entries
-are distinguised with "_0", "_1" at the end of their key Symbol), while the reference dictionary has one entry per
+are distinguised with `_0`, `_1` at the end of their key Symbol), while the reference dictionary has one entry per
 reaction equation, but has as value a list of all JINA rates for that reaction equation.
 
 _Example:_ if H1 + H1 -> D2 has two rates in the JINA database, main dictionary will contain:
 ```
-    dictionary[:H1_H1_to_D2_0] = _rate_info_(...)
-    dictionary[:H1_H1_to_D2_1] = _rate_info_(...)
+dictionary[:H1_H1_to_D2_0] = _rate_info_(...)
+dictionary[:H1_H1_to_D2_1] = _rate_info_(...)
 ```
 while the reference dict will contain:
 ```
-    reference_dictionary[:H1_H1_to_D2] = [:H1_H1_to_D2_0, :H1_H1_to_D2_1]
+reference_dictionary[:H1_H1_to_D2] = [:H1_H1_to_D2_0, :H1_H1_to_D2_1]
 ```
 For rates with only one entry in the JINA database, only an "_0" entry is made in the main dictionary, and the reference
 dictionary contains the list with only that one key.
@@ -400,10 +397,11 @@ function read_dataset(dataset, dictionary, reference_dictionary)
 end
 
 """
-    get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT}, xa_index::Dict{Symbol,Int})
+    get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT}, 
+                      xa_index::Dict{Symbol,Int})
 
-Evaluates the reaction rate, in s^{-1}g^{-1}, given an equation of state result for the relevant cell, is abundances and index array,
-by computing Eqs. 1 and 2 from Cyburt+2010.
+Evaluates the reaction rate, in s^{-1}g^{-1}, given an equation of state result for the relevant cell, is abundances and
+index array, by computing Eqs. 1 and 2 from Cyburt+2010.
 """
 function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT},
                            xa_index::Dict{Symbol,Int})::TT where {TT}

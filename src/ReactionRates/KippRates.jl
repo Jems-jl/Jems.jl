@@ -38,9 +38,6 @@ reaction_list[:kipp_rates] = Dict(
          * AMU * CLIGHT^2))
 )
 
-
-function get_reaction_rate(reaction::KippReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT},
-                           xa_index::Dict{Symbol,Int})::TT where {TT}
 """
     function get_reaction_rate(reaction::KippReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT},
                                xa_index::Dict{Symbol,Int})::TT where {TT}
@@ -54,6 +51,8 @@ xa_index: index of the elements
 Output:
 ϵ_nuc / Qvalue, has units s^-1 g^-1
 """
+function get_reaction_rate(reaction::KippReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT},
+                           xa_index::Dict{Symbol,Int})::TT where {TT}
     if reaction.name == :kipp_pp
 
         phi  = 1
