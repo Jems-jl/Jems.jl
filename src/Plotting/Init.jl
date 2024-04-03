@@ -18,7 +18,7 @@ function init_plots!(sm::StellarModel)
                         Legend=(patchsize=(70, 10), framevisible=false, patchlabelgap=20, rowgap=10, fontsize=12))
 
     GLMakie.set_theme!(basic_theme)
-    GLMakie.activate!(fxaa=false,ssao=false)
+    GLMakie.activate!(fxaa=false, ssao=false)
     #GLMakie.set_window_config!(; float=true)  # place windows on top # this does not work in newer GLMakie versions it seems
 
     # create figure/axes objects
@@ -88,8 +88,14 @@ function init_plots!(sm::StellarModel)
                                xlabel=label_dict[sm.opt.plotting.history_xaxis], ylabels=ylabels,
                                alt_ax=plot.alt_ax, alt_yvals=plot.alt_y_obs, alt_ylabels=alt_ylabels)
         elseif plot.type == :Kippenhahn
-            # we need no observables as we need no updating of already-plotted stuff
-            update_Kipp_plot!(plot, sm.props, sm.opt.plotting)
+            create_Kipp_observables!(plot, sm.props)
+            make_Kipp_plot!(plot.ax, plot.x_obs[:model_number], plot.y_obs[:mass])
+            draw_Kipp_lines!(plot.ax, sm.props.model_number, (@view sm.props.m[1:(sm.props.nz)]) / MSUN,
+                             kipp_mixing_colors[(get.(Ref(mixing_map), (@view sm.props.mixing_type[1:(sm.props.nz)]),
+                                                      missing))],
+                             burning_colors[burning_map.(log10.(abs.(@view sm.props.eps_nuc[1:(sm.props.nz)]));
+                                                         min_log_eps=sm.opt.plotting.min_log_eps,
+                                                         max_log_eps=sm.opt.plotting.max_log_eps)])
         end
     end
 
