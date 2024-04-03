@@ -206,7 +206,7 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
 
     flux_down::typeof(X00) = 0
     flux_up::typeof(X00) = 0
-    Dnorm::typeof(X00) = 0
+
 
     if k != sm.props.nz
         Xp1 = get_p1_dual(sm.props.xa[k+1, sm.network.xa_index[iso_name]])
@@ -215,8 +215,7 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
                 (sm.props.dm[k] + sm.props.dm[k + 1]))
         rface_up = exp(get_00_dual(sm.props.lnr[k]))
         Dface_up = get_00_dual(sm.props.turb_res[k].D_turb)
-        #Dface_up = sm.props.turb_res[k].D_turb.diff_cache_00.dual_data[1]
-        Dnorm = max(Dnorm, Dface_up)
+
         flux_up = (4π*rface_up^2*ρface_up)^2*Dface_up*
                     (Xp1-X00)/(0.5*(sm.props.dm[k]+sm.props.dm[k+1]))
     end
@@ -227,17 +226,13 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
                 (sm.props.dm[k - 1] + sm.props.dm[k]))
         rface_down = exp(get_m1_dual(sm.props.lnr[k-1]))
         Dface_down = get_m1_dual(sm.props.turb_res[k-1].D_turb)
-        #Dface_down = sm.props.turb_res[k-1].D_turb.diff_cache_00.dual_data[1]
-        Dnorm = max(Dnorm, Dface_down)
+
         flux_down = (4π*rface_down^2*ρface_down)^2*Dface_down*
                     (X00-Xm1)/(0.5*(sm.props.dm[k-1]+sm.props.dm[k]))
     end
     dXdt_mix =  (flux_up - flux_down)/(sm.props.dm[k])
 
-    Dnorm = (4π*exp(get_00_dual(sm.props.lnr[k]))^2*exp(get_00_dual(sm.props.eos_res[k].lnρ)))^2*Dnorm
-    Dnorm = Dnorm/(sm.props.dm[k])^2
-
     Xi = get_value(sm.start_step_props.xa[k, sm.network.xa_index[iso_name]])  # is never a dual!!
 
-    return ((X00 - Xi) / sm.props.dt - dXdt_nuc - dXdt_mix)#/max(1/sm.ssi.dt, dXdt_nuc, Dnorm)
+    return ((X00 - Xi) / sm.props.dt - dXdt_nuc - dXdt_mix)
 end

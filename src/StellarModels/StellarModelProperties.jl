@@ -31,6 +31,7 @@ abstract type AbstractStellarModelProperties end
 
     # opacity (cell centered)
     κ::Vector{TCellDualData}  # cm^2 g^-1
+    ∇ᵣ::Vector{TCellDualData}  # dim-less
 
     # rates (cell centered)
     rates::Matrix{TCellDualData}  # g^-1 s^-1
@@ -49,6 +50,8 @@ abstract type AbstractStellarModelProperties end
     turb_res::Vector{TurbResults{TFaceDualData}}
 
     ϵ_nuc::Vector{TN}
+
+    mixing_type::Vector{Symbol}
 end
 
 function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
@@ -64,12 +67,14 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
     # create the vector containing the independent variables
     ind_vars = zeros(TN, nvars * (nz + nextra))
 
+    # result containers
     eos_res_dual = [EOSResults{TD}() for i in 1:(nz+nextra)]
     eos_res = [EOSResults{CDDTYPE}() for i in 1:(nz+nextra)]
 
     turb_res_dual = [TurbResults{TDF}() for i in 1:(nz+nextra)]
     turb_res = [TurbResults{FDDTYPE}() for i in 1:(nz+nextra)]
 
+    # unpacked ind_vars
     lnT = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnT]) for i in 1:(nz+nextra)]
     lnρ = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnρ]) for i in 1:(nz+nextra)]
     lnr = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnr]) for i in 1:(nz+nextra)]
@@ -81,8 +86,11 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                         is_ind_var=true, ind_var_i=4+i)
         end
     end
+
     xa_dual = zeros(TD, nz+nextra, nspecies)
     rates_dual = zeros(TD, nz+nextra, nrates)
+
+    # mesh
     m = zeros(TN, nz+nextra)
     dm = zeros(TN, nz+nextra)
 
@@ -95,6 +103,8 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
     ∇ₐ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     ∇ᵣ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     κ = Vector{CDDTYPE}(undef, nz+nextra)  # zeros(CDDTYPE, nz+nextra)
+    ∇ᵣ = Vector{CDDTYPE}(undef, nz+nextra)
+    mixing_type::Vector{Symbol} = repeat([:no_mixing], nz+nextra)
     for k in 1:(nz+nextra)
         lnP_face[k] = FaceDualData(nvars, TN)
         lnρ_face[k] = FaceDualData(nvars, TN)
@@ -103,6 +113,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
         ∇ₐ_face[k] = FaceDualData(nvars, TN)
         ∇ᵣ_face[k] = FaceDualData(nvars, TN)
         κ[k] = CellDualData(nvars, TN)
+        ∇ᵣ[k] = CellDualData(nvars, TN)
     end
 
     rates = Matrix{CDDTYPE}(undef, nz+nextra, nrates)
@@ -131,10 +142,12 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                   κ_face=κ_face,
                                   ∇ₐ_face=∇ₐ_face,
                                   ∇ᵣ_face=∇ᵣ_face,
+                                  ∇ᵣ=∇ᵣ,
                                   κ=κ,
                                   rates=rates,
                                   ϵ_nuc=zeros(nz + nextra),
-                                  rates_dual=rates_dual)
+                                  rates_dual=rates_dual,
+                                  mixing_type=mixing_type)
 end
 
 """
@@ -199,6 +212,10 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         κ_dual = get_opacity_resultsTρ(sm.opacity, lnT, lnρ, xa, sm.network.species_names)
         update_cell_dual_data!(props.κ[i], κ_dual)
 
+        ∇ᵣ_dual = 3 * get_00_dual(props.κ[i]) * get_00_dual(props.L[i])*LSUN * exp(get_00_dual(props.eos_res[i].lnP)) /
+                    (16π * CRAD * CLIGHT * CGRAV * props.m[i] * exp(4*get_00_dual(props.lnT[i])))
+        update_cell_dual_data!(props.∇ᵣ[i], ∇ᵣ_dual)
+
         # evaluate rates
         rates = @view props.rates_dual[i,:]
         set_rates_for_network!(rates, sm.network, props.eos_res_dual[i], xa)
@@ -209,6 +226,12 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         props.ϵ_nuc[i] = 0.0
         for j in eachindex(rates)
             props.ϵ_nuc[i] += rates[j].value * sm.network.reactions[j].Qvalue
+        end
+
+        if get_value(props.eos_res[i].∇ₐ) > get_value(props.∇ᵣ[i])
+            props.mixing_type[i] = :no_mixing
+        else
+            props.mixing_type[i] = :convection
         end
     end
 
