@@ -50,8 +50,6 @@ abstract type AbstractStellarModelProperties end
     turb_res::Vector{TurbResults{TFaceDualData}}
 
     mixing_type::Vector{Symbol}
-
-    tag::Type
 end
 
 function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
@@ -59,10 +57,10 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                 ::Type{TN},tag::Type) where {TN<:Real}
 
     # define the types
-    CDDTYPE = CellDualData{nvars+1,3*nvars+1,TN}  # full dual arrays
-    FDDTYPE = FaceDualData{2*nvars+1,3*nvars+1,TN}
-    TD = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, nvars))...))  # only the cell duals
-    TDF = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, 2*nvars))...))  # only the face duals
+    CDDTYPE = CellDualData{nvars+1,3*nvars+1,TN,tag}  # full dual arrays
+    FDDTYPE = FaceDualData{2*nvars+1,3*nvars+1,TN,tag}
+    TD = typeof(ForwardDiff.Dual{tag}(zero(TN), (zeros(TN, nvars))...))  # only the cell duals
+    TDF = typeof(ForwardDiff.Dual{tag}(zero(TN), (zeros(TN, 2*nvars))...))  # only the face duals
 
     # create the vector containing the independent variables
     ind_vars = zeros(TN, nvars * (nz + nextra))
@@ -75,14 +73,14 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
     turb_res = [TurbResults{FDDTYPE}() for i in 1:(nz+nextra)]
 
     # unpacked ind_vars
-    lnT = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnT]) for i in 1:(nz+nextra)]
-    lnρ = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnρ]) for i in 1:(nz+nextra)]
-    lnr = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnr]) for i in 1:(nz+nextra)]
-    L = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lum]) for i in 1:(nz+nextra)]
+    lnT = [CellDualData(nvars, TN, tag; is_ind_var=true, ind_var_i=vari[:lnT]) for i in 1:(nz+nextra)]
+    lnρ = [CellDualData(nvars, TN, tag; is_ind_var=true, ind_var_i=vari[:lnρ]) for i in 1:(nz+nextra)]
+    lnr = [CellDualData(nvars, TN, tag; is_ind_var=true, ind_var_i=vari[:lnr]) for i in 1:(nz+nextra)]
+    L = [CellDualData(nvars, TN, tag; is_ind_var=true, ind_var_i=vari[:lum]) for i in 1:(nz+nextra)]
     xa = Matrix{CDDTYPE}(undef,nz+nextra, nspecies)
     for k in 1:(nz+nextra)
         for i in 1:nspecies
-            xa[k,i] = CellDualData(nvars, TN;
+            xa[k,i] = CellDualData(nvars, TN, tag;
                         is_ind_var=true, ind_var_i=4+i)
         end
     end
@@ -106,20 +104,20 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
     ∇ᵣ = Vector{CDDTYPE}(undef, nz+nextra)
     mixing_type::Vector{Symbol} = repeat([:no_mixing], nz+nextra)
     for k in 1:(nz+nextra)
-        lnP_face[k] = FaceDualData(nvars, TN)
-        lnρ_face[k] = FaceDualData(nvars, TN)
-        lnT_face[k] = FaceDualData(nvars, TN)
-        κ_face[k] = FaceDualData(nvars, TN)
-        ∇ₐ_face[k] = FaceDualData(nvars, TN)
-        ∇ᵣ_face[k] = FaceDualData(nvars, TN)
-        κ[k] = CellDualData(nvars, TN)
-        ∇ᵣ[k] = CellDualData(nvars, TN)
+        lnP_face[k] = FaceDualData(nvars, TN, tag)
+        lnρ_face[k] = FaceDualData(nvars, TN, tag)
+        lnT_face[k] = FaceDualData(nvars, TN, tag)
+        κ_face[k] = FaceDualData(nvars, TN, tag)
+        ∇ₐ_face[k] = FaceDualData(nvars, TN,tag)
+        ∇ᵣ_face[k] = FaceDualData(nvars, TN,tag)
+        κ[k] = CellDualData(nvars, TN, tag)
+        ∇ᵣ[k] = CellDualData(nvars, TN, tag)
     end
 
     rates = Matrix{CDDTYPE}(undef, nz+nextra, nrates)
     for k in 1:(nz+nextra)
         for i in 1:nrates
-            rates[k,i] = CellDualData(nvars, TN)
+            rates[k,i] = CellDualData(nvars, TN, tag)
         end
     end
 
@@ -146,8 +144,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                   κ=κ,
                                   rates=rates,
                                   rates_dual=rates_dual,
-                                  mixing_type=mixing_type,
-                                  tag = tag)
+                                  mixing_type=mixing_type)
 end
 
 """
@@ -212,9 +209,15 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         κ_dual = get_opacity_resultsTρ(sm.opacity, lnT, lnρ,
                     xa, sm.network.species_names)
         update_cell_dual_data!(props.κ[i], κ_dual)
+        #@show typeof(props.κ[i])
+        t = κ_dual
+        @show typeof(t)
 
         ∇ᵣ_dual = 3 * get_00_dual(props.κ[i]) * get_00_dual(props.L[i])*LSUN * exp(get_00_dual(props.eos_res[i].lnP)) /
                     (16π * CRAD * CLIGHT * CGRAV * props.m[i] * exp(4*get_00_dual(props.lnT[i])))
+        #@show typeof(props.∇ᵣ[i]), typeof(∇ᵣ_dual)            
+        t = ∇ᵣ_dual
+        @show typeof(t)
         update_cell_dual_data!(props.∇ᵣ[i], ∇ᵣ_dual)
 
         # evaluate rates
