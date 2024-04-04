@@ -112,11 +112,26 @@ function do_evolution_loop!(sm::StellarModel)
 
             # scale correction
             if sm.props.model_number == 0
-                correction_multiplier = min(1.0, sm.opt.solver.initial_model_scale_max_correction / abs_max_corr)
+                correction_limit = sm.opt.solver.initial_model_scale_max_correction
             else
-                correction_multiplier = min(1.0, sm.opt.solver.scale_max_correction / abs_max_corr)
+                correction_limit = sm.opt.solver.scale_max_correction
             end
-            if correction_multiplier < 1
+            correction_multiplier = 1.0
+            for j in 1:sm.nvars
+                sub_corr = @view sm.solver_data.solver_corr[j:sm.nvars:(sm.nvars*(sm.props.nz-1)+j)]
+                max_sub_corr = maximum(abs, sub_corr)
+                if sm.var_scaling[j] == :log || sm.var_scaling[j] == :unity
+                    correction_multiplier = min(correction_multiplier,
+                                                    correction_limit/max_sub_corr)
+                else
+                    sub_ind_vars = @view sm.props.ind_vars[j:sm.nvars:(sm.nvars*(sm.props.nz-1)+j)]
+                    max_var_value = maximum(abs, sub_ind_vars)
+                    correction_multiplier = min(correction_multiplier,
+                                                    max_var_value*correction_limit/max_sub_corr)
+                end
+            end
+
+            if correction_multiplier < 1.0
                 corr .*= correction_multiplier
             end
 

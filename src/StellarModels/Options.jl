@@ -34,6 +34,8 @@ Substructure of Options containing controls relating to the Newton solver
 
     report_solver_progress::Bool = true
     solver_progress_iter::Int = 50
+
+    use_preconditioning::Bool = true
 end
 
 """

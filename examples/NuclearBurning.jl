@@ -29,6 +29,7 @@ to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
 
 varnames = [:lnρ, :lnT, :lnr, :lum]
+varscaling = [:log, :log, :log, :maxval]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
@@ -39,7 +40,7 @@ nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 turbulence = Turbulence.BasicMLT(1.0)
-sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
+sm = StellarModel(varnames, varscaling, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
 
 ##
 #=
@@ -117,8 +118,8 @@ open("example_options.toml", "w") do file
 
           [solver]
           newton_max_iter_first_step = 1000
-          initial_model_scale_max_correction = 0.5
-          newton_max_iter = 30
+          initial_model_scale_max_correction = 0.2
+          newton_max_iter = 50
           scale_max_correction = 0.1
           report_solver_progress = false
 

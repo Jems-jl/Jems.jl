@@ -40,6 +40,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
                                    TTURB<:Turbulence.AbstractTurb, TSOLVER<:AbstractSolverData}
     nvars::Int  # This is the sum of hydro vars and species
     var_names::Vector{Symbol}  # List of variable names
+    var_scaling::Vector{Symbol}
     vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector
     nextra::Int  # Number of extra zones used to avoid constant reallocation while remeshing
 
@@ -85,7 +86,7 @@ Constructor for a `StellarModel` instance, using `varnames` for the independent 
 `structure_equations` to be solved, number of independent variables `nvars`, number of species in the network `nspecies`
 number of zones in the model `nz` and an iterface to the EOS and Opacity laws.
 """
-function StellarModel(var_names::Vector{Symbol},
+function StellarModel(var_names::Vector{Symbol}, var_scaling::Vector{Symbol},
                       structure_equations::Vector{Function}, nz::Int, nextra::Int,
                       remesh_split_functions::Vector{Function},
                       network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity, turbulence::AbstractTurb;
@@ -94,6 +95,7 @@ function StellarModel(var_names::Vector{Symbol},
 
     # var_names should also contain the name of species, we get them from the network
     var_names_full = vcat(var_names, network.species_names)
+    var_scaling_full = vcat(var_scaling, [:unity for i in 1:network.nspecies])
 
     # link var_names to the correct index so you can do ind_var[vari[:lnT]] = 'some temperature'
     vari::Dict{Symbol,Int} = Dict()
@@ -129,7 +131,8 @@ function StellarModel(var_names::Vector{Symbol},
 
     # create the stellar model
     sm = StellarModel(;nvars=nvars,
-                      var_names=var_names_full, vari=vari, nextra=nextra,
+                      var_names=var_names_full, var_scaling=var_scaling_full,
+                      vari=vari, nextra=nextra,
                       solver_data = solver_data,
                       structure_equations_original=structure_equations,
                       structure_equations=tpe_stbl_funcs,
