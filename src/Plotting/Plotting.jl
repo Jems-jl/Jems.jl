@@ -2,13 +2,27 @@ module Plotting
 
 using GLMakie, LaTeXStrings, MathTeXEngine, Jems.StellarModels, Jems.DualSupport, Jems.Constants
 
-const colors = Iterators.cycle([:red, :blue, :green])
+const colors = Iterators.cycle(Makie.wong_colors())
 const mixing_map = Dict(:no_mixing => 1,
                         :convection => 2)
-mixing_colors = cgrad(:seaborn_muted, categorical=true)
+mixing_colors = [RGBAf(0.5, 0.5, 0.5), RGBAf(0, 0, 1)]  # mixing colors in TRhoProfile diagrams
+kipp_mixing_colors = copy(mixing_colors)
+kipp_mixing_colors[1] = RGBAf(1, 1, 1)  # make no_mixing white in KippenLine diagram to avoid clutter
+burning_colors = cgrad(:linear_wyor_100_45_c55_n256)
+function burning_map(log_eps_nuc; min_log_eps=0.0, max_log_eps=15.0)  # map log eps nuc to interval [0.0, 1.0]
+    if log_eps_nuc < min_log_eps
+        return 0.0
+    elseif log_eps_nuc > max_log_eps
+        return 1.0
+    else
+        return log_eps_nuc / (max_log_eps - min_log_eps)
+    end
+end
+
 const label_dict = Dict("mass" => L"m / M_\odot",
                         "zone" => L"\mathrm{zone}",
                         "dm" => L"dm / \mathrm{g}",
+                        "model_number" => "model number",
 
                         "dt" => L"dt / \mathrm{s}",
                         "star_age" => L"\mathrm{age} / \mathrm{year}",
@@ -42,6 +56,7 @@ include("HRD.jl")
 include("Profile.jl")
 include("History.jl")
 include("TRhoProfile.jl")
+include("KippenLine.jl")
 
 """
     update_plots!(sm::StellarModel)
@@ -53,12 +68,14 @@ function update_plotting!(sm::StellarModel)
         for plot in sm.plt.plots
             if plot.type == :HR
                 update_HR_plot!(plot, sm.props)
-            elseif plot.type == :TRho
+            elseif plot.type == :TRhoProfile
                 update_T_ρ_plot!(plot, sm.props)
             elseif plot.type == :profile
                 update_profile_plot!(plot, sm)  # these cannot be loaded from props, bc they use the IO functions.
             elseif plot.type == :history
                 update_history_plot!(plot, sm)
+            elseif plot.type == :Kippenhahn
+                update_Kipp_plot!(plot, sm.props, sm.opt.plotting)
             end
         end
     end
