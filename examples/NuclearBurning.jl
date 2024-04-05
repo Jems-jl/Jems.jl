@@ -17,6 +17,23 @@ using Jems.ReactionRates
 using Jems.DualSupport
 using ForwardDiff
 
+#make tags for internal and external differentiation use
+#the external tag is the 'inner tag' in the code, because these derivatives
+#are taken along the entire ride through the code, while the internal use tages
+#are only used at specific points and then dropped again
+import ForwardDiff.Tag
+import ForwardDiff.Dual
+tag_external = Tag{:external, nothing}
+ForwardDiff.tagcount(tag_external) #this function is necessary to order the tags
+tag_internal = Tag{:internal, nothing}
+ForwardDiff.tagcount(tag_internal)
+
+#define tags uniquely, safer when doing some notebook jumping
+#tag_external = DualSupport.simple_tag()
+#tag_internal = DualSupport.simple_tag()
+
+
+#
 
 ##
 #=
@@ -41,10 +58,11 @@ nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 turbulence = Turbulence.BasicMLT(1.0)
-tag1 = DualSupport.simple_tag() #e.g. for dual mass
-tag2 = DualSupport.simple_tag() #e.g. for dual mass
-dualnumber = ForwardDiff.Dual{tag2}(5.0,1.0)
-sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence, number_type = typeof(dualnumber), tag = tag1);
+
+
+
+dummy_dual = ForwardDiff.Dual{tag_external}(5.0,1.0) #this is what an external dual looks like, the code likes to know this
+sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence, number_type = typeof(dummy_dual), tag = tag_internal);
 
 ##
 #=
@@ -61,9 +79,15 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 (_previous step info_) to populate the information needed before the Newton solver in `sm.ssi` (_start step info_).
 At last we are in position to evaluate the kequations and compute the Jacobian.
 =#
+println("############################")
 n = 3
-mass_dual = ForwardDiff.Dual{tag2}(1.0*MSUN,1.0) 
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, ForwardDiff.Dual{tag2}(0.7154,0.0),ForwardDiff.Dual{tag2}(0.0142,0.0),ForwardDiff.Dual{tag2}(0.0,0.0),Chem.abundance_lists[:ASG_09],mass_dual, ForwardDiff.Dual{tag2}(100 * RSUN,0.0); initial_dt=10 * SECYEAR)
+#define dual input numbers, all partial derivatives are with respect to the mass
+X_dual         = ForwardDiff.Dual{tag_external}(0.7154,0.0) #(value, derivative to mass)
+Z_dual         = ForwardDiff.Dual{tag_external}(0.0142,0.0)
+Dfraction_dual = ForwardDiff.Dual{tag_external}(0.0,0.0)
+mass_dual      = ForwardDiff.Dual{tag_external}(1.0*MSUN,1.0) 
+R_dual         = ForwardDiff.Dual{tag_external}(100*RSUN,0.0)
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_dual,Chem.abundance_lists[:ASG_09],mass_dual, R_dual; initial_dt=10 * SECYEAR)
 StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
 Evolution.cycle_props!(sm);
 StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
@@ -171,8 +195,10 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 n = 3
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+#StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
+#                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_dual,Chem.abundance_lists[:ASG_09],
+                                            mass_dual, R_dual; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
 
 ##

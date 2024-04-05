@@ -177,6 +177,8 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         lnT = get_cell_dual(props.lnT[i])
         lnρ = get_cell_dual(props.lnρ[i])
         xa = @view props.xa_dual[i,:]
+        @show(typeof(lnT))
+        @show(typeof(lnρ))
 
         # evaluate EOS
         set_EOS_resultsTρ!(sm.eos, props.eos_res_dual[i], lnT, lnρ,
@@ -216,8 +218,8 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         ∇ᵣ_dual = 3 * get_00_dual(props.κ[i]) * get_00_dual(props.L[i])*LSUN * exp(get_00_dual(props.eos_res[i].lnP)) /
                     (16π * CRAD * CLIGHT * CGRAV * props.m[i] * exp(4*get_00_dual(props.lnT[i])))
         #@show typeof(props.∇ᵣ[i]), typeof(∇ᵣ_dual)            
-        t = ∇ᵣ_dual
-        @show typeof(t)
+        q = ∇ᵣ_dual
+        @show typeof(q)
         update_cell_dual_data!(props.∇ᵣ[i], ∇ᵣ_dual)
 
         # evaluate rates
