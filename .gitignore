@@ -4,6 +4,7 @@ Manifest.toml
 **.DS_store
 history.hdf5
 profiles.hdf5
+*.hdf5
 *.mp4
 *.gif
 *.png
@@ -14,3 +15,5 @@ alloc-profile.pb.gz
 NuclearBurning.md
 developing/test*
 profile.pb.gz
+
+DigontoTesting

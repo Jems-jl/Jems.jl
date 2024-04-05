@@ -101,7 +101,7 @@ function StellarModel(var_names::Vector{Symbol},
         vari[var_names_full[i]] = i
     end
 
-    solver_data = SolverData(nvars, nz, nextra, use_static_arrays, number_type)
+    solver_data = SolverData(nvars, nz, nextra, use_static_arrays, number_type, tag)
     #tag = DualSupport.simple_tag()
     @show tag, typeof(tag)
     # properties
@@ -113,7 +113,7 @@ function StellarModel(var_names::Vector{Symbol},
                                        length(network.reactions), network.nspecies, vari, number_type, tag)
 
     # create type stable function objects
-    dual_sample = ForwardDiff.Dual(zero(number_type), (zeros(number_type, 3*nvars)...))
+    dual_sample = ForwardDiff.Dual{tag}(zero(number_type), (zeros(number_type, 3*nvars)...))
     tpe_stbl_funcs = Vector{TypeStableEquation{StellarModel{number_type, typeof(dual_sample), typeof(props),
                                                             typeof(eos), typeof(opacity), typeof(network),
                                                             typeof(turbulence), typeof(solver_data)},

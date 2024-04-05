@@ -163,7 +163,7 @@ open("example_options.toml", "w") do file
           max_center_T = 1e8
 
           [plotting]
-          do_plotting = false
+          do_plotting = true
           wait_at_termination = false
           plotting_interval = 1
 
