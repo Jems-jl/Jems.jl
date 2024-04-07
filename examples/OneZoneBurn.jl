@@ -2,7 +2,7 @@
 # OneZoneBurn.jl
 
 This notebook provides a simple example of a single zone undergoing nuclear burning.
-Just as in NuclearBurning.jl, we Import all necessary Jems modules.
+Just as in NuclearBurning.jl, we start by importing all necessary Jems modules.
 =#
 using Jems.NuclearNetworks
 using Jems.StellarModels
@@ -31,7 +31,7 @@ net = NuclearNetwork([:H1, :D2, :He3, :He4,
                       (:jina_rates, :H1_H1_to_D2_betplus_w_x_0),
                       (:jina_rates, :H1_H1_to_D2_xxec_w_x_0),
                       (:jina_rates, :H1_D2_to_He3_de04_n_x_0),
-                      # (:jina_rates, :H1_D2_to_He3_de04_x_x_0),
+                      (:jina_rates, :H1_D2_to_He3_de04_x_x_0),
                       (:jina_rates, :He3_He3_to_H1_H1_He4_nacr_n_x_0),
                       # PP II
                       (:jina_rates, :He4_He3_to_Be7_cd08_n_x_0),
@@ -39,8 +39,8 @@ net = NuclearNetwork([:H1, :D2, :He3, :He4,
                       (:jina_rates, :Be7_to_Li7_xxec_w_x_0),
                       (:jina_rates, :H1_Li7_to_He4_He4_de04_x_x_0),
                       (:jina_rates, :H1_Li7_to_He4_He4_de04_r_x_0),
-                      # (:jina_rates, :H1_Li7_to_He4_He4_de04_x_x_1),
-                      # (:jina_rates, :H1_Li7_to_He4_He4_de04_r_x_1),
+                      (:jina_rates, :H1_Li7_to_He4_He4_de04_x_x_1),
+                      (:jina_rates, :H1_Li7_to_He4_He4_de04_r_x_1),
                       # PP III
                       (:jina_rates, :H1_Be7_to_B8_nacr_r_x_0),
                       (:jina_rates, :H1_Be7_to_B8_nacr_n_x_0),
@@ -98,7 +98,7 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 200
+          max_model_number = 250
 
           [plotting]
           do_plotting = true
@@ -117,7 +117,8 @@ open("example_options.toml", "w") do file
           profile_interval = 50
           terminal_header_interval = 10
           terminal_info_interval = 10
-          history_values = ["age", "dt", "model_number", "T", "ρ", "H1", "D2", "He3", "He4"]
+          history_values = ["age", "dt", "model_number", "T", "ρ",
+                            "H1", "D2", "He3", "He4", "Li7", "Be7"]
 
           """)
 end
@@ -126,7 +127,7 @@ StellarModels.set_options!(oz.opt, "./example_options.toml")
 
 
 ##
-using GLMakie, LaTeXStrings, MathTeXEngine
+using CairoMakie, LaTeXStrings, MathTeXEngine
 basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                            italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
                     fontsize=30, size=(1000, 750), linewidth=7,
@@ -137,7 +138,7 @@ basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                           xticklabelsize=35, yticklabelsize=35, xticksmirrored=true, yticksmirrored=true),
                     Legend=(patchsize=(70, 10), framevisible=false, patchlabelgap=20, rowgap=10))
 set_theme!(basic_theme)
-GLMakie.activate!()
+# GLMakie.activate!()
 ##
 ### Plot the history
 f = Figure();
@@ -145,7 +146,10 @@ ax = Axis(f[1, 1]; xlabel="age (year)", ylabel=L"\log_{10}(X)", xscale=log10, xm
 history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
 lines!(ax, history[!, "age"], log10.(history[!, "H1"]), label=L"^1H")
 lines!(ax, history[!, "age"], log10.(history[!, "D2"]), label=L"^2H")
+lines!(ax, history[!, "age"], log10.(history[!, "He3"]), label=L"^3He")
 lines!(ax, history[!, "age"], log10.(history[!, "He4"]), label=L"^4He")
+lines!(ax, history[!, "age"], log10.(history[!, "Li7"]), label=L"^7Li")
+lines!(ax, history[!, "age"], log10.(history[!, "Be7"]), label=L"^7Be")
 axislegend(position=:lt)
 f
 

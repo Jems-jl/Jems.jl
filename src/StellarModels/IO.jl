@@ -177,7 +177,7 @@ function clear_IO()
     end
     terminal_header.header = ""
     terminal_header.linefmts = []
-    ioinit = false
+    global ioinit = false
 end
 
 """
