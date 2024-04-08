@@ -121,7 +121,9 @@ open("example_options.toml", "w") do file
           initial_model_scale_max_correction = 0.2
           newton_max_iter = 50
           scale_max_correction = 0.1
-          report_solver_progress = false
+          report_solver_progress = true
+          solver_progress_iter = 1
+          maximum_residual_tolerance = 1e-1
 
           [timestep]
           dt_max_increase = 1.5

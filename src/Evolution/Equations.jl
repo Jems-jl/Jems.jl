@@ -202,37 +202,27 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
     end
 
     #mixing terms
-    lnρ_00 = get_00_dual(sm.props.eos_res[k].lnρ)
-
     flux_down::typeof(X00) = 0
     flux_up::typeof(X00) = 0
 
-
+    # flux term is (4πr^2ρ)^2*D/dm_face, with all quantities evaluated at the face
+    # maybe good to experiment with a soft flux limiter that is continuous rather than
+    # taking a min
     if k != sm.props.nz
         Xp1 = get_p1_dual(sm.props.xa[k+1, sm.network.xa_index[iso_name]])
-        lnρ_p1 = get_p1_dual(sm.props.eos_res[k+1].lnρ)
-        ρface_up = exp((sm.props.dm[k+1] * lnρ_00 + sm.props.dm[k] * lnρ_p1) /
-                (sm.props.dm[k] + sm.props.dm[k + 1]))
-        rface_up = exp(get_00_dual(sm.props.lnr[k]))
-        Dface_up = get_00_dual(sm.props.turb_res[k].D_turb)
-
-        flux_up = (4π*rface_up^2*ρface_up)^2*Dface_up*
-                    (Xp1-X00)/(0.5*(sm.props.dm[k]+sm.props.dm[k+1]))
+        flux_term_up = get_00_dual(sm.props.flux_term[k])
+        flux_term_up = min(1e10*sm.props.dm[k]/sm.props.dt, flux_term_up)
+        flux_up = flux_term_up*(Xp1-X00)
     end
     if k != 1
         Xm1 = get_m1_dual(sm.props.xa[k-1, sm.network.xa_index[iso_name]])
-        lnρ_m1 = get_m1_dual(sm.props.eos_res[k-1].lnρ)
-        ρface_down = exp((sm.props.dm[k] * lnρ_m1 + sm.props.dm[k-1] * lnρ_00) /
-                (sm.props.dm[k - 1] + sm.props.dm[k]))
-        rface_down = exp(get_m1_dual(sm.props.lnr[k-1]))
-        Dface_down = get_m1_dual(sm.props.turb_res[k-1].D_turb)
-
-        flux_down = (4π*rface_down^2*ρface_down)^2*Dface_down*
-                    (X00-Xm1)/(0.5*(sm.props.dm[k-1]+sm.props.dm[k]))
+        flux_term_down = get_m1_dual(sm.props.flux_term[k-1])
+        flux_term_down = min(1e10*sm.props.dm[k]/sm.props.dt, flux_term_down)
+        flux_down = flux_term_down*(X00-Xm1)
     end
     dXdt_mix =  (flux_up - flux_down)/(sm.props.dm[k])
+    # We do not use a dual for Xi as this quantity is fixed through the timestep.
+    Xi = get_value(sm.start_step_props.xa[k, sm.network.xa_index[iso_name]])
 
-    Xi = get_value(sm.start_step_props.xa[k, sm.network.xa_index[iso_name]])  # is never a dual!!
-
-    return ((X00 - Xi) / sm.props.dt - dXdt_nuc - dXdt_mix)
+    return ((X00 - Xi) -  (dXdt_nuc + dXdt_mix)*sm.props.dt)
 end
