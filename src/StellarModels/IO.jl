@@ -88,7 +88,8 @@ add_profile_option("D_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[
 
 Creates output files for history and profile data
 """
-function create_output_files!(sm::StellarModel)
+function create_output_files!(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
+    TEOS,TKAP,TNET, TTURB, TSOLVER}) where {TNUMBER, TDUALFULL, TPROPS, TEOS, TKAP, TNET, TTURB, TSOLVER}
     # Create history file
     sm.history_file = h5open(sm.opt.io.hdf5_history_filename, "w")
     data_cols = sm.opt.io.history_values
@@ -168,7 +169,7 @@ function write_data(sm::StellarModel)
             history = sm.history_file["history"]
             HDF5.set_extent_dims(history, (size(history)[1] + 1, ncols))
             for i in eachindex(data_cols)
-                history[end, i] = history_output_functions[data_cols[i]](sm)
+                history[end, i] = history_output_functions[data_cols[i]](sm) #it happens here
             end
             if (!sm.opt.io.hdf5_history_keep_open)
                 close(sm.history_file)

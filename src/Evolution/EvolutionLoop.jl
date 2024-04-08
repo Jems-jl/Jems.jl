@@ -187,7 +187,7 @@ function do_evolution_loop!(sm::StellarModel)
 
         # write state in sm.props and potential history/profiles.
         StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
-        StellarModels.write_data(sm)
+        StellarModels.write_data(sm) #write data 
         StellarModels.write_terminal_info(sm)
 
         if sm.opt.plotting.do_plotting && sm.props.model_number == 1

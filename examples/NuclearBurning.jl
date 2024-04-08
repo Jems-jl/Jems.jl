@@ -20,7 +20,7 @@ using ForwardDiff
 #make tags for internal and external differentiation use
 #the external tag is the 'inner tag' in the code, because these derivatives
 #are taken along the entire ride through the code, while the internal use tages
-#are only used at specific points and then dropped again
+#are only used at specific points for local use and then dropped again
 import ForwardDiff.Tag
 import ForwardDiff.Dual
 tag_external = Tag{:external, nothing}
@@ -31,7 +31,6 @@ ForwardDiff.tagcount(tag_internal)
 #define tags uniquely, safer when doing some notebook jumping
 #tag_external = DualSupport.simple_tag()
 #tag_internal = DualSupport.simple_tag()
-
 
 #
 
@@ -61,7 +60,8 @@ turbulence = Turbulence.BasicMLT(1.0)
 
 
 
-dummy_dual = ForwardDiff.Dual{tag_external}(5.0,1.0) #this is what an external dual looks like, the code likes to know this
+dummy_dual = ForwardDiff.Dual{tag_external}(5.0,0.0,0.0,0.0,0.0,0.0) 
+#this is what an external dual looks like, the code likes to know this
 sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence, number_type = typeof(dummy_dual), tag = tag_internal);
 
 ##
@@ -82,11 +82,11 @@ At last we are in position to evaluate the kequations and compute the Jacobian.
 println("############################")
 n = 3
 #define dual input numbers, all partial derivatives are with respect to the mass
-X_dual         = ForwardDiff.Dual{tag_external}(0.7154,0.0) #(value, derivative to mass)
-Z_dual         = ForwardDiff.Dual{tag_external}(0.0142,0.0)
-Dfraction_dual = ForwardDiff.Dual{tag_external}(0.0,0.0)
-mass_dual      = ForwardDiff.Dual{tag_external}(1.0*MSUN,1.0) 
-R_dual         = ForwardDiff.Dual{tag_external}(100*RSUN,0.0)
+X_dual         = ForwardDiff.Dual{tag_external}(0.7154,  1.0,0.0,0.0,0.0,0.0) #(value, derivative to mass)
+Z_dual         = ForwardDiff.Dual{tag_external}(0.0142,  0.0,1.0,0.0,0.0,0.0)
+Dfraction_dual = ForwardDiff.Dual{tag_external}(0.0,     0.0,0.0,1.0,0.0,0.0)
+mass_dual      = ForwardDiff.Dual{tag_external}(1.0*MSUN,0.0,0.0,0.0,1.0,0.0)
+R_dual         = ForwardDiff.Dual{tag_external}(100*RSUN,0.0,0.0,0.0,0.0,1.0)
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_dual,Chem.abundance_lists[:ASG_09],mass_dual, R_dual; initial_dt=10 * SECYEAR)
 StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
 Evolution.cycle_props!(sm);
@@ -159,11 +159,11 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 2000
+          max_model_number = 200
           max_center_T = 1e8
 
           [plotting]
-          do_plotting = true
+          do_plotting = false
           wait_at_termination = false
           plotting_interval = 1
 
