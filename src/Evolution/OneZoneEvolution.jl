@@ -10,13 +10,14 @@ function get_dt_next(oz::OneZone)
     min_dt = dt_next * oz.opt.timestep.dt_max_decrease
     dt_next = min(oz.opt.timestep.dt_max_increase * dt_next, dt_nextX)
     dt_next = max(dt_next, min_dt)
+    dt_next = min(dt_next, oz.opt.timestep.max_dt * SECYEAR)
     return dt_next
 end
 
 function do_one_zone_burn!(oz::OneZone)
     # before loop actions
     StellarModels.create_output_files!(oz)
-    StellarModels.evaluate_one_zone_properties!(oz, oz.props)  # set the initial condition as the result of a previous phantom step
+    StellarModels.evaluate_model_properties!(oz, oz.props)  # set the initial condition as the result of a previous phantom step
     retry_count = 0
 
     # evolution loop, be sure to have sensible termination conditions or this will go on forever!
@@ -65,7 +66,7 @@ function do_one_zone_burn!(oz::OneZone)
 
             # evaluate the equations after correction and get residuals
             try
-                StellarModels.evaluate_one_zone_properties!(oz, oz.props)
+                StellarModels.evaluate_model_properties!(oz, oz.props)
                 eval_jacobian_eqs!(oz)  # heavy lifting happens here!
 
                 (max_res, i_res) = findmax(abs, equs)
@@ -126,7 +127,7 @@ function do_one_zone_burn!(oz::OneZone)
         oz.props.model_number += 1
 
         # write state in oz.props and potential history/profiles.
-        StellarModels.evaluate_one_zone_properties!(oz, oz.props)
+        StellarModels.evaluate_model_properties!(oz, oz.props)
         StellarModels.write_data(oz)
         StellarModels.write_terminal_info(oz)
 

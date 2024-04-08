@@ -133,7 +133,7 @@ Evaluates the stellar model properties `props` from the `ind_vars` array. The go
 StellarModel so we can easily get properties like rates, eos, opacity values, and retrace if a retry is called.
 This does _not_ update the mesh/ind_vars arrays.
 """
-function evaluate_one_zone_properties!(oz, props::OneZoneProperties{TN,TDual}) where {TN<:Real,TDual<:ForwardDiff.Dual}
+function evaluate_model_properties!(oz, props::OneZoneProperties{TN,TDual}) where {TN<:Real,TDual<:ForwardDiff.Dual}
     # update independent variables
     for j = 1:(oz.network.nspecies)
         update_cell_dual_data_value!(props.xa[j], props.ind_vars[oz.nvars - oz.network.nspecies + j])
