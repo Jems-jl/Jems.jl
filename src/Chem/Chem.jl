@@ -40,7 +40,11 @@ function get_isotope_list()
             Z = parse(Int64, split(readline(io), " = ")[2]) # Read atomic number
             name = split(readline(io), " = ")[2] # Read name
             A = parse(Int64, split(readline(io), " = ")[2]) # Read mass number
-            name_symbol = Symbol(name, A) # create symbol for dictionary
+            if name == "n"
+                name_symbol = Symbol(name)
+            else
+                name_symbol = Symbol(name, A) # create symbol for dictionary
+            end
             mass = parse(Float64, split(split(readline(io), " = ")[2], "(")[1]) # Read
             # atomic number
             isotope_list[name_symbol] = Isotope(Z, A, name, mass)
