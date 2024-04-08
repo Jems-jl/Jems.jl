@@ -6,6 +6,7 @@ const colors = Iterators.cycle(Makie.wong_colors())
 const label_dict = Dict("mass" => L"m / M_\odot",
                         "zone" => L"\mathrm{zone}",
                         "dm" => L"dm / \mathrm{g}",
+                        "model_number" => L"\mathrm{model number}",
 
                         "dt" => L"dt / \mathrm{s}",
                         "age" => L"\mathrm{age} / \mathrm{year}",
@@ -32,6 +33,10 @@ const label_dict = Dict("mass" => L"m / M_\odot",
                         "X_center" => L"X_\mathrm{center}",
                         "Y_center" => L"Y_\mathrm{center}",
 
+                        "T" => L"T / \mathrm{K}",
+
+
+                        "n" => L"n",
                         "H1" => L"^1H", "D2" => L"^2H",
                         "He3" => L"^3He", "He4" => L"^4He",
                         "Li7" => L"^7Li", "Be7" => L"^7Be",
