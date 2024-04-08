@@ -18,17 +18,10 @@ function thomas_algorithm!(sm)
     solver_x = sm.solver_data.solver_x
     solver_β = sm.solver_data.solver_β
     solver_corr = sm.solver_data.solver_corr
-    ## Simple diagonal pre-conditioning
-    #for i in 1:sm.nz
-    #    inv_D = inv(jacobian_D[i])
-    #    b_i = @view eqs_numbers[sm.nvars*(i-1)+1:sm.nvars*i]
-    #    jacobian_D[i] .= inv_D*jacobian_D[i]
-    #    jacobian_L[i] .= inv_D*jacobian_L[i]
-    #    jacobian_U[i] .= inv_D*jacobian_U[i]
-    #    b_i .= inv_D*b_i
-    #end
 
     # Simple row preconditioning, divide each row by its maximum value
+    # this is turned off by default as it seems to not change much. If we end up
+    # using at some point it needs to be optimized
     if sm.opt.solver.use_preconditioning
         for i in 1:sm.props.nz
             for j in 1:sm.nvars
