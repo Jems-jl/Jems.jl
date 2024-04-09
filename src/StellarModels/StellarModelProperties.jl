@@ -26,6 +26,7 @@ abstract type AbstractStellarModelProperties end
     lnρ::Vector{TCellDualData}  # [g cm^-3]
     lnr::Vector{TCellDualData}  # [cm]
     L::Vector{TCellDualData}    # Lsun
+    convfrac::Vector{TCellDualData}    # unitless
     xa::Matrix{TCellDualData}   # dim-less
     xa_dual::Matrix{TDual}      # only the cell duals wrt itself
 
@@ -80,11 +81,12 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
     lnρ = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnρ]) for i in 1:(nz+nextra)]
     lnr = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnr]) for i in 1:(nz+nextra)]
     L = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lum]) for i in 1:(nz+nextra)]
+    convfrac = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:convfrac]) for i in 1:(nz+nextra)]
     xa = Matrix{CDDTYPE}(undef,nz+nextra, nspecies)
     for k in 1:(nz+nextra)
         for i in 1:nspecies
             xa[k,i] = CellDualData(nvars, TN;
-                        is_ind_var=true, ind_var_i=4+i)
+                        is_ind_var=true, ind_var_i=5+i) # 5 in here is the number of non-composition variables being solved
         end
     end
 
@@ -138,6 +140,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                   lnρ=lnρ,
                                   lnr=lnr,
                                   L=L,
+                                  convfrac=convfrac,
                                   xa=xa,
                                   xa_dual=xa_dual,
                                   lnP_face=lnP_face,
@@ -167,6 +170,7 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
     lnρ_i = sm.vari[:lnρ]
     lnr_i = sm.vari[:lnr]
     L_i = sm.vari[:lum]
+    convfrac_i = sm.vari[:convfrac]
 
     Threads.@threads for i in 1:props.nz
         # update independent variables
@@ -174,6 +178,7 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         update_cell_dual_data_value!(props.lnρ[i], props.ind_vars[(i-1)*(sm.nvars)+lnρ_i])
         update_cell_dual_data_value!(props.lnr[i], props.ind_vars[(i-1)*(sm.nvars)+lnr_i])
         update_cell_dual_data_value!(props.L[i], props.ind_vars[(i-1)*(sm.nvars)+L_i])
+        update_cell_dual_data_value!(props.convfrac[i], props.ind_vars[(i-1)*(sm.nvars)+convfrac_i])
         for j in 1:sm.network.nspecies
             update_cell_dual_data_value!(props.xa[i,j],
                             props.ind_vars[(i-1)*(sm.nvars)+(sm.nvars - sm.network.nspecies + j)])

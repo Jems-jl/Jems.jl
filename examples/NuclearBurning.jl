@@ -28,12 +28,13 @@ simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple 
 to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
 
-varnames = [:lnρ, :lnT, :lnr, :lum]
-varscaling = [:log, :log, :log, :maxval]
+varnames = [:lnρ, :lnT, :lnr, :lum, :convfrac]
+varscaling = [:log, :log, :log, :maxval, :none]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
-                       Evolution.equationContinuity, Evolution.equationLuminosity]
+                       Evolution.equationContinuity, Evolution.equationLuminosity,
+                       Evolution.equationConvFrac]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
-                          StellarModels.split_lnT, StellarModels.split_xa]
+                          StellarModels.split_lnT, StellarModels.split_xa, StellarModels.split_convfrac]
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 nz = 1000
 nextra = 100
@@ -121,9 +122,9 @@ open("example_options.toml", "w") do file
           initial_model_scale_max_correction = 0.2
           newton_max_iter = 50
           scale_max_correction = 0.1
-          report_solver_progress = true
+          report_solver_progress = false
           solver_progress_iter = 1
-          maximum_residual_tolerance = 1e-1
+          relative_correction_tolerance = 1e10
 
           [timestep]
           dt_max_increase = 1.5

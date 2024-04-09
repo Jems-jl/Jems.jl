@@ -123,7 +123,7 @@ function do_evolution_loop!(sm::StellarModel)
                 if sm.var_scaling[j] == :log || sm.var_scaling[j] == :unity
                     correction_multiplier = min(correction_multiplier,
                                                     correction_limit/max_sub_corr)
-                else
+                elseif sm.var_scaling[j] == :maxval
                     sub_ind_vars = @view sm.props.ind_vars[j:sm.nvars:(sm.nvars*(sm.props.nz-1)+j)]
                     max_var_value = maximum(abs, sub_ind_vars)
                     correction_multiplier = min(correction_multiplier,
@@ -135,7 +135,7 @@ function do_evolution_loop!(sm::StellarModel)
                 corr .*= correction_multiplier
             end
 
-            # first try applying correction and see if it would give negative luminosity
+            # apply correction!
             sm.props.ind_vars[1:sm.nvars*sm.props.nz] .+= corr[1:sm.nvars*sm.props.nz]
             sm.solver_data.newton_iters = i
 
