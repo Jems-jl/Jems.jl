@@ -228,6 +228,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfra
 
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]] = log(ρ)
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = lnT
+        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:convfrac]] = 0
 
         #set mass fractions
         for (isotope, massfraction) in massfractions
