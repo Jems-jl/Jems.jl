@@ -2,21 +2,20 @@
     JinaReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
 
 Struct that holds the following information for a given reaction rate:
-    name: name of the reaction as a symbol
-    iso_in: vector that contains all elements on the LHS of the reaction
-    iso_out: vector that contains all elements on the RHS of the reaction
-    Qvalue: Q-value of the reaction
-    coeff: different a_i values of the reaction. Contains a vector of 7 values
-    set_label: Symbol containing set label of the reaction
-    res_rate: A 1 character flag symbol:
-        when blank or n it is a non-resonant rate
-        when r it is a resonant rate
-        when w it is a weak rate.
-    rev_rate: a 1 character flag symbol which is set to 'v' when it is a reverse rate.
-    chapter: chapter this reaction is in
 
+- name: name of the reaction as a symbol
+- iso\\_in: vector that contains all elements on the LHS of the reaction
+- iso\\_out: vector that contains all elements on the RHS of the reaction
+- Qvalue: Q-value of the reaction (in erg)
+- coeff: different a\\_i values of the reaction. Contains a vector of 7 values
+- set_label: Symbol containing set label of the reaction
+- res_rate: A 1 character flag symbol:
+    - when blank or n it is a non-resonant rate
+    - when r it is a resonant rate
+    - when w it is a weak rate.
+- rev_rate: a 1 character flag symbol which is set to 'v' when it is a reverse rate.
+- chapter: chapter this reaction is in
 """
-
 struct JinaReactionRate{TT<:Real} <: ReactionRates.AbstractReactionRate
     name::Symbol
     iso_in::Vector{Symbol}
@@ -37,16 +36,16 @@ end
     add_to_references(main_dict, ref_dict, reaction, new_info::JinaReactionRate)
 
 Function to identify rates with the same reaction equation
-Evaluates if a reaction rate is already in the reference dictionary ref_dict
+Evaluates if a reaction rate is already in the reference dictionary `ref_dict`
 
-If the reaction rate does not exist allready in the reference dictionary:
+If the reaction rate does not exist already in the reference dictionary:
 added as a new key to the reference dictionary
 the value of the key is a list containing all variations of the specific reaction
 the reaction will be added to the main dictionary
 
-If the reaction rate allready exists in the reference dictionary:
+If the reaction rate already exists in the reference dictionary:
 keys in the main dictionary update so they have unique keys
-value of the key of the reaction in ref_dict is updated so all the unique versions of the rate are in
+value of the key of the reaction in `ref_dict` is updated so all the unique versions of the rate are in
 """
 function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReactionRate)
 
@@ -54,8 +53,6 @@ function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReaction
     # ref_dict  = dictionary containing all unique versions of each reaction rates
     # reaction  = Symbol of the reaction that has to be added to the main dictionary
     # new_info  = JinaReactionRate of the new rate
-
-    # new info die de nieuwe reactie van de oude onderscheid
 
     new_set_label = new_info.set_label
     new_res_rate = new_info.res_rate
@@ -65,34 +62,26 @@ function add_to_references(main_dict, ref_dict, reaction, new_info::JinaReaction
     reaction_string_new = replace(reaction_string_new, ' ' => 'x')
     reaction_symbol_new = Symbol(replace(reaction_string_new, '+' => "plus"))
 
-    if haskey(ref_dict, reaction) # als de reference dictionary al deze reactie heeft
+    if haskey(ref_dict, reaction)
 
-        # nieuwe reaction naam
-
+        # build new reaction name
         reaction_string_short = "$(reaction)_$(new_set_label)_$(new_res_rate)_$(new_rev_rate)"
         reaction_string_short = replace(reaction_string_short, ' ' => 'x')
         reaction_symbol_short = Symbol(replace(reaction_string_short, '+' => "plus"))
 
-        # checken op dubbels
+        # check if this name is in the sublist of ref_dict
+        list = ref_dict[reaction]
 
-        list = ref_dict[reaction]           # huidige list van die reactie
-
-        if reaction_symbol_new in list  # als het al bestaat
+        if reaction_symbol_new in list
             new_list = [Symbol(string(symbol)[1:(end - 2)]) for symbol in list]
-            curr_amount = count(x -> x == reaction_symbol_short, new_list)              # telen hoeveel ervan al zijn
-            reaction_symbol_new = Symbol("$(reaction_symbol_short)_$(curr_amount)")     # reaction_symbol_new aanpassen met dit getal erbij
+            curr_amount = count(x -> x == reaction_symbol_short, new_list)  # count how many match the short name
+            reaction_symbol_new = Symbol("$(reaction_symbol_short)_$(curr_amount)")  # reaction_symbol_new is appended with this number
         end
 
-        # toevoegen aan de list van deze reaction in References
+        push!(list, reaction_symbol_new)   # add to the ref_dist sublist
+        main_dict[reaction_symbol_new] = new_info  # add to main dict with the long key name
 
-        push!(list, reaction_symbol_new)    # de nieuwe reactie toevoegen
-        ref_dict[reaction] = list           # de lijst updaten als parameter in References
-
-        # De reactie toevoegen aan de algemene dictionary
-
-        main_dict[reaction_symbol_new] = new_info
-
-    else    # de reference dictionary heeft deze reactie nog niet heeft --> de eerste van zijn soort
+    else  # reference dictionary doesn't have reaction yet --> first of its kind
         ref_dict[reaction] = [reaction_symbol_new]
         main_dict[reaction_symbol_new] = new_info
     end
@@ -101,10 +90,8 @@ end
 """
     correct_names(JINA_name)
 
-This function will return the name that corresponds with the JEMS isotope database
-
-JINA_name is the name of the element as it is given in the JINA library (without the extra spaces) as a string
-RETURN_name is the corrected name given as a string
+Returns the name that corresponds with the JEMS isotope database, given `JINA_name`, the name of the element as it is
+given in the JINA library (without the extra spaces).
 """
 function correct_names(JINA_name)
     change_name = Dict("p" => "H1", "d" => "D2", "t" => "T3", "n" => "n")
@@ -119,17 +106,14 @@ function correct_names(JINA_name)
 end
 
 """
-    function to arrange the elements needed for the reaction and the N of each element
+    function sort_reaction(elements)
 
-        * uitleg*
+Extracts the unique elements and the amount of times they appear in the list `elements`.
 """
 function sort_reaction(elements)
-    # LHS_elements = reaction.iso_in
-    # RHS_elements = reaction.iso_out --> kan nog niet want reaction bestaat nog niet
+    sorted_elements = Dict{Symbol,Int}()  # dict mapping how may times an element occurs on the LHS of reaction
 
-    sorted_elements = Dict{Symbol,Int}()       # dict met per element aan een kant het aantal keer dat het voorkomt
-
-    for element in elements
+    for element in elements  # do the counting
         if haskey(sorted_elements, element)
             sorted_elements[element] += 1
         else
@@ -137,20 +121,30 @@ function sort_reaction(elements)
         end
     end
 
-    # sorted_elements = sort(sorted_elements)     # sort alphabetically
-
-    elements_return = collect(keys(sorted_elements))         # elements that occur on the LHS
-    N_elements_return = collect(values(sorted_elements))       # reaction.num_iso_in     # how many times they occur on the LHS
-
-    return_array = [elements_return, N_elements_return]
-
-    return return_array
+    elements_return = collect(keys(sorted_elements))  # unique elements that occur on the LHS
+    N_elements_return = collect(values(sorted_elements))  # will equal reaction.num_iso_in, how many times they occur
+    return [elements_return, N_elements_return]
 end
 
 """
-    read_dataset(dataset, dictionary, reference_dictionary)
+    function read_dataset(dataset, dictionary, reference_dictionary)
 
-    * explanation *
+Parses a large string object `dataset`, containing JINA reaction rate data, into a main dictionary and a reference
+dictionary. The main dictionary has entries with unique keys for every reaction rate in the database (double entries
+are distinguised with `_0`, `_1` at the end of their key Symbol), while the reference dictionary has one entry per
+reaction equation, but has as value a list of all JINA rates for that reaction equation.
+
+_Example:_ if H1 + H1 -> D2 has two rates in the JINA database, main dictionary will contain:
+```
+dictionary[:H1_H1_to_D2_0] = _rate_info_(...)
+dictionary[:H1_H1_to_D2_1] = _rate_info_(...)
+```
+while the reference dict will contain:
+```
+reference_dictionary[:H1_H1_to_D2] = [:H1_H1_to_D2_0, :H1_H1_to_D2_1]
+```
+For rates with only one entry in the JINA database, only an "_0" entry is made in the main dictionary, and the reference
+dictionary contains the list with only that one key.
 """
 function read_dataset(dataset, dictionary, reference_dictionary)
     chap = 0
@@ -404,9 +398,12 @@ function read_dataset(dataset, dictionary, reference_dictionary)
 end
 
 """
-    get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT}, xa_index::Dict{Symbol,Int})
 
-    * explanation *
+    get_reaction_rate(reaction::JinaReactionRate, T::T1, ρ::T2, xa::AbstractVector{TT}, 
+                      xa_index::Dict{Symbol,Int})
+
+Evaluates the reaction rate, in s^{-1}g^{-1}, given an equation of state result for the relevant cell, is abundances and
+index array, by computing Eqs. 1 and 2 from Cyburt+2010.
 """
 function get_reaction_rate(reaction::JinaReactionRate, T::T1, ρ::T2, xa::AbstractVector{TT},
                            xa_index::Dict{Symbol,Int})::TT where {TT,T1,T2}
@@ -419,7 +416,7 @@ function get_reaction_rate(reaction::JinaReactionRate, T::T1, ρ::T2, xa::Abstra
     x = a[1] + a[7] * log(T_9)
 
     for i = 2:6
-        x += a[i] * T_9^((2(i - 1) - 5) / 3)
+        x += a[i] * cbrt(T_9^((2(i - 1) - 5)))
     end
 
     λ = exp(x)
@@ -447,7 +444,6 @@ function get_reaction_rate(reaction::JinaReactionRate, T::T1, ρ::T2, xa::Abstra
         # println("ν = ", ν)
         factor_elem = Y_elem^(N_elem) / factorial(N_elem)
         # println("factor_elem = ", factor_elem)
-
         factors *= factor_elem
 
     end
