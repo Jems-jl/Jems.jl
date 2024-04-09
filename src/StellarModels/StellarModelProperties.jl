@@ -3,7 +3,8 @@ using Jems.Turbulence
 
 abstract type AbstractStellarModelProperties end
 
-@kwdef mutable struct StellarModelProperties{TN, TDual, TDualFace, TCellDualData, TFaceDualData} <: AbstractStellarModelProperties
+@kwdef mutable struct StellarModelProperties{TN,TDual,TDualFace,TCellDualData,TFaceDualData} <:
+                      AbstractStellarModelProperties
     # scalar quantities
     dt::TN  # Timestep of the current evolutionary step (s)
     dt_next::TN
@@ -37,6 +38,7 @@ abstract type AbstractStellarModelProperties end
     # rates (cell centered)
     rates::Matrix{TCellDualData}  # g^-1 s^-1
     rates_dual::Matrix{TDual}     # only cell duals wrt itself
+    eps_nuc::Vector{TN}
 
     # face values
     lnP_face::Vector{TFaceDualData}  # [dyne]
@@ -53,28 +55,29 @@ abstract type AbstractStellarModelProperties end
     # flux term for mixing equations (4πr^2ρ)^2 D / dm
     flux_term::Vector{TFaceDualData}
 
+    ϵ_nuc::Vector{TN}
+
     mixing_type::Vector{Symbol}
 end
 
-function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
-                                nrates::Int, nspecies::Int, vari::Dict{Symbol, Int},
+function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, nspecies::Int, vari::Dict{Symbol,Int},
                                 ::Type{TN}) where {TN<:Real}
 
     # define the types
-    CDDTYPE = CellDualData{nvars+1,3*nvars+1,TN}  # full dual arrays
-    FDDTYPE = FaceDualData{2*nvars+1,3*nvars+1,TN}
+    CDDTYPE = CellDualData{nvars + 1,3 * nvars + 1,TN}  # full dual arrays
+    FDDTYPE = FaceDualData{2 * nvars + 1,3 * nvars + 1,TN}
     TD = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, nvars))...))  # only the cell duals
-    TDF = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, 2*nvars))...))  # only the face duals
+    TDF = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, 2 * nvars))...))  # only the face duals
 
     # create the vector containing the independent variables
     ind_vars = zeros(TN, nvars * (nz + nextra))
 
     # result containers
-    eos_res_dual = [EOSResults{TD}() for i in 1:(nz+nextra)]
-    eos_res = [EOSResults{CDDTYPE}() for i in 1:(nz+nextra)]
+    eos_res_dual = [EOSResults{TD}() for i = 1:(nz + nextra)]
+    eos_res = [EOSResults{CDDTYPE}() for i = 1:(nz + nextra)]
 
-    turb_res_dual = [TurbResults{TDF}() for i in 1:(nz+nextra)]
-    turb_res = [TurbResults{FDDTYPE}() for i in 1:(nz+nextra)]
+    turb_res_dual = [TurbResults{TDF}() for i = 1:(nz + nextra)]
+    turb_res = [TurbResults{FDDTYPE}() for i = 1:(nz + nextra)]
 
     # unpacked ind_vars
     lnT = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnT]) for i in 1:(nz+nextra)]
@@ -90,12 +93,12 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
         end
     end
 
-    xa_dual = zeros(TD, nz+nextra, nspecies)
-    rates_dual = zeros(TD, nz+nextra, nrates)
+    xa_dual = zeros(TD, nz + nextra, nspecies)
+    rates_dual = zeros(TD, nz + nextra, nrates)
 
     # mesh
-    m = zeros(TN, nz+nextra)
-    dm = zeros(TN, nz+nextra)
+    m = zeros(TN, nz + nextra)
+    dm = zeros(TN, nz + nextra)
 
     # for some reason using zeros just creates a bunch of instances of the same object
     # so we just initialize a vector of undef
@@ -121,14 +124,14 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
         flux_term[k] = FaceDualData(nvars, TN)
     end
 
-    rates = Matrix{CDDTYPE}(undef, nz+nextra, nrates)
-    for k in 1:(nz+nextra)
-        for i in 1:nrates
-            rates[k,i] = CellDualData(nvars, TN)
+    rates = Matrix{CDDTYPE}(undef, nz + nextra, nrates)
+    for k = 1:(nz + nextra)
+        for i = 1:nrates
+            rates[k, i] = CellDualData(nvars, TN)
         end
     end
 
-    return StellarModelProperties(;ind_vars=ind_vars, model_number=zero(Int),
+    return StellarModelProperties(; ind_vars=ind_vars, model_number=zero(Int),
                                   nz=nz, m=m, dm=dm, mstar=zero(TN),
                                   dt=zero(TN), dt_next=zero(TN), time=zero(TN),
                                   eos_res_dual=eos_res_dual,
@@ -152,7 +155,9 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int,
                                   ∇ᵣ=∇ᵣ,
                                   κ=κ,
                                   rates=rates,
+                                  ϵ_nuc=zeros(nz + nextra),
                                   rates_dual=rates_dual,
+                                  eps_nuc=zeros(nz + nextra),
                                   mixing_type=mixing_type)
 end
 
@@ -164,15 +169,16 @@ Evaluates the stellar model properties `props` from the `ind_vars` array. The go
 StellarModel so we can easily get properties like rates, eos, opacity values, and retrace if a retry is called.
 This does _not_ update the mesh/ind_vars arrays.
 """
-function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN, TDual, TCellDualData}) where
-                                                {TN<:Real, TDual<:ForwardDiff.Dual, TCellDualData}
+function evaluate_stellar_model_properties!(sm,
+                                            props::StellarModelProperties{TN,TDual,TCellDualData}) where
+         {TN<:Real,TDual<:ForwardDiff.Dual,TCellDualData}
     lnT_i = sm.vari[:lnT]
     lnρ_i = sm.vari[:lnρ]
     lnr_i = sm.vari[:lnr]
     L_i = sm.vari[:lum]
     convfrac_i = sm.vari[:convfrac]
 
-    Threads.@threads for i in 1:props.nz
+    Threads.@threads for i = 1:(props.nz)
         # update independent variables
         update_cell_dual_data_value!(props.lnT[i], props.ind_vars[(i-1)*(sm.nvars)+lnT_i])
         update_cell_dual_data_value!(props.lnρ[i], props.ind_vars[(i-1)*(sm.nvars)+lnρ_i])
@@ -187,11 +193,10 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
 
         lnT = get_cell_dual(props.lnT[i])
         lnρ = get_cell_dual(props.lnρ[i])
-        xa = @view props.xa_dual[i,:]
+        xa = @view props.xa_dual[i, :]
 
         # evaluate EOS
-        set_EOS_resultsTρ!(sm.eos, props.eos_res_dual[i], lnT, lnρ,
-                            xa, sm.network.species_names)
+        set_EOS_resultsTρ!(sm.eos, props.eos_res_dual[i], lnT, lnρ, xa, sm.network.species_names)
         #names = fieldnames(EOSResults)
         #for name in names
         #    dual = getfield(props.eos_res_dual[i], name)
@@ -217,19 +222,30 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         update_cell_dual_data!(props.eos_res[i].Γ₁, props.eos_res_dual[i].Γ₁)
 
         # evaluate opacity
-        κ_dual = get_opacity_resultsTρ(sm.opacity, lnT, lnρ,
-                    xa, sm.network.species_names)
+        κ_dual = get_opacity_resultsTρ(sm.opacity, lnT, lnρ, xa, sm.network.species_names)
         update_cell_dual_data!(props.κ[i], κ_dual)
 
-        ∇ᵣ_dual = 3 * get_00_dual(props.κ[i]) * get_00_dual(props.L[i])*LSUN * exp(get_00_dual(props.eos_res[i].lnP)) /
-                    (16π * CRAD * CLIGHT * CGRAV * props.m[i] * exp(4*get_00_dual(props.lnT[i])))
+        ∇ᵣ_dual = 3 * get_00_dual(props.κ[i]) * get_00_dual(props.L[i]) * LSUN *
+                  exp(get_00_dual(props.eos_res[i].lnP)) /
+                  (16π * CRAD * CLIGHT * CGRAV * props.m[i] * exp(4 * get_00_dual(props.lnT[i])))
         update_cell_dual_data!(props.∇ᵣ[i], ∇ᵣ_dual)
 
         # evaluate rates
-        rates = @view props.rates_dual[i,:]
+        rates = @view props.rates_dual[i, :]
         set_rates_for_network!(rates, sm.network, props.eos_res_dual[i], xa)
         for j in eachindex(rates)
-            update_cell_dual_data!(props.rates[i,j], rates[j])
+            update_cell_dual_data!(props.rates[i, j], rates[j])
+        end
+
+        # compute eps_nuc
+        props.eps_nuc[i] = 0.0
+        for j in eachindex(rates)
+            props.eps_nuc[i] += sm.network.reactions[j].Qvalue * rates[j].value  # [1] because I need the float
+        end
+
+        props.ϵ_nuc[i] = 0.0
+        for j in eachindex(rates)
+            props.ϵ_nuc[i] += rates[j].value * sm.network.reactions[j].Qvalue
         end
 
         # TODO: this comparison mixes face and cell values
@@ -241,43 +257,43 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
     end
 
     # do face values next
-    Threads.@threads for i in 1:props.nz - 1
+    Threads.@threads for i = 1:(props.nz - 1)
         κ00 = get_face_00_dual(props.κ[i])
-        κp1 = get_face_p1_dual(props.κ[i+1])
+        κp1 = get_face_p1_dual(props.κ[i + 1])
         κface_dual = exp((props.dm[i] * log(κ00) + props.dm[i + 1] * log(κp1)) / (props.dm[i] + props.dm[i + 1]))
         update_face_dual_data!(props.κ_face[i], κface_dual)
 
         lnP₀ = get_face_00_dual(props.eos_res[i].lnP)
-        lnP₊ = get_face_p1_dual(props.eos_res[i+1].lnP)
-        lnP_face_dual = (props.dm[i] * lnP₀ + props.dm[i + 1] * lnP₊)/(props.dm[i] + props.dm[i + 1])
+        lnP₊ = get_face_p1_dual(props.eos_res[i + 1].lnP)
+        lnP_face_dual = (props.dm[i] * lnP₀ + props.dm[i + 1] * lnP₊) / (props.dm[i] + props.dm[i + 1])
         update_face_dual_data!(props.lnP_face[i], lnP_face_dual)
 
         lnρ₀ = get_face_00_dual(props.eos_res[i].lnρ)
-        lnρ₊ = get_face_p1_dual(props.eos_res[i+1].lnρ)
-        lnρ_face_dual = (props.dm[i] * lnρ₀ + props.dm[i + 1] * lnρ₊)/(props.dm[i] + props.dm[i + 1])
+        lnρ₊ = get_face_p1_dual(props.eos_res[i + 1].lnρ)
+        lnρ_face_dual = (props.dm[i] * lnρ₀ + props.dm[i + 1] * lnρ₊) / (props.dm[i] + props.dm[i + 1])
         update_face_dual_data!(props.lnρ_face[i], lnρ_face_dual)
 
         lnT₀ = get_face_00_dual(props.eos_res[i].lnT)
-        lnT₊ = get_face_p1_dual(props.eos_res[i+1].lnT)
-        lnT_face_dual = (props.dm[i] * lnT₀ + props.dm[i + 1] * lnT₊)/(props.dm[i] + props.dm[i + 1])
+        lnT₊ = get_face_p1_dual(props.eos_res[i + 1].lnT)
+        lnT_face_dual = (props.dm[i] * lnT₀ + props.dm[i + 1] * lnT₊) / (props.dm[i] + props.dm[i + 1])
         update_face_dual_data!(props.lnT_face[i], lnT_face_dual)
 
         ∇ₐ_00 = get_face_00_dual(props.eos_res[i].∇ₐ)
-        ∇ₐ_p1 = get_face_p1_dual(props.eos_res[i+1].∇ₐ)
-        ∇ₐ_face_dual = (props.dm[i] * ∇ₐ_00 + props.dm[i + 1] * ∇ₐ_p1)/(props.dm[i] + props.dm[i + 1])
+        ∇ₐ_p1 = get_face_p1_dual(props.eos_res[i + 1].∇ₐ)
+        ∇ₐ_face_dual = (props.dm[i] * ∇ₐ_00 + props.dm[i + 1] * ∇ₐ_p1) / (props.dm[i] + props.dm[i + 1])
         update_face_dual_data!(props.∇ₐ_face[i], ∇ₐ_face_dual)
 
-        L₀_dual = get_face_00_dual(props.L[i])*LSUN
+        L₀_dual = get_face_00_dual(props.L[i]) * LSUN
         ∇ᵣ_dual = 3κface_dual * L₀_dual * exp(lnP_face_dual) /
-                    (16π * CRAD * CLIGHT * CGRAV * props.m[i] * exp(4*lnT_face_dual))
+                  (16π * CRAD * CLIGHT * CGRAV * props.m[i] * exp(4 * lnT_face_dual))
         update_face_dual_data!(props.∇ᵣ_face[i], ∇ᵣ_dual)
 
         δ_00 = get_face_00_dual(props.eos_res[i].δ)
-        δ_p1 = get_face_p1_dual(props.eos_res[i+1].δ)
-        δ_face_dual = (props.dm[i] * δ_00 + props.dm[i + 1] * δ_p1)/(props.dm[i] + props.dm[i + 1])
+        δ_p1 = get_face_p1_dual(props.eos_res[i + 1].δ)
+        δ_face_dual = (props.dm[i] * δ_00 + props.dm[i + 1] * δ_p1) / (props.dm[i] + props.dm[i + 1])
         cₚ_00 = get_face_00_dual(props.eos_res[i].cₚ)
-        cₚ_p1 = get_face_p1_dual(props.eos_res[i+1].cₚ)
-        cₚ_face_dual = (props.dm[i] * cₚ_00 + props.dm[i + 1] * cₚ_p1)/(props.dm[i] + props.dm[i + 1])
+        cₚ_p1 = get_face_p1_dual(props.eos_res[i + 1].cₚ)
+        cₚ_face_dual = (props.dm[i] * cₚ_00 + props.dm[i + 1] * cₚ_p1) / (props.dm[i] + props.dm[i + 1])
 
         r_dual = exp(get_face_00_dual(props.lnr[i]))
         ρ_face_dual = exp(lnρ_face_dual)
@@ -294,7 +310,6 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         flux_term_dual = (4π*r_dual^2*ρ_face_dual)^2*props.turb_res_dual[i].D_turb/
                             (0.5*(sm.props.dm[i]+sm.props.dm[i+1]))
         update_face_dual_data!(props.flux_term[i], flux_term_dual)
-
     end
 end
 
