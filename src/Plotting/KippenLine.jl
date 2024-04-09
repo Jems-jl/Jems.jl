@@ -37,7 +37,7 @@ function update_Kipp_plot!(plot::StellarModels.JemsPlot, props::StellarModelProp
                            plotopt::StellarModels.PlottingOptions)
     draw_Kipp_lines!(plot.ax, props.model_number, (@view props.m[1:(props.nz)]) / MSUN,
                      kipp_mixing_colors[(get.(Ref(mixing_map), (@view props.mixing_type[1:(props.nz)]), missing))],
-                     burning_colors[burning_map.(log10.(abs.(@view props.eps_nuc[1:(props.nz)]));
+                     burning_colors[burning_map.(log10.(abs.(@view props.ϵ_nuc[1:(props.nz)]));
                                                  min_log_eps=plotopt.min_log_eps, max_log_eps=plotopt.max_log_eps)])
     push!(plot.y_obs[:mass][], props.mstar / MSUN)
     push!(plot.x_obs[:model_number][], props.model_number)

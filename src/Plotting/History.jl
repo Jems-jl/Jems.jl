@@ -61,7 +61,9 @@ function update_history_plot!(plot::StellarModels.JemsPlot, m::AbstractModel)
     for (key, obs) in pairs(plot.y_obs)
         push!(obs.val, StellarModels.history_output_functions[String(key)](m))
     end
-    for (key, obs) in pairs(plot.alt_y_obs)
-        push!(obs.val, StellarModels.history_output_functions[String(key)](m))
+    if  !isnothing(plot.alt_ax)
+        for (key, obs) in pairs(plot.alt_y_obs)
+            push!(obs.val, StellarModels.history_output_functions[String(key)](m))
+        end
     end
 end

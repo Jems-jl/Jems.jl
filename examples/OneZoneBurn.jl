@@ -94,11 +94,11 @@ open("example_options.toml", "w") do file
           solver_progress_iter = 50
 
           [timestep]
-          dt_max_increase = 2.0
+          dt_max_increase = 1.5
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 250
+          max_model_number = 200
 
           [plotting]
           do_plotting = true

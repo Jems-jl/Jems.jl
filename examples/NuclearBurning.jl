@@ -140,7 +140,7 @@ open("example_options.toml", "w") do file
           plotting_interval = 1
 
           window_specs = ["HR", "Kippenhahn", "profile", "TRhoProfile"]
-          window_layouts = [[1, 1],  # arrangement of plots
+          window_layout = [[1, 1],  # arrangement of plots
                             [1, 2],
                             [2, 1],
                             [2, 2]

@@ -60,7 +60,7 @@ function init_plots!(m::AbstractModel)
                                alt_ax=plot.alt_ax, alt_yvals=plot.alt_y_obs, alt_ylabels=alt_ylabels)
         elseif plot.type == :TRhoProfile
             plot.other_obs = Dict{Symbol,Observable}()
-            create_T_ρ_observables!(plot, sm.props)
+            create_T_ρ_observables!(plot, m.props)
             make_T_ρ_plot!(plot.ax, plot.x_obs[:log_ρ], plot.y_obs[:log_T], plot.other_obs[:colors])
         elseif plot.type == :history
             xname = m.opt.plotting.history_xaxis
@@ -88,14 +88,14 @@ function init_plots!(m::AbstractModel)
                                xlabel=label_dict[m.opt.plotting.history_xaxis], ylabels=ylabels,
                                alt_ax=plot.alt_ax, alt_yvals=plot.alt_y_obs, alt_ylabels=alt_ylabels)
         elseif plot.type == :Kippenhahn
-            create_Kipp_observables!(plot, sm.props)
+            create_Kipp_observables!(plot, m.props)
             make_Kipp_plot!(plot.ax, plot.x_obs[:model_number], plot.y_obs[:mass])
-            draw_Kipp_lines!(plot.ax, sm.props.model_number, (@view sm.props.m[1:(sm.props.nz)]) / MSUN,
-                             kipp_mixing_colors[(get.(Ref(mixing_map), (@view sm.props.mixing_type[1:(sm.props.nz)]),
+            draw_Kipp_lines!(plot.ax, m.props.model_number, (@view m.props.m[1:(m.props.nz)]) / MSUN,
+                             kipp_mixing_colors[(get.(Ref(mixing_map), (@view m.props.mixing_type[1:(m.props.nz)]),
                                                       missing))],
-                             burning_colors[burning_map.(log10.(abs.(@view sm.props.eps_nuc[1:(sm.props.nz)]));
-                                                         min_log_eps=sm.opt.plotting.min_log_eps,
-                                                         max_log_eps=sm.opt.plotting.max_log_eps)])
+                             burning_colors[burning_map.(log10.(abs.(@view m.props.ϵ_nuc[1:(m.props.nz)]));
+                                                         min_log_eps=m.opt.plotting.min_log_eps,
+                                                         max_log_eps=m.opt.plotting.max_log_eps)])
         end
     end
 
