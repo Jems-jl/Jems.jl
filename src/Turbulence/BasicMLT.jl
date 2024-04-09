@@ -29,7 +29,7 @@ function set_turb_results!(turb::BasicMLT, res::TurbResults, κ::T1, L::T1, ρ::
     a = 1
     b = (8/9 - 3)*U
     c = 3*U^2
-    d = -8*U/9*(U^2+W)-3*U^3
+    d = -8*U/9*(U^2+W)-U^3
 
     Δ₀ = b^2 - 3*a*c
     Δ₁ = 2*b^3 -9*a*b*c + 27*a^2*d

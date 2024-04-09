@@ -139,10 +139,11 @@ open("example_options.toml", "w") do file
           wait_at_termination = false
           plotting_interval = 1
 
-          window_specs = ["HR", "profile", "history"]
-          window_layout = [[1, 1],  # arrangement of plots
+          window_specs = ["HR", "Kippenhahn", "profile", "TRhoProfile"]
+          window_layouts = [[1, 1],  # arrangement of plots
+                            [1, 2],
                             [2, 1],
-                            [3, 1]
+                            [2, 2]
                             ]
 
           profile_xaxis = 'mass'
@@ -152,6 +153,8 @@ open("example_options.toml", "w") do file
           history_xaxis = 'age'
           history_yaxes = ['R_surf']
           history_alt_yaxes = ['T_center']
+
+          max_log_eps = 5.0
 
           [io]
           profile_interval = 50
@@ -163,9 +166,10 @@ end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
+
 n = 3
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 1 * MSUN,
-                                             100 * RSUN; initial_dt=10 * SECYEAR)
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
+                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
 
 ##

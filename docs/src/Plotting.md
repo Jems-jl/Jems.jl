@@ -30,6 +30,13 @@ Modules = [Jems.Plotting]
 Pages = ["Plotting/HRD.jl"]
 ```
 
+## TRhoProfile.jl
+
+```@autodocs
+Modules = [Jems.Plotting]
+Pages = ["Plotting/TRhoProfile.jl"]
+```
+
 ## Profile.jl
 
 ```@autodocs
