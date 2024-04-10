@@ -205,14 +205,30 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
     flux_down::typeof(X00) = 0
     flux_up::typeof(X00) = 0
     convfrac00 = get_00_dual(sm.props.convfrac[k])
+    # this acts like a sigmoid, except that it is equal to 0 or 1 for x=0 or 1 respectively,
+    # with also the derivatives at the edges being equal to zero.
+    # however, it makes things worse
+    if convfrac00 < 0
+        convfrac00 = 0
+    elseif convfrac00 > 1
+        convfrac00 = 1
+    else
+        convfrac00 = 6*convfrac00^5 - 15*convfrac00^4+10*convfrac00^3 # see Jermyn et al. (2023), equation 75
+    end
 
     # flux term is (4πr^2ρ)^2*D/dm_face, with all quantities evaluated at the face
     # maybe good to experiment with a soft flux limiter that is continuous rather than
     # taking a min
     flux_limiter = sm.opt.physics.flux_limiter
     if k != sm.props.nz
-        #convfracp1 = min(1.0,max(0.0,get_p1_dual(sm.props.convfrac[k+1])))
-        convfracp1 = get_p1_dual(sm.props.convfrac[k+1])
+        convfracp1 = get_p1_dual(sm.props.convfrac[k+1])  
+        if convfracp1 < 0
+            convfracp1 = 0
+        elseif convfracp1 > 1
+            convfracp1 = 1
+        else  
+            convfracp1 = 6*convfracp1^5 - 15*convfracp1^4+10*convfracp1^3 # see Jermyn et al. (2023), equation 75
+        end
         Xp1 = get_p1_dual(sm.props.xa[k+1, sm.network.xa_index[iso_name]])
         X00_mix = X00*convfrac00 + Xp1*(1.0-convfrac00)
         Xp1_mix = Xp1*convfracp1 + X00*(1.0-convfracp1)
@@ -221,8 +237,14 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
         flux_up = flux_term_up*(Xp1_mix-X00_mix)
     end
     if k != 1
-        #convfracm1 = min(1.0,max(0.0,get_m1_dual(sm.props.convfrac[k-1])))
         convfracm1 = get_m1_dual(sm.props.convfrac[k-1])
+        if convfracm1 < 0
+            convfracm1 = 0
+        elseif convfracm1 > 1
+            convfracm1 = 1
+        else  
+            convfracm1 = 6*convfracm1^5 - 15*convfracm1^4+10*convfracm1^3 # see Jermyn et al. (2023), equation 75
+        end
         Xm1 = get_m1_dual(sm.props.xa[k-1, sm.network.xa_index[iso_name]])
         X00_mix = X00*convfrac00 + Xm1*(1.0-convfrac00)
         Xm1_mix = Xm1*convfracm1 + X00*(1.0-convfracm1)

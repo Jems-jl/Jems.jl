@@ -29,7 +29,7 @@ Substructure of Options containing controls relating to the Newton solver
     initial_model_scale_max_correction::Float64 = 3.0
     scale_max_correction::Float64 = 0.5
 
-    relative_correction_tolerance::Float64 = 1e10 # measured in terms of variable epsilon, 1 would be machine precision limit, 1e16 is on the scale of the variable
+    relative_correction_tolerance::Float64 = 1e6 # measured in terms of variable epsilon, 1 would be machine precision limit, 1e16 is on the scale of the variable
     maximum_residual_tolerance::Float64 = 1e-4
 
     report_solver_progress::Bool = true
@@ -127,7 +127,7 @@ end
 Options that affect the physics of the computed model
 """
 @kwdef mutable struct PhysicsOptions
-    flux_limiter::Float64 = 1e10
+    flux_limiter::Float64 = 1e6
 end
 
 """
@@ -164,7 +164,7 @@ function set_options!(opt::Options, toml_path::String)
     # Do this before anything is changed, in that way if the load will fail the
     # input is unmodified
     for key in keys(options_file)
-        if !(key in ["remesh", "solver", "timestep", "termination", "plotting", "io"])
+        if !(key in ["remesh", "solver", "timestep", "termination", "plotting", "io", "physics"])
             throw(ArgumentError("Error while reading $toml_path. 
                     One of the sections on the TOML file provided ([$key]) is not valid."))
         end
