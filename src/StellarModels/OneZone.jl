@@ -1,6 +1,13 @@
-
 using ForwardDiff
 
+"""
+    mutable struct OneZone{TNUMBER<:Real,TDUALFULL<:ForwardDiff.Dual,
+                              TPROPS<:StellarModels.AbstractModelProperties,
+                              TNET<:NuclearNetworks.AbstractNuclearNetwork,
+                              TSOLVER<:StellarModels.AbstractSolverData}
+
+Structure definition of a model having one internal zone.
+"""
 @kwdef mutable struct OneZone{TNUMBER<:Real,TDUALFULL<:ForwardDiff.Dual,
                               TPROPS<:StellarModels.AbstractModelProperties,
                               TNET<:NuclearNetworks.AbstractNuclearNetwork,
