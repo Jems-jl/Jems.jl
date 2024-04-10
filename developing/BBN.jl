@@ -77,21 +77,21 @@ end
 
 conversion = KERG^4 / (Constants.HBAR^3 * CLIGHT^5)
 function ρ(oz::OneZone)
-    total = pi^2 / 30 * (oz.props.T)^4 * 3.36 * conversion
-    return total * 0.002  # baryon density
+    photondensity = pi^2 / 15 * (oz.props.T)^4 * conversion  # photon density
+    return photondensity * 6.23e-10  # baryon density
 end
 
 oz = OneZone(equation_composition, net);
 
 ## IC
-oz.props.time = 1.0
+oz.props.time = 10
 oz.props.T = T(oz)  # K
 oz.props.ρ = ρ(oz)  # g cm^{-3}
 oz.props.ind_vars = zeros(oz.network.nspecies)
 oz.props.ind_vars[oz.network.xa_index[:H1]] = 0.85
 oz.props.ind_vars[oz.network.xa_index[:n]] = 0.15
 # oz.props.ind_vars[oz.network.xa_index[:n]] = 1.0
-oz.props.dt_next = 1.0e-1
+oz.props.dt_next = 1.0
 oz.props.model_number = 0
 
 ## first eval setup
@@ -268,15 +268,15 @@ open("example_options.toml", "w") do file
           solver_progress_iter = 1
 
           [timestep]
-          dt_max_increase = 1.3
+          dt_max_increase = 2.0
           delta_Xc_limit = 0.005
-          max_dt = 1e-8
+          max_dt = 1e-6
 
           [termination]
-          max_model_number = 1000
+          max_model_number = 2000
 
           [plotting]
-          do_plotting = true
+          do_plotting = false
           wait_at_termination = false
 
           plotting_interval = 1
@@ -290,7 +290,7 @@ open("example_options.toml", "w") do file
 
           [io]
           profile_interval = 50
-          terminal_header_interval = 10
+          terminal_header_interval = 100
           terminal_info_interval = 10
           history_values = ["age", "dt", "model_number", "T", "ρ",
                             "n", "H1", "D2", "T3", "He3", "He4", "Li7", "Be7"]
