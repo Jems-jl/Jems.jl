@@ -117,17 +117,34 @@ function create_output_files!(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
     # compression but faster writes.
     # The compression level can be anywhere between 0 and 9, 0 being no compression 9 being the highest.
     # Compression is lossless.
+    #history = create_dataset(sm.history_file, "history", Float64, ((0, ncols), (-1, ncols)),
+    #                            chunk=(sm.opt.io.hdf5_history_chunk_size, ncols),
+    #                            compress=sm.opt.io.hdf5_history_compression_level)
+
+    #we want a history hdf5 file which will essentially contain several of the above defined tables 
     history = create_dataset(sm.history_file, "history", Float64, ((0, ncols), (-1, ncols)),
                                 chunk=(sm.opt.io.hdf5_history_chunk_size, ncols),
                                 compress=sm.opt.io.hdf5_history_compression_level)
 
+    number_of_partials = TNUMBER.parameters[3]
+    dual_histories = [create_dataset(sm.history_file, "dualhistory_$i", Float64, ((0, ncols), (-1, ncols)),
+                                chunk=(sm.opt.io.hdf5_history_chunk_size, ncols),
+                                compress=sm.opt.io.hdf5_history_compression_level) for i in 1:number_of_partials]
+    
     # next up, include the units for all quantities. No need to recheck columns.
     attrs(history)["column_units"] = [history_output_units[data_cols[i]] for i in eachindex(data_cols)]
     # Finally, place column names
     attrs(history)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
+
+    for dual_history in dual_histories
+        attrs(dual_history)["column_units"] = [history_output_units[data_cols[i]] for i in eachindex(data_cols)]
+        attrs(dual_history)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
+    end
+
     if (!sm.opt.io.hdf5_history_keep_open)
         close(sm.history_file)
     end
+    
 
     # Create profile file
     sm.profiles_file = h5open(sm.opt.io.hdf5_profile_filename, "w")
@@ -179,20 +196,34 @@ function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
 
             # after being sure the header is there, print the data
             history = sm.history_file["history"]
+            dual_histories = [sm.history_file["dualhistory_$i"] for i in 1:TNUMBER.parameters[3] ]
+            @show typeof(history)
+            @show typeof(dual_histories[1])
             HDF5.set_extent_dims(history, (size(history)[1] + 1, ncols))
+            for dual_history in dual_histories
+                HDF5.set_extent_dims(dual_history, (size(dual_history)[1] + 1, ncols))
+            end
             for i in eachindex(data_cols)#loop over variables to save data
                 #data_cols[i] contains the string name of the column, e.g. "star_age"
                 println("Now adding new data")
-                @show history_output_functions[data_cols[i]](sm)
-                @show typeof(history_output_functions[data_cols[i]](sm))
-                @show data_cols[i]
+                #@show history_output_functions[data_cols[i]](sm)
+                #@show typeof(history_output_functions[data_cols[i]](sm))
+                #@show data_cols[i]
                 colname = data_cols[i]
                 if type_in_symbol_form == :Dual
-                    println("YES GELUKT")
                     if colname == "model_number"
                         history[end, i] = history_output_functions[data_cols[i]](sm) #model number is never a dual number
+                        for (k,dual_history) in enumerate(dual_histories)
+                            println("adding model number to dual history")
+                            dual_history[end,i] = history_output_functions[data_cols[i]](sm)#add model number
+                        end
                     else 
                         history[end, i] = history_output_functions[data_cols[i]](sm).value #for dual numbers
+                    
+                    for (k,dual_history) in enumerate(dual_histories)
+                        dual_history[end,i] = history_output_functions[data_cols[i]](sm).partials[k] #for dual numbers
+                    end
+
                     end
                 else
                     history[end, i] = history_output_functions[data_cols[i]](sm) #for non-dual (normal) numbers

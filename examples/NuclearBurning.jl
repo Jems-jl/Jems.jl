@@ -197,7 +197,7 @@ open("example_options.toml", "w") do file
 
           """)
 end
-print("Evolve StellarModel ############################################################")
+print("Initialize & Evolve StellarModel ############################################################")
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
