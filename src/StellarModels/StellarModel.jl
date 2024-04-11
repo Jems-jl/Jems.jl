@@ -89,7 +89,7 @@ function StellarModel(var_names::Vector{Symbol},
                       structure_equations::Vector{Function}, nz::Int, nextra::Int,
                       remesh_split_functions::Vector{Function},
                       network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity, turbulence::AbstractTurb;
-                      use_static_arrays=true, number_type=Float64, tag = nothing)
+                      use_static_arrays=true, number_type=Float64)
     nvars = length(var_names) + network.nspecies
 
     # var_names should also contain the name of species, we get them from the network
@@ -100,10 +100,10 @@ function StellarModel(var_names::Vector{Symbol},
     for i in eachindex(var_names_full)
         vari[var_names_full[i]] = i
     end
-
+    tag = ForwardDiff.Tag{:internal, nothing}
+    ForwardDiff.tagcount(tag)
     solver_data = SolverData(nvars, nz, nextra, use_static_arrays, number_type, tag)
-    #tag = DualSupport.simple_tag()
-    @show tag, typeof(tag)
+    println("Internal tag created: ", tag)
     # properties
     prv_step_props = StellarModelProperties(nvars, nz, nextra,
                                        length(network.reactions), network.nspecies, vari, number_type, tag)

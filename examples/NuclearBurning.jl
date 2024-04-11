@@ -25,8 +25,8 @@ import ForwardDiff.Tag
 import ForwardDiff.Dual
 tag_external = Tag{:external, nothing}
 ForwardDiff.tagcount(tag_external) #this function is necessary to order the tags
-tag_internal = Tag{:internal, nothing}
-ForwardDiff.tagcount(tag_internal)
+#tag_internal = Tag{:internal, nothing}
+#ForwardDiff.tagcount(tag_internal)
 
 #define tags uniquely, safer when doing some notebook jumping
 #tag_external = DualSupport.simple_tag()
@@ -62,7 +62,7 @@ turbulence = Turbulence.BasicMLT(1.0)
 
 dummy_dual = ForwardDiff.Dual{tag_external}(5.0,0.0,0.0,0.0,0.0,0.0) 
 #this is what an external dual looks like, the code likes to know this
-sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence, number_type = typeof(dummy_dual), tag = tag_internal);
+sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence, number_type = typeof(dummy_dual));
 
 ##
 #=
