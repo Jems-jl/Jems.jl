@@ -51,6 +51,9 @@ abstract type AbstractStellarModelProperties end
     turb_res_dual::Vector{TurbResults{TDualFace}}
     turb_res::Vector{TurbResults{TFaceDualData}}
 
+    # flux term for mixing equations (4πr^2ρ)^2 D / dm
+    flux_term::Vector{TFaceDualData}
+
     ϵ_nuc::Vector{TN}
 
     mixing_type::Vector{Symbol}
@@ -76,14 +79,15 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
     turb_res = [TurbResults{FDDTYPE}() for i = 1:(nz + nextra)]
 
     # unpacked ind_vars
-    lnT = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnT]) for i = 1:(nz + nextra)]
-    lnρ = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnρ]) for i = 1:(nz + nextra)]
-    lnr = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnr]) for i = 1:(nz + nextra)]
-    L = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lum]) for i = 1:(nz + nextra)]
-    xa = Matrix{CDDTYPE}(undef, nz + nextra, nspecies)
-    for k = 1:(nz + nextra)
-        for i = 1:nspecies
-            xa[k, i] = CellDualData(nvars, TN; is_ind_var=true, ind_var_i=4 + i)
+    lnT = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnT]) for i in 1:(nz+nextra)]
+    lnρ = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnρ]) for i in 1:(nz+nextra)]
+    lnr = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnr]) for i in 1:(nz+nextra)]
+    L = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lum]) for i in 1:(nz+nextra)]
+    xa = Matrix{CDDTYPE}(undef,nz+nextra, nspecies)
+    for k in 1:(nz+nextra)
+        for i in 1:nspecies
+            xa[k,i] = CellDualData(nvars, TN;
+                        is_ind_var=true, ind_var_i=4+i) # 4 in here is the number of non-composition variables being solved
         end
     end
 
@@ -96,16 +100,17 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
 
     # for some reason using zeros just creates a bunch of instances of the same object
     # so we just initialize a vector of undef
-    lnP_face = Vector{FDDTYPE}(undef, nz + nextra)#zeros(FDDTYPE, nz+nextra)
-    lnρ_face = Vector{FDDTYPE}(undef, nz + nextra)#zeros(FDDTYPE, nz+nextra)
-    lnT_face = Vector{FDDTYPE}(undef, nz + nextra)#zeros(FDDTYPE, nz+nextra)
-    κ_face = Vector{FDDTYPE}(undef, nz + nextra)#zeros(FDDTYPE, nz+nextra)
-    ∇ₐ_face = Vector{FDDTYPE}(undef, nz + nextra)#zeros(FDDTYPE, nz+nextra)
-    ∇ᵣ_face = Vector{FDDTYPE}(undef, nz + nextra)#zeros(FDDTYPE, nz+nextra)
-    κ = Vector{CDDTYPE}(undef, nz + nextra)  # zeros(CDDTYPE, nz+nextra)
-    ∇ᵣ = Vector{CDDTYPE}(undef, nz + nextra)
-    mixing_type::Vector{Symbol} = repeat([:no_mixing], nz + nextra)
-    for k = 1:(nz + nextra)
+    lnP_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
+    lnρ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
+    lnT_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
+    κ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
+    ∇ₐ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
+    ∇ᵣ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
+    κ = Vector{CDDTYPE}(undef, nz+nextra)  # zeros(CDDTYPE, nz+nextra)
+    ∇ᵣ = Vector{CDDTYPE}(undef, nz+nextra)
+    flux_term = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
+    mixing_type::Vector{Symbol} = repeat([:no_mixing], nz+nextra)
+    for k in 1:(nz+nextra)
         lnP_face[k] = FaceDualData(nvars, TN)
         lnρ_face[k] = FaceDualData(nvars, TN)
         lnT_face[k] = FaceDualData(nvars, TN)
@@ -114,6 +119,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
         ∇ᵣ_face[k] = FaceDualData(nvars, TN)
         κ[k] = CellDualData(nvars, TN)
         ∇ᵣ[k] = CellDualData(nvars, TN)
+        flux_term[k] = FaceDualData(nvars, TN)
     end
 
     rates = Matrix{CDDTYPE}(undef, nz + nextra, nrates)
@@ -130,6 +136,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
                                   eos_res=eos_res,
                                   turb_res_dual=turb_res_dual,
                                   turb_res=turb_res,
+                                  flux_term=flux_term,
                                   lnT=lnT,
                                   lnρ=lnρ,
                                   lnr=lnr,
@@ -169,14 +176,14 @@ function evaluate_stellar_model_properties!(sm,
 
     Threads.@threads for i = 1:(props.nz)
         # update independent variables
-        update_cell_dual_data_value!(props.lnT[i], props.ind_vars[(i - 1) * (sm.nvars) + lnT_i])
-        update_cell_dual_data_value!(props.lnρ[i], props.ind_vars[(i - 1) * (sm.nvars) + lnρ_i])
-        update_cell_dual_data_value!(props.lnr[i], props.ind_vars[(i - 1) * (sm.nvars) + lnr_i])
-        update_cell_dual_data_value!(props.L[i], props.ind_vars[(i - 1) * (sm.nvars) + L_i])
-        for j = 1:(sm.network.nspecies)
-            update_cell_dual_data_value!(props.xa[i, j],
-                                         props.ind_vars[(i - 1) * (sm.nvars) + (sm.nvars - sm.network.nspecies + j)])
-            props.xa_dual[i, j] = get_cell_dual(props.xa[i, j])
+        update_cell_dual_data_value!(props.lnT[i], props.ind_vars[(i-1)*(sm.nvars)+lnT_i])
+        update_cell_dual_data_value!(props.lnρ[i], props.ind_vars[(i-1)*(sm.nvars)+lnρ_i])
+        update_cell_dual_data_value!(props.lnr[i], props.ind_vars[(i-1)*(sm.nvars)+lnr_i])
+        update_cell_dual_data_value!(props.L[i], props.ind_vars[(i-1)*(sm.nvars)+L_i])
+        for j in 1:sm.network.nspecies
+            update_cell_dual_data_value!(props.xa[i,j],
+                            props.ind_vars[(i-1)*(sm.nvars)+(sm.nvars - sm.network.nspecies + j)])
+            props.xa_dual[i,j] = get_cell_dual(props.xa[i,j])
         end
 
         lnT = get_cell_dual(props.lnT[i])
@@ -236,6 +243,7 @@ function evaluate_stellar_model_properties!(sm,
             props.ϵ_nuc[i] += rates[j].value * sm.network.reactions[j].Qvalue
         end
 
+        # TODO: this comparison mixes face and cell values
         if get_value(props.eos_res[i].∇ₐ) > get_value(props.∇ᵣ[i])
             props.mixing_type[i] = :no_mixing
         else
@@ -283,15 +291,20 @@ function evaluate_stellar_model_properties!(sm,
         cₚ_face_dual = (props.dm[i] * cₚ_00 + props.dm[i + 1] * cₚ_p1) / (props.dm[i] + props.dm[i + 1])
 
         r_dual = exp(get_face_00_dual(props.lnr[i]))
+        ρ_face_dual = exp(lnρ_face_dual)
         set_turb_results!(sm.turbulence, props.turb_res_dual[i],
-                          κface_dual, L₀_dual, exp(lnρ_face_dual), exp(lnP_face_dual), exp(lnT_face_dual), r_dual,
-                          δ_face_dual, cₚ_face_dual, ∇ₐ_face_dual, props.m[i])
+                    κface_dual, L₀_dual, ρ_face_dual, exp(lnP_face_dual), exp(lnT_face_dual), r_dual,
+                    δ_face_dual, cₚ_face_dual, ∇ₐ_face_dual, props.m[i])
         update_face_dual_data!(props.turb_res[i].∇, props.turb_res_dual[i].∇)
         update_face_dual_data!(props.turb_res[i].∇ᵣ, props.turb_res_dual[i].∇ᵣ)
         update_face_dual_data!(props.turb_res[i].v_turb, props.turb_res_dual[i].v_turb)
         update_face_dual_data!(props.turb_res[i].D_turb, props.turb_res_dual[i].D_turb)
         update_face_dual_data!(props.turb_res[i].Γ, props.turb_res_dual[i].Γ)
         update_face_dual_data!(props.turb_res[i].Hₚ, props.turb_res_dual[i].Hₚ)
+
+        flux_term_dual = (4π*r_dual^2*ρ_face_dual)^2*props.turb_res_dual[i].D_turb/
+                            (0.5*(sm.props.dm[i]+sm.props.dm[i+1]))
+        update_face_dual_data!(props.flux_term[i], flux_term_dual)
     end
 end
 

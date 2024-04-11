@@ -18,15 +18,72 @@ function thomas_algorithm!(sm)
     solver_x = sm.solver_data.solver_x
     solver_β = sm.solver_data.solver_β
     solver_corr = sm.solver_data.solver_corr
-    ## Simple diagonal pre-conditioning
-    #for i in 1:sm.nz
-    #    inv_D = inv(jacobian_D[i])
-    #    b_i = @view eqs_numbers[sm.nvars*(i-1)+1:sm.nvars*i]
-    #    jacobian_D[i] .= inv_D*jacobian_D[i]
-    #    jacobian_L[i] .= inv_D*jacobian_L[i]
-    #    jacobian_U[i] .= inv_D*jacobian_U[i]
-    #    b_i .= inv_D*b_i
-    #end
+
+    # Simple row preconditioning, divide each row by its maximum value
+    # this is turned off by default as it seems to not change much. If we end up
+    # using at some point it needs to be optimized
+    if sm.opt.solver.use_preconditioning
+        for i in 1:sm.props.nz
+            for j in 1:sm.nvars
+                maxval = 0
+                for k in 1:sm.nvars
+                    if i != 1
+                        if abs(jacobian_L[i][j,k]) > maxval
+                            maxval = abs(jacobian_L[i][j,k])
+                        end
+                    end
+                    if abs(jacobian_D[i][j,k]) > maxval
+                        maxval = abs(jacobian_D[i][j,k])
+                    end
+                    if i != sm.props.nz
+                        if abs(jacobian_U[i][j,k]) > maxval
+                            maxval = abs(jacobian_U[i][j,k])
+                        end
+                    end
+                end
+                for k in 1:sm.nvars
+                    jacobian_L[i][j,k] = jacobian_L[i][j,k]/maxval
+                    jacobian_D[i][j,k] = jacobian_D[i][j,k]/maxval
+                    jacobian_U[i][j,k] = jacobian_U[i][j,k]/maxval
+                end
+                eqs_numbers[(i-1)*sm.nvars + j] = eqs_numbers[(i-1)*sm.nvars + j]/maxval
+            end
+        end
+        # Simple column-preconditioning. Divide all columns by their maximum value. This means
+        # we need to rescale the correction afterwards
+        for i in 1:sm.props.nz
+            for j in 1:sm.nvars
+                maxval = 0
+                for k in 1:sm.nvars
+                    if i != sm.props.nz
+                        if abs(jacobian_L[i+1][k,j]) > maxval
+                            maxval = abs(jacobian_L[i+1][k,j])
+                        end
+                    end
+                    if abs(jacobian_D[i][k,j]) > maxval
+                        maxval = abs(jacobian_D[i][k,j])
+                    end
+                    if i != 1
+                        if abs(jacobian_U[i-1][k,j]) > maxval
+                            maxval = abs(jacobian_U[i-1][k,j])
+                        end
+                    end
+                end
+                for k in 1:sm.nvars
+                    if i != sm.props.nz
+                        jacobian_L[i+1][k,j] = jacobian_L[i+1][k,j]/maxval
+                    end
+                    jacobian_D[i][k,j] = jacobian_D[i][k,j]/maxval
+                    if i != 1
+                        jacobian_U[i-1][k,j] = jacobian_U[i-1][k,j]/maxval
+                    end
+                end
+                sm.solver_data.preconditioning_factor[(i-1)*sm.nvars + j] = 1/maxval
+            end
+        end
+    else
+        sm.solver_data.preconditioning_factor .= 1.0
+    end
 
     # We store Δ_i in the diagonal
     b_1 = @view eqs_numbers[1:sm.nvars]
@@ -75,7 +132,8 @@ function thomas_algorithm!(sm)
     # unload result into solver_corr
     for i=1:sm.props.nz
         for j=1:sm.nvars
-            solver_corr[(i-1)*sm.nvars+j] = solver_x[i][j]
+            solver_corr[(i-1)*sm.nvars+j] = solver_x[i][j] * 
+                sm.solver_data.preconditioning_factor[(i-1)*sm.nvars + j]
         end
     end
     return
