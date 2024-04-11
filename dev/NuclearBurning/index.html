@@ -9,6 +9,7 @@ using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates</code></pre><h2 id="Model-creation"><a class="docs-heading-anchor" href="#Model-creation">Model creation</a><a id="Model-creation-1"></a><a class="docs-heading-anchor-permalink" href="#Model-creation" title="Permalink"></a></h2><p>We start by creating the stellar model. In this example we consider a model with 6 independent variables, two of which correspond to composition. The independent variables here are <span>$\ln(P)$</span>, <span>$\ln(T)$</span>, <span>$\ln(r)$</span>, the luminosity <span>$L$</span> and the mass fractions of Hydrogen and Helium.</p><p>The Evolution module has pre-defined equations corresponding to these variables, which we provide here. For now, only a simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple simple electron scattering opacity equal to <span>$\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$</span> is available.</p><pre><code class="language-julia hljs">varnames = [:lnρ, :lnT, :lnr, :lum]
+varscaling = [:log, :log, :log, :maxval]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
@@ -19,7 +20,7 @@ nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 turbulence = Turbulence.BasicMLT(1.0)
-sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);</code></pre><h2 id="Initialize-StellarModel-and-evaluate-equations-and-jacobian"><a class="docs-heading-anchor" href="#Initialize-StellarModel-and-evaluate-equations-and-jacobian">Initialize StellarModel and evaluate equations and jacobian</a><a id="Initialize-StellarModel-and-evaluate-equations-and-jacobian-1"></a><a class="docs-heading-anchor-permalink" href="#Initialize-StellarModel-and-evaluate-equations-and-jacobian" title="Permalink"></a></h2><p>We do not have a working initial condition yet. We require pressure, temperature profiles. One simple available initial condition is that of an n=1 polytrope. This sets the pressure and density and computes the temperature from the EOS. The luminosity is initialized by assuming pure radiative transport for the temperature gradient produced by the polytrope.</p><p>The normal evolution loop will store the information at the end of the step into an attribute of type <code>StellarStepInfo</code>, stored at <code>sm.esi</code> (<em>end step info</em>). After initializing our polytrope we can mimic that behavior by calling <code>set_end_step_info!(sm)</code>. We then &#39;cycle&#39; this info into the information of a hypothetical previous step with <code>cycle_step_info</code>, so now <code>sm.psi</code> contains our initial condition. Finally we call <code>set_start_step_info</code> to use <code>sm.psi</code> (<em>previous step info</em>) to populate the information needed before the Newton solver in <code>sm.ssi</code> (<em>start step info</em>). At last we are in position to evaluate the equations and compute the Jacobian.</p><pre><code class="language-julia hljs">n = 3
+sm = StellarModel(varnames, varscaling, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);</code></pre><h2 id="Initialize-StellarModel-and-evaluate-equations-and-jacobian"><a class="docs-heading-anchor" href="#Initialize-StellarModel-and-evaluate-equations-and-jacobian">Initialize StellarModel and evaluate equations and jacobian</a><a id="Initialize-StellarModel-and-evaluate-equations-and-jacobian-1"></a><a class="docs-heading-anchor-permalink" href="#Initialize-StellarModel-and-evaluate-equations-and-jacobian" title="Permalink"></a></h2><p>We do not have a working initial condition yet. We require pressure, temperature profiles. One simple available initial condition is that of an n=1 polytrope. This sets the pressure and density and computes the temperature from the EOS. The luminosity is initialized by assuming pure radiative transport for the temperature gradient produced by the polytrope.</p><p>The normal evolution loop will store the information at the end of the step into an attribute of type <code>StellarStepInfo</code>, stored at <code>sm.esi</code> (<em>end step info</em>). After initializing our polytrope we can mimic that behavior by calling <code>set_end_step_info!(sm)</code>. We then &#39;cycle&#39; this info into the information of a hypothetical previous step with <code>cycle_step_info</code>, so now <code>sm.psi</code> contains our initial condition. Finally we call <code>set_start_step_info</code> to use <code>sm.psi</code> (<em>previous step info</em>) to populate the information needed before the Newton solver in <code>sm.ssi</code> (<em>start step info</em>). At last we are in position to evaluate the equations and compute the Jacobian.</p><pre><code class="language-julia hljs">n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
 Evolution.cycle_props!(sm);
@@ -30,27 +31,27 @@ StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
 StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)</code></pre><h2 id="Benchmarking"><a class="docs-heading-anchor" href="#Benchmarking">Benchmarking</a><a id="Benchmarking-1"></a><a class="docs-heading-anchor-permalink" href="#Benchmarking" title="Permalink"></a></h2><p>The previous code leaves everything ready to solve the linearized system. For now we make use of a the serial Thomas algorithm for tridiagonal block matrices. We first show how long it takes to evaluate the Jacobian matrix. This requires two steps, the first is to evaluate properties across the model (for example, the EOS) and then evaluate all differential equations.</p><pre><code class="language-julia hljs">@benchmark begin
     StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
     Evolution.eval_jacobian_eqs!($sm)
-end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BenchmarkTools.Trial: 582 samples with 1 evaluation.
- Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1">8.078 ms</span></span> … <span class="sgr35"> 10.526 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 0.00%
- Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">8.510 ms               </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
- Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">8.573 ms</span></span> ± <span class="sgr32">306.602 μs</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>0.00% ± 0.00%
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BenchmarkTools.Trial: 503 samples with 1 evaluation.
+ Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1">8.824 ms</span></span> … <span class="sgr35"> 16.469 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 0.00%
+ Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">9.844 ms               </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
+ Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">9.919 ms</span></span> ± <span class="sgr32">620.465 μs</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>0.00% ± 0.00%
 
-          ▁ ▂▄▃█▃▅▃<span class="sgr34">▃</span>▅<span class="sgr32">▂</span> ▁▁                                      
-  ▃▃▅▃▆▅▇▇█████████<span class="sgr34">█</span>█<span class="sgr32">█</span>███▇▇▆▇▅▄▅▃▄▃▅▄▃▄▂▄▃▃▃▄▃▂▃▄▃▂▁▂▁▁▂▁▂▁▂▂ ▄
-  8.08 ms<span class="sgr90">         Histogram: frequency by time</span>        9.58 ms <span class="sgr1">&lt;</span>
+                   ▄▃ ▆ ▅▅▃█▃<span class="sgr34">▂</span>▃<span class="sgr32">▃</span>▆▁▃   ▂▁                       
+  ▃▃▁▁▁▃▃▁▃▅▇▃▅▇▅▇█████▇█████<span class="sgr34">█</span>█<span class="sgr32">█</span>████████▇▆▅▅▇▅▄▄▃▃▄▃▃▅▃▃▃▃▃▁▃ ▅
+  8.82 ms<span class="sgr90">         Histogram: frequency by time</span>          11 ms <span class="sgr1">&lt;</span>
 
  Memory estimate<span class="sgr90">: </span><span class="sgr33">1.77 KiB</span>, allocs estimate<span class="sgr90">: </span><span class="sgr33">18</span>.</code></pre><p>To get an idea of how much a complete iteration of the solver takes, we need to benchmark both the calculation of the Jacobian and the matrix solver. This is because the matrix solver is destructive, as it uses the allocated Jacobian to store intermediate results. The time it takes to run only the matrix solver can be determined by substracting the previous benchmark from this one.</p><pre><code class="language-julia hljs">@benchmark begin
     StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
     Evolution.eval_jacobian_eqs!($sm)
     Evolution.thomas_algorithm!($sm)
-end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BenchmarkTools.Trial: 481 samples with 1 evaluation.
- Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1">10.036 ms</span></span> … <span class="sgr35"> 11.752 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 0.00%
- Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">10.355 ms               </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
- Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">10.386 ms</span></span> ± <span class="sgr32">211.416 μs</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>0.00% ± 0.00%
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BenchmarkTools.Trial: 441 samples with 1 evaluation.
+ Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1">10.402 ms</span></span> … <span class="sgr35"> 14.707 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 0.00%
+ Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">11.276 ms               </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
+ Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">11.340 ms</span></span> ± <span class="sgr32">621.438 μs</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>0.00% ± 0.00%
 
-           ▂▄█▄▇▆▆<span class="sgr34">▅</span>█<span class="sgr32">▇</span>▃▆▂  ▂                                     
-  ▂▄▆▅███▅████████<span class="sgr34">█</span>█<span class="sgr32">█</span>███▇▅███▆▆▆▄▄▅▄▁▂▁▄▂▁▁▁▂▂▂▃▄▁▁▁▁▁▁▁▂▂▂▁▁▂ ▄
-  10 ms<span class="sgr90">           Histogram: frequency by time</span>         11.2 ms <span class="sgr1">&lt;</span>
+     ▅▁▃█▃▁▁▇      ▃▅▂<span class="sgr34">▁</span>▅<span class="sgr32"> </span>▃▁ ▃▁   ▁ ▂     ▁                      
+  ▅▆▇█████████▇▇▅▆▇███<span class="sgr34">█</span>█<span class="sgr32">█</span>██▇██▅▅▅█▆█▇▇▇▃▄█▅▅▅▆▆▅▃▅▃▄▃▄▃▄▃▁▁▁▁▃ ▅
+  10.4 ms<span class="sgr90">         Histogram: frequency by time</span>           13 ms <span class="sgr1">&lt;</span>
 
  Memory estimate<span class="sgr90">: </span><span class="sgr33">126.77 KiB</span>, allocs estimate<span class="sgr90">: </span><span class="sgr33">1018</span>.</code></pre><h2 id="Evolving-our-model"><a class="docs-heading-anchor" href="#Evolving-our-model">Evolving our model</a><a id="Evolving-our-model-1"></a><a class="docs-heading-anchor-permalink" href="#Evolving-our-model" title="Permalink"></a></h2><p>We can now evolve our star! We will initiate a <span>$1M_\odot$</span> star with a radius of <span>$100R_\odot$</span> using an n=1 polytrope (it would be much better to use n=3 or n=3/2 polytropes, for now I only use this because there is a simple analytical solution). The star is expected to contract until it ignites hydrogen. We set a few options for the simulation with a toml file, which we generate dynamically. These simulation should complete in about a thousand steps once it reaches the <code>max_center_T</code> limit.</p><p>Output is stored in HDF5 files, and easy to use functions are provided with the Evolution module to turn these HDF5 files into DataFrame objects. HDF5 output is compressed by default.</p><pre><code class="language-julia hljs">open(&quot;example_options.toml&quot;, &quot;w&quot;) do file
     write(file,
@@ -60,10 +61,9 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 
           [solver]
           newton_max_iter_first_step = 1000
-          initial_model_scale_max_correction = 0.5
-          newton_max_iter = 30
+          initial_model_scale_max_correction = 0.2
+          newton_max_iter = 50
           scale_max_correction = 0.1
-          report_solver_progress = false
 
           [timestep]
           dt_max_increase = 1.5
@@ -115,7 +115,7 @@ StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Che
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-        1     1.000     1.188     3.064    0.7494    -10.45    0.7154        12
+        1     1.000     1.188     3.064    0.7494    -10.45    0.7154        23
     1.000     10.00     1.988     5.080     9.096    -4.117    0.2704      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
@@ -148,93 +148,96 @@ StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Che
       500     4.375     1.087     4.093     4.966    -7.259    0.7154         4
     1.000 2.208e+06   -0.1200     7.181     17.38     2.067    0.2704      1030
 
-Failed to converge step 536 with timestep 3.3990273264208497e6, retrying
-Failed to converge step 542 with timestep 1.7787157082099922e7, retrying
-Failed to converge step 545 with timestep 1.726135300764347e7, retrying
-Failed to converge step 547 with timestep 1.6945282747353345e7, retrying
-Failed to converge step 548 with timestep 1.2708962060515007e7, retrying
-Failed to converge step 551 with timestep 1.6430190802761292e7, retrying
-Failed to converge step 552 with timestep 1.2322643102070969e7, retrying
-Failed to converge step 556 with timestep 1.5734274193794897e7, retrying
-Failed to converge step 562 with timestep 1.4697555027006116e7, retrying
-Failed to converge step 564 with timestep 1.4410513112946054e7, retrying
-Failed to converge step 580 with timestep 1.1881168431126926e7, retrying
-Failed to converge step 583 with timestep 1.155401663583786e7, retrying
-Failed to converge step 586 with timestep 1.1233710932213992e7, retrying
-Failed to converge step 589 with timestep 1.0920171927550908e7, retrying
-Failed to converge step 591 with timestep 1.075749270303271e7, retrying
-Failed to converge step 594 with timestep 1.045410750743341e7, retrying
-Failed to converge step 596 with timestep 1.0296931912829224e7, retrying
-Failed to converge step 598 with timestep 1.0141619385100372e7, retrying
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (533, 50, 1.705237702353164e13, -0.0009465970798056911, 359, 6, 949.3498282138681, 358, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (536, 50, 2.9209783081163613e13, -0.0016214686860507096, 358, 6, 1626.1940006215023, 358, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (540, 50, 7.742214796280936e13, -0.00429779256421233, 356, 6, 4319.908364350705, 354, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (542, 50, 4.293717852163534e13, 0.00476698442071603, 354, 5, 4791.696716549508, 352, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (544, 50, 4.303001614466911e13, 0.004777291467380386, 352, 5, 4802.256748692455, 350, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (544, 50, 4.3003344399337586e13, -0.002387165154401493, 352, 6, 2394.2285417591343, 352, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (546, 50, 2.4330157439377934e13, 0.0027011900981952423, 351, 5, 2709.201891711696, 351, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (550, 50, 8.677747687556855e13, -0.0048171176423066646, 347, 6, 4831.531543330931, 347, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (552, 50, 4.321585211435243e13, 0.004797923404614982, 346, 5, 4823.650331984795, 344, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (553, 50, 6.524253178300898e13, -0.0036216880485167567, 345, 6, 3632.5949305428, 345, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (556, 50, 4.336895976735377e13, 0.004814921768775823, 343, 5, 4841.090862304794, 341, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (557, 50, 3.269308549723246e13, 0.0036296616265066263, 342, 5, 3640.6817320394953, 342, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (560, 50, 4.346290518724019e13, 0.004825351805597421, 340, 5, 4851.913429628649, 338, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (561, 50, 3.2764257297264863e13, 0.0036375632836166253, 339, 5, 3648.695342107326, 339, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (566, 50, 8.790790626930784e13, -0.004879869079338786, 334, 6, 4894.9886166145525, 334, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (574, 50, 8.842977342556847e13, -0.004908838525972596, 326, 6, 4924.389603149722, 326, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (575, 50, 6.639546449966389e13, -0.0036856886709104525, 326, 6, 3697.3834093261053, 326, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (577, 50, 3.8154936264926625e13, 0.004236048874442691, 325, 5, 4249.525434281249, 325, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (584, 50, 4.4319512691049234e13, 0.004920454342976969, 319, 5, 4936.378727470676, 319, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (588, 50, 4.440830501117195e13, 0.004930312270797982, 316, 5, 4946.410661377556, 316, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (592, 50, 4.449166122983788e13, 0.004939566670118843, 313, 5, 4955.83579001945, 313, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (595, 50, 8.89332623772067e13, 0.004936787777310253, 311, 5, 4953.143995048228, 311, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (597, 50, 8.87437163218335e13, -0.004926265857565143, 310, 6, 4942.64038924401, 310, 6)
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      600     6.881     1.038     4.107     5.069    -7.171    0.4765         5
-    1.000 6.525e+08   -0.1711     7.311     17.56     2.206    0.5093      1034
+      600     6.313     1.023     4.107     5.083    -7.156    0.4867         4
+    1.000 1.497e+08   -0.1784     7.309     17.57     2.208    0.4991      1034
 
-Failed to converge step 600 with timestep 9.988156522440601e6, retrying
-Failed to converge step 602 with timestep 9.83652767742526e6, retrying
-Failed to converge step 604 with timestep 9.686716792533984e6, retrying
-Failed to converge step 606 with timestep 9.538707426440835e6, retrying
-Failed to converge step 608 with timestep 9.392482783481115e6, retrying
-Failed to converge step 610 with timestep 9.248025742354222e6, retrying
-Failed to converge step 612 with timestep 9.105318884024568e6, retrying
-Failed to converge step 614 with timestep 8.964344518787723e6, retrying
-Failed to converge step 616 with timestep 8.825084712482493e6, retrying
-Failed to converge step 618 with timestep 8.687521311831355e6, retrying
-Failed to converge step 620 with timestep 8.55163596890362e6, retrying
-Failed to converge step 622 with timestep 8.417410164698543e6, retrying
-Failed to converge step 624 with timestep 8.284825231851865e6, retrying
-Failed to converge step 626 with timestep 8.153862376472851e6, retrying
-Failed to converge step 628 with timestep 8.024502699128831e6, retrying
-Failed to converge step 629 with timestep 6.018377024346624e6, retrying
-Failed to converge step 634 with timestep 7.62254354921188e6, retrying
-Failed to converge step 636 with timestep 7.499706926066649e6, retrying
-Failed to converge step 638 with timestep 7.378372234639846e6, retrying
-Failed to converge step 643 with timestep 7.004402842345614e6, retrying
-Failed to converge step 645 with timestep 6.889155062812415e6, retrying
-Failed to converge step 650 with timestep 6.534799709350379e6, retrying
-Failed to converge step 652 with timestep 6.425307334257958e6, retrying
-Failed to converge step 657 with timestep 6.089467759468149e6, retrying
-Failed to converge step 662 with timestep 5.7669813587144585e6, retrying
-Failed to converge step 670 with timestep 5.253457961318619e6, retrying
-Failed to converge step 674 with timestep 5.049924259549957e6, retrying
-Failed to converge step 676 with timestep 4.958494663186025e6, retrying
-Failed to converge step 686 with timestep 4.400013462404306e6, retrying
-Failed to converge step 688 with timestep 4.316496807616039e6, retrying
-Failed to converge step 692 with timestep 4.1405145604532287e6, retrying
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (600, 50, 8.909829465392566e13, 0.004945948908981238, 308, 5, 4962.483906205054, 308, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (602, 50, 8.89117178423714e13, 0.004935591815378804, 307, 5, 4952.145014402106, 307, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (604, 50, 4.448385415820141e13, -0.004938699911050271, 306, 6, 4955.316143771614, 306, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (606, 50, 4.4512164021616055e13, -0.004941842937268965, 305, 6, 4958.522243895025, 305, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (609, 50, 4.467704486910915e13, -0.004960148388589619, 303, 6, 4976.982875553401, 303, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (611, 50, 8.917107280991188e13, 0.004949988908204521, 302, 5, 4966.841175344223, 302, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (613, 50, 4.460959018161983e13, -0.004952659413872665, 301, 6, 4969.572820958283, 301, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (615, 50, 8.926793314874648e13, 0.00495536573712188, 300, 5, 4972.340317215019, 300, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (617, 50, 8.93151827856297e13, 0.004957988618860526, 299, 5, 4975.023995124324, 299, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (619, 50, 8.93609518785961e13, 0.004960529313901901, 298, 5, 4977.625107787766, 298, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (621, 50, 4.470263969297023e13, -0.004962989984865798, 297, 6, 4980.145818431443, 297, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (623, 50, 4.472410148089382e13, -0.004965372721976038, 296, 6, 4982.588216830485, 296, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (624, 50, 6.7285640593270164e13, 0.0037351033706650807, 296, 5, 3748.0711837207036, 296, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (626, 50, 3.853247150101101e13, -0.004277963705613509, 295, 6, 4292.848562061516, 295, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (627, 50, 5.798259950063505e13, 0.0032186808496612066, 295, 5, 3229.892284201768, 295, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (632, 50, 5.707603126310292e12, -0.005069369925001769, 292, 1, 5011.683561052655, 292, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (634, 50, 5.726057868251325e12, -0.00508576102853493, 291, 1, 4994.981473704922, 291, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (639, 50, 5.8816509955761e12, -0.005223955486478448, 288, 1, 5019.991005300004, 288, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (641, 50, 5.902790654798457e12, -0.005242731275599561, 287, 1, 5003.803754451699, 287, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (646, 50, 6.065755331365718e12, -0.005387472984500013, 284, 1, 5027.005342905231, 284, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (648, 50, 6.090014187547766e12, -0.0054090191770475166, 283, 1, 5011.456879324998, 283, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (649, 50, 4.586140807882498e12, -0.004073311295267333, 283, 1, 3769.0664204205113, 283, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (654, 50, 6.262469610000107e12, -0.005562190361629955, 280, 1, 5033.003692013871, 280, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (662, 50, 6.535395006733048e12, -0.005804596809196248, 275, 1, 5039.894322953007, 275, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (666, 50, 6.660080656973145e12, -0.005915339912985779, 273, 1, 5042.672742942748, 273, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (668, 50, 6.6952477010868e12, -0.00594657452265217, 272, 1, 5029.036566281734, 272, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (672, 50, 6.845846231625837e12, -0.006080332887515493, 270, 1, 5045.914403931497, 270, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (674, 50, 6.884584585807629e12, -0.006114739457714461, 269, 1, 5032.74890088424, 269, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (678, 50, 7.042124605135976e12, -0.006254663103121039, 267, 1, 5048.621019629272, 267, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (680, 50, 7.084750114442981e12, -0.006292522160616249, 266, 1, 5035.914515728703, 266, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (684, 50, 7.249843168584154e12, -0.006439154248546823, 264, 1, 5050.781762105987, 264, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (691, 50, 7.5537328455590625e12, -0.006709062501605578, 260, 1, 5053.158716611408, 260, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (698, 50, 7.881186298653377e12, -0.0069998995921002356, 256, 1, 5053.950412562988, 256, 6)
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      700     6.581     1.162     4.071     4.802    -7.401   0.08929         5
-    1.000 1.148e+09  -0.03773     7.374     17.54     2.309    0.8965      1034
+      700     5.692     1.133     4.073     4.838    -7.367    0.1092         4
+    1.000 2.384e+08  -0.05598     7.367     17.54     2.304    0.8766      1034
 
-Failed to converge step 702 with timestep 3.6523375481934226e6, retrying
-Failed to converge step 710 with timestep 3.2940172994836164e6, retrying
-Failed to converge step 712 with timestep 3.2313243726583673e6, retrying
-Failed to converge step 714 with timestep 3.172851609293014e6, retrying
-Failed to converge step 723 with timestep 468156.5078821228, retrying
-Failed to converge step 724 with timestep 351117.38091159216, retrying
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (705, 50, 8.229068636358952e12, -0.007308881177045159, 252, 1, 5051.949362930487, 251, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (713, 50, 8.638811027050245e12, 0.0076728055260935025, 247, 1, 0.005019432035978697, 247, 5)
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      800     4.855     1.349     3.965     4.192    -7.906 9.400e-188         6
-    1.000 1.259e+09    0.2674     7.719     20.27     4.754    0.9858      1034
-
-    model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
-     mass       age      logR     logTc     logPc     logρc   He_cntr     zones
--------------------------------------------------------------------------------
-      900     4.260     1.393     3.755     3.307    -8.581 -1.139e-320         7
-    1.000 1.263e+09    0.7099     7.945     21.00     5.264    0.9858      1048
+      800     4.873     1.320     3.967     4.229    -7.871 1.474e-191         4
+    1.000 3.102e+08    0.2489     7.725     20.31     4.789    0.9858      1034
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      970     4.004     1.413     3.606     2.690    -9.048 -1.541e-321         6
-    1.000 1.264e+09     1.018     8.000     21.19     5.393    0.9858      1061
+      900     4.289     1.360     3.756     3.344    -8.545 5.163e-321         4
+    1.000 3.138e+08    0.6912     7.949     21.04     5.295    0.9858      1049
+
+    model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
+     mass       age      logR     logTc     logPc     logρc   He_cntr     zones
+-------------------------------------------------------------------------------
+      963     4.033     1.376     3.621     2.789    -8.965 1.230e-321         4
+    1.000 3.147e+08    0.9688     8.000     21.21     5.413    0.9858      1063
 
 Reached maximum central temperature
-563.321370 seconds (343.09 M allocations: 22.500 GiB, 0.66% gc time, 3.68% compilation time: 4% of which was recompilation)</code></pre><h2 id="Plotting-with-Makie"><a class="docs-heading-anchor" href="#Plotting-with-Makie">Plotting with Makie</a><a id="Plotting-with-Makie-1"></a><a class="docs-heading-anchor-permalink" href="#Plotting-with-Makie" title="Permalink"></a></h2><p>Now that our simulation is complete we can analyze the results. We make use of the Makie package for this. I&#39;m not a fan of the Makie defaults, so I adjust them. I normally also adjust the fonts to be consistent with \LaTeX, but I avoid that here so we don&#39;t need to distribute those fonts together with Jems.</p><pre><code class="language-julia hljs">using CairoMakie, LaTeXStrings, MathTeXEngine
+572.792154 seconds (340.23 M allocations: 22.402 GiB, 0.68% gc time, 3.77% compilation time: 3% of which was recompilation)</code></pre><h2 id="Plotting-with-Makie"><a class="docs-heading-anchor" href="#Plotting-with-Makie">Plotting with Makie</a><a id="Plotting-with-Makie-1"></a><a class="docs-heading-anchor-permalink" href="#Plotting-with-Makie" title="Permalink"></a></h2><p>Now that our simulation is complete we can analyze the results. We make use of the Makie package for this. I&#39;m not a fan of the Makie defaults, so I adjust them. I normally also adjust the fonts to be consistent with \LaTeX, but I avoid that here so we don&#39;t need to distribute those fonts together with Jems.</p><pre><code class="language-julia hljs">using CairoMakie, LaTeXStrings, MathTeXEngine
 basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                            italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
                     fontsize=30, size=(1000, 750), linewidth=7,
@@ -274,26 +277,30 @@ record(f, &quot;rho_P_evolution.gif&quot;, profile_names[1:end]; framerate=2) do
 end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&quot;rho_P_evolution.gif&quot;</code></pre><p><img src="../rho_P_evolution.gif" alt="Movie polytrope"/></p><h2 id="Check-nuclear-burning"><a class="docs-heading-anchor" href="#Check-nuclear-burning">Check nuclear burning</a><a id="Check-nuclear-burning-1"></a><a class="docs-heading-anchor-permalink" href="#Check-nuclear-burning" title="Permalink"></a></h2><p>We see that the structure evolves towards an n=3 polytrope. Deviations near the core are due to the non-homogeneous composition as hydrogen is burnt. We can similarly visualize how the hydrogen mass fraction changes in the simulation. In here, only one frame shows the hydrogen that was burnt. To better visualize that you can adjust <code>profile_interval</code> in the <a href="../Evolution/##Io.jl">IO</a> options (and probably adjust the framerate).</p><pre><code class="language-julia hljs">profile_names = StellarModels.get_profile_names_from_hdf5(&quot;profiles.hdf5&quot;)
 
 f = Figure();
-ax = Axis(f[1, 1]; xlabel=L&quot;\mathrm{Mass}\;[M_\odot]&quot;, ylabel=L&quot;X&quot;)
+ax = Axis(f[1, 1]; xlabel=L&quot;\mathrm{Mass}\;[M_\odot]&quot;, ylabel=L&quot;Abundance&quot;)
 
 pname = Observable(profile_names[1])
 
 profile = @lift(StellarModels.get_profile_dataframe_from_hdf5(&quot;profiles.hdf5&quot;, $pname))
 mass = @lift($profile[!, &quot;mass&quot;])
 X = Observable(rand(length(mass.val)))
+Y = Observable(rand(length(mass.val)))
 model_number_str = @lift(&quot;model number=$(parse(Int,$pname))&quot;)
 
-profile_line = lines!(ax, mass, X; label=&quot;real profile&quot;)
+profile_line = lines!(ax, mass, X; label=&quot;X&quot;)
+profile_line = lines!(ax, mass, Y; label=&quot;Y&quot;)
 profile_text = text!(ax, 0.7, 0.0; text=model_number_str)
+axislegend(ax; position=:rb)
 
 record(f, &quot;X_evolution.gif&quot;, profile_names[1:end]; framerate=2) do profile_name
     profile = StellarModels.get_profile_dataframe_from_hdf5(&quot;profiles.hdf5&quot;, profile_name)
     X.val = profile[!, &quot;X&quot;]
+    Y.val = profile[!, &quot;Y&quot;]
     pname[] = profile_name
 end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&quot;X_evolution.gif&quot;</code></pre><p><img src="../X_evolution.gif" alt="Movie polytrope"/></p><h2 id="Plot-a-funny-HR-diagram"><a class="docs-heading-anchor" href="#Plot-a-funny-HR-diagram">Plot a funny HR diagram</a><a id="Plot-a-funny-HR-diagram-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-a-funny-HR-diagram" title="Permalink"></a></h2><p>Finally, we can also access the history data of the simulation. We use this to plot a simple HR diagram. As our microphysics are very simplistic, and the initial condition is not very physical, this looks a bit funny!</p><pre><code class="language-julia hljs">f = Figure();
 ax = Axis(f[1, 1]; xlabel=L&quot;\log_{10}(T_\mathrm{eff}/[K])&quot;, ylabel=L&quot;\log_{10}(L/L_\odot)&quot;, xreversed=true)
 history = StellarModels.get_history_dataframe_from_hdf5(&quot;history.hdf5&quot;)
 lines!(ax, log10.(history[!, &quot;T_surf&quot;]), log10.(history[!, &quot;L_surf&quot;]))
-f</code></pre><img src="062dd3ce.png" alt="Example block output"/><h2 id="Perform-some-cleanup"><a class="docs-heading-anchor" href="#Perform-some-cleanup">Perform some cleanup</a><a id="Perform-some-cleanup-1"></a><a class="docs-heading-anchor-permalink" href="#Perform-some-cleanup" title="Permalink"></a></h2><p>Internally we want to prevent storing any of the hdf5 files into our git repos, so I remove them. You can also take advantage of <code>julia</code> as a scripting language to post-process your simulation output in a similar way.</p><pre><code class="language-julia hljs">rm(&quot;history.hdf5&quot;)
+f</code></pre><img src="60d15788.png" alt="Example block output"/><h2 id="Perform-some-cleanup"><a class="docs-heading-anchor" href="#Perform-some-cleanup">Perform some cleanup</a><a id="Perform-some-cleanup-1"></a><a class="docs-heading-anchor-permalink" href="#Perform-some-cleanup" title="Permalink"></a></h2><p>Internally we want to prevent storing any of the hdf5 files into our git repos, so I remove them. You can also take advantage of <code>julia</code> as a scripting language to post-process your simulation output in a similar way.</p><pre><code class="language-julia hljs">rm(&quot;history.hdf5&quot;)
 rm(&quot;profiles.hdf5&quot;)
-rm(&quot;example_options.toml&quot;)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../Chem/">Chem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Thursday 4 April 2024 12:19">Thursday 4 April 2024</span>. Using Julia version 1.10.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+rm(&quot;example_options.toml&quot;)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../Chem/">Chem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Thursday 11 April 2024 10:13">Thursday 11 April 2024</span>. Using Julia version 1.10.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
