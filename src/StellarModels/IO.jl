@@ -31,6 +31,13 @@ function add_history_option(name, unit, func)
     history_output_functions[name] = func
 end
 
+#function get_history_output_function_from_dual(func,sm)
+#    prinln("STARTED get_history_output_function_from_dual")
+#    dual_variable = func(sm)
+#    @show dual_variable
+#    @show typeof(dual_variable)
+#    return dual_variable
+
 # general properties
 add_history_option("star_age", "year", sm -> sm.props.time / SECYEAR)
 add_history_option("dt", "year", sm -> sm.props.dt / SECYEAR)
@@ -151,8 +158,13 @@ end
 
 Saves data (history/profile) for the current model, as required by the settings in `sm.opt.io`.
 """
-function write_data(sm::StellarModel)
+function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
+    TEOS,TKAP,TNET, TTURB, TSOLVER}) where {TNUMBER, TDUALFULL, TPROPS, TEOS, TKAP, TNET, TTURB, TSOLVER}
+    @show TNUMBER
+    type_in_symbol_form =  TNUMBER.name.name
+    @show type_in_symbol_form
     # do history
+
     if (sm.opt.io.history_interval > 0)
         file_exists = isfile(sm.opt.io.hdf5_history_filename)
         if !file_exists  # create file if it doesn't exist yet
@@ -169,7 +181,20 @@ function write_data(sm::StellarModel)
             history = sm.history_file["history"]
             HDF5.set_extent_dims(history, (size(history)[1] + 1, ncols))
             for i in eachindex(data_cols)
-                history[end, i] = history_output_functions[data_cols[i]](sm) #it happens here
+                #data_cols[i] contains the string name of the column, e.g. "star_age"
+                #print empty line
+                println("Now adding new data")
+                @show history_output_functions[data_cols[i]](sm)
+                @show typeof(history_output_functions[data_cols[i]](sm))
+                @show data_cols[i]
+                colname = data_cols[i]
+                if colname == "model_number"
+                    println("model number - extra if ")
+                    history[end, i] = history_output_functions[data_cols[i]](sm) 
+                else 
+                    history[end, i] = history_output_functions[data_cols[i]](sm).value
+                end
+                println("Added new data in history!!!!!")
             end
             if (!sm.opt.io.hdf5_history_keep_open)
                 close(sm.history_file)
