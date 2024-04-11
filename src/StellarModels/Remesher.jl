@@ -167,12 +167,6 @@ function split_xa(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low
     end
 end
 
-function split_convfrac(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
-    # use same composition on both cells to preserve species
-    varnew_low[sm.vari[:convfrac]] = var_00[sm.vari[:convfrac]]
-    varnew_up[sm.vari[:convfrac]] = var_00[sm.vari[:convfrac]]
-end
-
 
 """
     adjust_props_size(sm, new_nz::Int, nextra::Int)

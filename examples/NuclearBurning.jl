@@ -28,13 +28,12 @@ simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple 
 to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
 
-varnames = [:lnρ, :lnT, :lnr, :lum, :convfrac]
-varscaling = [:log, :log, :log, :maxval, :none]
+varnames = [:lnρ, :lnT, :lnr, :lum]
+varscaling = [:log, :log, :log, :maxval]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
-                       Evolution.equationContinuity, Evolution.equationLuminosity,
-                       Evolution.equationConvFrac]
+                       Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
-                          StellarModels.split_lnT, StellarModels.split_xa, StellarModels.split_convfrac]
+                          StellarModels.split_lnT, StellarModels.split_xa]
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 nz = 1000
 nextra = 100
@@ -122,14 +121,12 @@ open("example_options.toml", "w") do file
           initial_model_scale_max_correction = 0.2
           newton_max_iter = 50
           scale_max_correction = 0.1
-          report_solver_progress = true
-          solver_progress_iter = 1
 
           [timestep]
           dt_max_increase = 1.5
           delta_R_limit = 0.01
           delta_Tc_limit = 0.01
-          delta_Xc_limit = 0.001
+          delta_Xc_limit = 0.005
 
           [termination]
           max_model_number = 2000
@@ -246,21 +243,25 @@ the [IO](Evolution.md##Io.jl) options (and probably adjust the framerate).
 profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
 
 f = Figure();
-ax = Axis(f[1, 1]; xlabel=L"\mathrm{Mass}\;[M_\odot]", ylabel=L"X")
+ax = Axis(f[1, 1]; xlabel=L"\mathrm{Mass}\;[M_\odot]", ylabel=L"Abundance")
 
 pname = Observable(profile_names[1])
 
 profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
 mass = @lift($profile[!, "mass"])
 X = Observable(rand(length(mass.val)))
+Y = Observable(rand(length(mass.val)))
 model_number_str = @lift("model number=$(parse(Int,$pname))")
 
-profile_line = lines!(ax, mass, X; label="real profile")
+profile_line = lines!(ax, mass, X; label="X")
+profile_line = lines!(ax, mass, Y; label="Y")
 profile_text = text!(ax, 0.7, 0.0; text=model_number_str)
+axislegend(ax; position=:rb)
 
 record(f, "X_evolution.gif", profile_names[1:end]; framerate=2) do profile_name
     profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", profile_name)
     X.val = profile[!, "X"]
+    Y.val = profile[!, "Y"]
     pname[] = profile_name
 end
 

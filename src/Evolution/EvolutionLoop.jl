@@ -177,7 +177,9 @@ function do_evolution_loop!(sm::StellarModel)
                 else
                     retry_count = retry_count + 1
                     retry_step = true
-                    println("Failed to converge step $(sm.props.model_number) with timestep $(sm.props.dt/SECYEAR), retrying")
+                    if sm.opt.solver.report_retries
+                        println("Failed to converge step $(sm.props.model_number) with timestep $(sm.props.dt/SECYEAR), retrying")
+                    end
                 end
             end
         end

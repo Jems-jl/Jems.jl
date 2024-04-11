@@ -188,6 +188,8 @@ Residual of comparing dX_i/dt with its computed reaction rate
 function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
     # Get mass fraction for this iso
     X00 = get_00_dual(sm.props.xa[k, sm.network.xa_index[iso_name]])
+    # We do not use a dual for Xi as this quantity is fixed through the timestep.
+    Xi00 = get_value(sm.start_step_props.xa[k, sm.network.xa_index[iso_name]])
 
     dXdt_nuc::typeof(X00) = 0
     reactions_in = sm.network.species_reactions_in[sm.network.xa_index[iso_name]]
@@ -204,61 +206,31 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
     #mixing terms
     flux_down::typeof(X00) = 0
     flux_up::typeof(X00) = 0
-    convfrac00 = get_00_dual(sm.props.convfrac[k])
-    # this acts like a sigmoid, except that it is equal to 0 or 1 for x=0 or 1 respectively,
-    # with also the derivatives at the edges being equal to zero.
-    # however, it makes things worse
-    if convfrac00 < 0
-        convfrac00 = 0
-    elseif convfrac00 > 1
-        convfrac00 = 1
-    else
-        convfrac00 = 6*convfrac00^5 - 15*convfrac00^4+10*convfrac00^3 # see Jermyn et al. (2023), equation 75
-    end
 
     # flux term is (4πr^2ρ)^2*D/dm_face, with all quantities evaluated at the face
     # maybe good to experiment with a soft flux limiter that is continuous rather than
     # taking a min
     flux_limiter = sm.opt.physics.flux_limiter
-    if k != sm.props.nz
-        convfracp1 = get_p1_dual(sm.props.convfrac[k+1])  
-        if convfracp1 < 0
-            convfracp1 = 0
-        elseif convfracp1 > 1
-            convfracp1 = 1
-        else  
-            convfracp1 = 6*convfracp1^5 - 15*convfracp1^4+10*convfracp1^3 # see Jermyn et al. (2023), equation 75
-        end
+    if k != sm.props.nz 
         Xp1 = get_p1_dual(sm.props.xa[k+1, sm.network.xa_index[iso_name]])
-        X00_mix = X00*convfrac00 + Xp1*(1.0-convfrac00)
-        Xp1_mix = Xp1*convfracp1 + X00*(1.0-convfracp1)
         flux_term_up = get_00_dual(sm.props.flux_term[k])
         flux_term_up = min(flux_limiter*sm.props.dm[k]/sm.props.dt, flux_term_up)
-        flux_up = flux_term_up*(Xp1_mix-X00_mix)
+        flux_up = flux_term_up*(Xp1-X00)
     end
     if k != 1
-        convfracm1 = get_m1_dual(sm.props.convfrac[k-1])
-        if convfracm1 < 0
-            convfracm1 = 0
-        elseif convfracm1 > 1
-            convfracm1 = 1
-        else  
-            convfracm1 = 6*convfracm1^5 - 15*convfracm1^4+10*convfracm1^3 # see Jermyn et al. (2023), equation 75
-        end
         Xm1 = get_m1_dual(sm.props.xa[k-1, sm.network.xa_index[iso_name]])
-        X00_mix = X00*convfrac00 + Xm1*(1.0-convfrac00)
-        Xm1_mix = Xm1*convfracm1 + X00*(1.0-convfracm1)
         flux_term_down = get_m1_dual(sm.props.flux_term[k-1])
         flux_term_down = min(flux_limiter*sm.props.dm[k]/sm.props.dt, flux_term_down)
-        flux_down = flux_term_down*(X00_mix-Xm1_mix)
+        flux_down = flux_term_down*(X00-Xm1)
     end
     dXdt_mix =  (flux_up - flux_down)/(sm.props.dm[k])
-    # We do not use a dual for Xi as this quantity is fixed through the timestep.
-    Xi = get_value(sm.start_step_props.xa[k, sm.network.xa_index[iso_name]])
 
-    return ((X00 - Xi) -  (dXdt_nuc + dXdt_mix)*sm.props.dt)
+    return ((X00 - Xi00) -  (dXdt_nuc + dXdt_mix)*sm.props.dt)
 end
 
+# This is unused for now, can be used to implement fractional mixing to a cell that
+# is partially convective. Requires :convfrac to be a variable, which represents
+# the fraction of a cell that is convective.
 function equationConvFrac(sm::StellarModel, k::Int)
     convfrac = get_00_dual(sm.props.convfrac[k])
     if k==1
