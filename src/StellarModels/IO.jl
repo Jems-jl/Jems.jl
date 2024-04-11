@@ -180,20 +180,24 @@ function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
             # after being sure the header is there, print the data
             history = sm.history_file["history"]
             HDF5.set_extent_dims(history, (size(history)[1] + 1, ncols))
-            for i in eachindex(data_cols)
+            for i in eachindex(data_cols)#loop over variables to save data
                 #data_cols[i] contains the string name of the column, e.g. "star_age"
-                #print empty line
                 println("Now adding new data")
                 @show history_output_functions[data_cols[i]](sm)
                 @show typeof(history_output_functions[data_cols[i]](sm))
                 @show data_cols[i]
                 colname = data_cols[i]
-                if colname == "model_number"
-                    println("model number - extra if ")
-                    history[end, i] = history_output_functions[data_cols[i]](sm) 
-                else 
-                    history[end, i] = history_output_functions[data_cols[i]](sm).value
+                if type_in_symbol_form == :Dual
+                    println("YES GELUKT")
+                    if colname == "model_number"
+                        history[end, i] = history_output_functions[data_cols[i]](sm) #model number is never a dual number
+                    else 
+                        history[end, i] = history_output_functions[data_cols[i]](sm).value #for dual numbers
+                    end
+                else
+                    history[end, i] = history_output_functions[data_cols[i]](sm) #for non-dual (normal) numbers
                 end
+
                 println("Added new data in history!!!!!")
             end
             if (!sm.opt.io.hdf5_history_keep_open)
