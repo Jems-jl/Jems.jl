@@ -15,8 +15,8 @@ for i in eachindex(logts)
     eosses[i].ρ = 0.0003053927091989808
     eosses[i].T = 10^logts[i]
 end
-xa = [1.0, 0.0, 0.0, 0.0, 0.0]
-xa_index = Dict(:H1 => 1, :He4 => 2, :C12 => 3, :O16 => 4, :N14 => 5)
+xa = [0.5, 0.0, 0.0, 0.0, 0.0, 0.5]
+xa_index = Dict(:H1 => 1, :He4 => 2, :C12 => 3, :O16 => 4, :N14 => 5, :D2 => 6)
 
 ##
 
@@ -65,16 +65,32 @@ k_reaction = kipprates[:kipp_pp]
 
 # k_reaction = kipprates[:kipp_cno]
 
+
+##
+
+j_reactions_1 = [jinarates[:H1_D2_to_He3_de04_n_x_0]]
+j_reactions_2 = [jinarates[:H1_D2_to_He3_de04_x_x_0]]
+
 ##
 rates = zeros(length(logts));
 # println(rates)
 for i in eachindex(logts)
-    for reaction in j_reactions
+    for reaction in j_reactions_1
         rates[i] += ReactionRates.get_reaction_rate(reaction, eosses[i], xa, xa_index)
     end
 end
 # println(rates)
-j_rates = log10.(rates);
+j_rates_1 = log10.(rates);
+
+rates = zeros(length(logts));
+# println(rates)
+for i in eachindex(logts)
+    for reaction in j_reactions_2
+        rates[i] += ReactionRates.get_reaction_rate(reaction, eosses[i], xa, xa_index)
+    end
+end
+# println(rates)
+j_rates_2 = log10.(rates);
 
 ##
 function angulo_pp(eosr, xa, xa_index)
@@ -204,7 +220,8 @@ k_rates = log10.(rates)
 ##
 f = Figure();
 ax = Axis(f[1, 1], xlabel=L"\log T/\textrm{K}", ylabel=L"\log R / {\textrm{g}}^{-1} {\textrm{s}}^{-1}");
-lines!(ax, logts, j_rates, label="jina")
-lines!(ax, logts, k_rates, label="Kipp")
+lines!(ax, logts, j_rates_1, label="jina")
+lines!(ax, logts, j_rates_2, label="jina")
+# lines!(ax, logts, k_rates, label="Kipp")
 axislegend(position=:lt)
 f

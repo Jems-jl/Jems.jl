@@ -33,128 +33,11 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
-net = NuclearNetwork(   [:H1, :D2, :He3, :He4,
-                        :Be7, :Li7, :B8,
-                        :C12,   :C13,   
-                        :N13,   :N14,   :N15,
-                        :O14,   :O15,   :O16,   :O17,   :O18,   
-                        :F17,   :F18,   :F19,   
-                        ],
 
-                        [
-                        # PP I
-                        (:jina_rates, :H1_H1_to_D2_betplus_w_x_0),
-                        (:jina_rates, :H1_H1_to_D2_xxec_w_x_0),
-                        (:jina_rates, :H1_D2_to_He3_de04_n_x_0),
-                        (:jina_rates, :H1_D2_to_He3_de04_x_x_0),
-                        (:jina_rates, :He3_He3_to_H1_H1_He4_nacr_n_x_0),
-                        # PP II
-                        (:jina_rates, :He4_He3_to_Be7_cd08_n_x_0),
-                        (:jina_rates, :He4_He3_to_Be7_cd08_n_x_1),
-                        (:jina_rates, :Be7_to_Li7_xxec_w_x_0),
-                        (:jina_rates, :H1_Li7_to_He4_He4_de04_x_x_0),
-                        (:jina_rates, :H1_Li7_to_He4_He4_de04_r_x_0),
-                        (:jina_rates, :H1_Li7_to_He4_He4_de04_x_x_1),
-                        (:jina_rates, :H1_Li7_to_He4_He4_de04_r_x_1),
-                        # PP III
-                        (:jina_rates, :H1_Be7_to_B8_nacr_r_x_0),
-                        (:jina_rates, :H1_Be7_to_B8_nacr_n_x_0),
-                        (:jina_rates, :B8_to_He4_He4_wc12_w_x_0),
-                        # PP IV
-                        (:jina_rates, :H1_He3_to_He4_betplus_w_x_0),
-                        
-                        # CNO Cycle 1
+net = NuclearNetwork([:H1, :D2, :He3, :He4, :Li7, :Be8, :C12, :N14, :O16],
+                     [(:kipp_rates, :kipp_pp),
+                      (:kipp_rates, :kipp_cno)])
 
-                        (:jina_rates, :H1_C12_to_N13_ls09_r_x_0),
-                        (:jina_rates, :H1_C12_to_N13_ls09_n_x_0),
-
-                        (:jina_rates, :N13_to_C13_wc12_w_x_0),
-
-                        (:jina_rates, :H1_C13_to_N14_nacr_r_x_0),
-                        (:jina_rates, :H1_C13_to_N14_nacr_r_x_1),
-                        (:jina_rates, :H1_C13_to_N14_nacr_n_x_0),
-
-                        (:jina_rates, :H1_N14_to_O15_im05_r_x_0),
-                        (:jina_rates, :H1_N14_to_O15_im05_n_x_0),
-                        (:jina_rates, :H1_N14_to_O15_im05_n_x_1),
-                        (:jina_rates, :H1_N14_to_O15_im05_r_x_1),
-
-                        (:jina_rates, :O15_to_N15_wc12_w_x_0),
-
-                        (:jina_rates, :H1_N15_to_He4_C12_nacr_r_x_0),
-                        (:jina_rates, :H1_N15_to_He4_C12_nacr_r_x_1),
-                        (:jina_rates, :H1_N15_to_He4_C12_nacr_r_x_2),
-                        (:jina_rates, :H1_N15_to_He4_C12_nacr_n_x_0),
-
-                        # CNO Cycle 2
-
-                        (:jina_rates, :H1_N14_to_O15_im05_r_x_0),
-                        (:jina_rates, :H1_N14_to_O15_im05_n_x_0),
-                        (:jina_rates, :H1_N14_to_O15_im05_n_x_1),
-                        (:jina_rates, :H1_N14_to_O15_im05_r_x_1),
-
-                        (:jina_rates, :O15_to_N15_wc12_w_x_0),
-
-                        (:jina_rates, :H1_N15_to_O16_li10_r_x_0),
-                        (:jina_rates, :H1_N15_to_O16_li10_r_x_1),
-                        (:jina_rates, :H1_N15_to_O16_li10_n_x_0),
-
-                        (:jina_rates, :H1_O16_to_F17_ia08_n_x_0),
-
-                        (:jina_rates, :F17_to_O17_wc12_w_x_0),
-
-                        (:jina_rates, :H1_O17_to_He4_N14_il10_r_x_0),
-                        (:jina_rates, :H1_O17_to_He4_N14_il10_r_x_1),
-                        (:jina_rates, :H1_O17_to_He4_N14_il10_r_x_2),
-                        (:jina_rates, :H1_O17_to_He4_N14_il10_n_x_0),
-
-                        # CNO Cycle 3
-
-                        (:jina_rates, :H1_N15_to_O16_li10_r_x_0),
-                        (:jina_rates, :H1_N15_to_O16_li10_r_x_1),
-                        (:jina_rates, :H1_N15_to_O16_li10_n_x_0),
-
-                        (:jina_rates, :H1_O16_to_F17_ia08_n_x_0),
-
-                        (:jina_rates, :F17_to_O17_wc12_w_x_0),
-
-                        (:jina_rates, :H1_O17_to_F18_il10_r_x_0),
-                        (:jina_rates, :H1_O17_to_F18_il10_r_x_1),
-                        (:jina_rates, :H1_O17_to_F18_il10_n_x_0),
-
-                        (:jina_rates, :F18_to_O18_wc12_w_x_0),
-
-                        (:jina_rates, :H1_O18_to_He4_N15_il10_n_x_0),
-                        (:jina_rates, :H1_O18_to_He4_N15_il10_r_x_0),
-                        (:jina_rates, :H1_O18_to_He4_N15_il10_r_x_1),
-                        (:jina_rates, :H1_O18_to_He4_N15_il10_r_x_2),
-
-                        # CNO Cycle 4
-
-                        (:jina_rates, :H1_O16_to_F17_ia08_n_x_0),
-
-                        (:jina_rates, :F17_to_O17_wc12_w_x_0),
-
-                        (:jina_rates, :H1_O17_to_F18_il10_r_x_0),
-                        (:jina_rates, :H1_O17_to_F18_il10_r_x_1),
-                        (:jina_rates, :H1_O17_to_F18_il10_n_x_0),
-
-                        (:jina_rates, :F18_to_O18_wc12_w_x_0),
-
-                        (:jina_rates, :H1_O18_to_F19_il10_r_x_0),
-                        (:jina_rates, :H1_O18_to_F19_il10_r_x_1),
-                        (:jina_rates, :H1_O18_to_F19_il10_r_x_2),
-                        (:jina_rates, :H1_O18_to_F19_il10_n_x_0),
-
-                        (:jina_rates, :H1_F19_to_He4_O16_nacr_r_x_0),
-                        (:jina_rates, :H1_F19_to_He4_O16_nacr_x_x_0),
-                        (:jina_rates, :H1_F19_to_He4_O16_nacr_x_x_1),
-                        (:jina_rates, :H1_F19_to_He4_O16_nacr_x_x_2),
-                        (:jina_rates, :H1_F19_to_He4_O16_nacr_x_x_3),
-                        
-                        
-                        
-                        ])
 nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(true)
@@ -197,10 +80,18 @@ We first show how long it takes to evaluate the Jacobian matrix. This requires t
 steps, the first is to evaluate properties across the model (for example, the EOS)
 and then evaluate all differential equations.
 =#
-@benchmark begin
+a = @benchmark begin
     StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
     Evolution.eval_jacobian_eqs!($sm)
 end
+
+##
+
+BenchmarkTools.save("Kipp_RUN5_a.json", a)
+
+##
+
+# 
 
 ##
 #=
@@ -211,11 +102,16 @@ is destructive, as it uses the allocated Jacobian to store intermediate results.
 to run only the matrix solver can be determined by substracting the previous benchmark from this one.
 =#
 
-@benchmark begin
+b = @benchmark begin
     StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
     Evolution.eval_jacobian_eqs!($sm)
     Evolution.thomas_algorithm!($sm)
 end
+
+##
+
+BenchmarkTools.save("Kipp_RUN5_b.json", b)
+
 
 ##
 #=
@@ -245,8 +141,8 @@ open("example_options.toml", "w") do file
 
           [timestep]
           dt_max_increase = 1.5
-          delta_R_limit = 0.005
-          delta_Tc_limit = 0.005
+          delta_R_limit = 0.01
+          delta_Tc_limit = 0.01
           delta_Xc_limit = 0.005
 
           [termination]
@@ -287,57 +183,11 @@ rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 
 n = 3
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0003, Chem.abundance_lists[:ASG_09], 
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
 
 ##
-
-# Make the files needed
-
-using CSV
-
-# Toy Rates
-
-# history_10M_100R_Toy = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
-
-# CSV.write("history_10M_100R_Toy.csv", history_10M_100R_Toy)
-
-
-# Kipp Rates
-
-# history_08M_100R = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
-# history_10M_100R = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
-# history_12M_100R = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
-
-# CSV.write("history_08M_100R.csv", history_08M_100R)
-# CSV.write("history_10M_100R.csv", history_10M_100R)
-# CSV.write("history_12M_100R.csv", history_12M_100R)
-
-
-# Jina Rates
-
-
-# history_10M_100R_Jina_Version_1 = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")     # met maar een select aantal rates laten lopen - 800s
-# history_10M_100R_Jina_Version_2 = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")     # met alle PP en CNO (4 cycles) laten lopen - 
-
-# CSV.write("history_10M_100R_Jina_Version_1.csv", history_10M_100R_Jina_Version_1)
-# CSV.write("history_10M_100R_Jina_Version_2.csv", history_10M_100R_Jina_Version_2)
-
-
-# All reactions Jina without mixing
-
-# history_10M_100R_Jina_Nomixing_AllReactions = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
-# CSV.write("history_10M_100R_Jina_Nomixing_AllReactions.csv", history_10M_100R_Jina_Nomixing_AllReactions)
-
-history_10M_100R_Jina_Nomixing_AllReactions_smaller_Delta = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
-CSV.write("history_10M_100R_Jina_Nomixing_AllReactions_smaller_Delta.csv", history_10M_100R_Jina_Nomixing_AllReactions_smaller_Delta)
-
-
-
-##
-
-
 #=
 ### Plotting with Makie
 

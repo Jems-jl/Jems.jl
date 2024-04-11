@@ -30,9 +30,13 @@ T_surf_star_10_Toy = log10.(star_10M_ToyRates.T_surf)
 # Jina Rates
 
 star_10M_JinaRates_V1 = CSV.read("history_10M_100R_Jina_Version_1.csv", DataFrame)
-L_surf_star_10_Jina = log10.(star_10M_JinaRates_V1.L_surf)
-T_surf_star_10_Jina = log10.(star_10M_JinaRates_V1.T_surf)
+star_10M_JinaRates_V2 = CSV.read("history_10M_100R_Jina_Version_2.csv", DataFrame)
 
+L_surf_star_10_Jina_1 = log10.(star_10M_JinaRates_V1.L_surf)
+L_surf_star_10_Jina_2 = log10.(star_10M_JinaRates_V2.L_surf)
+
+T_surf_star_10_Jina_1 = log10.(star_10M_JinaRates_V1.T_surf)
+T_surf_star_10_Jina_2 = log10.(star_10M_JinaRates_V2.T_surf)
 
 ##
 
@@ -64,7 +68,9 @@ lines!(ax, T_surf_star_10, L_surf_star_10, color=:purple, linewidth=3, label = L
 
 lines!(ax, T_surf_star_10_Toy, L_surf_star_10_Toy, color=:blue, linewidth=3, label = L"1.0 M_\odot \text{ Toy Rates}")
 
-lines!(ax, T_surf_star_10_Jina, L_surf_star_10_Jina, color=:pink, linewidth=3, label = L"1.0 M_\odot \text{ Jina Rates}")
+lines!(ax, T_surf_star_10_Jina_1, L_surf_star_10_Jina_1, color=:pink, linewidth=3, label = L"1.0 M_\odot \text{ Jina Rates version 1}")
+# lines!(ax, T_surf_star_10_Jina_2, L_surf_star_10_Jina_2, color=:red, linewidth=3, label = L"1.0 M_\odot \text{ Jina Rates version 2}")
+
 
 xlims!(ax, (4.3, 3.0)) 
 # ylims!(ax, (ymin, ymax)) 
@@ -74,7 +80,8 @@ axislegend(position=:rt)
 
 f
 
-save("comparison_Toy_Kipp_Jina_Rates.png", f)
+# save("comparison_Jina_Rates_Versions.png", f)
+# save("comparison_Toy_Kipp_Jina_Rates.png", f)
 # save("comparison_ToyRates_KippRates.png", f)
 # save("comparison_masses_KippRates.png", f)
 

@@ -1,0 +1,45 @@
+
+Notes on every CSV file
+
+history_XXM_YYYR_ZZZZ.csv
+- X := mass of the star * 10
+- Y := Radius of the star at start of simulation
+- Z := Toy, Jina of Kipp rates --> not specified is Kipp rates
+
+history_10M_100R_Jina_Version_1.csv
+- 1.0 solar M star at 100 R solar with limited amount of Jina reaction rates
+- PP & CNO chain
+- With mixing
+
+history_10M_100R_Jina_Version_2.csv
+- 1.0 solar M star at 100 R solar with all of Jina reaction rates
+- PP & CNO chain
+- With mixing
+
+history_10M_110R_Jina_Nomixing_AllReactions.csv
+- 1.0 solar M star at 100 R solar with all Jina reaction rates
+- PP & CNO
+- No mixing
+
+history_10M_110R_Jina_Nomixing_AllReactions_smaller_Delta.csv
+- 1.0 solar M star at 100 R solar with all Jina reaction rates
+- PP & CNO
+- No mixing
+- Delta factors all a bit smaller
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

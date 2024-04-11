@@ -1,0 +1,300 @@
+Output on each of the benchmark runs
+
+RUN 1 - basic set of isotopes and reactions
+
+net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16],
+                     [(:kipp_rates, :kipp_pp),
+                      (:kipp_rates, :kipp_cno)])
+
+Benchmark 1
+
+BenchmarkTools.Trial
+  params: BenchmarkTools.Parameters
+    seconds: Float64 5.0
+    samples: Int64 10000
+    evals: Int64 1
+    evals_set: Bool false
+    overhead: Float64 0.0
+    gctrial: Bool true
+    gcsample: Bool false
+    time_tolerance: Float64 0.05
+    memory_tolerance: Float64 0.01
+  times: Array{Float64}((448,)) [9.226666e6, 9.961448e6, 8.284105e6, 8.401676e6, 9.037909e6, 9.929481e6, 8.477129e6, 9.181992e6, 9.928273e6, 8.784437e6  …  8.059443e6, 8.597025e6, 8.003408e6, 9.732242e6, 9.953438e6, 1.0067309e7, 1.1245357e7, 1.1131262e7, 1.0005484e7, 1.0992114e7]
+  gctimes: Array{Float64}((448,)) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  memory: Int64 3040
+  allocs: Int64 33
+minimum of the sample is: TrialEstimate(7.931 ms)
+maximum of the sample is: TrialEstimate(64.125 ms)
+median of the sample is: TrialEstimate(9.240 ms)
+mean of the sample is: TrialEstimate(11.151 ms)
+standard deviation of the sample is: TrialEstimate(4.621 ms)
+
+Benchmark 2
+
+BenchmarkTools.Trial
+  params: BenchmarkTools.Parameters
+    seconds: Float64 5.0
+    samples: Int64 10000
+    evals: Int64 1
+    evals_set: Bool false
+    overhead: Float64 0.0
+    gctrial: Bool true
+    gcsample: Bool false
+    time_tolerance: Float64 0.05
+    memory_tolerance: Float64 0.01
+  times: Array{Float64}((329,)) [1.3161772e7, 1.251539e7, 1.4611907e7, 1.307332e7, 1.4776698e7, 1.8788743e7, 1.5019239e7, 1.7991844e7, 2.085896e7, 2.0052054e7  …  1.366804e7, 1.458944e7, 1.3681935e7, 1.3363097e7, 1.4747897e7, 1.2410395e7, 1.3204923e7, 1.4032672e7, 1.6579892e7, 1.3154803e7]
+  gctimes: Array{Float64}((329,)) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  memory: Int64 131040
+  allocs: Int64 1033
+minimum of the sample is: TrialEstimate(12.168 ms)
+maximum of the sample is: TrialEstimate(81.746 ms)
+median of the sample is: TrialEstimate(13.902 ms)
+mean of the sample is: TrialEstimate(15.200 ms)
+standard deviation of the sample is: TrialEstimate(5.253 ms)
+
+
+RUN 2 - addition of 1 isotopes
+
+net = NuclearNetwork([:H1, :D2, :He4, :C12, :N14, :O16],
+                     [(:kipp_rates, :kipp_pp),
+                      (:kipp_rates, :kipp_cno)])
+
+
+Benchmark 1
+
+BenchmarkTools.Trial
+  params: BenchmarkTools.Parameters
+    seconds: Float64 5.0
+    samples: Int64 10000
+    evals: Int64 1
+    evals_set: Bool false
+    overhead: Float64 0.0
+    gctrial: Bool true
+    gcsample: Bool false
+    time_tolerance: Float64 0.05
+    memory_tolerance: Float64 0.01
+  times: Array{Float64}((500,)) [9.955299e6, 9.660997e6, 9.386077e6, 9.047575e6, 9.469286e6, 1.064904e7, 9.539428e6, 9.736619e6, 9.19453e6, 9.304004e6  …  1.0638022e7, 9.461333e6, 9.583999e6, 9.139127e6, 1.041726e7, 1.0044504e7, 9.092487e6, 9.604615e6, 9.051184e6, 9.731813e6]
+  gctimes: Array{Float64}((500,)) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  memory: Int64 3040
+  allocs: Int64 33
+minimum of the sample is: TrialEstimate(8.919 ms)
+maximum of the sample is: TrialEstimate(19.216 ms)
+median of the sample is: TrialEstimate(9.670 ms)
+mean of the sample is: TrialEstimate(9.982 ms)
+standard deviation of the sample is: TrialEstimate(1.076 ms)
+
+Benchmark 2
+
+BenchmarkTools.Trial
+  params: BenchmarkTools.Parameters
+    seconds: Float64 5.0
+    samples: Int64 10000
+    evals: Int64 1
+    evals_set: Bool false
+    overhead: Float64 0.0
+    gctrial: Bool true
+    gcsample: Bool false
+    time_tolerance: Float64 0.05
+    memory_tolerance: Float64 0.01
+  times: Array{Float64}((391,)) [1.242624e7, 1.2042249e7, 1.2064574e7, 1.3247256e7, 1.1941055e7, 1.2042173e7, 1.2077567e7, 1.3241418e7, 1.4485688e7, 1.2413276e7  …  1.2968163e7, 1.1918155e7, 1.2335113e7, 1.2182158e7, 1.2316145e7, 1.2938109e7, 1.2256131e7, 1.1830556e7, 1.3117553e7, 1.2405239e7]
+  gctimes: Array{Float64}((391,)) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  memory: Int64 147040
+  allocs: Int64 1033
+minimum of the sample is: TrialEstimate(11.658 ms)
+maximum of the sample is: TrialEstimate(18.819 ms)
+median of the sample is: TrialEstimate(12.500 ms)
+mean of the sample is: TrialEstimate(12.792 ms)
+standard deviation of the sample is: TrialEstimate(1.029 ms)
+
+
+RUN 3 - addition of 2 isotopes
+
+net = NuclearNetwork([:H1, :D2, :He3, :He4, :C12, :N14, :O16],
+                     [(:kipp_rates, :kipp_pp),
+                      (:kipp_rates, :kipp_cno)])
+
+
+Benchmark 1
+
+BenchmarkTools.Trial
+  params: BenchmarkTools.Parameters
+    seconds: Float64 5.0
+    samples: Int64 10000
+    evals: Int64 1
+    evals_set: Bool false
+    overhead: Float64 0.0
+    gctrial: Bool true
+    gcsample: Bool false
+    time_tolerance: Float64 0.05
+    memory_tolerance: Float64 0.01
+  times: Array{Float64}((410,)) [1.2299124e7, 1.3345205e7, 1.124315e7, 1.2282594e7, 1.2301657e7, 1.2368639e7, 1.1354887e7, 1.2418165e7, 1.19206e7, 1.1493167e7  …  1.1689422e7, 1.250001e7, 1.2014919e7, 1.2153058e7, 1.1908124e7, 1.1900522e7, 1.3630688e7, 1.3877472e7, 1.2369824e7, 1.4012682e7]
+  gctimes: Array{Float64}((410,)) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  memory: Int64 3040
+  allocs: Int64 33
+minimum of the sample is: TrialEstimate(10.884 ms)
+maximum of the sample is: TrialEstimate(16.730 ms)
+median of the sample is: TrialEstimate(11.931 ms)
+mean of the sample is: TrialEstimate(12.175 ms)
+standard deviation of the sample is: TrialEstimate(887.089 μs)
+
+Benchmark 2
+
+BenchmarkTools.Trial
+  params: BenchmarkTools.Parameters
+    seconds: Float64 5.0
+    samples: Int64 10000
+    evals: Int64 1
+    evals_set: Bool false
+    overhead: Float64 0.0
+    gctrial: Bool true
+    gcsample: Bool false
+    time_tolerance: Float64 0.05
+    memory_tolerance: Float64 0.01
+  times: Array{Float64}((314,)) [1.447915e7, 1.5784335e7, 1.512195e7, 1.8049383e7, 1.796382e7, 1.4707216e7, 1.5213567e7, 1.6650002e7, 1.5767704e7, 1.567313e7  …  1.5865394e7, 1.5513172e7, 1.5139849e7, 1.5241417e7, 1.615269e7, 1.456886e7, 1.5175679e7, 1.60165e7, 1.5924896e7, 1.817915e7]
+  gctimes: Array{Float64}((314,)) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  memory: Int64 147040
+  allocs: Int64 1033
+minimum of the sample is: TrialEstimate(14.479 ms)
+maximum of the sample is: TrialEstimate(20.251 ms)
+median of the sample is: TrialEstimate(15.780 ms)
+mean of the sample is: TrialEstimate(15.951 ms)
+standard deviation of the sample is: TrialEstimate(862.091 μs)
+
+RUN 4 - addition of 3 isotopes
+
+net = NuclearNetwork([:H1, :D2, :He3, :He4, :Be8, :C12, :N14, :O16],
+                     [(:kipp_rates, :kipp_pp),
+                      (:kipp_rates, :kipp_cno)])
+
+
+
+Benchmark 1
+
+BenchmarkTools.Trial
+  params: BenchmarkTools.Parameters
+    seconds: Float64 5.0
+    samples: Int64 10000
+    evals: Int64 1
+    evals_set: Bool false
+    overhead: Float64 0.0
+    gctrial: Bool true
+    gcsample: Bool false
+    time_tolerance: Float64 0.05
+    memory_tolerance: Float64 0.01
+  times: Array{Float64}((273,)) [1.6574325e7, 1.6045991e7, 1.8074211e7, 1.5933969e7, 1.7101744e7, 1.7189708e7, 1.7656295e7, 2.3480136e7, 1.6768699e7, 2.1482683e7  …  1.9117272e7, 1.9593902e7, 3.0332961e7, 1.8595243e7, 3.1353874e7, 3.1243324e7, 2.2182347e7, 2.1046533e7, 2.4408894e7, 1.910318e7]
+  gctimes: Array{Float64}((273,)) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  memory: Int64 3040
+  allocs: Int64 33
+minimum of the sample is: TrialEstimate(12.136 ms)
+maximum of the sample is: TrialEstimate(48.459 ms)
+median of the sample is: TrialEstimate(17.386 ms)
+mean of the sample is: TrialEstimate(18.333 ms)
+standard deviation of the sample is: TrialEstimate(5.579 ms)
+
+Benchmark 2
+
+BenchmarkTools.Trial
+  params: BenchmarkTools.Parameters
+    seconds: Float64 5.0
+    samples: Int64 10000
+    evals: Int64 1
+    evals_set: Bool false
+    overhead: Float64 0.0
+    gctrial: Bool true
+    gcsample: Bool false
+    time_tolerance: Float64 0.05
+    memory_tolerance: Float64 0.01
+  times: Array{Float64}((230,)) [3.3062391e7, 3.4037438e7, 2.9055136e7, 2.5402689e7, 2.7498828e7, 2.887337e7, 2.2309351e7, 3.2955658e7, 2.8545385e7, 2.3430904e7  …  1.6393172e7, 1.6777914e7, 1.6433827e7, 1.6169267e7, 1.6684411e7, 1.711889e7, 2.27402e7, 1.9747818e7, 1.8684627e7, 1.6545804e7]
+  gctimes: Array{Float64}((230,)) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  memory: Int64 163040
+  allocs: Int64 1033
+minimum of the sample is: TrialEstimate(16.169 ms)
+maximum of the sample is: TrialEstimate(52.755 ms)
+median of the sample is: TrialEstimate(19.089 ms)
+mean of the sample is: TrialEstimate(21.717 ms)
+standard deviation of the sample is: TrialEstimate(6.081 ms)
+
+
+
+RUN 5 - addition of 4 isotopes
+
+
+net = NuclearNetwork([:H1, :D2, :He3, :He4, :Li7, :Be8, :C12, :N14, :O16],
+                     [(:kipp_rates, :kipp_pp),
+                      (:kipp_rates, :kipp_cno)])
+
+
+
+Benchmark 1
+
+BenchmarkTools.Trial
+  params: BenchmarkTools.Parameters
+    seconds: Float64 5.0
+    samples: Int64 10000
+    evals: Int64 1
+    evals_set: Bool false
+    overhead: Float64 0.0
+    gctrial: Bool true
+    gcsample: Bool false
+    time_tolerance: Float64 0.05
+    memory_tolerance: Float64 0.01
+  times: Array{Float64}((298,)) [1.4406125e7, 1.4979433e7, 1.5500636e7, 1.6118233e7, 1.4948819e7, 1.4735695e7, 1.5672929e7, 1.4510342e7, 1.4845256e7, 1.591738e7  …  1.5895966e7, 1.497022e7, 1.5159329e7, 1.5791306e7, 1.5450795e7, 1.5259278e7, 1.546801e7, 1.7159354e7, 1.8052708e7, 1.5356386e7]
+  gctimes: Array{Float64}((298,)) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  memory: Int64 3040
+  allocs: Int64 33
+minimum of the sample is: TrialEstimate(13.617 ms)
+maximum of the sample is: TrialEstimate(42.432 ms)
+median of the sample is: TrialEstimate(15.430 ms)
+mean of the sample is: TrialEstimate(16.790 ms)
+standard deviation of the sample is: TrialEstimate(3.988 ms)
+
+Benchmark 2
+
+BenchmarkTools.Trial
+  params: BenchmarkTools.Parameters
+    seconds: Float64 5.0
+    samples: Int64 10000
+    evals: Int64 1
+    evals_set: Bool false
+    overhead: Float64 0.0
+    gctrial: Bool true
+    gcsample: Bool false
+    time_tolerance: Float64 0.05
+    memory_tolerance: Float64 0.01
+  times: Array{Float64}((237,)) [1.9823262e7, 2.039266e7, 1.9873663e7, 2.1196267e7, 1.967258e7, 1.9696766e7, 2.0077237e7, 1.9774181e7, 2.040286e7, 1.9851539e7  …  1.9635254e7, 1.9723677e7, 2.5915038e7, 2.3182411e7, 2.0807013e7, 2.4953283e7, 2.0879635e7, 2.2640133e7, 2.1381804e7, 2.3630529e7]
+  gctimes: Array{Float64}((237,)) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  memory: Int64 163040
+  allocs: Int64 1033
+minimum of the sample is: TrialEstimate(19.075 ms)
+maximum of the sample is: TrialEstimate(38.031 ms)
+median of the sample is: TrialEstimate(20.379 ms)
+mean of the sample is: TrialEstimate(21.114 ms)
+standard deviation of the sample is: TrialEstimate(2.402 ms)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
