@@ -88,7 +88,7 @@ Substructure of Options containing controls relating to input/output of data
     history_interval::Int = 1
     profile_interval::Int = 10
 
-    history_values::Vector{String} = ["star_age", "dt", "model_number", "star_mass", "R_surf", "L_surf", "T_surf",
+    history_values::Vector{String} = ["age", "dt", "model_number", "star_mass", "R_surf", "L_surf", "T_surf",
                                       "P_surf", "ρ_surf", "X_surf", "Y_surf", "T_center", "P_center", "ρ_center",
                                       "X_center", "Y_center"]
 
@@ -108,7 +108,9 @@ Options relating to the live plotting of the simulation
     data_interval::Int = 1
 
     window_specs::Vector{String} = []
-    window_layouts::Vector{Vector{Int}} = [[]]
+    window_layout::Vector{Vector{Int}} = [[]]
+    yaxes_log::Vector{Bool} = []
+    alt_yaxes_log::Vector{Bool} = []
 
     profile_xaxis::String = ""
     profile_yaxes::Vector{String} = []

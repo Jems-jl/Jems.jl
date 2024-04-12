@@ -1,10 +1,7 @@
 using ForwardDiff
 using Jems.Turbulence
 
-abstract type AbstractStellarModelProperties end
-
-@kwdef mutable struct StellarModelProperties{TN,TDual,TDualFace,TCellDualData,TFaceDualData} <:
-                      AbstractStellarModelProperties
+@kwdef mutable struct StellarModelProperties{TN, TDual, TDualFace, TCellDualData, TFaceDualData} <: AbstractModelProperties
     # scalar quantities
     dt::TN  # Timestep of the current evolutionary step (s)
     dt_next::TN
@@ -37,7 +34,6 @@ abstract type AbstractStellarModelProperties end
     # rates (cell centered)
     rates::Matrix{TCellDualData}  # g^-1 s^-1
     rates_dual::Matrix{TDual}     # only cell duals wrt itself
-    eps_nuc::Vector{TN}
 
     # face values
     lnP_face::Vector{TFaceDualData}  # [dyne]
@@ -122,6 +118,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
         flux_term[k] = FaceDualData(nvars, TN)
     end
 
+    rates_dual = zeros(TD, nz + nextra, nrates)
     rates = Matrix{CDDTYPE}(undef, nz + nextra, nrates)
     for k = 1:(nz + nextra)
         for i = 1:nrates
@@ -154,7 +151,6 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
                                   rates=rates,
                                   ϵ_nuc=zeros(nz + nextra),
                                   rates_dual=rates_dual,
-                                  eps_nuc=zeros(nz + nextra),
                                   mixing_type=mixing_type)
 end
 
@@ -166,8 +162,7 @@ Evaluates the stellar model properties `props` from the `ind_vars` array. The go
 StellarModel so we can easily get properties like rates, eos, opacity values, and retrace if a retry is called.
 This does _not_ update the mesh/ind_vars arrays.
 """
-function evaluate_stellar_model_properties!(sm,
-                                            props::StellarModelProperties{TN,TDual,TCellDualData}) where
+function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN,TDual,TCellDualData}) where
          {TN<:Real,TDual<:ForwardDiff.Dual,TCellDualData}
     lnT_i = sm.vari[:lnT]
     lnρ_i = sm.vari[:lnρ]
@@ -227,17 +222,12 @@ function evaluate_stellar_model_properties!(sm,
 
         # evaluate rates
         rates = @view props.rates_dual[i, :]
-        set_rates_for_network!(rates, sm.network, props.eos_res_dual[i], xa)
+        set_rates_for_network!(rates, sm.network, exp(lnT), exp(lnρ), xa)
         for j in eachindex(rates)
             update_cell_dual_data!(props.rates[i, j], rates[j])
         end
 
         # compute eps_nuc
-        props.eps_nuc[i] = 0.0
-        for j in eachindex(rates)
-            props.eps_nuc[i] += sm.network.reactions[j].Qvalue * rates[j].value  # [1] because I need the float
-        end
-
         props.ϵ_nuc[i] = 0.0
         for j in eachindex(rates)
             props.ϵ_nuc[i] += rates[j].value * sm.network.reactions[j].Qvalue

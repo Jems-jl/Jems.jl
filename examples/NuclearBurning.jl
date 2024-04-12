@@ -40,7 +40,8 @@ nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 turbulence = Turbulence.BasicMLT(1.0)
-sm = StellarModel(varnames, varscaling, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
+sm = StellarModel(varnames, varscaling, structure_equations, Evolution.equation_composition,
+                    nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
 
 ##
 #=
@@ -58,9 +59,10 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 At last we are in position to evaluate the equations and compute the Jacobian.
 =#
 n = 3
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], MSUN,
+                                             100 * RSUN; initial_dt=10 * SECYEAR)
 StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
-Evolution.cycle_props!(sm);
+StellarModels.cycle_props!(sm);
 StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
 StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props)  # or do StellarModels.remesher!(sm);
 StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
@@ -138,7 +140,7 @@ open("example_options.toml", "w") do file
           plotting_interval = 1
 
           window_specs = ["HR", "Kippenhahn", "profile", "TRhoProfile"]
-          window_layouts = [[1, 1],  # arrangement of plots
+          window_layout = [[1, 1],  # arrangement of plots
                             [1, 2],
                             [2, 1],
                             [2, 2]
@@ -148,7 +150,7 @@ open("example_options.toml", "w") do file
           profile_yaxes = ['log10_T']
           profile_alt_yaxes = ['X','Y']
 
-          history_xaxis = 'star_age'
+          history_xaxis = 'age'
           history_yaxes = ['R_surf']
           history_alt_yaxes = ['T_center']
 

@@ -1,28 +1,3 @@
-"""
-    cycle_props!(sm::StellarModel)
-
-Moves the model properties of the StellarModel `sm` over one state:
-start_step_props -> props -> prv_step_props -> start_step_props
-"""
-function cycle_props!(sm::StellarModel)
-    temp_props = sm.prv_step_props
-    sm.prv_step_props = sm.props
-    sm.props = sm.start_step_props
-    sm.start_step_props = temp_props
-end
-
-"""
-    uncycle_props!(sm::StellarModel)
-
-Moves the model properties of the StellarModel `sm` back one state:
-start_step_props <- props <- prv_step_props <- start_step_props
-"""
-function uncycle_props!(sm::StellarModel)
-    temp_props = sm.props
-    sm.props = sm.prv_step_props
-    sm.prv_step_props = sm.start_step_props
-    sm.start_step_props = temp_props
-end
 
 """
     get_dt_next(sm::StellarModel)
@@ -69,7 +44,7 @@ function do_evolution_loop!(sm::StellarModel)
 
     # evolution loop, be sure to have sensible termination conditions or this will go on forever!
     while true
-        cycle_props!(sm)  # move props of previous step to prv_step_props of current step
+        StellarModels.cycle_props!(sm)  # move props of previous step to prv_step_props of current step
 
         # either remesh, or copy over from prv_step_props
         if sm.opt.remesh.do_remesh
@@ -185,7 +160,7 @@ function do_evolution_loop!(sm::StellarModel)
         end
 
         if retry_step
-            uncycle_props!(sm)  # reset props to what prv_step_props contains, ie mimic state at end of previous step
+            StellarModels.uncycle_props!(sm)  # reset props to what prv_step_props contains, ie mimic state at end of previous step
             sm.props.dt_next *= sm.opt.timestep.dt_retry_decrease # adapt dt
             continue  # go back to top of evolution loop
         end
@@ -231,5 +206,5 @@ function do_evolution_loop!(sm::StellarModel)
     if sm.opt.plotting.do_plotting
         Plotting.end_of_evolution(sm)
     end
-    StellarModels.close_output_files!(sm)
+    StellarModels.shut_down_IO!(sm)
 end

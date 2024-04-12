@@ -30,6 +30,7 @@ struct JinaReactionRate{TT<:Real} <: ReactionRates.AbstractReactionRate
     chapter::Int64
 end
 
+# num_iso_in & out
 
 """
     add_to_references(main_dict, ref_dict, reaction, new_info::JinaReactionRate)
@@ -397,18 +398,19 @@ function read_dataset(dataset, dictionary, reference_dictionary)
 end
 
 """
-    get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT}, 
+
+    get_reaction_rate(reaction::JinaReactionRate, T::T1, ρ::T2, xa::AbstractVector{TT}, 
                       xa_index::Dict{Symbol,Int})
 
 Evaluates the reaction rate, in s^{-1}g^{-1}, given an equation of state result for the relevant cell, is abundances and
 index array, by computing Eqs. 1 and 2 from Cyburt+2010.
 """
-function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa::AbstractVector{TT},
-                           xa_index::Dict{Symbol,Int})::TT where {TT}
+function get_reaction_rate(reaction::JinaReactionRate, T::T1, ρ::T2, xa::AbstractVector{TT},
+                           xa_index::Dict{Symbol,Int})::TT where {TT,T1,T2}
 
     # determine λ
 
-    T_9 = (eos00.T / 1e9)
+    T_9 = (T / 1e9)
     a = reaction.coeff
 
     x = a[1] + a[7] * log(T_9)
@@ -447,10 +449,9 @@ function get_reaction_rate(reaction::JinaReactionRate, eos00::EOSResults{TT}, xa
     end
 
     # Calculate the reaction rate
-    ρ = eos00.ρ
     RR = ρ^ν * λ * factors
 
-    return RR * Constants.AVO  # times avo since Eq. 2 is molar rate, we want in g^-1 s^-1
+    return RR * Constants.AVO
 end
 
 # executes when laoding in ReactionRates

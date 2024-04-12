@@ -10,7 +10,7 @@ using GLMakie
     alt_ax::Union{Makie.Axis,Nothing}
     alt_y_obs::Union{Dict{Symbol,Observable},Nothing}
 
-    JemsPlot(ax, type) = new(ax, type, nothing, nothing, nothing, nothing)
+    JemsPlot(ax, type) = new(ax, type, nothing, nothing, nothing, nothing, nothing)
 end
 
 """
