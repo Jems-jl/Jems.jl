@@ -40,12 +40,8 @@ nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 turbulence = Turbulence.BasicMLT(1.0)
-<<<<<<< HEAD
-sm = StellarModel(varnames, structure_equations, Evolution.equation_composition, nz, nextra, remesh_split_functions,
-                  net, eos, opacity, turbulence);
-=======
-sm = StellarModel(varnames, varscaling, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
->>>>>>> main
+sm = StellarModel(varnames, varscaling, structure_equations, Evolution.equation_composition,
+                    nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
 
 ##
 #=
