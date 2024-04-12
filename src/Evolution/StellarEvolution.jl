@@ -87,15 +87,30 @@ function do_evolution_loop!(sm::StellarModel)
 
             # scale correction
             if sm.props.model_number == 0
-                correction_multiplier = min(1.0, sm.opt.solver.initial_model_scale_max_correction / abs_max_corr)
+                correction_limit = sm.opt.solver.initial_model_scale_max_correction
             else
-                correction_multiplier = min(1.0, sm.opt.solver.scale_max_correction / abs_max_corr)
+                correction_limit = sm.opt.solver.scale_max_correction
             end
-            if correction_multiplier < 1
+            correction_multiplier = 1.0
+            for j in 1:sm.nvars
+                sub_corr = @view sm.solver_data.solver_corr[j:sm.nvars:(sm.nvars*(sm.props.nz-1)+j)]
+                max_sub_corr = maximum(abs, sub_corr)
+                if sm.var_scaling[j] == :log || sm.var_scaling[j] == :unity
+                    correction_multiplier = min(correction_multiplier,
+                                                    correction_limit/max_sub_corr)
+                elseif sm.var_scaling[j] == :maxval
+                    sub_ind_vars = @view sm.props.ind_vars[j:sm.nvars:(sm.nvars*(sm.props.nz-1)+j)]
+                    max_var_value = maximum(abs, sub_ind_vars)
+                    correction_multiplier = min(correction_multiplier,
+                                                    max_var_value*correction_limit/max_sub_corr)
+                end
+            end
+
+            if correction_multiplier < 1.0
                 corr .*= correction_multiplier
             end
 
-            # first try applying correction and see if it would give negative luminosity
+            # apply correction!
             sm.props.ind_vars[1:sm.nvars*sm.props.nz] .+= corr[1:sm.nvars*sm.props.nz]
             sm.solver_data.newton_iters = i
 
@@ -137,7 +152,9 @@ function do_evolution_loop!(sm::StellarModel)
                 else
                     retry_count = retry_count + 1
                     retry_step = true
-                    println("Failed to converge step $(sm.props.model_number) with timestep $(sm.props.dt/SECYEAR), retrying")
+                    if sm.opt.solver.report_retries
+                        println("Failed to converge step $(sm.props.model_number) with timestep $(sm.props.dt/SECYEAR), retrying")
+                    end
                 end
             end
         end

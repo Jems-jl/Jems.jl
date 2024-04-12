@@ -77,15 +77,16 @@ function get_mass_fractions(abundance_list::AbundanceList, species_names, X, Z, 
                 fraction = Z / sum_of_metals
                 massfractions[species] = abundance_list.massfractions[species] * fraction
             elseif species ≠ :D2
-                println("Species $(species) is not in the abundance list, setting its mass fraction to 0.0")
                 massfractions[species] = 0.0 #put to zero if species not in abundance list
             end
         end
     end
     #now put hydrogen and helium mass fractions
-    massfractions[:H1] = X * (1-Dfraction)
     if :D2 ∈ species_names
-        massfractions[:D2] = X * Dfraction  # choose some fraction of hydrogen to be deuterium
+        massfractions[:H1] = X * (1-Dfraction)
+        massfractions[:D2] = X * Dfraction #choose some fraction of hydrogen to be deuterium
+    else
+        massfractions[:H1] = X
     end
     massfractions[:He4] = 1-X-Z
     return massfractions

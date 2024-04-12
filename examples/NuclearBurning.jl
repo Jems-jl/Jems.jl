@@ -29,6 +29,7 @@ to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
 
 varnames = [:lnρ, :lnT, :lnr, :lum]
+varscaling = [:log, :log, :log, :maxval]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
@@ -39,8 +40,12 @@ nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 turbulence = Turbulence.BasicMLT(1.0)
+<<<<<<< HEAD
 sm = StellarModel(varnames, structure_equations, Evolution.equation_composition, nz, nextra, remesh_split_functions,
                   net, eos, opacity, turbulence);
+=======
+sm = StellarModel(varnames, varscaling, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
+>>>>>>> main
 
 ##
 #=
@@ -119,10 +124,9 @@ open("example_options.toml", "w") do file
 
           [solver]
           newton_max_iter_first_step = 1000
-          initial_model_scale_max_correction = 0.5
-          newton_max_iter = 30
+          initial_model_scale_max_correction = 0.2
+          newton_max_iter = 50
           scale_max_correction = 0.1
-          report_solver_progress = false
 
           [timestep]
           dt_max_increase = 1.5
@@ -245,21 +249,25 @@ the [IO](Evolution.md##Io.jl) options (and probably adjust the framerate).
 profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
 
 f = Figure();
-ax = Axis(f[1, 1]; xlabel=L"\mathrm{Mass}\;[M_\odot]", ylabel=L"X")
+ax = Axis(f[1, 1]; xlabel=L"\mathrm{Mass}\;[M_\odot]", ylabel=L"Abundance")
 
 pname = Observable(profile_names[1])
 
 profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
 mass = @lift($profile[!, "mass"])
 X = Observable(rand(length(mass.val)))
+Y = Observable(rand(length(mass.val)))
 model_number_str = @lift("model number=$(parse(Int,$pname))")
 
-profile_line = lines!(ax, mass, X; label="real profile")
+profile_line = lines!(ax, mass, X; label="X")
+profile_line = lines!(ax, mass, Y; label="Y")
 profile_text = text!(ax, 0.7, 0.0; text=model_number_str)
+axislegend(ax; position=:rb)
 
 record(f, "X_evolution.gif", profile_names[1:end]; framerate=2) do profile_name
     profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", profile_name)
     X.val = profile[!, "X"]
+    Y.val = profile[!, "Y"]
     pname[] = profile_name
 end
 
