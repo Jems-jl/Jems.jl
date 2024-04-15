@@ -125,16 +125,18 @@ function create_output_files!(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
     history = create_dataset(sm.history_file, "history", Float64, ((0, ncols), (-1, ncols)),
                                 chunk=(sm.opt.io.hdf5_history_chunk_size, ncols),
                                 compress=sm.opt.io.hdf5_history_compression_level)
-
-    number_of_partials = TNUMBER.parameters[3]
-    dual_histories = [create_dataset(sm.history_file, "dualhistory_$i", Float64, ((0, ncols), (-1, ncols)),
+    if TNUMBER != Float64
+        number_of_partials = TNUMBER.parameters[3]
+        dual_histories = [create_dataset(sm.history_file, "dualhistory_$i", Float64, ((0, ncols), (-1, ncols)),
                                 chunk=(sm.opt.io.hdf5_history_chunk_size, ncols),
                                 compress=sm.opt.io.hdf5_history_compression_level) for i in 1:number_of_partials]
+    end
     
     # next up, include the units for all quantities. No need to recheck columns.
     attrs(history)["column_units"] = [history_output_units[data_cols[i]] for i in eachindex(data_cols)]
     # Finally, place column names
     attrs(history)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
+
 
     for dual_history in dual_histories
         attrs(dual_history)["column_units"] = [history_output_units[data_cols[i]] for i in eachindex(data_cols)]
@@ -210,7 +212,8 @@ function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
                 #@show typeof(history_output_functions[data_cols[i]](sm))
                 #@show data_cols[i]
                 colname = data_cols[i]
-                if type_in_symbol_form == :Dual
+                @show TNUMBER
+                if TNUMBER != Float64
                     if colname == "model_number"
                         history[end, i] = history_output_functions[data_cols[i]](sm) #model number is never a dual number
                         for (k,dual_history) in enumerate(dual_histories)
