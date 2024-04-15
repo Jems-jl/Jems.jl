@@ -14,6 +14,25 @@ using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
+using Jems.DualSupport
+using ForwardDiff
+
+#make tags for internal and external differentiation use
+#the external tag is the 'inner tag' in the code, because these derivatives
+#are taken along the entire ride through the code, while the internal use tages
+#are only used at specific points for local use and then dropped again
+import ForwardDiff.Tag
+import ForwardDiff.Dual
+tag_external = Tag{:external, nothing}
+ForwardDiff.tagcount(tag_external); #this function is necessary to order the tags
+#tag_internal = Tag{:internal, nothing}
+#ForwardDiff.tagcount(tag_internal)
+
+#define tags uniquely, safer when doing some notebook jumping
+#tag_external = DualSupport.simple_tag()
+#tag_internal = DualSupport.simple_tag()
+
+#
 
 ##
 #=
@@ -27,7 +46,7 @@ The Evolution module has pre-defined equations corresponding to these variables,
 simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple simple electron scattering opacity equal
 to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
-
+println("Create StellarModel ############################")
 varnames = [:lnρ, :lnT, :lnr, :lum]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
@@ -39,7 +58,18 @@ nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 turbulence = Turbulence.BasicMLT(1.0)
-sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
+
+
+
+dummy_dual = ForwardDiff.Dual{tag_external}(5.0,0.0,0.0,0.0,0.0,0.0) 
+#dummy_type = typeof(dummy_dual)
+#dump(dummy_type)
+#dump(typeof(dummy_type))
+#dummy_type.name.name #reveal if number == Dual number
+#dummy_type.parameters[3] #reveals the length of the dual number
+
+#this is what an external dual looks like, the code likes to know this
+sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence, number_type = typeof(dummy_dual));
 
 ##
 #=
@@ -54,10 +84,17 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 `set_end_step_info!(sm)`. We then 'cycle' this info into the information of a hypothetical previous step with
 `cycle_step_info`, so now `sm.psi` contains our initial condition. Finally we call `set_start_step_info` to use `sm.psi`
 (_previous step info_) to populate the information needed before the Newton solver in `sm.ssi` (_start step info_).
-At last we are in position to evaluate the equations and compute the Jacobian.
+At last we are in position to evaluate the kequations and compute the Jacobian.
 =#
+println("Initialize StellarModel ############################")
 n = 3
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154,0.0142,0.0,Chem.abundance_lists[:ASG_09],MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+#define dual input numbers, all partial derivatives are with respect to the mass
+X_dual         = ForwardDiff.Dual{tag_external}(0.7154,  1.0,0.0,0.0,0.0,0.0) #(value, derivative to mass)
+Z_dual         = ForwardDiff.Dual{tag_external}(0.0142,  0.0,1.0,0.0,0.0,0.0)
+Dfraction_dual = ForwardDiff.Dual{tag_external}(0.0,     0.0,0.0,1.0,0.0,0.0)
+mass_dual      = ForwardDiff.Dual{tag_external}(1.0*MSUN,0.0,0.0,0.0,1.0,0.0)
+R_dual         = ForwardDiff.Dual{tag_external}(100*RSUN,0.0,0.0,0.0,0.0,1.0)
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_dual,Chem.abundance_lists[:ASG_09],mass_dual, R_dual; initial_dt=10 * SECYEAR)
 StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
 Evolution.cycle_props!(sm);
 StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
@@ -129,11 +166,11 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 2000
+          max_model_number = 20
           max_center_T = 1e8
 
           [plotting]
-          do_plotting = true
+          do_plotting = false
           wait_at_termination = false
           plotting_interval = 1
 
@@ -153,18 +190,22 @@ open("example_options.toml", "w") do file
           history_alt_yaxes = ['T_center']
 
           [io]
-          profile_interval = 50
-          terminal_header_interval = 100
+          history_interval = 1
+          profile_interval = 50000
+          terminal_header_interval = 2
           terminal_info_interval = 100
 
           """)
 end
+print("Initialize & Evolve StellarModel ############################################################")
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 n = 3
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+#StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
+#                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_dual,Chem.abundance_lists[:ASG_09],
+                                            mass_dual, R_dual; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
 
 ##

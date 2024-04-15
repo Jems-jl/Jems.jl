@@ -125,23 +125,24 @@ function create_output_files!(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
     history = create_dataset(sm.history_file, "history", Float64, ((0, ncols), (-1, ncols)),
                                 chunk=(sm.opt.io.hdf5_history_chunk_size, ncols),
                                 compress=sm.opt.io.hdf5_history_compression_level)
-    if TNUMBER != Float64
-        number_of_partials = TNUMBER.parameters[3]
-        dual_histories = [create_dataset(sm.history_file, "dualhistory_$i", Float64, ((0, ncols), (-1, ncols)),
-                                chunk=(sm.opt.io.hdf5_history_chunk_size, ncols),
-                                compress=sm.opt.io.hdf5_history_compression_level) for i in 1:number_of_partials]
-    end
     
     # next up, include the units for all quantities. No need to recheck columns.
     attrs(history)["column_units"] = [history_output_units[data_cols[i]] for i in eachindex(data_cols)]
     # Finally, place column names
     attrs(history)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
 
-
-    for dual_history in dual_histories
-        attrs(dual_history)["column_units"] = [history_output_units[data_cols[i]] for i in eachindex(data_cols)]
-        attrs(dual_history)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
+    if TNUMBER != Float64
+        println("TNUMBER is not Float64")
+        number_of_partials = TNUMBER.parameters[3]
+        dual_histories = [create_dataset(sm.history_file, "dualhistory_$i", Float64, ((0, ncols), (-1, ncols)),
+                                chunk=(sm.opt.io.hdf5_history_chunk_size, ncols),
+                                compress=sm.opt.io.hdf5_history_compression_level) for i in 1:number_of_partials]
+        for dual_history in dual_histories
+            attrs(dual_history)["column_units"] = [history_output_units[data_cols[i]] for i in eachindex(data_cols)]
+            attrs(dual_history)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
+        end
     end
+
 
     if (!sm.opt.io.hdf5_history_keep_open)
         close(sm.history_file)
@@ -198,13 +199,14 @@ function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
 
             # after being sure the header is there, print the data
             history = sm.history_file["history"]
-            dual_histories = [sm.history_file["dualhistory_$i"] for i in 1:TNUMBER.parameters[3] ]
-            @show typeof(history)
-            @show typeof(dual_histories[1])
-            HDF5.set_extent_dims(history, (size(history)[1] + 1, ncols))
-            for dual_history in dual_histories
-                HDF5.set_extent_dims(dual_history, (size(dual_history)[1] + 1, ncols))
+            if TNUMBER != Float64
+                dual_histories = [sm.history_file["dualhistory_$i"] for i in 1:TNUMBER.parameters[3] ]
+                for dual_history in dual_histories
+                    HDF5.set_extent_dims(dual_history, (size(dual_history)[1] + 1, ncols))
+                end
             end
+            @show typeof(history)
+            HDF5.set_extent_dims(history, (size(history)[1] + 1, ncols))
             for i in eachindex(data_cols)#loop over variables to save data
                 #data_cols[i] contains the string name of the column, e.g. "star_age"
                 println("Now adding new data")
