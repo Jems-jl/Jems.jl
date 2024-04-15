@@ -183,8 +183,7 @@ function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
     @show TNUMBER
     type_in_symbol_form =  TNUMBER.name.name
     @show type_in_symbol_form
-    # do history
-
+    # save history data
     if (sm.opt.io.history_interval > 0)
         file_exists = isfile(sm.opt.io.hdf5_history_filename)
         if !file_exists  # create file if it doesn't exist yet
@@ -205,16 +204,9 @@ function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
                     HDF5.set_extent_dims(dual_history, (size(dual_history)[1] + 1, ncols))
                 end
             end
-            @show typeof(history)
             HDF5.set_extent_dims(history, (size(history)[1] + 1, ncols))
-            for i in eachindex(data_cols)#loop over variables to save data
-                #data_cols[i] contains the string name of the column, e.g. "star_age"
-                println("Now adding new data")
-                #@show history_output_functions[data_cols[i]](sm)
-                #@show typeof(history_output_functions[data_cols[i]](sm))
-                #@show data_cols[i]
+            for i in eachindex(data_cols)
                 colname = data_cols[i]
-                @show TNUMBER
                 if TNUMBER != Float64
                     if colname == "model_number"
                         history[end, i] = history_output_functions[data_cols[i]](sm) #model number is never a dual number
