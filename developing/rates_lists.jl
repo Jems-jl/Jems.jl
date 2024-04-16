@@ -145,7 +145,7 @@ bbrates = [(:jina_rates, :n_to_H1_wc12_w_x_0),
                     # (:jina_rates, :H1_F19_to_He4_O16_nacr_x_x_1),
                     # (:jina_rates, :H1_F19_to_He4_O16_nacr_x_x_2),
                     # (:jina_rates, :H1_F19_to_He4_O16_nacr_x_x_3),])
-                     ]
+                     ])
            
 # CNO Cycle 1
 
