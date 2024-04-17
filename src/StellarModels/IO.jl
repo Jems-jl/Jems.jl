@@ -180,10 +180,8 @@ Saves data (history/profile) for the current model, as required by the settings 
 """
 function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
     TEOS,TKAP,TNET, TTURB, TSOLVER}) where {TNUMBER, TDUALFULL, TPROPS, TEOS, TKAP, TNET, TTURB, TSOLVER}
-    @show TNUMBER
     type_in_symbol_form =  TNUMBER.name.name
-    @show type_in_symbol_form
-    # save history data
+    # do history
     if (sm.opt.io.history_interval > 0)
         file_exists = isfile(sm.opt.io.hdf5_history_filename)
         if !file_exists  # create file if it doesn't exist yet
@@ -198,35 +196,30 @@ function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
 
             # after being sure the header is there, print the data
             history = sm.history_file["history"]
+            HDF5.set_extent_dims(history, (size(history)[1] + 1, ncols))
             if TNUMBER != Float64
                 dual_histories = [sm.history_file["dualhistory_$i"] for i in 1:TNUMBER.parameters[3] ]
                 for dual_history in dual_histories
                     HDF5.set_extent_dims(dual_history, (size(dual_history)[1] + 1, ncols))
                 end
             end
-            HDF5.set_extent_dims(history, (size(history)[1] + 1, ncols))
             for i in eachindex(data_cols)
                 colname = data_cols[i]
                 if TNUMBER != Float64
                     if colname == "model_number"
                         history[end, i] = history_output_functions[data_cols[i]](sm) #model number is never a dual number
                         for (k,dual_history) in enumerate(dual_histories)
-                            println("adding model number to dual history")
                             dual_history[end,i] = history_output_functions[data_cols[i]](sm)#add model number
                         end
                     else 
-                        history[end, i] = history_output_functions[data_cols[i]](sm).value #for dual numbers
-                    
-                    for (k,dual_history) in enumerate(dual_histories)
-                        dual_history[end,i] = history_output_functions[data_cols[i]](sm).partials[k] #for dual numbers
-                    end
-
+                        history[end, i] = history_output_functions[data_cols[i]](sm).value #value for dual numbers
+                        for (k,dual_history) in enumerate(dual_histories)
+                            dual_history[end,i] = history_output_functions[data_cols[i]](sm).partials[k] #partials for dual numbers
+                        end
                     end
                 else
                     history[end, i] = history_output_functions[data_cols[i]](sm) #for non-dual (normal) numbers
                 end
-
-                println("Added new data in history!!!!!")
             end
             if (!sm.opt.io.hdf5_history_keep_open)
                 close(sm.history_file)
@@ -257,12 +250,53 @@ function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
             # Place column names
             attrs(profile)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
 
-            # store data
-            for i in eachindex(data_cols), k = 1:(sm.props.nz)
-                profile[k, i] = profile_output_functions[data_cols[i]](sm, k)
+            if TNUMBER == Float64
+                # store data
+                for i in eachindex(data_cols), k = 1:(sm.props.nz)
+                    profile[k, i] = profile_output_functions[data_cols[i]](sm, k)
+                end
             end
-            if (!sm.opt.io.hdf5_profile_keep_open)
-                close(sm.profiles_file)
+
+            if TNUMBER != Float64
+                for i in eachindex(data_cols), k = 1:(sm.props.nz)
+                    colname = data_cols[i]
+                    #@show data_cols[i]
+                    #println(" ")
+                    #@show profile_output_functions[data_cols[i]](sm, k)
+                    #println(" ")
+                    #@show typeof(profile_output_functions[data_cols[i]](sm, k))
+                    if colname == "zone"
+                        profile[k, i] = profile_output_functions[colname](sm, k)
+                    else
+                        profile[k, i] = profile_output_functions[colname](sm, k).value
+                    end
+                end
+                number_of_partials = TNUMBER.parameters[3]
+                dual_profiles = []
+                for i in 1:number_of_partials
+                    dual_profile = create_dataset(sm.profiles_file,
+                        "$(lpad(sm.props.model_number,sm.opt.io.hdf5_profile_dataset_name_zero_padding,"0"))dual_$i",
+                        Float64, ((sm.props.nz, ncols), (sm.props.nz, ncols));
+                        chunk=(sm.opt.io.hdf5_profile_chunk_size, ncols),
+                        compress=sm.opt.io.hdf5_profile_compression_level)
+                    # next up, include the units for all quantities. No need to recheck columns.
+                    attrs(dual_profile)["column_units"] = [profile_output_units[data_cols[i]] for i in eachindex(data_cols)]
+                    # Place column names
+                    attrs(dual_profile)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
+                    # store data
+                    for i in eachindex(data_cols), k = 1:(sm.props.nz)
+                        colname = data_cols[i]
+                        if colname == "zone"
+                            profile[k, i] = profile_output_functions[colname](sm, k)
+                        else
+                            profile[k, i] = profile_output_functions[colname](sm, k).value
+                        end
+                    end
+                    push!(dual_profiles, profile)
+                end
+                if (!sm.opt.io.hdf5_profile_keep_open)
+                    close(sm.profiles_file)
+                end
             end
         end
     end

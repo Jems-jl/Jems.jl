@@ -103,7 +103,6 @@ function StellarModel(var_names::Vector{Symbol},
     tag = ForwardDiff.Tag{:internal, nothing}
     ForwardDiff.tagcount(tag)
     solver_data = SolverData(nvars, nz, nextra, use_static_arrays, number_type, tag)
-    println("Internal tag created: ", tag)
     # properties
     prv_step_props = StellarModelProperties(nvars, nz, nextra,
                                        length(network.reactions), network.nspecies, vari, number_type, tag)

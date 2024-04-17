@@ -129,7 +129,7 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 2000
+          max_model_number = 100
           max_center_T = 1e8
 
           [plotting]

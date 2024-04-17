@@ -191,7 +191,7 @@ open("example_options.toml", "w") do file
 
           [io]
           history_interval = 1
-          profile_interval = 50000
+          profile_interval = 1
           terminal_header_interval = 2
           terminal_info_interval = 100
 
