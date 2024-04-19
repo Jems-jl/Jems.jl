@@ -161,7 +161,6 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
     lnρ_i = sm.vari[:lnρ]
     lnr_i = sm.vari[:lnr]
     L_i = sm.vari[:lum]
-    @show props.nz
     Threads.@threads for i in 1:props.nz
         # update independent variables
         update_cell_dual_data_value!(props.lnT[i], props.ind_vars[(i-1)*(sm.nvars)+lnT_i])

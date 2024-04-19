@@ -208,6 +208,51 @@ StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_
                                             mass_dual, R_dual; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
 
+## 
+using DataFrames
+using ForwardDiff
+"""
+get_dual_profile_dataframe_from_hdf5(hdf5_filename, value_name, partials_names)
+
+Returns a DataFrame object built filled with Dual numbers.
+"""
+function get_dual_profile_dataframe_from_hdf5(hdf5_filename, value_name, partials_names)
+    value_dataframe = StellarModels.get_profile_dataframe_from_hdf5(hdf5_filename, value_name)
+    partial_dataframes = [StellarModels.get_profile_dataframe_from_hdf5(hdf5_filename, partial_name) for partial_name in partials_names]
+    df_dual = Dual.(value_dataframe, partial_dataframes...)
+    return df_dual
+end
+ 
+profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
+value_names = [name for name in profile_names if !occursin("dual", name)]
+dual_names_unpacked = [name for name in profile_names if occursin("dual", name)]
+nbPartials = Int(length(dual_names)/length(value_names))
+dual_names = [[dual_name for dual_name in dual_names_unpacked[lo:lo+nbPartials-1] ] for lo in 1:nbPartials:(length(dual_names_unpacked))] 
+dual_names
+
+profile_number = 10
+get_dual_profile_dataframe_from_hdf5("profiles.hdf5", value_names[profile_number], dual_names[profile_number])
+
+StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", value_names[5])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ##
 #=
 ### Plotting with Makie
@@ -267,38 +312,11 @@ record(f, "rho_P_evolution.gif", profile_names[1:end]; framerate=2) do profile_n
     pname[] = profile_name
 end
 ##
-using DataFrames
-using ForwardDiff
-import ForwardDiff.Dual
-matrix1 = [[1.0,2.0,3.0,4.0],
-        [5.0,6.0,7.0,8.0],
-        [9.0,10.0,11.0,12.0],
-        [13.0,14.0,15.0,16.0]]
-matrix2 = [[1.0,2.0,3.0,4.0],
-        [5.0,6.0,7.0,8.0],
-        [9.0,10.0,11.0,12.0],
-        [13.0,14.0,15.0,16.0]]*10
 
-#now make matrix with dual number_of_partials
-#matrix = [[ForwardDiff.Dual(1.0,0.0,0.0,0.0)],
-#          [ForwardDiff.Dual(2.0,0.0,0.0,0.0)],
-#          [ForwardDiff.Dual(3.0,0.0,0.0,0.0)],
-#            [ForwardDiff.Dual(4.0,0.0,0.0,0.0)]]
-colnames = ["col1", "col2", "col3", "col4"]
-df1 = DataFrame(matrix1, colnames )
-df2 = DataFrame(matrix2, colnames)
-df3 = DataFrame(matrix2, colnames)
-df4 = DataFrame(matrix2, colnames)
-#take sum of the two DataFrames
-#for colname in colnames
-#    df3[!,colname] = Dual.(df[!,colname], df2[!,colname])
-#end
 
-df_dual = Dual.(df1,[df2,df3,df4]...)
-##
-Dual(10.0,0.0,10.0,1.0) 
-##
-df_dual = Dual.(df1, df2)
+
+
+
 ##
 # ![Movie polytrope](./rho_P_evolution.gif)
 
