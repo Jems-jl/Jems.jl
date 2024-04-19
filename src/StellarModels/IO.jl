@@ -260,11 +260,11 @@ function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
             if TNUMBER != Float64
                 for i in eachindex(data_cols), k = 1:(sm.props.nz)
                     colname = data_cols[i]
-                    #@show data_cols[i]
-                    #println(" ")
-                    #@show profile_output_functions[data_cols[i]](sm, k)
-                    #println(" ")
-                    #@show typeof(profile_output_functions[data_cols[i]](sm, k))
+                    @show data_cols[i]
+                    println(" ")
+                    @show profile_output_functions[data_cols[i]](sm, k)
+                    println(" ")
+                    @show typeof(profile_output_functions[data_cols[i]](sm, k))
                     if colname == "zone"
                         profile[k, i] = profile_output_functions[colname](sm, k)
                     else

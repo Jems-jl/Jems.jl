@@ -266,7 +266,40 @@ record(f, "rho_P_evolution.gif", profile_names[1:end]; framerate=2) do profile_n
     log10_P.val = profile[!, "log10_P"]
     pname[] = profile_name
 end
+##
+using DataFrames
+using ForwardDiff
+import ForwardDiff.Dual
+matrix1 = [[1.0,2.0,3.0,4.0],
+        [5.0,6.0,7.0,8.0],
+        [9.0,10.0,11.0,12.0],
+        [13.0,14.0,15.0,16.0]]
+matrix2 = [[1.0,2.0,3.0,4.0],
+        [5.0,6.0,7.0,8.0],
+        [9.0,10.0,11.0,12.0],
+        [13.0,14.0,15.0,16.0]]*10
 
+#now make matrix with dual number_of_partials
+#matrix = [[ForwardDiff.Dual(1.0,0.0,0.0,0.0)],
+#          [ForwardDiff.Dual(2.0,0.0,0.0,0.0)],
+#          [ForwardDiff.Dual(3.0,0.0,0.0,0.0)],
+#            [ForwardDiff.Dual(4.0,0.0,0.0,0.0)]]
+colnames = ["col1", "col2", "col3", "col4"]
+df1 = DataFrame(matrix1, colnames )
+df2 = DataFrame(matrix2, colnames)
+df3 = DataFrame(matrix2, colnames)
+df4 = DataFrame(matrix2, colnames)
+#take sum of the two DataFrames
+#for colname in colnames
+#    df3[!,colname] = Dual.(df[!,colname], df2[!,colname])
+#end
+
+df_dual = Dual.(df1,[df2,df3,df4]...)
+##
+Dual(10.0,0.0,10.0,1.0) 
+##
+df_dual = Dual.(df1, df2)
+##
 # ![Movie polytrope](./rho_P_evolution.gif)
 
 ##
