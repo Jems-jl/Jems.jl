@@ -58,21 +58,10 @@ sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functi
 ##
 #=
 ### Initialize StellarModel and evaluate equations and jacobian
-
-We do not have a working initial condition yet. We require pressure, temperature profiles. One simple available initial
-condition is that of an n=1 polytrope. This sets the pressure and density and computes the temperature from the EOS. The
-luminosity is initialized by assuming pure radiative transport for the temperature gradient produced by the polytrope.
-
-The normal evolution loop will store the information at the end of the step into an attribute of type `StellarStepInfo`,
-stored at `sm.esi` (_end step info_). After initializing our polytrope we can mimic that behavior by calling 
-`set_end_step_info!(sm)`. We then 'cycle' this info into the information of a hypothetical previous step with
-`cycle_step_info`, so now `sm.psi` contains our initial condition. Finally we call `set_start_step_info` to use `sm.psi`
-(_previous step info_) to populate the information needed before the Newton solver in `sm.ssi` (_start step info_).
-At last we are in position to evaluate the kequations and compute the Jacobian.
 =#
 println("Initialize StellarModel ############################")
 n = 3
-#define dual input numbers, all partial derivatives are with respect to the mass
+#define dual input numbers, all partial derivatives are with respect to the mass, give a '1.0' to indicate the order of the partials
 X_dual         = ForwardDiff.Dual{tag_external}(0.7154,  1.0,0.0,0.0,0.0,0.0) #(value, derivative to mass)
 Z_dual         = ForwardDiff.Dual{tag_external}(0.0142,  0.0,1.0,0.0,0.0,0.0)
 Dfraction_dual = ForwardDiff.Dual{tag_external}(0.0,     0.0,0.0,1.0,0.0,0.0)
@@ -112,7 +101,7 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 5
+          max_model_number = 10
           max_center_T = 1e8
 
           [plotting]
@@ -151,7 +140,13 @@ StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_
                                             mass_dual, R_dual; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
 
-## 
+#=
+###Accessing the Dual profiles
+
+For both history and profiles, the original ways to obtain them are still valid and will give the values.
+Now we also have access to the partials.
+=#
+##  
 using DataFrames
 """
 get_dual_profile_dataframe_from_hdf5(hdf5_filename, value_name, partials_names)
@@ -164,13 +159,11 @@ function get_dual_profile_dataframe_from_hdf5(hdf5_filename, value_name, partial
     df_dual = ForwardDiff.Dual.(value_dataframe, partial_dataframes...)
     return df_dual
 end
- 
-profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
-value_names = [name for name in profile_names if !occursin("dual", name)]
-dual_names_unpacked = [name for name in profile_names if occursin("dual", name)]
-nbPartials = Int(length(dual_names_unpacked)/length(value_names))
-dual_names = [[dual_name for dual_name in dual_names_unpacked[lo:lo+nbPartials-1] ] for lo in 1:nbPartials:(length(dual_names_unpacked))] 
-dual_names
+ #doing some bookkeeping stuff
+profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")#all profiles, regular profiles and dual profiles
+value_names = [name for name in profile_names if !occursin("partial", name)]
+dual_names_unpacked = [name for name in profile_names if occursin("partial", name)]
+dual_names = [[dual_name for dual_name in dual_names_unpacked[lo:lo+number_of_partials-1] ] for lo in 1:nbPartials:(length(dual_names_unpacked))] 
 
 profile_number = 5
 bla = get_dual_profile_dataframe_from_hdf5("profiles.hdf5", value_names[profile_number], dual_names[profile_number])

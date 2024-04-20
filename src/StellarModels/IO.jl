@@ -276,7 +276,7 @@ function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
                 for partial_index in 1:number_of_partials #loop over all input parameters
                     #create a new profile dual_profile for the (partial_index)th partial
                     dual_profile = create_dataset(sm.profiles_file,
-                        "$(lpad(sm.props.model_number,sm.opt.io.hdf5_profile_dataset_name_zero_padding,"0"))dual_$partial_index",
+                        "$(lpad(sm.props.model_number,sm.opt.io.hdf5_profile_dataset_name_zero_padding,"0"))partial_$partial_index",
                         Float64, ((sm.props.nz, ncols), (sm.props.nz, ncols));
                         chunk=(sm.opt.io.hdf5_profile_chunk_size, ncols),
                         compress=sm.opt.io.hdf5_profile_compression_level)
