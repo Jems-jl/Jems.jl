@@ -139,12 +139,14 @@ rm(sm.opt.io.hdf5_profile_filename; force=true)
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_dual,Chem.abundance_lists[:ASG_09],
                                             mass_dual, R_dual; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
-
+##
 #=
 ###Accessing the Dual profiles
 
-For both history and profiles, the original ways to obtain them are still valid and will give the values.
-Now we also have access to the partials.
+For the history: it can still be accessed as before, but now we also have access to the partials.
+For the profiles: it can still be accessed as before, but we should take care not to bump into errors. 
+Therefore i give a `value_names`, the string names of the original profiles, and `dual_names`, 
+containing lists of the string names of the corresponding partial profiles.
 =#
 ##  
 using DataFrames
@@ -153,38 +155,32 @@ get_dual_profile_dataframe_from_hdf5(hdf5_filename, value_name, partials_names)
 
 Returns a DataFrame object built filled with Dual numbers.
 """
-function get_dual_profile_dataframe_from_hdf5(hdf5_filename, value_name, partials_names)
+function get_partial_profile_dataframe_from_hdf5(hdf5_filename, value_name, partials_names)
     value_dataframe = StellarModels.get_profile_dataframe_from_hdf5(hdf5_filename, value_name)
     partial_dataframes = [StellarModels.get_profile_dataframe_from_hdf5(hdf5_filename, partial_name) for partial_name in partials_names]
-    df_dual = ForwardDiff.Dual.(value_dataframe, partial_dataframes...)
-    return df_dual
+    df_partial = ForwardDiff.Dual.(value_dataframe, partial_dataframes...)
+    return df_partial
 end
  #doing some bookkeeping stuff
 profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")#all profiles, regular profiles and dual profiles
 value_names = [name for name in profile_names if !occursin("partial", name)]
-dual_names_unpacked = [name for name in profile_names if occursin("partial", name)]
-dual_names = [[dual_name for dual_name in dual_names_unpacked[lo:lo+number_of_partials-1] ] for lo in 1:nbPartials:(length(dual_names_unpacked))] 
-
-profile_number = 5
-bla = get_dual_profile_dataframe_from_hdf5("profiles.hdf5", value_names[profile_number], dual_names[profile_number])
-
-StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", value_names[5])
+partial_names_unpacked = [name for name in profile_names if occursin("partial", name)]
+partial_names = [[partial_name for partial_name in partial_names_unpacked[lo:lo+number_of_partials-1] ] for lo in 1:nbPartials:(length(partial_names_unpacked))] 
 
 
 
+################################################################################## PROFILE OUTPUT
+value_names #this list contains the profile names as before, i.e. just the values, nothing special
+partial_names #this list contains lists with the corresponding partial names
+i = 2
+StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", value_names[i]) #access the ith profile with actual values, as before
+get_dual_profile_dataframe_from_hdf5("profiles.hdf5", value_names[i], dual_names[i]) #acces the ith profile, but now with Dual numbers, i.e. containg both the values and the partials  
+#################################################################################
 
-
-
-
-
-
-
-
-
-
-
-
-
+################################################################################# HISTORY OUTPUT
+history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5") #as before
+history_partial1 = StellarModels
+#################################################################################
 
 
 
@@ -192,9 +188,6 @@ StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", value_names[5])
 #=
 ### Plotting with Makie
 
-Now that our simulation is complete we can analyze the results. We make use of the Makie package for this. I'm not a fan
-of the Makie defaults, so I adjust them. I normally also adjust the fonts to be consistent with \LaTeX, but I avoid that
-here so we don't need to distribute those fonts together with Jems.
 =#
 using CairoMakie, LaTeXStrings, MathTeXEngine
 basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
@@ -212,18 +205,13 @@ set_theme!(basic_theme)
 #=
 ### Compare against polytropes
 
-Below we see how the profile of the star compares to different polytropes. We make use of the facility tools to obtain
-DataFrame objects out of the hdf5 output. In particular, `get_profile_names_from_hdf5` will provide the names of all 
-profiles contained within the hdf5 file, while `get_profile_dataframe_from_hdf5` is used to obtain one DataFrame
-corresponding to one stellar profile. The animation is constructed using the `Observable` type that makie provides. Note
-that the zero points of the polytropes are arbitrary.
+Copying, for clarity, the same example from NuclearBurning.jl
 =#
-profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
 
 f = Figure();
 ax = Axis(f[1, 1]; xlabel=L"\log_{10}(\rho/\mathrm{[g\;cm^{-3}]})", ylabel=L"\log_{10}(P/\mathrm{[dyn]})")
 
-pname = Observable(profile_names[1])
+pname = Observable(value_names[end])#NOTE: we use value_names here!
 
 profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
 #To see why this is done this way, see https://docs.makie.org/stable/explanations/nodes/index.html#problems_with_synchronous_updates
@@ -241,35 +229,27 @@ axislegend(ax; position=:rb)
 model_number_str = @lift("model number=$(parse(Int,$pname))")
 profile_text = text!(ax, -10, 20; text=model_number_str)
 
-record(f, "rho_P_evolution.gif", profile_names[1:end]; framerate=2) do profile_name
+f
+
+##
+record(f, "rho_P_evolution.gif", value_names[1:end]; framerate=2) do profile_name
     profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", profile_name)
     log10_P.val = profile[!, "log10_P"]
     pname[] = profile_name
 end
-##
-
-
-
-
 
 ##
-# ![Movie polytrope](./rho_P_evolution.gif)
 
-##
 #=
 ### Check nuclear burning
 
-We see that the structure evolves towards an n=3 polytrope. Deviations near the core are due to the non-homogeneous
-composition as hydrogen is burnt. We can similarly visualize how the hydrogen mass fraction changes in the simulation.
-In here, only one frame shows the hydrogen that was burnt. To better visualize that you can adjust `profile_interval` in
-the [IO](Evolution.md##Io.jl) options (and probably adjust the framerate).
+
 =#
-profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
 
 f = Figure();
 ax = Axis(f[1, 1]; xlabel=L"\mathrm{Mass}\;[M_\odot]", ylabel=L"X")
 
-pname = Observable(profile_names[1])
+pname = Observable(value_names[end]) #NOTE that we used value_names here!
 
 profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
 mass = @lift($profile[!, "mass"])
@@ -278,8 +258,8 @@ model_number_str = @lift("model number=$(parse(Int,$pname))")
 
 profile_line = lines!(ax, mass, X; label="real profile")
 profile_text = text!(ax, 0.7, 0.0; text=model_number_str)
-
-record(f, "X_evolution.gif", profile_names[1:end]; framerate=2) do profile_name
+f
+record(f, "X_evolution.gif", value_names[1:end]; framerate=2) do profile_name
     profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", profile_name)
     X.val = profile[!, "X"]
     pname[] = profile_name
@@ -296,7 +276,7 @@ microphysics are very simplistic, and the initial condition is not very physical
 =#
 f = Figure();
 ax = Axis(f[1, 1]; xlabel=L"\log_{10}(T_\mathrm{eff}/[K])", ylabel=L"\log_{10}(L/L_\odot)", xreversed=true)
-history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
+history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5") #NOTE that history file just works as before
 lines!(ax, log10.(history[!, "T_surf"]), log10.(history[!, "L_surf"]))
 f
 

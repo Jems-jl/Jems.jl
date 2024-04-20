@@ -134,7 +134,7 @@ function create_output_files!(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
     if TNUMBER != Float64
         println("TNUMBER is not Float64")
         number_of_partials = TNUMBER.parameters[3]
-        dual_histories = [create_dataset(sm.history_file, "dualhistory_$i", Float64, ((0, ncols), (-1, ncols)),
+        dual_histories = [create_dataset(sm.history_file, "history_partial_$i", Float64, ((0, ncols), (-1, ncols)),
                                 chunk=(sm.opt.io.hdf5_history_chunk_size, ncols),
                                 compress=sm.opt.io.hdf5_history_compression_level) for i in 1:number_of_partials]
         for dual_history in dual_histories
@@ -198,7 +198,7 @@ function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
             history = sm.history_file["history"]
             HDF5.set_extent_dims(history, (size(history)[1] + 1, ncols))
             if TNUMBER != Float64
-                dual_histories = [sm.history_file["dualhistory_$i"] for i in 1:TNUMBER.parameters[3] ]
+                dual_histories = [sm.history_file["history_partial_$i"] for i in 1:TNUMBER.parameters[3] ]
                 for dual_history in dual_histories
                     HDF5.set_extent_dims(dual_history, (size(dual_history)[1] + 1, ncols))
                 end
@@ -276,7 +276,7 @@ function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
                 for partial_index in 1:number_of_partials #loop over all input parameters
                     #create a new profile dual_profile for the (partial_index)th partial
                     dual_profile = create_dataset(sm.profiles_file,
-                        "$(lpad(sm.props.model_number,sm.opt.io.hdf5_profile_dataset_name_zero_padding,"0"))partial_$partial_index",
+                        "$(lpad(sm.props.model_number,sm.opt.io.hdf5_profile_dataset_name_zero_padding,"0"))_partial_$partial_index",
                         Float64, ((sm.props.nz, ncols), (sm.props.nz, ncols));
                         chunk=(sm.opt.io.hdf5_profile_chunk_size, ncols),
                         compress=sm.opt.io.hdf5_profile_compression_level)
