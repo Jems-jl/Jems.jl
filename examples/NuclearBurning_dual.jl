@@ -1,8 +1,9 @@
 #=
-# NuclearBurning.jl
+# NuclearBurning_dual.jl
 
-This notebook provides a simple example of a star with simplified microphysics undergoing nuclear burning.
-Import all necessary Jems modules. We will also do some benchmarks, so we import BenchmarkTools as well.
+This example has the same structure as the NuclearBurning.jl example, 
+but uses Dual numbers to compute partial derivatives with respect
+ect to input parameters.
 =#
 using BenchmarkTools
 using Jems.Chem
@@ -17,35 +18,26 @@ using Jems.ReactionRates
 using Jems.DualSupport
 using ForwardDiff
 
-#make tags for internal and external differentiation use
-#the external tag is the 'inner tag' in the code, because these derivatives
-#are taken along the entire ride through the code, while the internal use tages
-#are only used at specific points for local use and then dropped again
-import ForwardDiff.Tag
-import ForwardDiff.Dual
-tag_external = Tag{:external, nothing}
-ForwardDiff.tagcount(tag_external); #this function is necessary to order the tags
-#tag_internal = Tag{:internal, nothing}
-#ForwardDiff.tagcount(tag_internal)
 
-#define tags uniquely, safer when doing some notebook jumping
-#tag_external = DualSupport.simple_tag()
-#tag_internal = DualSupport.simple_tag()
-
-#
-
-##
 #=
-### Model creation
+Creation of external tag for the dual numbers
 
-We start by creating the stellar model. In this example we consider a model with 6 independent variables, two of which
-correspond to composition. The independent variables here are $\ln(P)$, $\ln(T)$, $\ln(r)$, the luminosity $L$ and the
-mass fractions of Hydrogen and Helium.
-
-The Evolution module has pre-defined equations corresponding to these variables, which we provide here. For now, only a
-simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple simple electron scattering opacity equal
-to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
+We make a tag for EXTERNAL use, i.e. to keep track of the derivatives with respect
+to the input parameters which we will choose. The code itself will make an
+internal tag for internal use.
+On a computing level, the external tag is the 'inner tag' in the code, 
+because these derivatives are taken along the entire ride through the code, 
+while the dual numbers with internal tags are only used at specific points 
+for local use and then dropped again.
 =#
+tag_external = ForwardDiff.Tag{:external, nothing}
+ForwardDiff.tagcount(tag_external); #this function is necessary to order the tags
+#create a dummy dual with the same dimensions as the input dual numbers
+#e.g. 6 = 1 value + 5 partial derivatives
+
+
+### Model creation, as usual
+
 println("Create StellarModel ############################")
 varnames = [:lnρ, :lnT, :lnr, :lum]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
@@ -58,18 +50,10 @@ nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 turbulence = Turbulence.BasicMLT(1.0)
-
-
-
-dummy_dual = ForwardDiff.Dual{tag_external}(5.0,0.0,0.0,0.0,0.0,0.0) 
-#dummy_type = typeof(dummy_dual)
-#dump(dummy_type)
-#dump(typeof(dummy_type))
-#dummy_type.name.name #reveal if number == Dual number
-#dummy_type.parameters[3] #reveals the length of the dual number
-
-#this is what an external dual looks like, the code likes to know this
-sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence, number_type = typeof(dummy_dual));
+dual_type = typeof(ForwardDiff.Dual{tag_external}(5.0,0.0,0.0,0.0,0.0,0.0))
+number_of_partials = 5 #number of partials we want to keep track of
+dual_type = ForwardDiff.Dual{tag_external,Float64,number_of_partials}
+sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence, number_type = dual_type);
 
 ##
 #=
@@ -104,47 +88,9 @@ StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
 StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
 
 ##
-#=
-### Benchmarking
 
-The previous code leaves everything ready to solve the linearized system.
-For now we make use of a the serial Thomas algorithm for tridiagonal block matrices.
-We first show how long it takes to evaluate the Jacobian matrix. This requires two
-steps, the first is to evaluate properties across the model (for example, the EOS)
-and then evaluate all differential equations.
-=#
-@benchmark begin
-    StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
-    Evolution.eval_jacobian_eqs!($sm)
-end
-
-##
-#=
-
-To get an idea of how much a complete iteration of the solver takes, we need to benchmark
-both the calculation of the Jacobian and the matrix solver. This is because the matrix solver
-is destructive, as it uses the allocated Jacobian to store intermediate results. The time it takes
-to run only the matrix solver can be determined by substracting the previous benchmark from this one.
-=#
-
-@benchmark begin
-    StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
-    Evolution.eval_jacobian_eqs!($sm)
-    Evolution.thomas_algorithm!($sm)
-end
-
-##
 #=
 ### Evolving our model
-
-We can now evolve our star! We will initiate a $1M_\odot$ star with a radius of $100R_\odot$ using an n=1 polytrope (it
-would be much better to use n=3 or n=3/2 polytropes, for now I only use this because there is a simple analytical
-solution). The star is expected to contract until it ignites hydrogen. We set a few options for the simulation with a
-toml file, which we generate dynamically. These simulation should complete in about a thousand steps once it reaches the
-`max_center_T` limit.
-
-Output is stored in HDF5 files, and easy to use functions are provided with the Evolution module to turn these HDF5
-files into DataFrame objects. HDF5 output is compressed by default.
 =#
 open("example_options.toml", "w") do file
     write(file,
@@ -166,7 +112,7 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 20
+          max_model_number = 5
           max_center_T = 1e8
 
           [plotting]
@@ -201,16 +147,12 @@ print("Initialize & Evolve StellarModel ########################################
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
-n = 3
-#StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-#                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_dual,Chem.abundance_lists[:ASG_09],
                                             mass_dual, R_dual; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
 
 ## 
 using DataFrames
-using ForwardDiff
 """
 get_dual_profile_dataframe_from_hdf5(hdf5_filename, value_name, partials_names)
 
@@ -219,19 +161,19 @@ Returns a DataFrame object built filled with Dual numbers.
 function get_dual_profile_dataframe_from_hdf5(hdf5_filename, value_name, partials_names)
     value_dataframe = StellarModels.get_profile_dataframe_from_hdf5(hdf5_filename, value_name)
     partial_dataframes = [StellarModels.get_profile_dataframe_from_hdf5(hdf5_filename, partial_name) for partial_name in partials_names]
-    df_dual = Dual.(value_dataframe, partial_dataframes...)
+    df_dual = ForwardDiff.Dual.(value_dataframe, partial_dataframes...)
     return df_dual
 end
  
 profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
 value_names = [name for name in profile_names if !occursin("dual", name)]
 dual_names_unpacked = [name for name in profile_names if occursin("dual", name)]
-nbPartials = Int(length(dual_names)/length(value_names))
+nbPartials = Int(length(dual_names_unpacked)/length(value_names))
 dual_names = [[dual_name for dual_name in dual_names_unpacked[lo:lo+nbPartials-1] ] for lo in 1:nbPartials:(length(dual_names_unpacked))] 
 dual_names
 
-profile_number = 10
-get_dual_profile_dataframe_from_hdf5("profiles.hdf5", value_names[profile_number], dual_names[profile_number])
+profile_number = 5
+bla = get_dual_profile_dataframe_from_hdf5("profiles.hdf5", value_names[profile_number], dual_names[profile_number])
 
 StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", value_names[5])
 

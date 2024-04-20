@@ -226,6 +226,7 @@ function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
             end
         end
     end
+    # history done
     # do profile
     if (sm.opt.io.profile_interval > 0)
         file_exists = isfile(sm.opt.io.hdf5_profile_filename)
@@ -255,17 +256,16 @@ function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
                 for i in eachindex(data_cols), k = 1:(sm.props.nz)
                     profile[k, i] = profile_output_functions[data_cols[i]](sm, k)
                 end
-            end
-
-            if TNUMBER != Float64
+            else TNUMBER != Float64 #then it is a dual number
                 for i in eachindex(data_cols), k = 1:(sm.props.nz)
+                    #storing the actual profile data, not yet the partials
                     colname = data_cols[i]
                     #@show data_cols[i]
                     #println(" ")
                     #@show profile_output_functions[data_cols[i]](sm, k)
                     #println(" ")
                     #@show typeof(profile_output_functions[data_cols[i]](sm, k))
-                    if colname == "zone"
+                    if colname == "zone" #zone is not a dual number
                         profile[k, i] = profile_output_functions[colname](sm, k)
                     else
                         profile[k, i] = profile_output_functions[colname](sm, k).value
@@ -273,9 +273,10 @@ function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
                 end
                 number_of_partials = TNUMBER.parameters[3]
                 dual_profiles = []
-                for i in 1:number_of_partials
+                for partial_index in 1:number_of_partials #loop over all input parameters
+                    #create a new profile dual_profile for the (partial_index)th partial
                     dual_profile = create_dataset(sm.profiles_file,
-                        "$(lpad(sm.props.model_number,sm.opt.io.hdf5_profile_dataset_name_zero_padding,"0"))dual_$i",
+                        "$(lpad(sm.props.model_number,sm.opt.io.hdf5_profile_dataset_name_zero_padding,"0"))dual_$partial_index",
                         Float64, ((sm.props.nz, ncols), (sm.props.nz, ncols));
                         chunk=(sm.opt.io.hdf5_profile_chunk_size, ncols),
                         compress=sm.opt.io.hdf5_profile_compression_level)
@@ -283,13 +284,19 @@ function write_data(sm::StellarModel{TNUMBER, TDUALFULL, TPROPS,
                     attrs(dual_profile)["column_units"] = [profile_output_units[data_cols[i]] for i in eachindex(data_cols)]
                     # Place column names
                     attrs(dual_profile)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
-                    # store data
+                    # loop over all columns and all zones to store data
                     for i in eachindex(data_cols), k = 1:(sm.props.nz)
+                        #storing the partial derivatives with respect to the (partial_index)th input parameter
                         colname = data_cols[i]
-                        if colname == "zone"
-                            profile[k, i] = profile_output_functions[colname](sm, k)
+                        if colname == "zone" #zone is not a dual number, just copy it
+                            dual_profile[k, i] = profile_output_functions[colname](sm, k)
                         else
-                            profile[k, i] = profile_output_functions[colname](sm, k).value
+                            #it happens here: we store the partials
+                            #@show colname
+                            #@show profile_output_functions[colname](sm, k)
+                            #@show profile_output_functions[colname](sm, k).partials
+                            #@show profile_output_functions[colname](sm, k).partials[partial_index]
+                            dual_profile[k, i] = profile_output_functions[colname](sm, k).partials[partial_index]
                         end
                     end
                     push!(dual_profiles, profile)
