@@ -150,6 +150,7 @@ containing lists of the string names of the corresponding partial profiles.
 =#
 ##  
 using DataFrames
+using HDF5
 """
 get_dual_profile_dataframe_from_hdf5(hdf5_filename, value_name, partials_names)
 
@@ -168,18 +169,29 @@ partial_names_unpacked = [name for name in profile_names if occursin("partial", 
 partial_names = [[partial_name for partial_name in partial_names_unpacked[lo:lo+number_of_partials-1] ] for lo in 1:nbPartials:(length(partial_names_unpacked))] 
 
 
-
 ################################################################################## PROFILE OUTPUT
 value_names #this list contains the profile names as before, i.e. just the values, nothing special
 partial_names #this list contains lists with the corresponding partial names
 i = 2
 StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", value_names[i]) #access the ith profile with actual values, as before
-get_dual_profile_dataframe_from_hdf5("profiles.hdf5", value_names[i], dual_names[i]) #acces the ith profile, but now with Dual numbers, i.e. containg both the values and the partials  
+get_dual_profile_dataframe_from_hdf5("profiles.hdf5", value_names[i], partial_names[i]) #acces the ith profile, but now with Dual numbers, i.e. containg both the values and the partials  
 #################################################################################
+
+function get_dual_history_dataframe_from_hdf5(hdf5_filename)
+    #This function used two functions that were originally defined for profile handling, but they come in handy here
+    names = StellarModels.get_profile_names_from_hdf5(hdf5_filename)
+    @show names
+    history_value_name = names[1]
+    history_partial_names = names[2:end]
+    history_value = StellarModels.get_history_dataframe_from_hdf5(hdf5_filename)
+    history_partials = [StellarModels.get_profile_dataframe_from_hdf5(hdf5_filename, name) for name in history_partial_names]
+    return ForwardDiff.Dual.(history_value, history_partials...)
+end
 
 ################################################################################# HISTORY OUTPUT
 history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5") #as before
-history_partial1 = StellarModels
+get_dual_history_dataframe_from_hdf5("history.hdf5")#dataframe with history in dual numbers
+
 #################################################################################
 
 
