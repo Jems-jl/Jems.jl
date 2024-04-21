@@ -8,6 +8,7 @@ HomologyTesting/*/*.hdf5
 *.mp4
 *.gif
 *.png
+DigontoTesting
 example_options.toml
 docs/build
 alloc-profile.pb.gz
