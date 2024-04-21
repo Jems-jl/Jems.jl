@@ -66,7 +66,7 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.002
 
           [termination]
-          max_model_number = 1000
+          max_model_number = 4000
           max_center_T = 1e8
 
           [plotting]
@@ -102,7 +102,8 @@ end
 overwrite = true
 
 logmassrange = (-0.1:0.1:0.8)
-Xrange = (0.6:0.05:0.7)
+#Xrange = (0.6:0.05:0.7)
+Xrange = [0.7]
 #ogmassrange = (-1.0:0.1:0.7)
 #range = (0.9:0.05:1.0)
 @show logmassrange, Xrange
