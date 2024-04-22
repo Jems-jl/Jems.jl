@@ -101,7 +101,7 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 10
+          max_model_number = 400
           max_center_T = 1e8
 
           [plotting]
@@ -166,7 +166,7 @@ end
 profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")#all profiles, regular profiles and dual profiles
 value_names = [name for name in profile_names if !occursin("partial", name)]
 partial_names_unpacked = [name for name in profile_names if occursin("partial", name)]
-partial_names = [[partial_name for partial_name in partial_names_unpacked[lo:lo+number_of_partials-1] ] for lo in 1:nbPartials:(length(partial_names_unpacked))] 
+partial_names = [[partial_name for partial_name in partial_names_unpacked[lo:lo+number_of_partials-1] ] for lo in 1:number_of_partials:(length(partial_names_unpacked))] 
 
 
 ################################################################################## PROFILE OUTPUT
@@ -174,7 +174,7 @@ value_names #this list contains the profile names as before, i.e. just the value
 partial_names #this list contains lists with the corresponding partial names
 i = 2
 StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", value_names[i]) #access the ith profile with actual values, as before
-get_dual_profile_dataframe_from_hdf5("profiles.hdf5", value_names[i], partial_names[i]) #acces the ith profile, but now with Dual numbers, i.e. containg both the values and the partials  
+bla = get_partial_profile_dataframe_from_hdf5("profiles.hdf5", value_names[i], partial_names[i]) #acces the ith profile, but now with Dual numbers, i.e. containg both the values and the partials  
 #################################################################################
 
 function get_dual_history_dataframe_from_hdf5(hdf5_filename)
