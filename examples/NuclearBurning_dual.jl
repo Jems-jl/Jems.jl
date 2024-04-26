@@ -50,8 +50,7 @@ nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 turbulence = Turbulence.BasicMLT(1.0)
-dual_type = typeof(ForwardDiff.Dual{tag_external}(5.0,0.0,0.0,0.0,0.0,0.0))
-number_of_partials = 5 #number of partials we want to keep track of
+number_of_partials = 1 #number of partials we want to keep track of
 dual_type = ForwardDiff.Dual{tag_external,Float64,number_of_partials}
 sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence, number_type = dual_type);
 
@@ -62,11 +61,17 @@ sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functi
 println("Initialize StellarModel ############################")
 n = 3
 #define dual input numbers, all partial derivatives are with respect to the mass, give a '1.0' to indicate the order of the partials
-X_dual         = ForwardDiff.Dual{tag_external}(0.7154,  1.0,0.0,0.0,0.0,0.0) #(value, derivative to mass)
-Z_dual         = ForwardDiff.Dual{tag_external}(0.0142,  0.0,1.0,0.0,0.0,0.0)
-Dfraction_dual = ForwardDiff.Dual{tag_external}(0.0,     0.0,0.0,1.0,0.0,0.0)
-mass_dual      = ForwardDiff.Dual{tag_external}(1.0*MSUN,0.0,0.0,0.0,1.0,0.0)
-R_dual         = ForwardDiff.Dual{tag_external}(100*RSUN,0.0,0.0,0.0,0.0,1.0)
+#X_dual         = ForwardDiff.Dual{tag_external}(0.7154,  1.0,0.0,0.0,0.0,0.0)
+#Z_dual         = ForwardDiff.Dual{tag_external}(0.0142,  0.0,1.0,0.0,0.0,0.0)
+#Dfraction_dual = ForwardDiff.Dual{tag_external}(0.0,     0.0,0.0,1.0,0.0,0.0)
+#mass_dual      = ForwardDiff.Dual{tag_external}(1.0*MSUN,0.0,0.0,0.0,1.0,0.0)
+#R_dual         = ForwardDiff.Dual{tag_external}(100*RSUN,0.0,0.0,0.0,0.0,1.0)
+X_dual         = ForwardDiff.Dual{tag_external}(0.7154,  0.0)
+Z_dual         = ForwardDiff.Dual{tag_external}(0.0142,  0.0)
+Dfraction_dual = ForwardDiff.Dual{tag_external}(0.0,     0.0)
+logM_dual      = ForwardDiff.Dual{tag_external}(0.0, 1.0)
+mass_dual      = MSUN*10^logM_dual
+R_dual         = ForwardDiff.Dual{tag_external}(100*RSUN,0.0)
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_dual,Chem.abundance_lists[:ASG_09],mass_dual, R_dual; initial_dt=10 * SECYEAR)
 StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
 Evolution.cycle_props!(sm);
@@ -75,7 +80,7 @@ StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props) 
 StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
 StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
 StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
-
+nbmodmax = 20
 ##
 
 #=
@@ -101,7 +106,7 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 400
+          max_model_number = $nbmodmax
           max_center_T = 1e8
 
           [plotting]
@@ -139,6 +144,17 @@ rm(sm.opt.io.hdf5_profile_filename; force=true)
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_dual,Chem.abundance_lists[:ASG_09],
                                             mass_dual, R_dual; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
+##
+save = true
+if save == true
+    historypath = "history.hdf5"
+    profilespath = "profiles.hdf5"
+    cp("history.hdf5",  "DualRuns/history_1.hdf5", force = true)
+    cp("profiles.hdf5", "DualRuns/profiles_1.hdf5", force = true)
+end
+
+
+
 ##
 #=
 ###Accessing the Dual profiles
@@ -193,6 +209,32 @@ history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5") #as befo
 get_dual_history_dataframe_from_hdf5("history.hdf5")#dataframe with history in dual numbers
 
 #################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
