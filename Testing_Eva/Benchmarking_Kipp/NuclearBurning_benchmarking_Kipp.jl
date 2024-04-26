@@ -33,16 +33,16 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
-net = NuclearNetwork([:H1, :D2, :T3, :Li3, :He3,
-                    :He4, :Li7, :Be9, :B11, :C12,
-                    :N14,  :O16, :F19, :Ne20, :Na23,
-                    :Mg24, :Al27, :Si28, :P31, :S32,
-                    :Cl35, :Ar36, :K39, :Ca40, :Sc45,
-                    :Ti48, :V51, :Cr52, :Mn55, :Fe56,
-                    :Co59, :Ni58, :Cu63, :Zn64, :Ga69,
-                    :Ge74, :As75, :Se80, :Br79, :Kr84,
-                    :Rb85, :Sr88, :Y89, :Zr90, :Nb93,
-                    :Mo98, :Ru102, :Rh103, :Pd106, :Ag107],
+net = NuclearNetwork([:H1, # :D2, :T3, :Li3, :He3,
+                    :He4], # :Li7, :Be9, :B11, :C12,
+                    # :N14,  :O16, :F19, :Ne20, :Na23,
+                    # :Mg24, :Al27, :Si28, :P31, :S32,
+                    # :Cl35, :Ar36, :K39, :Ca40, :Sc45,
+                    # :Ti48, :V51, :Cr52, :Mn55, :Fe56,
+                    # :Co59, :Ni58, :Cu63, :Zn64, :Ga69,
+                    # :Ge74, :As75, :Se80, :Br79, :Kr84,
+                    # :Rb85, :Sr88, :Y89, :Zr90, :Nb93,
+                    # :Mo98, :Ru102, :Rh103, :Pd106, :Ag107],
                     [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 nz = 1000
 nextra = 100
