@@ -1,6 +1,7 @@
 # StellarModels
 
-The Chemistry module of Jems handles all things related to chemical mixtures and isotopes.
+The StellarModels module of Jems defines models that it can evolve, along with their properties, initialization, IO
+operations, and option configuration.
 
 ## StellarModel.jl
 
@@ -14,6 +15,13 @@ Pages = ["StellarModels/StellarModel.jl"]
 ```@autodocs
 Modules = [Jems.StellarModels]
 Pages = ["StellarModels/StellarModelProperties.jl"]
+```
+
+## OneZone.jl
+
+```@autodocs
+Modules = [Jems.StellarModels]
+Pages = ["StellarModels/OneZone.jl"]
 ```
 
 ## Options.jl

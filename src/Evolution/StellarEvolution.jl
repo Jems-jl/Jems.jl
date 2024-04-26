@@ -1,28 +1,3 @@
-"""
-    cycle_props!(sm::StellarModel)
-
-Moves the model properties of the StellarModel `sm` over one state:
-start_step_props -> props -> prv_step_props -> start_step_props
-"""
-function cycle_props!(sm::StellarModel)
-    temp_props = sm.prv_step_props
-    sm.prv_step_props = sm.props
-    sm.props = sm.start_step_props
-    sm.start_step_props = temp_props
-end
-
-"""
-    uncycle_props!(sm::StellarModel)
-
-Moves the model properties of the StellarModel `sm` back one state:
-start_step_props <- props <- prv_step_props <- start_step_props
-"""
-function uncycle_props!(sm::StellarModel)
-    temp_props = sm.props
-    sm.props = sm.prv_step_props
-    sm.prv_step_props = sm.start_step_props
-    sm.start_step_props = temp_props
-end
 
 """
     get_dt_next(sm::StellarModel)
@@ -69,7 +44,7 @@ function do_evolution_loop!(sm::StellarModel)
 
     # evolution loop, be sure to have sensible termination conditions or this will go on forever!
     while true
-        cycle_props!(sm)  # move props of previous step to prv_step_props of current step
+        StellarModels.cycle_props!(sm)  # move props of previous step to prv_step_props of current step
 
         # either remesh, or copy over from prv_step_props
         if sm.opt.remesh.do_remesh
@@ -112,15 +87,30 @@ function do_evolution_loop!(sm::StellarModel)
 
             # scale correction
             if sm.props.model_number == 0
-                correction_multiplier = min(1.0, sm.opt.solver.initial_model_scale_max_correction / abs_max_corr)
+                correction_limit = sm.opt.solver.initial_model_scale_max_correction
             else
-                correction_multiplier = min(1.0, sm.opt.solver.scale_max_correction / abs_max_corr)
+                correction_limit = sm.opt.solver.scale_max_correction
             end
-            if correction_multiplier < 1
+            correction_multiplier = 1.0
+            for j in 1:sm.nvars
+                sub_corr = @view sm.solver_data.solver_corr[j:sm.nvars:(sm.nvars*(sm.props.nz-1)+j)]
+                max_sub_corr = maximum(abs, sub_corr)
+                if sm.var_scaling[j] == :log || sm.var_scaling[j] == :unity
+                    correction_multiplier = min(correction_multiplier,
+                                                    correction_limit/max_sub_corr)
+                elseif sm.var_scaling[j] == :maxval
+                    sub_ind_vars = @view sm.props.ind_vars[j:sm.nvars:(sm.nvars*(sm.props.nz-1)+j)]
+                    max_var_value = maximum(abs, sub_ind_vars)
+                    correction_multiplier = min(correction_multiplier,
+                                                    max_var_value*correction_limit/max_sub_corr)
+                end
+            end
+
+            if correction_multiplier < 1.0
                 corr .*= correction_multiplier
             end
 
-            # first try applying correction and see if it would give negative luminosity
+            # apply correction!
             sm.props.ind_vars[1:sm.nvars*sm.props.nz] .+= corr[1:sm.nvars*sm.props.nz]
             sm.solver_data.newton_iters = i
 
@@ -162,13 +152,15 @@ function do_evolution_loop!(sm::StellarModel)
                 else
                     retry_count = retry_count + 1
                     retry_step = true
-                    println("Failed to converge step $(sm.props.model_number) with timestep $(sm.props.dt/SECYEAR), retrying")
+                    if sm.opt.solver.report_retries
+                        println("Failed to converge step $(sm.props.model_number) with timestep $(sm.props.dt/SECYEAR), retrying")
+                    end
                 end
             end
         end
 
         if retry_step
-            uncycle_props!(sm)  # reset props to what prv_step_props contains, ie mimic state at end of previous step
+            StellarModels.uncycle_props!(sm)  # reset props to what prv_step_props contains, ie mimic state at end of previous step
             sm.props.dt_next *= sm.opt.timestep.dt_retry_decrease # adapt dt
             continue  # go back to top of evolution loop
         end
@@ -214,5 +206,5 @@ function do_evolution_loop!(sm::StellarModel)
     if sm.opt.plotting.do_plotting
         Plotting.end_of_evolution(sm)
     end
-    StellarModels.close_output_files!(sm)
+    StellarModels.shut_down_IO!(sm)
 end

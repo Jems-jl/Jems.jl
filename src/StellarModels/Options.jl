@@ -29,11 +29,14 @@ Substructure of Options containing controls relating to the Newton solver
     initial_model_scale_max_correction::Float64 = 3.0
     scale_max_correction::Float64 = 0.5
 
-    relative_correction_tolerance::Float64 = 1e4 # measured in terms of variable epsilon, 1 would be machine precision limit, 1e16 is on the scale of the variable
+    relative_correction_tolerance::Float64 = 1e6 # measured in terms of variable epsilon, 1 would be machine precision limit, 1e16 is on the scale of the variable
     maximum_residual_tolerance::Float64 = 1e-4
 
     report_solver_progress::Bool = true
     solver_progress_iter::Int = 50
+    report_retries::Bool = false
+
+    use_preconditioning::Bool = false
 end
 
 """
@@ -85,7 +88,7 @@ Substructure of Options containing controls relating to input/output of data
     history_interval::Int = 1
     profile_interval::Int = 10
 
-    history_values::Vector{String} = ["star_age", "dt", "model_number", "star_mass", "R_surf", "L_surf", "T_surf",
+    history_values::Vector{String} = ["age", "dt", "model_number", "star_mass", "R_surf", "L_surf", "T_surf",
                                       "P_surf", "ρ_surf", "X_surf", "Y_surf", "T_center", "P_center", "ρ_center",
                                       "X_center", "Y_center"]
 
@@ -105,7 +108,9 @@ Options relating to the live plotting of the simulation
     data_interval::Int = 1
 
     window_specs::Vector{String} = []
-    window_layouts::Vector{Vector{Int}} = [[]]
+    window_layout::Vector{Vector{Int}} = [[]]
+    yaxes_log::Vector{Bool} = []
+    alt_yaxes_log::Vector{Bool} = []
 
     profile_xaxis::String = ""
     profile_yaxes::Vector{String} = []
@@ -120,6 +125,15 @@ Options relating to the live plotting of the simulation
 end
 
 """
+    mutable struct PhysicsOptions
+
+Options that affect the physics of the computed model
+"""
+@kwdef mutable struct PhysicsOptions
+    flux_limiter::Float64 = 1e6
+end
+
+"""
     mutable struct Options
 
 Structure containing tweakable controls of Jems.
@@ -131,10 +145,12 @@ mutable struct Options
     termination::TerminationOptions
     plotting::PlottingOptions
     io::IOOptions
+    physics::PhysicsOptions
 
     function Options()
         new(RemeshOptions(), SolverOptions(), TimestepOptions(),
-            TerminationOptions(), PlottingOptions(), IOOptions())
+            TerminationOptions(), PlottingOptions(), IOOptions(),
+            PhysicsOptions())
     end
 end
 
@@ -151,7 +167,7 @@ function set_options!(opt::Options, toml_path::String)
     # Do this before anything is changed, in that way if the load will fail the
     # input is unmodified
     for key in keys(options_file)
-        if !(key in ["remesh", "solver", "timestep", "termination", "plotting", "io"])
+        if !(key in ["remesh", "solver", "timestep", "termination", "plotting", "io", "physics"])
             throw(ArgumentError("Error while reading $toml_path. 
                     One of the sections on the TOML file provided ([$key]) is not valid."))
         end

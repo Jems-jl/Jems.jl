@@ -188,6 +188,8 @@ Residual of comparing dX_i/dt with its computed reaction rate
 function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
     # Get mass fraction for this iso
     X00 = get_00_dual(sm.props.xa[k, sm.network.xa_index[iso_name]])
+    # We do not use a dual for Xi as this quantity is fixed through the timestep.
+    Xi00 = get_value(sm.start_step_props.xa[k, sm.network.xa_index[iso_name]])
 
     dXdt_nuc::typeof(X00) = 0
     reactions_in = sm.network.species_reactions_in[sm.network.xa_index[iso_name]]
@@ -202,37 +204,64 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
     end
 
     #mixing terms
-    lnρ_00 = get_00_dual(sm.props.eos_res[k].lnρ)
-
     flux_down::typeof(X00) = 0
     flux_up::typeof(X00) = 0
 
-
-    if k != sm.props.nz
+    # flux term is (4πr^2ρ)^2*D/dm_face, with all quantities evaluated at the face
+    # maybe good to experiment with a soft flux limiter that is continuous rather than
+    # taking a min
+    flux_limiter = sm.opt.physics.flux_limiter
+    if k != sm.props.nz 
         Xp1 = get_p1_dual(sm.props.xa[k+1, sm.network.xa_index[iso_name]])
-        lnρ_p1 = get_p1_dual(sm.props.eos_res[k+1].lnρ)
-        ρface_up = exp((sm.props.dm[k+1] * lnρ_00 + sm.props.dm[k] * lnρ_p1) /
-                (sm.props.dm[k] + sm.props.dm[k + 1]))
-        rface_up = exp(get_00_dual(sm.props.lnr[k]))
-        Dface_up = get_00_dual(sm.props.turb_res[k].D_turb)
-
-        flux_up = (4π*rface_up^2*ρface_up)^2*Dface_up*
-                    (Xp1-X00)/(0.5*(sm.props.dm[k]+sm.props.dm[k+1]))
+        flux_term_up = get_00_dual(sm.props.flux_term[k])
+        flux_term_up = min(flux_limiter*sm.props.dm[k]/sm.props.dt, flux_term_up)
+        flux_up = flux_term_up*(Xp1-X00)
     end
     if k != 1
         Xm1 = get_m1_dual(sm.props.xa[k-1, sm.network.xa_index[iso_name]])
-        lnρ_m1 = get_m1_dual(sm.props.eos_res[k-1].lnρ)
-        ρface_down = exp((sm.props.dm[k] * lnρ_m1 + sm.props.dm[k-1] * lnρ_00) /
-                (sm.props.dm[k - 1] + sm.props.dm[k]))
-        rface_down = exp(get_m1_dual(sm.props.lnr[k-1]))
-        Dface_down = get_m1_dual(sm.props.turb_res[k-1].D_turb)
-
-        flux_down = (4π*rface_down^2*ρface_down)^2*Dface_down*
-                    (X00-Xm1)/(0.5*(sm.props.dm[k-1]+sm.props.dm[k]))
+        flux_term_down = get_m1_dual(sm.props.flux_term[k-1])
+        flux_term_down = min(flux_limiter*sm.props.dm[k]/sm.props.dt, flux_term_down)
+        flux_down = flux_term_down*(X00-Xm1)
     end
     dXdt_mix =  (flux_up - flux_down)/(sm.props.dm[k])
 
-    Xi = get_value(sm.start_step_props.xa[k, sm.network.xa_index[iso_name]])  # is never a dual!!
+    return ((X00 - Xi00) -  (dXdt_nuc + dXdt_mix)*sm.props.dt)
+end
 
-    return ((X00 - Xi) / sm.props.dt - dXdt_nuc - dXdt_mix)
+# This is unused for now, can be used to implement fractional mixing to a cell that
+# is partially convective. Requires :convfrac to be a variable, which represents
+# the fraction of a cell that is convective.
+function equationConvFrac(sm::StellarModel, k::Int)
+    convfrac = get_00_dual(sm.props.convfrac[k])
+    if k==1
+        diffgrads_00 = get_00_dual(sm.props.turb_res[k].∇ᵣ) - get_00_dual(sm.props.∇ₐ_face[k])
+        if diffgrads_00 > 0
+            return convfrac - 1.0 # cell is fully convective, so solution is convfrac=1
+        else
+            return convfrac # cell is fully radiative, so solution is convfrac=0
+        end
+    end
+    if k==sm.props.nz
+        diffgrads_m1 = get_m1_dual(sm.props.turb_res[k-1].∇ᵣ) - get_m1_dual(sm.props.∇ₐ_face[k-1])
+        if diffgrads_m1 > 0
+            return convfrac - 1.0 # cell is fully convective, so solution is convfrac=1
+        else
+            return convfrac # cell is fully radiative, so solution is convfrac=0
+        end
+    end
+    diffgrads_m1 = get_m1_dual(sm.props.turb_res[k-1].∇ᵣ) - get_m1_dual(sm.props.∇ₐ_face[k-1])
+    diffgrads_00 = get_00_dual(sm.props.turb_res[k].∇ᵣ) - get_00_dual(sm.props.∇ₐ_face[k])
+    if diffgrads_m1>0 && diffgrads_00>0
+        return convfrac - 1.0 # cell is fully convective, so solution is convfrac=1
+    elseif diffgrads_m1<0 && diffgrads_00<0
+        return convfrac # cell is fully radiative, so solution is convfrac=0
+    elseif diffgrads_m1>0
+        #convection from the bottom of the cell (diffgrads_00 is negative)
+        real_convfrac = diffgrads_m1/(diffgrads_m1-diffgrads_00)
+        return convfrac - real_convfrac
+    else
+        #convection from the top of the cell (diffgrads_m1 is negative)
+        real_convfrac = diffgrads_00/(diffgrads_00-diffgrads_m1)
+        return convfrac - real_convfrac
+    end
 end
