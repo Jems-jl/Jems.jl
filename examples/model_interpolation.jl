@@ -14,6 +14,7 @@ function get_partial_profile_dataframe_from_hdf5(hdf5_filename, value_name, part
     partial_dataframes = [StellarModels.get_profile_dataframe_from_hdf5(hdf5_filename, partial_name) for partial_name in partials_names]
     df_partial = ForwardDiff.Dual.(value_dataframe, partial_dataframes...)
     return df_partial
+
 end
  #doing some bookkeeping stuff
 number_of_partials = 1
@@ -49,7 +50,6 @@ history = StellarModels.get_history_dataframe_from_hdf5(historypath) #as before
 history_dual = get_dual_history_dataframe_from_hdf5(historypath)#dataframe with history in dual numbers
 bla = history_dual
 (d -> d.partials).(bla) #access the values
-
 bla2 = copy(bla)
 (d ->0.0).(bla2) #access the partials
 #################################################################################
@@ -71,7 +71,10 @@ end
 
 function extrapolate(model::Model, delta_params)
     history_new = copy(model.history)
-    return (d -> d.value + sum( delta_params .*d.partials ) ).(history_new)
+    history_new =  (dual -> dual.value + sum( delta_params .*dual.partials ) ).(history_new)
+    profiles_new = [copy(profile) for profile in model.profiles]
+    profiles_new = [(dual -> dual.value + sum( delta_params .*dual.partials ) ).(profile) for profile in profiles_new]
+    return Model(history_new, profiles_new, model.initial_params, model.initial_params_names)
 end
 
 initial_params = [ForwardDiff.Dual(0.0,1.0)]
