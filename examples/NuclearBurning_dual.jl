@@ -81,7 +81,7 @@ StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props) 
 StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
 StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
 StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
-nbmodmax = 20
+nbmodmax = 1500
 ##
 
 #=
@@ -150,8 +150,8 @@ save = true
 if save == true
     historypath = "history.hdf5"
     profilespath = "profiles.hdf5"
-    cp("history.hdf5",  "DualRuns/history_5partials.hdf5", force = true)
-    cp("profiles.hdf5", "DualRuns/profiles_5partials.hdf5", force = true)
+    cp("history.hdf5",  "DualRuns/history_FULL_5partials.hdf5", force = true)
+    cp("profiles.hdf5", "DualRuns/profiles_FULL_5partials.hdf5", force = true)
 end
 
 
