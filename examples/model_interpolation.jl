@@ -50,10 +50,8 @@ end
 ################################################################################# HISTORY OUTPUT
 history = StellarModels.get_history_dataframe_from_hdf5(historypath) #as before
 history_dual = get_dual_history_dataframe_from_hdf5(historypath)#dataframe with history in dual numbers
-bla = history_dual
-(d -> d.partials).(bla) #access the values
-bla2 = copy(bla)
-(d ->0.0).(bla2) #access the partials
+(d -> d.partials).(history_dual) #access the values
+bla2 = copy(history_dual)
 #################################################################################
 
 struct Model
@@ -66,10 +64,13 @@ end
 
 function Model(history::DataFrame, profiles, initial_params, initial_params_names)
     initial_params_dict = Dict(zip(initial_params_names, initial_params))
-    Model(history, profiles, initial_params, initial_params_names, Dict(zip(initial_params_names, initial_params)))
+    Model(history, profiles, initial_params, initial_params_names,initial_params_dict )
 end
 
 function extrapolate(model::Model, delta_params)
+    # given a Dual number Dual(value_old, partial_logM, partial_X, partial_Z, ...), we compute in a Taylor way
+    # the new value value_new = value_old + [Delta_logM, Delta_X, Delta_Z, ...] * [partial_logM, partial_X, partial_Z, ...]
+    # we do this for each value in each profile and for each value in the history
     history_new = copy(model.history)
     history_new =  (dual -> dual.value + sum( delta_params .*dual.partials ) ).(history_new)
     profiles_new = [copy(profile) for profile in model.profiles]
@@ -103,7 +104,8 @@ function X_to_star_age(X,history)
     return linear_interpolation(modelnr_to_X.(two_model_numbers), modelnr_to_star_age.(two_model_numbers))(X)
 end
 
-# the 'anything to anything' interpolator, only use if the param1(param2) relation is monotonically increasing or decreasing
+# the 'anything to anything' interpolator, only use if the param1(param2) relation 
+#is monotonically increasing (e.g. star_age, Y_center) or decreasing (e.g. X_center)
 function param1_to_param2(param1_value,history,param1_name,param2_name)
     two_model_numbers = [0,0]
     param1_func = modelnr -> history[!,param1_name][Int(modelnr)]
