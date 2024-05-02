@@ -4,6 +4,17 @@ using Jems.StellarModels
 using Interpolations
 using HDF5
 using Jems.Constants
+using CairoMakie, LaTeXStrings, MathTeXEngine
+basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
+                           italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
+                    fontsize=30, size=(1000, 750), linewidth=7,
+                    Axis=(xlabelsize=40, ylabelsize=40, titlesize=40, xgridvisible=false, ygridvisible=false,
+                          spinewidth=2.5, xminorticksvisible=true, yminorticksvisible=true, xtickalign=1, ytickalign=1,
+                          xminortickalign=1, yminortickalign=1, xticksize=14, xtickwidth=2.5, yticksize=14,
+                          ytickwidth=2.5, xminorticksize=7, xminortickwidth=2.5, yminorticksize=7, yminortickwidth=2.5,
+                          xticklabelsize=35, yticklabelsize=35, xticksmirrored=true, yticksmirrored=true),
+                    Legend=(patchsize=(70, 10), framevisible=false, patchlabelgap=20, rowgap=10))
+set_theme!(basic_theme)
 nb = "FULL_5partials"
 path = "DualRuns/"
 historypath = path * "history_"*string(nb)*".hdf5"
@@ -55,16 +66,20 @@ bla2 = copy(history_dual)
 #################################################################################
 
 struct Model
-    history::DataFrame
-    profiles::Vector{}
+    history
+    history_value
+    profiles
+    profiles_values
     initial_params::Vector{}
     initial_params_names::Vector{}
     initial_params_dict::Dict{}
 end
 
-function Model(history::DataFrame, profiles, initial_params, initial_params_names)
+function Model_constructor(history::DataFrame, profiles, initial_params, initial_params_names)
     initial_params_dict = Dict(zip(initial_params_names, initial_params))
-    Model(history, profiles, initial_params, initial_params_names,initial_params_dict )
+    history_value = (dual -> dual.value).(history)
+    profiles_values = [(dual -> dual.value).(profile) for profile in profiles]
+    Model(history, history_value, profiles, profiles_values, initial_params, initial_params_names,initial_params_dict )
 end
 
 function extrapolate(model::Model, delta_params)
@@ -75,11 +90,11 @@ function extrapolate(model::Model, delta_params)
     history_new =  (dual -> dual.value + sum( delta_params .*dual.partials ) ).(history_new)
     profiles_new = [copy(profile) for profile in model.profiles]
     profiles_new = [(dual -> dual.value + sum( delta_params .*dual.partials ) ).(profile) for profile in profiles_new]
-    return Model(history_new, profiles_new, model.initial_params, model.initial_params_names)
+    return Model(nothing, history_new, nothing, profiles_new, model.initial_params, model.initial_params_names, model.initial_params_dict)
 end
 
 function extrapolate_logM_fixedX(model, delta_logM, X_fixed)
-    age = X_to_star_age(X_fixed, model.history)
+    param1_to_param2(param1_value,history,param1_name,param2_name)
 end
 
 function star_age_to_X(star_age,history) # computes the X value at a given star age, by linear interpolation
@@ -139,9 +154,17 @@ param1_to_param2(5e8,                 model1.history,   "star_age"  , "X_center"
 param1_to_param2(0.50,  model1.history, "Y_center", "X_center")
 param1_to_param2(0.4858000000000001, model1.history,   "X_center"  , "Y_center")
 
+param1_to_param2(0.50,  model1.history, "X_center", "L_surf")
+param1_to_param2(10.685850230458074, model1.history,   "L_surf"  , "X_center")
+##
+#plot Lsurf vs X_center
+f = Figure();
+ax = Axis(f[1,1])
+lines!(ax, model1.history_value.X_center, model1.history_value.L_surf, color = :blue)
 ##
 #initial_params = [ForwardDiff.Dual(0.0,1.0)]
 #inititial_params_names = [:logM]
+###################### DEFINE MODEL
 logM_dual      = ForwardDiff.Dual{}(0.0,     1.0,0.0,0.0,0.0,0.0)
 mass_dual      = MSUN*10^logM_dual
 X_dual         = ForwardDiff.Dual{}(0.7154,  0.0,1.0,0.0,0.0,0.0)
@@ -150,17 +173,17 @@ Dfraction_dual = ForwardDiff.Dual{}(0.0,     0.0,0.0,0.0,1.0,0.0)
 R_dual         = ForwardDiff.Dual{}(100*RSUN,0.0,0.0,0.0,0.0,1.0)
 initial_params = [logM_dual, X_dual, Z_dual, Dfraction_dual, R_dual]
 inititial_params_names = [:logM, :X, :Z, :Dfraction, :R]
-model1 = Model(history_dual, profiles_dual, initial_params, inititial_params_names)
-model1.initial_params_dict[:logM] # access the value
+model1 = Model_constructor(history_dual, profiles_dual, initial_params, inititial_params_names)
+model1.initial_params_dict[:logM] # access the initial dual number
 model1.initial_params_dict[:logM].partials
 model1.history # acces history in dual form
+model1.history_value # acces history in value form
 model1.profiles # acces list of profiles in dual form
-
+model1.profiles_values # acces list of profiles in value form
 delta_params = [1.0,0.0,0.0,0.0,0.0] # delta to use in Taylor expansion
 model1_extrapolate = extrapolate(model1, delta_params)
-model1_extrapolate.history
-(d-> d.value).(bla)
-( d-> d.value + sum([5].*d.partials) ).(bla)
+model1_extrapolate.history_value # acces history in value form (extrapolated models DO NOT have history in dual form!)
+
 
 
 history = model1.history
