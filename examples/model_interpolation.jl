@@ -119,48 +119,40 @@ function X_to_star_age(X,history)
     return linear_interpolation(modelnr_to_X.(two_model_numbers), modelnr_to_star_age.(two_model_numbers))(X)
 end
 
-# the 'anything to anything' interpolator, only use if the param1(param2) relation 
-#is monotonically increasing (e.g. star_age, Y_center) or decreasing (e.g. X_center)
+# the interpolator function
 function param1_to_param2(param1_value,history,param1_name,param2_name)
-    two_model_numbers = [0,0]
-    param1_func = modelnr -> history[!,param1_name][Int(modelnr)]
-    param2_func = modelnr -> history[!,param2_name][Int(modelnr)]
-
-    if history[!,param1_name][1] < history[!,param1_name][end] #increasing parameter, e.g. star_age (we assume monotonic)
-        for modelnr in history.model_number[1].value:history.model_number[end].value
-           if param1_func(modelnr) > param1_value
-                # if we encounter a param1 value that is larger than the one we are looking for, we stop and take the two surrounding models 
-                two_model_numbers = [Int(modelnr-1), Int(modelnr)]
-                break
-           end
-        end
+    _,index = findmin(abs.(param1_value .- history[!,param1_name]))
+    indices = [index-1,index+1]
+    if history[!,param1_name][indices[2]] < history[!,param1_name][indices[1]]
+        reverse!(indices) # reverse order, to keep the lienar_interpolation function happy
     end
-
-    if history[!,param1_name][1] > history[!,param1_name][end] #decreasing parameter, e.g. X (we assume monotonic)
-        for modelnr in history.model_number[1].value:history.model_number[end].value
-           if param1_func(modelnr) < param1_value
-               # if we encounter a param1 value that is smaller than the one we are looking for, we stop and take the two surrounding models 
-               two_model_numbers = [Int(modelnr), Int(modelnr-1)]
-               break
-           end
-        end
-    end
-    return linear_interpolation(param1_func.(two_model_numbers), param2_func.(two_model_numbers))(param1_value)
+    return linear_interpolation(history[!,param1_name][indices], history[!,param2_name][indices])(param1_value)
 end
 ##
-param1_to_param2(0.6469236365486447,  model1.history, "X_center", "star_age")
+
+param1_to_param2(0.5467236365491246,  model1.history, "X_center", "star_age")
 param1_to_param2(5e8,                 model1.history,   "star_age"  , "X_center")
+param1_to_param2(0.58,  model1.history, "Y_center", "X_center")
+param1_to_param2(0.40580000000000016, model1.history,   "X_center"  , "Y_center")
 
-param1_to_param2(0.50,  model1.history, "Y_center", "X_center")
-param1_to_param2(0.4858000000000001, model1.history,   "X_center"  , "Y_center")
-
-param1_to_param2(0.50,  model1.history, "X_center", "L_surf")
-param1_to_param2(10.685850230458074, model1.history,   "L_surf"  , "X_center")
+param1_to_param2(0.5,  model1.history, "X_center", "L_surf")  
+                                  model1.history.L_surf[593]
+log10(param1_to_param2(0.5,  model1.history, "X_center", "L_surf"))
+                                  log10(model1.history.L_surf[593])
+param1_to_param2(0.5,  model1.history, "X_center", "R_surf")  
+                                  model1.history.R_surf[593]  
+param1_to_param2(0.5,  model1.history, "X_center", "T_surf")  
+                                  model1.history.T_surf[593]  
+param1_to_param2(0.5,  model1.history, "X_center", "Y_center")
+                                  model1.history.Y_center[593]
+param1_to_param2(3000,  model1.history, "T_surf", "L_surf")   
+                                 model1.history.L_surf[211]   
 ##
 #plot Lsurf vs X_center
 f = Figure();
 ax = Axis(f[1,1])
 lines!(ax, model1.history_value.X_center, model1.history_value.L_surf, color = :blue)
+f
 ##
 #initial_params = [ForwardDiff.Dual(0.0,1.0)]
 #inititial_params_names = [:logM]
