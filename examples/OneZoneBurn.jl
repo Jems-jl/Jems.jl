@@ -32,7 +32,7 @@ net = NuclearNetwork([:H1, :D2, :He3, :He4,
 (:jina_rates, :H1_H1_to_D2_betplus_w_x_0),
 (:jina_rates, :H1_H1_to_D2_xxec_w_x_0),
 (:jina_rates, :H1_D2_to_He3_de04_n_x_0),
-# (:jina_rates, :H1_D2_to_He3_de04_x_x_0),
+(:jina_rates, :H1_D2_to_He3_de04_x_x_0),
 (:jina_rates, :He3_He3_to_H1_H1_He4_nacr_n_x_0),
 # PP II
 (:jina_rates, :He4_He3_to_Be7_cd08_n_x_0),
@@ -220,12 +220,17 @@ lines!(ax, history[!, "age"], log10.(history[!, "He4"]), label=L"^4He")
 lines!(ax, history[!, "age"], log10.(history[!, "C12"]), label=L"^{12}C")
 lines!(ax, history[!, "age"], log10.(history[!, "N14"]), label=L"^{14}N")
 lines!(ax, history[!, "age"], log10.(history[!, "O16"]), label=L"^{16}O")
-axislegend(position=:lt)
+axislegend(position=:lb)
 ylims!(ax, -5,0.1)
 xlims!(ax, 1, 1e7)
 f
 
 ##
+
+save("OneZoneBurn_Example.png", f)
+
+##
+
 #=
 ### Perform some cleanup
 

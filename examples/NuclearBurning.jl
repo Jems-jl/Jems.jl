@@ -14,6 +14,7 @@ using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
+using Jems.DualSupport
 
 ##
 #=
@@ -289,6 +290,10 @@ rm(sm.opt.io.hdf5_profile_filename; force=true)
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0003, Chem.abundance_lists[:ASG_09], 
                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+
+##                                            
+get_value(sm.props.xa[1,6])    
+##                                       
 @time Evolution.do_evolution_loop!(sm);
 
 ##
