@@ -129,6 +129,31 @@ function param1_to_param2(param1_value,history,param1_name,param2_name)
     return linear_interpolation(history[!,param1_name][indices], history[!,param2_name][indices])(param1_value)
 end
 ##
+function my_linear_interpolation(xs, ys)
+    slope = (ys[2] - ys[1]) / (xs[2] - xs[1])
+    return x -> ys[1] + slope * (x - xs[1])
+end
+x0 = Dual(5,10)
+X1 = Dual(10,-1)
+xarray = [x0, X1]
+func = my_linear_interpolation(xarray, xarray)
+func(6)
+
+x0 = Dual(5,10)
+X1 = Dual(10,-1)
+xarray = [x0, X1]
+func2 = linear_interpolation(xarray, reverse(xarray))
+func2(6)
+##
+x0 = Dual(0,1,0,0,0)
+x1 = Dual(1,0,1,0,0)
+y0 = Dual(0,0,0,1,0)
+y1 = Dual(1,0,0,0,1)
+func3 = my_linear_interpolation([x0,x1],[y0,y1])
+func3(0.3)
+
+
+##
 
 param1_to_param2(0.5467236365491246,  model1.history, "X_center", "star_age")
 param1_to_param2(5e8,                 model1.history,   "star_age"  , "X_center")
@@ -136,7 +161,7 @@ param1_to_param2(0.58,  model1.history, "Y_center", "X_center")
 param1_to_param2(0.40580000000000016, model1.history,   "X_center"  , "Y_center")
 
 param1_to_param2(0.5,  model1.history, "X_center", "L_surf")  
-                                  model1.history.L_surf[593]
+                                  model1.history.L_surf[593]  
 log10(param1_to_param2(0.5,  model1.history, "X_center", "L_surf"))
                                   log10(model1.history.L_surf[593])
 param1_to_param2(0.5,  model1.history, "X_center", "R_surf")  
@@ -145,8 +170,12 @@ param1_to_param2(0.5,  model1.history, "X_center", "T_surf")
                                   model1.history.T_surf[593]  
 param1_to_param2(0.5,  model1.history, "X_center", "Y_center")
                                   model1.history.Y_center[593]
-param1_to_param2(3000,  model1.history, "T_surf", "L_surf")   
-                                 model1.history.L_surf[211]   
+param1_to_param2(0.5,  model1.history, "X_center", "X_center")
+                                  model1.history.X_center[593]
+param1_to_param2(3000,  model1.history, "T_surf", "L_surf")
+                                model1.history.L_surf[211] 
+param1_to_param2(3000,  model1.history, "T_surf", "T_surf")
+                                model1.history.T_surf[211] 
 ##
 #plot Lsurf vs X_center
 f = Figure();
