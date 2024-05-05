@@ -1,3 +1,16 @@
+using CairoMakie, LaTeXStrings, MathTeXEngine
+basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
+                           italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
+                    fontsize=30, size=(1000, 750), linewidth=7,
+                    Axis=(xlabelsize=40, ylabelsize=40, titlesize=40, xgridvisible=false, ygridvisible=false,
+                          spinewidth=2.5, xminorticksvisible=true, yminorticksvisible=true, xtickalign=1, ytickalign=1,
+                          xminortickalign=1, yminortickalign=1, xticksize=14, xtickwidth=2.5, yticksize=14,
+                          ytickwidth=2.5, xminorticksize=7, xminortickwidth=2.5, yminorticksize=7, yminortickwidth=2.5,
+                          xticklabelsize=35, yticklabelsize=35, xticksmirrored=true, yticksmirrored=true),
+                    Legend=(patchsize=(70, 10), framevisible=false, patchlabelgap=20, rowgap=10))
+set_theme!(basic_theme)
+##
+
 import ForwardDiff.Dual
 
 #defining differential equations
@@ -8,8 +21,9 @@ max_nb_steps = 100_000
 
 # defining initial conditions as dual numbers
 t0      = Dual(0.0  ,0.0)
-Delta_t = Dual(0.001,0.0)
+
 y0 = h  = Dual(10.0 ,1.0) # we keep track of derivatives with respect to height
+Delta_t = h/1000 #Dual(0.1,0.0)
 v0      = Dual(0.0  ,0.0) 
 t_array = [t0]
 y_array = [y0]
@@ -34,14 +48,94 @@ end
 t_array
 y_array
 v_array
-
 slope = (y_array[end-1] - y_array[end-2]) / (t_array[end-1] - t_array[end-2])
 t_end = t_array[end]   - y_array[end]      /  slope
 t_end = t_array[end-1] - y_array[end-1] /   slope
 t_array[end]
-
+function interpolate(t_array, y_array, y)
+    for i in 1:length(y_array)-1
+        if y_array[i] > y >= y_array[i+1]
+            slope = (y_array[i+1] - y_array[i]) / (t_array[i+1] - t_array[i])
+            return t_array[i] + (y - y_array[i]) / slope
+        end
+    end
+    return NaN
+end
+interpolate(t_array, y_array, 0)
+analytical_dt_dh(y,h) = 1 / sqrt(2 * 9.81 * (h-y))
+analytical_v(y,h) = sqrt(2 * 9.81 * (h-y))
+analytical_dt_dy(y,h) = - 1 / sqrt(2*9.81*(h-y))
+analytical_t(y,h) = sqrt(2 * (h-y) / 9.81)
+#y_interps = LinRange(y_array[1].value, y_array[end].value, 900)
+y_interps = LinRange(y_array[3].value, y_array[end].value, 2000)
+t_interps = interpolate.(Ref(t_array), Ref(y_array), y_interps)
+##
+f = Figure();
+ax = Axis(f[1,1])
+lines!(ax, y_interps,(d->d.value).(t_interps))
+scatter!(ax, (d->d.value).(y_array),(d->d.value).(t_array), color = :red)
+ax.xlabel = "t"
+ax.ylabel = "y(t)"
+f
 ##
 
+f = Figure();
+ax = Axis(f[1,1], xlabel= L"Particle height $y$", ylabel= L"\partial t / \partial h")
+lines!(ax, y_interps,(d -> d.partials[1]).(t_interps), color = :blue, size = 0.1, label="Interpolation")
+lines!(ax, y_interps,analytical_dt_dh.(y_interps, 10), color = :red, linewidth = 2, linestyle = :dash, label="Analytical")
+axislegend()
+
+
+f
+##
+fig = Figure(size=(500, 600))
+ax1 = Axis(fig[1,1],xreversed = true,ylabel=L"Time $t$ [s]")
+ax4 = Axis(fig[4,1], xreversed = true,ylabel=L"$\partial t / \partial h$ [s/m]", xlabel=L"Particle height $y$")
+sample = scatter!(ax1, (d->d.value).(y_array),(d->d.value).(t_array), color = :red,label=L"$t_i(y_i)$")
+inter = lines!(ax1, (d->d.value).(y_array),(d->d.value).(t_array), color = :blue,label=L" $t(y)$" )
+analyt = lines!(ax1, y_interps, analytical_t.(y_interps, 10), color = :lime, linewidth = 2, linestyle = :dash, label=L"$t(y)$")
+lines!(ax4, y_interps,(d -> d.partials[1]).(t_interps), color = :blue, size = 0.1, label=L"$\partial t / \partial h$")
+lines!(ax4, y_interps,analytical_dt_dh.(y_interps, 10), color = :lime, linewidth = 2, linestyle = :dash, label=L"$\partial t / \partial h$")
+ax1.xticks = (d->d.value).(y_array[2:end])
+ax1.ygridvisible = false
+ax4.xticks = (d->d.value).(y_array[2:end])
+hidexdecorations!(ax1,grid=false);hidexdecorations!(ax4,grid=false)
+ax4_dummy = Axis(fig[4, 1],xreversed=true,xticks = 10:-1:0, xlabel=L"Particle height $y$ [m]",yticks = [0,10])
+hidespines!(ax4_dummy);hidexdecorations!(ax4_dummy)
+ax4.ygridvisible = false
+ax4_dummy.ygridvisible = false
+ax4_dummy.yticksvisible = false
+ax4_dummy.yticklabelsvisible = false  # = [0,10]
+ax4_dummy.xticklabelsvisible = true
+ax4_dummy.xticksvisible = true
+ax4_dummy.xlabelvisible = true
+linkyaxes!(ax4, ax4_dummy);linkxaxes!(ax4, ax4_dummy);linkxaxes!(ax1, ax4)
+
+ax2 = Axis(fig[3, 1], ylabel=L"$\partial t / \partial y$ [s/m]",xreversed=true,ygridvisible=false,xticksvisible=false,xticklabelsvisible=false,xticks = (d->d.value).(y_array[2:end]))
+linkxaxes!(ax2, ax1)
+
+
+interp = lines!(ax2, y_interps, (d->d.partials[1]).(interpolate.(Ref(t_array), Ref((d->d.value).(y_array)), (v->Dual(v,1.0)).(y_interps))), color = :blue, size = 0.1, label=L"$\partial t/\partial y$ ")
+analyty = lines!(ax2, y_interps,analytical_dt_dy.(y_interps, 10), color = :lime, linewidth = 2, linestyle = :dash, label=L"$\partial t / \partial y$")
+axislegend(ax2, titlefont=:regular, orientation=:horizontal,position=:rb,[interp,analyty],[L"$\partial t/\partial y$",L"$\partial t/\partial y$"], "Dual information from interpolation")
+
+axislegend(ax1, orientation=:horizontal,position=:rb)
+
+axislegend(ax4, orientation=:horizontal,position=:rt)
+leg = Legend(fig[0,1],[sample, inter, analyt], ["Sampled points", "Linear interpolation", "Analytical result"],orientation=:horizontal,tellheight = true, tellwidth=true)
+ax3 = Axis(fig[2,1], xreversed=true,ygridvisible=false,xticksvisible=false,xticklabelsvisible=false,xticks = (d->d.value).(y_array[2:end])); linkxaxes!(ax3, ax4)
+dot = scatter!(ax3, (d->d.value).(y_array) , (d->d.partials[1]).(y_array), color = :red,label=L"$\partial y_i / \partial h$")
+cross= scatter!(ax3, (d->d.value).(y_array),(d->d.partials[1]).(t_array), color = :red,label=L"$\partial t_i / \partial h$",marker = :x)
+l = axislegend(ax3, titlefont=:regular, orientation = :horizontal,[dot,cross],[L"$\partial y_i / \partial h$", L"$\partial t_i / \partial h$ [s/m]"], "Dual information from simulation", position= :rc)
+#plot vertical line
+vlines!(ax1, [0], color = :black, linestyle = :dash, linewidth = 2)
+vlines!(ax2, [0], color = :black, linestyle = :dash, linewidth = 2)
+vlines!(ax3, [0], color = :black, linestyle = :dash, linewidth = 2)
+vlines!(ax4, [0], color = :black, linestyle = :dash, linewidth = 2)
+fig
+##save Figure
+save("parabola_example_master.png", fig,px_per_unit=11)
+##
 import ForwardDiff.Dual
 
 # Define differential equations

@@ -93,9 +93,7 @@ function extrapolate(model::Model, delta_params)
     return Model(nothing, history_new, nothing, profiles_new, model.initial_params, model.initial_params_names, model.initial_params_dict)
 end
 
-function extrapolate_logM_fixedX(model, delta_logM, X_fixed)
-    param1_to_param2(param1_value,history,param1_name,param2_name)
-end
+
 
 function star_age_to_X(star_age,history) # computes the X value at a given star age, by linear interpolation
     two_model_numbers = [0,0]
@@ -128,6 +126,8 @@ function param1_to_param2(param1_value,history,param1_name,param2_name)
     end
     return linear_interpolation(history[!,param1_name][indices], history[!,param2_name][indices])(param1_value)
 end
+ 
+
 ##
 function my_linear_interpolation(xs, ys)
     slope = (ys[2] - ys[1]) / (xs[2] - xs[1])
@@ -182,6 +182,58 @@ f = Figure();
 ax = Axis(f[1,1])
 lines!(ax, model1.history_value.X_center, model1.history_value.L_surf, color = :blue)
 f
+##
+function extrapolate_logM_fixedX(model, delta_logM, X_fixed)
+    L_dual_old = param1_to_param2(X_fixed,model.history,"X_center","L_surf")
+    #@show L_dual_old
+    logL_dual_old = log10(L_dual_old)
+    logL_new = logL_dual_old.value + delta_logM * logL_dual_old.partials[1]
+    logL_old = logL_dual_old.value
+    #@show logL_old
+    #@show logL_new
+    delta_logL = logL_new - logL_old
+    #@show delta_logL
+    return 10^logL_new
+end
+
+function extrapolate_logM_fixedX_T(model, delta_logM, X_fixed)
+    temp_old = param1_to_param2(X_fixed,model.history,"X_center","T_surf")
+    temp_new = temp_old.value + delta_logM * temp_old.partials[1]
+    return temp_new
+end
+
+Xarray = collect(0.0001:0.00001:0.9999*model1.history_value.X_center[1])
+Xarray = LinRange(0.0001,0.9999*model1.history_value.X_center[1],10000)
+Ls = extrapolate_logM_fixedX.(Ref(model1),0.0,Xarray)
+extrapolate_logM_fixedX(model1,0.1,0.9999*model1.history_value.X_center[1])
+Temps = extrapolate_logM_fixedX_T.(Ref(model1),0.0,Xarray)
+##
+f = Figure();   1A
+ax = Axis(f[1,1])
+scatter!(ax, Xarray, Ls, color = :blue)
+#scatter!(ax, model1.history_value.T_surf, model1.history_value.L_surf, color = :red)
+xlims!(ax,0,0.04)
+ylims!(ax,15.1,15.4)
+f
+##
+1/sqrt(2*10*9.81)
+
+f = Figure();
+ax = Axis(f[1,1])
+scatter!(ax, Temps, Ls, color = :blue)
+#scatter!(ax, model1.history_value.T_surf, model1.history_value.L_surf, color = :red)
+f
+##
+
+function extrapolate_paramB_at_fixed_paramA(model, delta_logM, paramA_fixed, paramA_name,  paramB_name)
+    dual_old = param1_to_param2(paramA_fixed,model.history,paramA_name,paramB_name)
+    @show dual_old
+    new = dual_old.value + delta_logM * dual_old.partials[1]
+    @show new
+end
+
+extrapolate_paramB_at_fixed_paramA(model1,1,0.9999*model1.history_value.X_center[1],"X_center","L_surf")
+
 ##
 #initial_params = [ForwardDiff.Dual(0.0,1.0)]
 #inititial_params_names = [:logM]
