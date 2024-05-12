@@ -1,5 +1,6 @@
 using DataFrames
 using ForwardDiff
+import ForwardDiff.Dual
 using Jems.StellarModels
 using Interpolations
 using HDF5
@@ -15,10 +16,13 @@ basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                           xticklabelsize=35, yticklabelsize=35, xticksmirrored=true, yticksmirrored=true),
                     Legend=(patchsize=(70, 10), framevisible=false, patchlabelgap=20, rowgap=10))
 set_theme!(basic_theme)
-nb = "FULL_5partials"
+nb = "highres_FULL_5partials"
 path = "DualRuns/"
 historypath = path * "history_"*string(nb)*".hdf5"
+historypath = path * "history_"*string(nb)*".hdf5"
 profilespath = path * "profiles_"*string(nb)*".hdf5"
+profilespath = path * "profiles_"*string(nb)*".hdf5"
+
 
 ##
 #########################################"""
@@ -27,7 +31,6 @@ function get_partial_profile_dataframe_from_hdf5(hdf5_filename, value_name, part
     partial_dataframes = [StellarModels.get_profile_dataframe_from_hdf5(hdf5_filename, partial_name) for partial_name in partials_names]
     df_partial = ForwardDiff.Dual.(value_dataframe, partial_dataframes...)
     return df_partial
-
 end
  #doing some bookkeeping stuff
 number_of_partials = 5
@@ -73,13 +76,23 @@ struct Model
     initial_params::Vector{}
     initial_params_names::Vector{}
     initial_params_dict::Dict{}
+    distances
+end
+
+function D_computer(history)
+    logLs = log10.(history.L_surf)
+    logTs = log10.(history.T_surf)
+    distances = sqrt.(logLs.^2 .+ logTs.^2)
+    return cumsum(distances)
 end
 
 function Model_constructor(history::DataFrame, profiles, initial_params, initial_params_names)
     initial_params_dict = Dict(zip(initial_params_names, initial_params))
     history_value = (dual -> dual.value).(history)
     profiles_values = [(dual -> dual.value).(profile) for profile in profiles]
-    Model(history, history_value, profiles, profiles_values, initial_params, initial_params_names,initial_params_dict )
+    distances = D_computer(history)
+    history[!,"D"] = distances
+    Model(history, history_value, profiles, profiles_values, initial_params, initial_params_names,initial_params_dict, distances)
 end
 
 function extrapolate(model::Model, delta_params)
@@ -90,7 +103,7 @@ function extrapolate(model::Model, delta_params)
     history_new =  (dual -> dual.value + sum( delta_params .*dual.partials ) ).(history_new)
     profiles_new = [copy(profile) for profile in model.profiles]
     profiles_new = [(dual -> dual.value + sum( delta_params .*dual.partials ) ).(profile) for profile in profiles_new]
-    return Model(nothing, history_new, nothing, profiles_new, model.initial_params, model.initial_params_names, model.initial_params_dict)
+    return Model(nothing, history_new, nothing, profiles_new, model.initial_params, model.initial_params_names, model.initial_params_dict,model.distances)
 end
 
 
@@ -117,12 +130,22 @@ function X_to_star_age(X,history)
     return linear_interpolation(modelnr_to_X.(two_model_numbers), modelnr_to_star_age.(two_model_numbers))(X)
 end
 
+
+function find_index(param_value, history, param_name)
+    _,index = findmin(abs.(param_value .- history[!,param_name]))
+    return index
+end
 # the interpolator function
 function param1_to_param2(param1_value,history,param1_name,param2_name)
-    _,index = findmin(abs.(param1_value .- history[!,param1_name]))
-    indices = [index-1,index+1]
-    if history[!,param1_name][indices[2]] < history[!,param1_name][indices[1]]
-        reverse!(indices) # reverse order, to keep the lienar_interpolation function happy
+    index_closest = find_index(param1_value, history, param1_name)
+    if history[!,param1_name][index_closest - 1] < param1_value < history[!,param1_name][index_closest]
+        indices = [index_closest - 1, index_closest]
+    elseif history[!, param1_name][index_closest - 1] > param1_value > history[!,param1_name][index_closest]
+        indices = [index_closest, index_closest - 1]
+    elseif history[!,param1_name][index_closest] < param1_value < history[!,param1_name][index_closest + 1]
+        indices = [index_closest, index_closest + 1]
+    elseif history[!, param1_name][index_closest] > param1_value > history[!,param1_name][index_closest + 1]
+        indices = [index_closest + 1, index_closest]
     end
     return linear_interpolation(history[!,param1_name][indices], history[!,param2_name][indices])(param1_value)
 end
@@ -151,93 +174,8 @@ y0 = Dual(0,0,0,1,0)
 y1 = Dual(1,0,0,0,1)
 func3 = my_linear_interpolation([x0,x1],[y0,y1])
 func3(0.3)
-
-
 ##
-
-param1_to_param2(0.5467236365491246,  model1.history, "X_center", "star_age")
-param1_to_param2(5e8,                 model1.history,   "star_age"  , "X_center")
-param1_to_param2(0.58,  model1.history, "Y_center", "X_center")
-param1_to_param2(0.40580000000000016, model1.history,   "X_center"  , "Y_center")
-
-param1_to_param2(0.5,  model1.history, "X_center", "L_surf")  
-                                  model1.history.L_surf[593]  
-log10(param1_to_param2(0.5,  model1.history, "X_center", "L_surf"))
-                                  log10(model1.history.L_surf[593])
-param1_to_param2(0.5,  model1.history, "X_center", "R_surf")  
-                                  model1.history.R_surf[593]  
-param1_to_param2(0.5,  model1.history, "X_center", "T_surf")  
-                                  model1.history.T_surf[593]  
-param1_to_param2(0.5,  model1.history, "X_center", "Y_center")
-                                  model1.history.Y_center[593]
-param1_to_param2(0.5,  model1.history, "X_center", "X_center")
-                                  model1.history.X_center[593]
-param1_to_param2(3000,  model1.history, "T_surf", "L_surf")
-                                model1.history.L_surf[211] 
-param1_to_param2(3000,  model1.history, "T_surf", "T_surf")
-                                model1.history.T_surf[211] 
-##
-#plot Lsurf vs X_center
-f = Figure();
-ax = Axis(f[1,1])
-lines!(ax, model1.history_value.X_center, model1.history_value.L_surf, color = :blue)
-f
-##
-function extrapolate_logM_fixedX(model, delta_logM, X_fixed)
-    L_dual_old = param1_to_param2(X_fixed,model.history,"X_center","L_surf")
-    #@show L_dual_old
-    logL_dual_old = log10(L_dual_old)
-    logL_new = logL_dual_old.value + delta_logM * logL_dual_old.partials[1]
-    logL_old = logL_dual_old.value
-    #@show logL_old
-    #@show logL_new
-    delta_logL = logL_new - logL_old
-    #@show delta_logL
-    return 10^logL_new
-end
-
-function extrapolate_logM_fixedX_T(model, delta_logM, X_fixed)
-    temp_old = param1_to_param2(X_fixed,model.history,"X_center","T_surf")
-    temp_new = temp_old.value + delta_logM * temp_old.partials[1]
-    return temp_new
-end
-
-Xarray = collect(0.0001:0.00001:0.9999*model1.history_value.X_center[1])
-Xarray = LinRange(0.0001,0.9999*model1.history_value.X_center[1],10000)
-Ls = extrapolate_logM_fixedX.(Ref(model1),0.0,Xarray)
-extrapolate_logM_fixedX(model1,0.1,0.9999*model1.history_value.X_center[1])
-Temps = extrapolate_logM_fixedX_T.(Ref(model1),0.0,Xarray)
-##
-f = Figure();   1A
-ax = Axis(f[1,1])
-scatter!(ax, Xarray, Ls, color = :blue)
-#scatter!(ax, model1.history_value.T_surf, model1.history_value.L_surf, color = :red)
-xlims!(ax,0,0.04)
-ylims!(ax,15.1,15.4)
-f
-##
-1/sqrt(2*10*9.81)
-
-f = Figure();
-ax = Axis(f[1,1])
-scatter!(ax, Temps, Ls, color = :blue)
-#scatter!(ax, model1.history_value.T_surf, model1.history_value.L_surf, color = :red)
-f
-##
-
-function extrapolate_paramB_at_fixed_paramA(model, delta_logM, paramA_fixed, paramA_name,  paramB_name)
-    dual_old = param1_to_param2(paramA_fixed,model.history,paramA_name,paramB_name)
-    @show dual_old
-    new = dual_old.value + delta_logM * dual_old.partials[1]
-    @show new
-end
-
-extrapolate_paramB_at_fixed_paramA(model1,1,0.9999*model1.history_value.X_center[1],"X_center","L_surf")
-
-##
-#initial_params = [ForwardDiff.Dual(0.0,1.0)]
-#inititial_params_names = [:logM]
-###################### DEFINE MODEL
+######### DEFINE MODEL ###################################################################################### DEFINE MODEL
 logM_dual      = ForwardDiff.Dual{}(0.0,     1.0,0.0,0.0,0.0,0.0)
 mass_dual      = MSUN*10^logM_dual
 X_dual         = ForwardDiff.Dual{}(0.7154,  0.0,1.0,0.0,0.0,0.0)
@@ -256,15 +194,181 @@ model1.profiles_values # acces list of profiles in value form
 delta_params = [1.0,0.0,0.0,0.0,0.0] # delta to use in Taylor expansion
 model1_extrapolate = extrapolate(model1, delta_params)
 model1_extrapolate.history_value # acces history in value form (extrapolated models DO NOT have history in dual form!)
+###########################################################################################################################
+## TESTING the interpolator
 
+# doing some two way checks
+param1_to_param2(0.5467236365491246,  model1.history, "X_center", "star_age")
+param1_to_param2(5.005870929011321e8,                 model1.history,   "star_age"  , "X_center")
+param1_to_param2(0.58,  model1.history, "Y_center", "X_center")
+param1_to_param2(0.40557679520000034, model1.history,   "X_center"  , "Y_center")
+param1_to_param2(500,  model1.history, "P_surf", "L_surf")
+param1_to_param2(25.905680696712867,  model1.history, "L_surf", "P_surf")
 
+# comparing interpolation with closest model
+param1_to_param2(0.5,  model1.history, "X_center", "L_surf")  
+find_index(0.5, model1.history,"X_center")
+                                  model1.history.L_surf[837]  
+log10(param1_to_param2(0.7,  model1.history, "X_center", "L_surf"))
+find_index(0.7, model1.history,"X_center")
+                                  log10(model1.history.L_surf[589])
+param1_to_param2(0.5,  model1.history, "X_center", "R_surf")  
+                                  model1.history.R_surf[593]  
+param1_to_param2(0.5,  model1.history, "X_center", "T_surf")  
+                                  model1.history.T_surf[593]  
+param1_to_param2(0.5,  model1.history, "Y_center", "X_center")
+param1_to_param2(0.5,  model1.history, "X_center", "Y_center")
+                                  model1.history.Y_center[593]
+param1_to_param2(0.5,  model1.history, "X_center", "X_center")
+                                  model1.history.X_center[593]
+param1_to_param2(3000,  model1.history, "T_surf", "L_surf")
+                                model1.history.L_surf[211] 
+param1_to_param2(3000,  model1.history, "T_surf", "T_surf")
+                                model1.history.T_surf[211] 
+param1_to_param2(18,  model1.history, "L_surf", "L_surf") 
+param1_to_param2(500,  model1.history, "P_surf", "P_surf")
+##
+#plot Lsurf vs X_center0
+f = Figure();
+ax = Axis(f[1,1])
+lines!(ax, model1.history_value.X_center, model1.history_value.L_surf, color = :blue)
+f
+##
+function extrapolate_logM_fixedX(model, delta_logM, X_fixed)
+    L_dual_old = param1_to_param2(X_fixed,model.history,"X_center","L_surf")
+    logL_dual_old = log10(L_dual_old)
+    logL_new = logL_dual_old.value + delta_logM * logL_dual_old.partials[1]
+    return 10^logL_new
+end
 
-history = model1.history
-modelnr_to_X = modelnr -> history.X_center[Int(modelnr)]
-modelnr_to_X(5)
-modelnr_to_star_age = modelnr -> history.star_age[Int(modelnr)]
-#star_age_to_modelnr = star_age -> floor(Int, ( find_zero(modelnr -> modelnr_to_star_age(modelnr)-star_age,(1,history.model_number[end].value), Bisection() ) ))
-#star_age_to_modelnr(1647.0)
+function extrapolate_logM_fixedX_T(model, delta_logM, X_fixed)
+    temp_old = param1_to_param2(X_fixed,model.history,"X_center","T_surf")
+    temp_new = temp_old.value + delta_logM * temp_old.partials[1]
+    return temp_new
+end
+
+function extrapolate_master(model, init_param_index, init_param_delta, condition_param_name, condition_param_value, target_param_name)
+    dual_old = param1_to_param2(condition_param_value,model.history,condition_param_name,target_param_name)
+    dual_new = dual_old.value + init_param_delta * dual_old.partials[init_param_index]
+    return dual_new
+end
+
+function extrapolate_master_log(model, init_param_index, init_param_log_delta, condition_param_name, condition_param_value, target_param_name)
+    dual_old = log10(param1_to_param2(condition_param_value,model.history,condition_param_name,target_param_name))
+    dual_new = dual_old.value + init_param_log_delta * dual_old.partials[init_param_index]
+    return dual_new
+end
+
+extrapolate_master(model1, 1, 0.1, "X_center", 0.5, "T_surf")
+extrapolate_logM_fixedX_T(model1, 0.1, 0.5)
+extrapolate_master_log(model1, 1, 0.1, "X_center", 0.5, "L_surf")
+extrapolate_logM_fixedX(model1, 0.1, 0.5)
+
+extrapolate_master_log.(Ref(model1), 1, 0.1, "X_center", [0.5,0.6], "L_surf")
+extrapolate_logM_fixedX.(Ref(model1), 0.1, [0.5,0.6])
+##
+Xarray = collect(0.0001:0.00001:0.9999*model1.history_value.X_center[1])
+Xarray = LinRange(0.0001,0.9999*model1.history_value.X_center[1],10000)
+Ls = extrapolate_logM_fixedX.(Ref(model1),0.0,Xarray) 
+extrapolate_logM_fixedX(model1,0.1,0.9999*model1.history_value.X_center[1])
+Temps = extrapolate_logM_fixedX_T.(Ref(model1),0.0,Xarray)
+##
+f = Figure(); 
+ax = Axis(f[1,1])
+scatter!(ax, Xarray, Ls, color = :blue)
+#scatter!(ax, model1.history_value.T_surf, model1.history_value.L_surf, color = :red)
+xlims!(ax,0,0.04)
+ylims!(ax,15.1,15.4)
+f
+##
+
+f = Figure();
+ax = Axis(f[1,1])
+scatter!(ax, Temps, Ls, color = :blue)
+#scatter!(ax, model1.history_value.T_surf, model1.history_value.L_surf, color = :red)
+f
+
+##
+DeltaLogM = 0.001
+f = Figure();
+ax = Axis(f[1,1],xreversed=true,xlabel=L"$\log(T_{\text{eff}} / K)$", ylabel=L"$\log (L / L_\odot)$")
+begin_index = find_index(0.999*model1.history.X_center[1], model1.history,"X_center")
+end_index = find_index(0.01*model1.history.X_center[1], model1.history,"X_center")
+scatter!(ax, log10.(model1.history_value.T_surf)[begin_index:end_index], log10.(model1.history_value.L_surf)[begin_index:end_index], color = :blue, label="Original track")
+Xarray = collect(0.01*model1.history_value.X_center[1]:0.00001:0.999*model1.history_value.X_center[1])
+#Xarray = LinRange(0.0001,0.9999*model1.history_value.X_center[1],10000)
+Ls = extrapolate_logM_fixedX.(Ref(model1),DeltaLogM,Xarray) 
+Temps = extrapolate_logM_fixedX_T.(Ref(model1),DeltaLogM,Xarray)
+scatter!(ax, log10.(Temps), log10.(Ls), color = :red, label=L"Extrapolated track, $\Delta \log M = %$DeltaLogM $")
+axislegend(ax, position=:rb)
+f
+##
+deltaLogM_range = [0, 0.1, 0.2]
+f = Figure();
+ax = Axis(f[1,1],xreversed=true,xlabel=L"$\log(T_{\text{eff}} / K)$", ylabel=L"$\log (L / L_\odot)$")
+hi = find_index(0.99*model1.history.X_center[1], model1.history,"X_center")
+lo = find_index(0.1*model1.history.X_center[1], model1.history,"X_center")
+scatter!(ax, log10.(model1.history_value.T_surf)[hi:lo], log10.(model1.history_value.L_surf)[hi:lo], color = :black, label="Original track")
+D_range = LinRange(model1.history.D[hi].value,model1.history.D[lo].value,1000)
+function plot_track(ax, DeltaLogM)
+    logLs = extrapolate_master_log.(Ref(model1), 1, DeltaLogM, "D", D_range, "L_surf")
+    logTs = extrapolate_master_log.(Ref(model1), 1, DeltaLogM, "D", D_range, "T_surf")
+    scatter!(ax, logTs, logLs, label=L"$\Delta \log M = %$DeltaLogM $")
+end
+for delta_logM in deltaLogM_range
+    plot_track(ax, delta_logM)
+end
+axislegend(ax, position=:lc)
+f
+
+##
+
+function interpolate(modelA, modelB, logM_wanted)
+    hi = find_index(0.999*modelA.history.X_center[1], modelA.history,"X_center")
+    lo = find_index(0.01*modelA.history.X_center[1], modelA.history,"X_center")
+    D_diff_A = modelA.history.D[hi].value - modelA.history.D[lo].value
+    hi = find_index(0.999*modelB.history.X_center[1], modelB.history,"X_center")
+    lo = find_index(0.01*modelB.history.X_center[1], modelB.history,"X_center")
+    D_diff_B = modelB.history.D[hi].value - modelB.history.D[lo].value
+    D_range = LinRange(0, max(D_diff_A,D_diff_B), 1000)
+    delta_logM_A = -modelA.initial_params[1]+logM_wanted
+    delta_logM_B = -modelB.initial_params[1]+logM_wanted
+    logLs_A = extrapolate_master_log.(Ref(modelA), 1, delta_logM_A , "D", D_range, "L_surf")
+    logTs_A = extrapolate_master_log.(Ref(modelA), 1, delta_logM_A , "D", D_range, "T_surf")
+    logLs_B = extrapolate_master_log.(Ref(modelB), 1, delta_logM_B , "D", D_range, "L_surf")
+    logTs_B = extrapolate_master_log.(Ref(modelB), 1, delta_logM_B , "D", D_range, "T_surf")
+    logLs = (logLs_A * ( 1 /(abs(delta_logM_A))) + logLs_B * ( 1 /(abs(delta_logM_B))) ) / (1/(abs(delta_logM_A)) + 1/(abs(delta_logM_B)))
+    logTs = (logTs_A * ( 1 /(abs(delta_logM_A))) + logTs_B * ( 1 /(abs(delta_logM_B))) ) / (1/(abs(delta_logM_A)) + 1/(abs(delta_logM_B)))
+    return logTs, logLs
+end  
+
+DeltaLogM = 0.001
+f = Figure();
+ax = Axis(f[1,1],xreversed=true,xlabel=L"$\log(T_{\text{eff}} / K)$", ylabel=L"$\log (L / L_\odot)$")
+hi = find_index(0.999*model1.history.X_center[1], model1.history,"X_center")
+lo = find_index(0.001*model1.history.X_center[1], model1.history,"X_center")
+scatter!(ax, log10.(model1.history_value.T_surf)[begin_index:end_index], log10.(model1.history_value.L_surf)[begin_index:end_index], color = :blue, label="Original track")
+X_range = LinRange(model1.history_value.X_center[lo],model1.history_value.X_center[hi],1000)
+logLs = extrapolate_master_log.(Ref(model1), 1, DeltaLogM, "X_center", X_range, "L_surf")
+logTs = extrapolate_master_log.(Ref(model1), 1, DeltaLogM, "X_center", X_range, "T_surf")
+scatter!(ax, logLs, logTs, color = :red, label=L"Extrapolated track, $\Delta \log M = %$DeltaLogM $")
+axislegend(ax, position=:rb)
+f
+
+##
+function extrapolate_paramB_at_fixed_paramA(model, delta_logM, paramA_fixed, paramA_name,  paramB_name)
+    dual_old = param1_to_param2(paramA_fixed,model.history,paramA_name,paramB_name)
+    @show dual_old
+    new = dual_old.value + delta_logM * dual_old.partials[1]
+    @show new
+end
+
+extrapolate_paramB_at_fixed_paramA(model1,1,0.9999*model1.history_value.X_center[1],"X_center","L_surf")
+
+##
+#initial_params = [ForwardDiff.Dual(0.0,1.0)]
+#inititial_params_names = [:logM]
+
 
 ##
 

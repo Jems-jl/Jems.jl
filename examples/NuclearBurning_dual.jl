@@ -61,11 +61,12 @@ sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functi
 println("Initialize StellarModel ############################")
 n = 3
 #define dual input numbers, all partial derivatives are with respect to the mass, give a '1.0' to indicate the order of the partials
-logM_dual      = ForwardDiff.Dual{tag_external}(0.0,     1.0,0.0,0.0,0.0,0.0)
+logM_dual      = ForwardDiff.Dual{tag_external}(0.05,     1.0,0.0,0.0,0.0,0.0)
 mass_dual      = MSUN*10^logM_dual
 X_dual         = ForwardDiff.Dual{tag_external}(0.7154,  0.0,1.0,0.0,0.0,0.0)
 Z_dual         = ForwardDiff.Dual{tag_external}(0.0142,  0.0,0.0,1.0,0.0,0.0)
 Dfraction_dual = ForwardDiff.Dual{tag_external}(0.0,     0.0,0.0,0.0,1.0,0.0)
+Dfraction_dual = ForwardDiff.Dual{tag_external}(0.000312,0.0,0.0,0.0,1.0,0.0)
 R_dual         = ForwardDiff.Dual{tag_external}(100*RSUN,0.0,0.0,0.0,0.0,1.0)
 #X_dual         = ForwardDiff.Dual{tag_external}(0.7154,  0.0)
 #Z_dual         = ForwardDiff.Dual{tag_external}(0.0142,  0.0)
@@ -81,7 +82,7 @@ StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props) 
 StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
 StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
 StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
-nbmodmax = 1500
+nbmodmax = 2000
 ##
 
 #=
@@ -95,13 +96,13 @@ open("example_options.toml", "w") do file
 
           [solver]
           newton_max_iter_first_step = 1000
+          newton_max_iter = 1000
           initial_model_scale_max_correction = 0.5
-          newton_max_iter = 30
           scale_max_correction = 0.1
           report_solver_progress = false
 
           [timestep]
-          dt_max_increase = 1.5
+          dt_max_increase = 1.1
           delta_R_limit = 0.01
           delta_Tc_limit = 0.01
           delta_Xc_limit = 0.005
@@ -132,9 +133,9 @@ open("example_options.toml", "w") do file
 
           [io]
           history_interval = 1
-          profile_interval = 1
-          terminal_header_interval = 2
-          terminal_info_interval = 100
+          profile_interval = 50
+          terminal_header_interval = 10
+          terminal_info_interval = 1
 
           """)
 end
@@ -150,8 +151,8 @@ save = true
 if save == true
     historypath = "history.hdf5"
     profilespath = "profiles.hdf5"
-    cp("history.hdf5",  "DualRuns/history_FULL_5partials.hdf5", force = true)
-    cp("profiles.hdf5", "DualRuns/profiles_FULL_5partials.hdf5", force = true)
+    cp("history.hdf5",  "DualRuns/history_highres_FULL_5partials.hdf5", force = true)
+    cp("profiles.hdf5", "DualRuns/profiles_highres_FULL_5partials.hdf5", force = true)
 end
 
 
