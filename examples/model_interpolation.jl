@@ -124,12 +124,44 @@ function Track(model, ZAMS_X, TAMS_X, nbpoints=1000)
     logT_val = (d -> d.value).(logT); logT_partial = (d -> d.partials[1]).(logT)
     return Track(model, ZAMS_index, TAMS_index, logL, logL_val, logL_partial, logT, logT_val, logT_partial, zetas, track_history, track_history_value)
 end
-function plot!(track::Track, ax, scatter = true)
+function plot!(track::Track, ax, scatter = true, label = "Track")
     if scatter
-        scatter!(ax, track.logT_val, track.logL_val, color = :blue)
+        scatter!(ax, track.logT_val, track.logL_val, color = :blue, label=label)
     else 
-        lines!(ax, track.logT_val, track.logL_val, color = :blue)
+        lines!(ax, track.logT_val, track.logL_val, color = :blue, label=label)
     end
+end
+struct ExtrapolTrack
+    delta_logM
+    original_M
+    original_model::Model
+    original_track::Track
+    logL_val
+    logT_val
+    zeta
+end
+function ExtrapolTrack(track::Track, delta_logM)
+    logL_new = track.logL_val .+ delta_logM * track.logL_partial
+    logT_new = track.logT_val .+ delta_logM * track.logT_partial
+    return ExtrapolTrack(delta_logM, track.model.initial_params_dict[:logM], track.model, track, logL_new, logT_new, track.zeta)
+end
+function plot!(extrapol_track::ExtrapolTrack, ax, scatter = true, label = L"\Delta \log M = %$extrapol_track.delta_logM $")
+    if scatter
+        scatter!(ax, extrapol_track.logT_val, extrapol_track.logL_val, label=label)
+    else 
+        lines!(ax, extrapol_track.logT_val, extrapol_track.logL_val, label=label)
+    end
+end
+function extrapolate_master(model, init_param_index, init_param_delta, condition_param_name, condition_param_value, target_param_name)
+    dual_old = param1_to_param2(condition_param_value,model.history,condition_param_name,target_param_name)
+    dual_new = dual_old.value + init_param_delta * dual_old.partials[init_param_index]
+    return dual_new
+end
+
+function extrapolate_master_log(model, init_param_index, init_param_log_delta, condition_param_name, condition_param_value, target_param_name)
+    dual_old = log10(param1_to_param2(condition_param_value,model.history,condition_param_name,target_param_name))
+    dual_new = dual_old.value + init_param_log_delta * dual_old.partials[init_param_index]
+    return dual_new
 end
 
 function extrapolate(model::Model, delta_params)
@@ -227,12 +259,15 @@ model1_extrapolate = extrapolate(model1, delta_params)
 model1_extrapolate.history_value # acces history in value form (extrapolated models DO NOT have history in dual form!)
 
 ##
-track1 = Track(model1, 0.999*model1.history_value.X_center[1], 0.01*model1.history_value.X_center[1],500);
+track1 = Track(model1, 0.999*model1.history_value.X_center[1], 0.01*model1.history_value.X_center[1],50);
 ##
 fig = Figure()
-
 ax = Axis(fig[1,1], xlabel = L"$\log(T_{\text{eff}} / K)$", ylabel = L"$\log (L / L_\odot)$", xreversed = true)
-plot!(track1, ax)
+plot!(track1, ax, label = L"Original track $\log M = %$model1.initial_params_dict[:logM].value $")
+extrapol1 = ExtrapolTrack(track1, 0.5)
+plot!(extrapol1,ax)
+axislegend(ax)
+
 fig
 
 
@@ -289,17 +324,7 @@ function extrapolate_logM_fixedX_T(model, delta_logM, X_fixed)
     return temp_new
 end
 
-function extrapolate_master(model, init_param_index, init_param_delta, condition_param_name, condition_param_value, target_param_name)
-    dual_old = param1_to_param2(condition_param_value,model.history,condition_param_name,target_param_name)
-    dual_new = dual_old.value + init_param_delta * dual_old.partials[init_param_index]
-    return dual_new
-end
 
-function extrapolate_master_log(model, init_param_index, init_param_log_delta, condition_param_name, condition_param_value, target_param_name)
-    dual_old = log10(param1_to_param2(condition_param_value,model.history,condition_param_name,target_param_name))
-    dual_new = dual_old.value + init_param_log_delta * dual_old.partials[init_param_index]
-    return dual_new
-end
 
 extrapolate_master(model1, 1, 0.1, "X_center", 0.5, "T_surf")
 extrapolate_logM_fixedX_T(model1, 0.1, 0.5)
