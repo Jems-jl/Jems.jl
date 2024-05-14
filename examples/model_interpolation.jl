@@ -60,7 +60,6 @@ function get_dual_history_dataframe_from_hdf5(hdf5_filename)
     history_partials = [StellarModels.get_profile_dataframe_from_hdf5(hdf5_filename, name) for name in history_partial_names]
     return ForwardDiff.Dual.(history_value, history_partials...)
 end
-
 ################################################################################# HISTORY OUTPUT
 history = StellarModels.get_history_dataframe_from_hdf5(historypath) #as before
 history_dual = get_dual_history_dataframe_from_hdf5(historypath)#dataframe with history in dual numbers
@@ -76,23 +75,61 @@ struct Model
     initial_params::Vector{}
     initial_params_names::Vector{}
     initial_params_dict::Dict{}
-    distances
 end
 
-function D_computer(history)
-    logLs = log10.(history.L_surf)
-    logTs = log10.(history.T_surf)
+function D_computer(logLs, logTs)
     distances = sqrt.(logLs.^2 .+ logTs.^2)
-    return cumsum(distances)
+    values = cumsum(distances) .- distances[1]
+    return values/maximum(values)
 end
 
 function Model_constructor(history::DataFrame, profiles, initial_params, initial_params_names)
     initial_params_dict = Dict(zip(initial_params_names, initial_params))
     history_value = (dual -> dual.value).(history)
     profiles_values = [(dual -> dual.value).(profile) for profile in profiles]
-    distances = D_computer(history)
-    history[!,"D"] = distances
-    Model(history, history_value, profiles, profiles_values, initial_params, initial_params_names,initial_params_dict, distances)
+    Model(history, history_value, profiles, profiles_values, initial_params, initial_params_names,initial_params_dict)
+end
+
+struct Track
+    model::Model
+    ZAMS_index
+    TAMS_index
+    logL
+    logL_val
+    logL_partial #partial with respect to logM
+    logT
+    logT_val
+    logT_partial #partial with respect to logM
+    zeta #number between 0 and 1, indicating where on the track we are
+    history
+    history_value
+end
+function Track(model, ZAMS_X, TAMS_X, nbpoints=1000)
+    ZAMS_index = find_index(ZAMS_X, model.history, "X_center")
+    TAMS_index = find_index(TAMS_X, model.history, "X_center")
+    logL_ZAMS = log10(param1_to_param2(ZAMS_X, model.history, "X_center", "L_surf"))
+    logT_ZAMS = log10(param1_to_param2(ZAMS_X, model.history, "X_center", "T_surf"))
+    logL_TAMS = log10(param1_to_param2(TAMS_X, model.history, "X_center", "L_surf"))
+    logT_TAMS = log10(param1_to_param2(TAMS_X, model.history, "X_center", "T_surf"))
+    track_history = copy(model.history[ZAMS_index:TAMS_index,:])
+    zetas = D_computer(log10.(model.history.L_surf[ZAMS_index:TAMS_index]), log10.(model.history.T_surf[ZAMS_index:TAMS_index]))
+    track_history[!,"zeta"] = zetas
+    zetas = LinRange(0,1,nbpoints)
+    logL = log10.( param1_to_param2.(zetas[2:end-1], Ref(track_history), "zeta", "L_surf") )
+    pushfirst!(logL,logL_ZAMS); push!(logL, logL_TAMS)
+    logT = log10.( param1_to_param2.(zetas[2:end-1], Ref(track_history), "zeta", "T_surf") )
+    pushfirst!(logT,logT_ZAMS); push!(logT, logT_TAMS)
+    track_history_value = (dual -> dual.value).(track_history)
+    logL_val = (d -> d.value).(logL); logL_partial = (d -> d.partials[1]).(logL)
+    logT_val = (d -> d.value).(logT); logT_partial = (d -> d.partials[1]).(logT)
+    return Track(model, ZAMS_index, TAMS_index, logL, logL_val, logL_partial, logT, logT_val, logT_partial, zetas, track_history, track_history_value)
+end
+function plot!(track::Track, ax, scatter = true)
+    if scatter
+        scatter!(ax, track.logT_val, track.logL_val, color = :blue)
+    else 
+        lines!(ax, track.logT_val, track.logL_val, color = :blue)
+    end
 end
 
 function extrapolate(model::Model, delta_params)
@@ -103,11 +140,8 @@ function extrapolate(model::Model, delta_params)
     history_new =  (dual -> dual.value + sum( delta_params .*dual.partials ) ).(history_new)
     profiles_new = [copy(profile) for profile in model.profiles]
     profiles_new = [(dual -> dual.value + sum( delta_params .*dual.partials ) ).(profile) for profile in profiles_new]
-    return Model(nothing, history_new, nothing, profiles_new, model.initial_params, model.initial_params_names, model.initial_params_dict,model.distances)
+    return Model(nothing, history_new, nothing, profiles_new, model.initial_params, model.initial_params_names, model.initial_params_dict)
 end
-
-
-
 function star_age_to_X(star_age,history) # computes the X value at a given star age, by linear interpolation
     two_model_numbers = [0,0]
     for modelnr in history.model_number[1].value:history.model_number[end].value
@@ -129,18 +163,35 @@ function X_to_star_age(X,history)
     end
     return linear_interpolation(modelnr_to_X.(two_model_numbers), modelnr_to_star_age.(two_model_numbers))(X)
 end
-
-
 function find_index(param_value, history, param_name)
     _,index = findmin(abs.(param_value .- history[!,param_name]))
     return index
 end
-# the interpolator function
+# THE interpolator function
 function param1_to_param2(param1_value,history,param1_name,param2_name)
     index_closest = find_index(param1_value, history, param1_name)
-    if history[!,param1_name][index_closest - 1] < param1_value < history[!,param1_name][index_closest]
+    zetas =  (d->d.value).(history[!,param1_name][1:10])
+    if index_closest == 1
+        println("first")
+        @show param1_value
+        @show history[!,param1_name][1]
+        @show history[!,param1_name][2]
+        indices = [1,2]
+        if history[!,param1_name][2] < history[!, param1_name][1]
+            reverse!(indices)
+        end
+        return linear_interpolation(history[!,param1_name][indices], history[!,param2_name][indices])(param1_value)
+    end
+    if index_closest == length(history[!,param1_name])
+        indices = [length(history[!,param1_name])-1, length(history[!,param1_name])]
+        if history[!,param1_name][end] < history[!, param1_name][end-1]
+            reverse!(indices)
+        end
+        return linear_interpolation(history[!,param1_name][indices], history[!,param2_name][indices])(param1_value)
+    end
+    if history[!,param1_name][index_closest - 1] <= param1_value <= history[!,param1_name][index_closest]
         indices = [index_closest - 1, index_closest]
-    elseif history[!, param1_name][index_closest - 1] > param1_value > history[!,param1_name][index_closest]
+    elseif history[!, param1_name][index_closest - 1] >= param1_value >= history[!,param1_name][index_closest]
         indices = [index_closest, index_closest - 1]
     elseif history[!,param1_name][index_closest] < param1_value < history[!,param1_name][index_closest + 1]
         indices = [index_closest, index_closest + 1]
@@ -149,31 +200,11 @@ function param1_to_param2(param1_value,history,param1_name,param2_name)
     end
     return linear_interpolation(history[!,param1_name][indices], history[!,param2_name][indices])(param1_value)
 end
- 
 
-##
 function my_linear_interpolation(xs, ys)
     slope = (ys[2] - ys[1]) / (xs[2] - xs[1])
     return x -> ys[1] + slope * (x - xs[1])
 end
-x0 = Dual(5,10)
-X1 = Dual(10,-1)
-xarray = [x0, X1]
-func = my_linear_interpolation(xarray, xarray)
-func(6)
-
-x0 = Dual(5,10)
-X1 = Dual(10,-1)
-xarray = [x0, X1]
-func2 = linear_interpolation(xarray, reverse(xarray))
-func2(6)
-##
-x0 = Dual(0,1,0,0,0)
-x1 = Dual(1,0,1,0,0)
-y0 = Dual(0,0,0,1,0)
-y1 = Dual(1,0,0,0,1)
-func3 = my_linear_interpolation([x0,x1],[y0,y1])
-func3(0.3)
 ##
 ######### DEFINE MODEL ###################################################################################### DEFINE MODEL
 logM_dual      = ForwardDiff.Dual{}(0.0,     1.0,0.0,0.0,0.0,0.0)
@@ -184,7 +215,7 @@ Dfraction_dual = ForwardDiff.Dual{}(0.0,     0.0,0.0,0.0,1.0,0.0)
 R_dual         = ForwardDiff.Dual{}(100*RSUN,0.0,0.0,0.0,0.0,1.0)
 initial_params = [logM_dual, X_dual, Z_dual, Dfraction_dual, R_dual]
 inititial_params_names = [:logM, :X, :Z, :Dfraction, :R]
-model1 = Model_constructor(history_dual, profiles_dual, initial_params, inititial_params_names)
+model1 = Model_constructor(history_dual, profiles_dual, initial_params, inititial_params_names) #construct model!
 model1.initial_params_dict[:logM] # access the initial dual number
 model1.initial_params_dict[:logM].partials
 model1.history # acces history in dual form
@@ -194,16 +225,27 @@ model1.profiles_values # acces list of profiles in value form
 delta_params = [1.0,0.0,0.0,0.0,0.0] # delta to use in Taylor expansion
 model1_extrapolate = extrapolate(model1, delta_params)
 model1_extrapolate.history_value # acces history in value form (extrapolated models DO NOT have history in dual form!)
+
+##
+track1 = Track(model1, 0.999*model1.history_value.X_center[1], 0.01*model1.history_value.X_center[1],500);
+##
+fig = Figure()
+
+ax = Axis(fig[1,1], xlabel = L"$\log(T_{\text{eff}} / K)$", ylabel = L"$\log (L / L_\odot)$", xreversed = true)
+plot!(track1, ax)
+fig
+
+
+
 ###########################################################################################################################
 ## TESTING the interpolator
-
 # doing some two way checks
 param1_to_param2(0.5467236365491246,  model1.history, "X_center", "star_age")
 param1_to_param2(5.005870929011321e8,                 model1.history,   "star_age"  , "X_center")
 param1_to_param2(0.58,  model1.history, "Y_center", "X_center")
-param1_to_param2(0.40557679520000034, model1.history,   "X_center"  , "Y_center")
+param1_to_param2(0.40557679520000023, model1.history,   "X_center"  , "Y_center")
 param1_to_param2(500,  model1.history, "P_surf", "L_surf")
-param1_to_param2(25.905680696712867,  model1.history, "L_surf", "P_surf")
+param1_to_param2(25.906216715135315,  model1.history, "L_surf", "P_surf")
 
 # comparing interpolation with closest model
 param1_to_param2(0.5,  model1.history, "X_center", "L_surf")  
@@ -379,7 +421,3 @@ using Roots
 
 find_zero
 ##
-blaa = modelnr -> modelnr_to_star_age(modelnr)-history.star_age[5]
-blaa(4)
-##
-

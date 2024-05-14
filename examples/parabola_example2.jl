@@ -102,7 +102,8 @@ struct Run
     T_nearest
     T_nearest_val
     T_nearest_partial
-    T_analytical
+    T_analytical_val
+    T_analytical_partial
     diffs_interpo
     diffs_nearest
 end
@@ -115,10 +116,11 @@ function Run(heights)
     T_nearest = [simulation.T_nearest for simulation in simulations]
     T_nearest_val = [T.value for T in T_nearest]
     T_nearest_partial = [T.partials[1] for T in T_nearest]
-    T_analytical = [sqrt(2 * height / 9.81) for height in heights]
+    T_analytical_val = [sqrt(2 * height / 9.81) for height in heights]
+    T_analytical_partial = [1 / sqrt(2 * 9.81 * height) for height in heights]
     diffs_interpo = finite_diff(heights, T_interpo_val)
     diffs_nearest = finite_diff(heights, T_nearest_val)
-    Run(simulations, heights, T_interpo, T_interpo_val, T_interpo_partial, T_nearest, T_nearest_val, T_nearest_partial, T_analytical, diffs_interpo, diffs_nearest)
+    Run(simulations, heights, T_interpo, T_interpo_val, T_interpo_partial, T_nearest, T_nearest_val, T_nearest_partial, T_analytical_val, T_analytical_partial, diffs_interpo, diffs_nearest)
 end
 
 function plot(simulation::Simulation)
@@ -157,15 +159,18 @@ fig = Figure(size = (1500, 1000))
 ax = Axis(fig[2, 1]; xlabel=L"h \, \mathrm{(m)}", ylabel=L"T(h)")
 scatter!(ax, heights, run.T_interpo_val; label="Interpolated", color=:blue)
 scatter!(ax, heights, run.T_nearest_val; label="Nearest neighbour", color=:red, marker=:cross, markersize=15)
-#lines!(ax, heights, run.T_analytical; label="Analytical", color=:yellow, linestyle=:dash)
-axislegend(ax,position=:lt)
+lines!(ax, heights, run.T_analytical_val; label="Analytical", alpha = 0.3, color=:gray)
+axislegend(ax,position=:rb)
 ax2 = Axis(fig[1, 1];xticklabelsvisible=false,ylabel=L"\partial T / \partial h")
 linkxaxes!(ax, ax2)
 #scatter!(ax2, heights, run.diffs_interpo; label="Interpolated", color=:blue)
-scatter!(ax2, heights, run.T_interpo_partial; label="Interpolated partial from dual", color=:blue)
-scatter!(ax2, heights, run.diffs_nearest; label=L"Nearest neighbour $(T_{i+1}-T_i)/(h_{i+1}-h_i)$", color=:red, marker=:cross, markersize=15)
-lines!(ax2, heights, run.diffs_nearest; color=:red,alpha=0.1)
+scatter!(ax2, heights, run.T_interpo_partial; label="Partial from interpolated dual", color=:blue)
+#scatter!(ax2, heights, run.diffs_nearest; label=L"Nearest neighbour $(T_{i+1}-T_i)/(h_{i+1}-h_i)$", color=:red, marker=:cross, markersize=15)
+scatter!(ax2, heights, run.T_nearest_partial; label="Partial from nearest neighbour dual", color=:red, marker=:cross, markersize=15)
+#lines!(ax2, heights, run.diffs_nearest; color=:red,alpha=0.1)
+lines!(ax2, heights, run.T_analytical_partial; alpha=0.3,label="Analytical partial", color=:gray)
 #scatter!(ax2, heights, run.T_interpo_partial; label="Interpolated partial", color=:orange)
-leg = Legend(fig[0,1], ax2, position=:lt,fontsize=20,orientation=:horizontal,tellwidth =false)
+axislegend(ax2)
+#leg = Legend(fig[0,1], ax2, position=:lt,fontsize=20,orientation=:horizontal,tellwidth =false)
 fig
 ##

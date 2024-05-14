@@ -109,7 +109,7 @@ ax4_dummy.yticklabelsvisible = false  # = [0,10]
 ax4_dummy.xticklabelsvisible = true
 ax4_dummy.xticksvisible = true
 ax4_dummy.xlabelvisible = true
-linkyaxes!(ax4, ax4_dummy);linkxaxes!(ax4, ax4_dummy);linkxaxes!(ax1, ax4)
+linkyaxes!(ax4, ax4_dummy);linkxaxes!(ax4,  ax4_dummy);linkxaxes!(ax1, ax4)
 
 ax2 = Axis(fig[3, 1], ylabel=L"$\partial t / \partial y$ [s/m]",xreversed=true,ygridvisible=false,xticksvisible=false,xticklabelsvisible=false,xticks = (d->d.value).(y_array[2:end]))
 linkxaxes!(ax2, ax1)
