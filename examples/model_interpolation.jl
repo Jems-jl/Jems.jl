@@ -5,7 +5,7 @@ using Jems.StellarModels
 using Interpolations
 using HDF5
 using Jems.Constants
-using CairoMakie, LaTeXStrings, MathTeXEngine
+using CairoMakie, LaTeXStrings, MathTeXEngine, Makie.Colors, PlotUtils
 basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                            italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
                     fontsize=30, size=(1000, 750), linewidth=7,
@@ -22,8 +22,6 @@ historypath = path * "history_"*string(nb)*".hdf5"
 historypath = path * "history_"*string(nb)*".hdf5"
 profilespath = path * "profiles_"*string(nb)*".hdf5"
 profilespath = path * "profiles_"*string(nb)*".hdf5"
-
-
 ##
 #########################################"""
 function get_partial_profile_dataframe_from_hdf5(hdf5_filename, value_name, partials_names)
@@ -124,11 +122,11 @@ function Track(model, ZAMS_X, TAMS_X, nbpoints=1000)
     logT_val = (d -> d.value).(logT); logT_partial = (d -> d.partials[1]).(logT)
     return Track(model, ZAMS_index, TAMS_index, logL, logL_val, logL_partial, logT, logT_val, logT_partial, zetas, track_history, track_history_value)
 end
-function plot!(track::Track, ax, scatter = true, label = "Track")
+function plot_track!(track, ax; scatter = true, label = "Track")
     if scatter
-        scatter!(ax, track.logT_val, track.logL_val, color = :blue, label=label)
+        scatter!(ax, track.logT_val, track.logL_val, label=label)
     else 
-        lines!(ax, track.logT_val, track.logL_val, color = :blue, label=label)
+        lines!(ax, track.logT_val, track.logL_val,  label=label)
     end
 end
 struct ExtrapolTrack
@@ -145,13 +143,40 @@ function ExtrapolTrack(track::Track, delta_logM)
     logT_new = track.logT_val .+ delta_logM * track.logT_partial
     return ExtrapolTrack(delta_logM, track.model.initial_params_dict[:logM], track.model, track, logL_new, logT_new, track.zeta)
 end
-function plot!(extrapol_track::ExtrapolTrack, ax, scatter = true, label = L"\Delta \log M = %$extrapol_track.delta_logM $")
-    if scatter
-        scatter!(ax, extrapol_track.logT_val, extrapol_track.logL_val, label=label)
-    else 
-        lines!(ax, extrapol_track.logT_val, extrapol_track.logL_val, label=label)
+
+struct ExtrapolGrid
+    track::Track
+    extrapoltracks::Vector{ExtrapolTrack}
+    delta_logM
+    colors_dic
+end
+function ExtrapolGrid(track::Track, deltas)
+    extrapoltracks = [ExtrapolTrack(track, delta) for delta in deltas]
+    colors_dic = get_colors(extrapoltracks)
+    return ExtrapolGrid(track, extrapoltracks, deltas, colors_dic)
+end
+function get_colors(extrapoltracks)
+    colormap = :viridis
+    nb_colors = length(extrapoltracks)
+    colors = palette(colormap)
+    vals = collect(1:nb_colors).*255 ./ nb_colors
+    colors_dic = Dict()
+    for (i,extrapoltrack) in enumerate(extrapoltracks)
+        colors_dic[extrapoltrack] = colors[round(Int,vals[i])]
+    end
+    return colors_dic
+end
+function plot!(extrapolGrid::ExtrapolGrid, ax; scatter = true)
+    plotfunc = scatter ? scatter! : lines!
+    colors_dic = extrapolGrid.colors_dic
+    plotfunc(ax, extrapolGrid.track.logT_val, extrapolGrid.track.logL_val, color=:black, label="Original track")
+    for extrapoltrack in extrapolGrid.extrapoltracks
+        delta_logM = extrapoltrack.delta_logM
+        label = L"$\Delta \log M = %$delta_logM $"
+        plotfunc(ax, extrapoltrack.logT_val, extrapoltrack.logL_val,color=colors_dic[extrapoltrack],label=label)
     end
 end
+
 function extrapolate_master(model, init_param_index, init_param_delta, condition_param_name, condition_param_value, target_param_name)
     dual_old = param1_to_param2(condition_param_value,model.history,condition_param_name,target_param_name)
     dual_new = dual_old.value + init_param_delta * dual_old.partials[init_param_index]
@@ -189,7 +214,6 @@ function X_to_star_age(X,history)
     for modelnr in history.model_number[1].value:history.model_number[end].value
        if modelnr_to_X(modelnr) < X
             two_model_numbers = [Int(modelnr), Int(modelnr-1)]
-            @show two_model_numbers
             break
        end
     end
@@ -204,10 +228,6 @@ function param1_to_param2(param1_value,history,param1_name,param2_name)
     index_closest = find_index(param1_value, history, param1_name)
     zetas =  (d->d.value).(history[!,param1_name][1:10])
     if index_closest == 1
-        println("first")
-        @show param1_value
-        @show history[!,param1_name][1]
-        @show history[!,param1_name][2]
         indices = [1,2]
         if history[!,param1_name][2] < history[!, param1_name][1]
             reverse!(indices)
@@ -259,17 +279,50 @@ model1_extrapolate = extrapolate(model1, delta_params)
 model1_extrapolate.history_value # acces history in value form (extrapolated models DO NOT have history in dual form!)
 
 ##
-track1 = Track(model1, 0.999*model1.history_value.X_center[1], 0.01*model1.history_value.X_center[1],50);
-##
-fig = Figure()
+track1 = Track(model1, 0.999*model1.history_value.X_center[1], 0.2*model1.history_value.X_center[1],5000);
+extrapolGrid = ExtrapolGrid(track1, [-0.02,-0.01,0.01,0.02]);
+## PLOT TRACKS
+fig = Figure();
 ax = Axis(fig[1,1], xlabel = L"$\log(T_{\text{eff}} / K)$", ylabel = L"$\log (L / L_\odot)$", xreversed = true)
-plot!(track1, ax, label = L"Original track $\log M = %$model1.initial_params_dict[:logM].value $")
-extrapol1 = ExtrapolTrack(track1, 0.5)
-plot!(extrapol1,ax)
-axislegend(ax)
+plot!(extrapolGrid,ax)
+axislegend(ax,position=:lb)
+fig
+## PLOT AS FUNCTION OF zeta
+fig = Figure(figsize=(2000, 1500))
+ax1 = Axis(fig[1,1], ylabel = L"$\log (L / L_\odot)$")
+ax2 = Axis(fig[1,2], ylabel = L"$\log (T_{\text{eff}} / K)$")
+scatter!(ax1, track1.zeta, track1.logL_val, label = "Original Track", color=:black)
+for track in extrapolGrid.extrapoltracks
+    scatter!(ax1, track.zeta, track.logL_val, label = "Extrapolated Track", color=extrapolGrid.colors_dic[track])
+    scatter!(ax2, track.zeta, track.logT_val, label = "Extrapolated Track", color=extrapolGrid.colors_dic[track])
+end
+
+scatter!(ax2, track1.zeta, track1.logT_val, label = "Original Track", color=:black)
+ax3 = Axis(fig[2,1], xlabel = L"$\zeta$", ylabel = L"\partial \log L / \partial \log M")
+scatter!(ax3, track1.zeta, track1.logL_partial, label = "Original Track", color=:black)
+ax4 = Axis(fig[2,2], xlabel = L"$\zeta$", ylabel = L"\partial \log T / \partial \log M")
+hlines!(ax4, [0], color=:black, linestyle=:dot,alpha=0.4)
+scatter!(ax4, track1.zeta, track1.logT_partial, label = "Original Track", color=:black)
+ax5 = Axis(fig[1,3], xlabel=L"$\zeta$", ylabel=L"$X$ and $Y$")
+lines!(ax5, track1.history_value.zeta, track1.history_value.X_center, color=:black)
+lines!(ax5, track1.history_value.zeta, track1.history_value.Y_center, color=:black,linestyle=:dot)
 
 fig
+## PLOT ZAMS
+deltas = collect(-1:0.01:1)
+fig = Figure()
+ax = Axis(fig[1,1], xlabel = L"$\log(T_{\text{eff}} / K)$", ylabel = L"$\log (L / L_\odot)$", xreversed = true,title="ZAMS")
+logM = model1.initial_params_dict[:logM].value
+plot_track!(track1, ax, label = L"Original track $\log M = %$logM $",scatter=true)
 
+for delta in deltas
+    extrapol = ExtrapolTrack(track1, delta)
+    label = L"$\Delta \log M = %$delta $"
+    scatter!(ax, extrapol.logT_val[1], extrapol.logL_val[1], label=label,color=:gray)
+end
+#axislegend(ax,position=:lb)
+fig
+##
 
 
 ###########################################################################################################################
@@ -425,9 +478,7 @@ f
 ##
 function extrapolate_paramB_at_fixed_paramA(model, delta_logM, paramA_fixed, paramA_name,  paramB_name)
     dual_old = param1_to_param2(paramA_fixed,model.history,paramA_name,paramB_name)
-    @show dual_old
     new = dual_old.value + delta_logM * dual_old.partials[1]
-    @show new
 end
 
 extrapolate_paramB_at_fixed_paramA(model1,1,0.9999*model1.history_value.X_center[1],"X_center","L_surf")
