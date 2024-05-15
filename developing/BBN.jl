@@ -315,7 +315,7 @@ set_theme!(basic_theme)
 ##
 ### Plot the history
 f = Figure();
-ax = Axis(f[1, 1]; xlabel="T (MeV)", ylabel=L"\log_{10}(X)", xreversed=true)
+ax = Axis(f[1, 1]; xlabel=L"k_\textrm{B}T\,\textrm{(MeV)}", ylabel=L"\log_{10}(X)", xreversed=true, xscale=log10)
 history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
 lines!(ax, history[!, "T"] .* KERG ./ Constants.MEV_TO_ERGS, log10.(history[!, "n"]), label=L"n")
 lines!(ax, history[!, "T"] .* KERG ./ Constants.MEV_TO_ERGS, log10.(history[!, "H1"]), label=L"^1H")

@@ -52,7 +52,7 @@ Substructure of Options containing controls relating to timestepping
     dt_max_decrease::Float64 = 0.5
     dt_retry_decrease::Float64 = 0.5
 
-    max_dt::Float64 = 1e10  # years
+    max_dt::Float64 = 1e12  # years
 end
 
 """
