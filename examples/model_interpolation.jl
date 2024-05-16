@@ -81,7 +81,7 @@ function D_computer(logLs, logTs)
     distances = zeros(typeof(logLs[1]),length(logLs))
     distances[1] = zero(logLs[1])
     for i in 2:length(logLs)
-        delta = sqrt.( (logLs[i]-logLs[i-1] ).^2 + (logTs[i]-logTs[i-1]).^2)
+        delta = sqrt( (logLs[i]-logLs[i-1] )^2 + (logTs[i]-logTs[i-1])^2 )
         distances[i] = distances[i-1] + delta
     end
     distances = distances ./distances[end]
@@ -117,8 +117,8 @@ end
 function Track(model, ZAMS_X, TAMS_X, nbpoints=1000)
     ZAMS_index = find_index(ZAMS_X, model.history, "X_center")
     TAMS_index = find_index(TAMS_X, model.history, "X_center")
-    model.history[!,"logL"] = log10.(model.history[!, "L_surf"])
-    model.history[!,"logT"] = log10.(model.history[!, "T_surf"])
+    model.history[!,"logL"] = log10.(model.history[!, "L_surf"])#adding log 
+    model.history[!,"logT"] = log10.(model.history[!, "T_surf"])#adding log 
     logL_ZAMS = param1_to_param2(ZAMS_X, model.history, "X_center", "logL")
     logT_ZAMS = param1_to_param2(ZAMS_X, model.history, "X_center", "logT")
     logL_TAMS = param1_to_param2(TAMS_X, model.history, "X_center", "logL")
@@ -127,10 +127,10 @@ function Track(model, ZAMS_X, TAMS_X, nbpoints=1000)
     zetas = D_computer(log10.(model.history.L_surf[ZAMS_index:TAMS_index]), log10.(model.history.T_surf[ZAMS_index:TAMS_index]))
     track_history[!,"zeta"] = zetas
     
-    track_history[1,"L_surf"] = 10^logL_ZAMS 
-    track_history[1,"T_surf"] = 10^logT_ZAMS 
-    track_history[end,"L_surf"] = 10^logL_TAMS 
-    track_history[end,"T_surf"] = 10^logT_TAMS 
+    track_history[1,"logL"]   = logL_ZAMS 
+    track_history[1,"logT"]   = logT_ZAMS 
+    track_history[end,"logL"] = logL_TAMS 
+    track_history[end,"logT"] = logT_TAMS 
     zetas = LinRange(0,1,nbpoints)
     logL = param1_to_param2.(zetas[2:end-1], Ref(track_history), "zeta", "logL") 
     pushfirst!(logL,logL_ZAMS); push!(logL, logL_TAMS)
@@ -157,7 +157,7 @@ struct ExtrapolTrack
     logT_val
     zeta
 end
-function ExtrapolTrack(track::Track, delta_logM)
+function ExtrapolTrack(track::Track, delta_logM) #EXTRAPOLATION HAPPENS HERE
     logL_new = track.logL_val .+ delta_logM * track.logL_partial
     logT_new = track.logT_val .+ delta_logM * track.logT_partial
     return ExtrapolTrack(delta_logM, track.model.initial_params_dict[:logM], track.model, track, logL_new, logT_new, track.zeta)
@@ -208,7 +208,7 @@ function extrapolate_master_log(model, init_param_index, init_param_log_delta, c
     return dual_new
 end
 
-function extrapolate(model::Model, delta_params)
+function extrapolate(model::Model, delta_params) # the 'first guess' extrapolator, not used anymore
     # given a Dual number Dual(value_old, partial_logM, partial_X, partial_Z, ...), we compute in a Taylor way
     # the new value value_new = value_old + [Delta_logM, Delta_X, Delta_Z, ...] * [partial_logM, partial_X, partial_Z, ...]
     # we do this for each value in each profile and for each value in the history
@@ -218,31 +218,12 @@ function extrapolate(model::Model, delta_params)
     profiles_new = [(dual -> dual.value + sum( delta_params .*dual.partials ) ).(profile) for profile in profiles_new]
     return Model(nothing, history_new, nothing, profiles_new, model.initial_params, model.initial_params_names, model.initial_params_dict)
 end
-function star_age_to_X(star_age,history) # computes the X value at a given star age, by linear interpolation
-    two_model_numbers = [0,0]
-    for modelnr in history.model_number[1].value:history.model_number[end].value
-       if modelnr_to_star_age(modelnr) > star_age
-            two_model_numbers = [Int(modelnr-1), Int(modelnr)]
-            break
-       end
-    end
-    return linear_interpolation(modelnr_to_star_age.(two_model_numbers), modelnr_to_X.(two_model_numbers))(star_age)
-end
-function X_to_star_age(X,history)
-    two_model_numbers = [0,0]
-    for modelnr in history.model_number[1].value:history.model_number[end].value
-       if modelnr_to_X(modelnr) < X
-            two_model_numbers = [Int(modelnr), Int(modelnr-1)]
-            break
-       end
-    end
-    return linear_interpolation(modelnr_to_X.(two_model_numbers), modelnr_to_star_age.(two_model_numbers))(X)
-end
+
 function find_index(param_value, history, param_name)
     _,index = findmin(abs.(param_value .- history[!,param_name]))
     return index
 end
-# THE interpolator function
+# THE MAIN INTERPOLATOR FUNCTION
 function param1_to_param2(param1_value,history,param1_name,param2_name)
     index_closest = find_index(param1_value, history, param1_name)
     #zetas =  (d->d.value).(history[!,param1_name][1:10])
@@ -303,17 +284,17 @@ model1_extrapolate = extrapolate(model1, delta_params)
 model1_extrapolate.history_value # acces history in value form (extrapolated models DO NOT have history in dual form!)
 
 ##
-track1 = Track(model1, 0.999*model1.history_value.X_center[1], 0.4*model1.history_value.X_center[1],5000);
+track1 = Track(model1, 0.999*model1.history_value.X_center[1], 0.5,5000);
 #extrapolGrid = ExtrapolGrid(track1, [-0.02,-0.01,0.01,0.02]);
-extrapolGrid = ExtrapolGrid(track1, .-[-0.01,-0.02,-0.03,-0.05,-0.08,-0.1,-0.2]);
+extrapolGrid = ExtrapolGrid(track1, [0.01,0.02,0.03]);
 extrapolGrid = ExtrapolGrid(track1, [-0.01,-0.02,-0.03,-0.05,-0.08,-0.1,-0.2]);
-## PLOT TRACKS
+## PLOT TRACKS ON HRD
 fig = Figure();
-ax = Axis(fig[1,1], xlabel = L"$\log(Tw_{\text{eff}} / K)$", ylabel = L"$\log (L / L_\odot)$", xreversed = true)
-plot!(extrapolGrid,ax)
+ax = Axis(fig[1,1], xlabel = L"$\log(T_{\text{eff}} / K)$", ylabel = L"$\log (L / L_\odot)$", xreversed = true)
+plot!(extrapolGrid,ax,scatter=true)
 axislegend(ax,position=:lt)
 fig
-## PLOT AS FUNCTION OF zeta
+## PLOT DIAGNOSTIC PLOTS AS A FUNCTION OF ZETA
 fig = Figure(figsize=(2000, 1500))
 ax1 = Axis(fig[1,1], ylabel = L"$\log (L / L_\odot)$")
 ax2 = Axis(fig[1,2], ylabel = L"$\log (T_{\text{eff}} / K)$")
