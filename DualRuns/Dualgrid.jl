@@ -1,10 +1,3 @@
-#=
-# NuclearBurning_dual.jl
-
-This example has the same structure as the NuclearBurning.jl example, 
-but uses Dual numbers to compute partial derivatives with respect
-ect to input parameters.
-=#
 using BenchmarkTools
 using Jems.Chem
 using Jems.Constants
@@ -17,95 +10,27 @@ using Jems.Evolution
 using Jems.ReactionRates
 using Jems.DualSupport
 using ForwardDiff
-
-##
-#=
-Creation of external tag for the dual numbers
-
-We make a tag for EXTERNAL use, i.e. to keep track of the derivatives with respect
-to the input parameters which we will choose. The code itself will make an
-internal tag for internal use.
-On a computing level, the external tag is the 'inner tag' in the code, 
-because these derivatives are taken along the entire ride through the code, 
-while the dual numbers with internal tags are only used at specific points 
-for local use and then dropped again.
-=#
 tag_external = ForwardDiff.Tag{:external, nothing}
-ForwardDiff.tagcount(tag_external); #this function is necessary to order the tags
-#create a dummy dual with the same dimensions as the input dual numbers
-#e.g. 6 = 1 value + 5 partial derivatives
-
-
-### Model creation, as usual
-
-println("Create StellarModel ############################")
-varnames = [:lnρ, :lnT, :lnr, :lum]
-structure_equations = [Evolution.equationHSE, Evolution.equationT,
-                       Evolution.equationContinuity, Evolution.equationLuminosity]
-remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
-                          StellarModels.split_lnT, StellarModels.split_xa]
-net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
-nz = 1000
-nextra = 100
-eos = EOS.IdealEOS(true)
-opacity = Opacity.SimpleElectronScatteringOpacity()
-turbulence = Turbulence.BasicMLT(1.0)
-number_of_partials = 5 #number of partials we want to keep track of
-dual_type = ForwardDiff.Dual{tag_external,Float64,number_of_partials}
-sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence, number_type = dual_type);
-
-##
-#=
-### Initialize StellarModel and evaluate equations and jacobian
-=#
-println("Initialize StellarModel ############################")
-n = 3
-#define dual input numbers, all partial derivatives are with respect to the mass, give a '1.0' to indicate the order of the partials
-logM_dual      = ForwardDiff.Dual{tag_external}(0.05,     1.0,0.0,0.0,0.0,0.0)
-mass_dual      = MSUN*10^logM_dual
-X_dual         = ForwardDiff.Dual{tag_external}(0.7154,  0.0,1.0,0.0,0.0,0.0)
-Z_dual         = ForwardDiff.Dual{tag_external}(0.0142,  0.0,0.0,1.0,0.0,0.0)
-Dfraction_dual = ForwardDiff.Dual{tag_external}(0.0,     0.0,0.0,0.0,1.0,0.0)
-Dfraction_dual = ForwardDiff.Dual{tag_external}(0.000312,0.0,0.0,0.0,1.0,0.0)
-R_dual         = ForwardDiff.Dual{tag_external}(100*RSUN,0.0,0.0,0.0,0.0,1.0)
-#X_dual         = ForwardDiff.Dual{tag_external}(0.7154,  0.0)
-#Z_dual         = ForwardDiff.Dual{tag_external}(0.0142,  0.0)
-#Dfraction_dual = ForwardDiff.Dual{tag_external}(0.0,     0.0)
-#logM_dual      = ForwardDiff.Dual{tag_external}(0.0, 1.0)
-#mass_dual      = MSUN*10^logM_dual
-#R_dual         = ForwardDiff.Dual{tag_external}(100*RSUN,0.0)
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_dual,Chem.abundance_lists[:ASG_09],mass_dual, R_dual; initial_dt=10 * SECYEAR)
-StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
-Evolution.cycle_props!(sm);
-StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
-StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props)  # or do StellarModels.remesher!(sm);
-StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
-StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
-StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
 nbmodmax = 4000
-##
-
-#=
-### Evolving our model
-=#
+ForwardDiff.tagcount(tag_external); #this function is necessary to order the tags
 open("example_options.toml", "w") do file
     write(file,
-          """ 
+          """
           [remesh]
           do_remesh = true
 
           [solver]
           newton_max_iter_first_step = 1000
-          newton_max_iter = 1000
-          initial_model_scale_max_correction = 0.5
+          newton_max_iter = 30
+          initial_model_scale_max_correction = 0.1
           scale_max_correction = 0.1
           report_solver_progress = false
 
           [timestep]
-          dt_max_increase = 1.1
+          dt_max_increase = 1.5
           delta_R_limit = 0.01
           delta_Tc_limit = 0.01
-          delta_Xc_limit = 0.005
+          delta_Xc_limit = 0.002
 
           [termination]
           max_model_number = $nbmodmax
@@ -134,27 +59,83 @@ open("example_options.toml", "w") do file
           [io]
           history_interval = 1
           profile_interval = 50
-          terminal_header_interval = 10
-          terminal_info_interval = 1
+          terminal_header_interval = 50
+          terminal_info_interval = 10
 
           """)
 end
-print("Initialize & Evolve StellarModel ############################################################")
-StellarModels.set_options!(sm.opt, "./example_options.toml")
-rm(sm.opt.io.hdf5_history_filename; force=true)
-rm(sm.opt.io.hdf5_profile_filename; force=true)
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_dual,Chem.abundance_lists[:ASG_09],
-                                            mass_dual, R_dual; initial_dt=10 * SECYEAR)
-@time Evolution.do_evolution_loop!(sm);
 ##
-save = true
-if save == true
-    historypath = "history.hdf5"
-    profilespath = "profiles.hdf5"
-    cp("history.hdf5",  "DualRuns/history_highres_FULL_5partials.hdf5", force = true)
-    cp("profiles.hdf5", "DualRuns/profiles_highres_FULL_5partials.hdf5", force = true)
-end
+logM_range = [-0.01,-0.1]
+X = 0.7381
+overwrite = true
+## Model creation, as usual
+for logM in logM_range
+    M = 10^logM
+    println("############################################################################################")
+    println("STARTING NEW logM = $logM , M = $M ###########################################")
+    history_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".history.hdf5"
+    profile_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".profiles.hdf5"
+    @show history_path
+    @show profile_path
+    if isfile(history_path)
+        if overwrite == true
+            println("History file for mass = $M / logM = $logM already exists: OVERWRITING")
+        else
+            println("History file for mass = $M / logM = $logM already exists: SKIPPING")
+            continue
+        end
+    end
 
+
+    println("Create StellarModel ############################")
+    varnames = [:lnρ, :lnT, :lnr, :lum]
+    structure_equations = [Evolution.equationHSE, Evolution.equationT,
+                           Evolution.equationContinuity, Evolution.equationLuminosity]
+    remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
+                              StellarModels.split_lnT, StellarModels.split_xa]
+    net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+    nz = 1000
+    nextra = 100
+    eos = EOS.IdealEOS(true)
+    opacity = Opacity.SimpleElectronScatteringOpacity()
+    turbulence = Turbulence.BasicMLT(1.0)
+    number_of_partials = 5 #number of partials we want to keep track of
+    dual_type = ForwardDiff.Dual{tag_external,Float64,number_of_partials}
+    sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence, number_type = dual_type);
+    ##
+    println("Initialize StellarModel ############################")
+    n = 3
+    #define dual input numbers, all partial derivatives are with respect to the mass, give a '1.0' to indicate the order of the partials
+    logM_dual      = ForwardDiff.Dual{tag_external}(logM,     1.0,0.0,0.0,0.0,0.0)
+    mass_dual      = MSUN*10^logM_dual
+    X_dual         = ForwardDiff.Dual{tag_external}(X,  0.0,1.0,0.0,0.0,0.0)
+    Z_dual         = ForwardDiff.Dual{tag_external}(0.0134,  0.0,0.0,1.0,0.0,0.0)
+    #Dfraction_dual = ForwardDiff.Dual{tag_external}(0.0,     0.0,0.0,0.0,1.0,0.0)
+    Dfraction_dual = ForwardDiff.Dual{tag_external}(0.000312,0.0,0.0,0.0,1.0,0.0)
+    R_dual         = ForwardDiff.Dual{tag_external}(100*RSUN,0.0,0.0,0.0,0.0,1.0)
+    StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_dual,Chem.abundance_lists[:ASG_09],mass_dual, R_dual; initial_dt=10 * SECYEAR)
+    StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+    Evolution.cycle_props!(sm);
+    StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
+    StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props)  # or do StellarModels.remesher!(sm);
+    StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
+    StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
+    StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
+    print("Initialize & Evolve StellarModel ############################################################")
+    StellarModels.set_options!(sm.opt, "./example_options.toml")
+    rm(sm.opt.io.hdf5_history_filename; force=true)
+    rm(sm.opt.io.hdf5_profile_filename; force=true)
+    StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_dual,Chem.abundance_lists[:ASG_09],
+                                                mass_dual, R_dual; initial_dt=10 * SECYEAR)
+    @time Evolution.do_evolution_loop!(sm);
+    if overwrite == true
+        cp("history.hdf5",  history_path, force = true)
+        cp("profiles.hdf5", profile_path, force = true)
+        println("RUN ENDED, SAVED HISTORY AND PROFILES")
+        @show history_path
+        @show profile_path
+    end
+end
 
 
 ##
