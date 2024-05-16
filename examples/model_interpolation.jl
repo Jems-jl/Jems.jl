@@ -113,7 +113,6 @@ struct Track
     history_value
 end
 
-logL_ZAMS = param1_to_param2(0.10112225303604444, model1.history, "X_center", "L_surf")
 
 function Track(model, ZAMS_X, TAMS_X, nbpoints=1000)
     ZAMS_index = find_index(ZAMS_X, model.history, "X_center")
