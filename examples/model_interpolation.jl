@@ -118,21 +118,24 @@ logL_ZAMS = param1_to_param2(0.10112225303604444, model1.history, "X_center", "L
 function Track(model, ZAMS_X, TAMS_X, nbpoints=1000)
     ZAMS_index = find_index(ZAMS_X, model.history, "X_center")
     TAMS_index = find_index(TAMS_X, model.history, "X_center")
-    logL_ZAMS = log10(param1_to_param2(ZAMS_X, model.history, "X_center", "L_surf"))
-    logT_ZAMS = log10(param1_to_param2(ZAMS_X, model.history, "X_center", "T_surf"))
-    logL_TAMS = log10(param1_to_param2(TAMS_X, model.history, "X_center", "L_surf"))
-    logT_TAMS = log10(param1_to_param2(TAMS_X, model.history, "X_center", "T_surf"))
+    model.history[!,"logL"] = log10.(model.history[!, "L_surf"])
+    model.history[!,"logT"] = log10.(model.history[!, "T_surf"])
+    logL_ZAMS = param1_to_param2(ZAMS_X, model.history, "X_center", "logL")
+    logT_ZAMS = param1_to_param2(ZAMS_X, model.history, "X_center", "logT")
+    logL_TAMS = param1_to_param2(TAMS_X, model.history, "X_center", "logL")
+    logT_TAMS = param1_to_param2(TAMS_X, model.history, "X_center", "logT")
     track_history = copy(model.history[ZAMS_index:TAMS_index,:])
     zetas = D_computer(log10.(model.history.L_surf[ZAMS_index:TAMS_index]), log10.(model.history.T_surf[ZAMS_index:TAMS_index]))
     track_history[!,"zeta"] = zetas
+    
     track_history[1,"L_surf"] = 10^logL_ZAMS 
     track_history[1,"T_surf"] = 10^logT_ZAMS 
     track_history[end,"L_surf"] = 10^logL_TAMS 
     track_history[end,"T_surf"] = 10^logT_TAMS 
     zetas = LinRange(0,1,nbpoints)
-    logL = log10.( param1_to_param2.(zetas[2:end-1], Ref(track_history), "zeta", "L_surf") )
+    logL = param1_to_param2.(zetas[2:end-1], Ref(track_history), "zeta", "logL") 
     pushfirst!(logL,logL_ZAMS); push!(logL, logL_TAMS)
-    logT = log10.( param1_to_param2.(zetas[2:end-1], Ref(track_history), "zeta", "T_surf") )
+    logT = param1_to_param2.(zetas[2:end-1], Ref(track_history), "zeta", "logT")
     pushfirst!(logT,logT_ZAMS); push!(logT, logT_TAMS)
     track_history_value = (dual -> dual.value).(track_history)
     logL_val = (d -> d.value).(logL); logL_partial = (d -> d.partials[1]).(logL)
@@ -293,7 +296,7 @@ model1 = Model_constructor(history_dual, profiles_dual, initial_params, inititia
 model1.initial_params_dict[:logM] # access the initial dual number
 model1.initial_params_dict[:logM].partials
 model1.history # acces history in dual form
-model1.history_value # acces history in value form
+model1.history_value # acc es history in value form
 model1.profiles # acces list of profiles in dual form
 model1.profiles_values # acces list of profiles in value form
 delta_params = [1.0,0.0,0.0,0.0,0.0] # delta to use in Taylor expansion
