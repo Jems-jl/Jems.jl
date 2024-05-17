@@ -256,7 +256,7 @@ Dfraction_dual = ForwardDiff.Dual{}(0.000312,0.0,0.0,0.0,1.0,0.0)
 R_dual         = ForwardDiff.Dual{}(100*RSUN,0.0,0.0,0.0,0.0,1.0)
 
 inititial_params_names = [:logM, :X, :Z, :Dfraction, :R]
-
+all_logMs = []
 for i in 1:N
     historypath = joinpath(gridpath, historypaths[i])
     profilepath = joinpath(gridpath, profilepaths[i])
@@ -269,12 +269,13 @@ for i in 1:N
     #models[logM] = model
     track = nothing
     try 
-        track = Track(model, 0.99*0.7381, 0.001)
+        track = Track(model, 0.99*model.history_value.X_center[1], 0.01)
     catch 
         println(" Track FAILED at logM = $logM")
         continue
     end
     modeltracks[logM] = track
+    push!(all_logMs, logM)
 end
 
 ##
@@ -291,7 +292,7 @@ plot_track!(modeltracks[0.03], ax; label = L"JEMS $\log M = 0.03$")
 plot!(extrapolGrid_00, ax; plot_original=false)
 leg = Legend(fig[1,2],ax)
 fig
-##
+
 
 ## LARGER MASS CHANGES
 extrapolGrid_00 = ExtrapolGrid(modeltracks[0.0], [0.1]);
@@ -301,6 +302,45 @@ plot_track!(modeltracks[0.0], ax ; label = L"JEMS $\log M = 0.0$",color=:black,s
 plot_track!(modeltracks[0.1], ax; label = L"JEMS $\log M = 0.1$")
 plot!(extrapolGrid_00, ax; plot_original=false)
 leg = Legend(fig[1,2],ax)
+fig
+
+## ZETA diagnostic PLOTS
+extrapolGrid = ExtrapolGrid(modeltracks[0.0], all_logMs);
+logMs_used = [0.01,0.02,0.1]
+logMs_used = all_logMs
+extrapolGrid = ExtrapolGrid(modeltracks[0.0],logMs_used);
+##
+fig = Figure(figsize=(3000,3000))
+ax1 = Axis(fig[1,1], ylabel = L"$\log (L / L_\odot)$")
+ax2 = Axis(fig[1,2], ylabel = L"$\log (T_{\text{eff}} / K)$")
+scatter!(ax1, modeltracks[0.0].zeta, modeltracks[0.0].logL_val ; label = L"JEMS $\log M = 0.0$",color=:black)
+scatter!(ax2, modeltracks[0.0].zeta, modeltracks[0.0].logT_val ; label = L"JEMS $\log M = 0.0$",color=:black)
+for track in extrapolGrid.extrapoltracks
+    logM = track.delta_logM + 0.0
+    label = L"$\Delta \log M = %$logM $"
+    lines!(ax1, track.zeta, track.logL_val, label = label, color=extrapolGrid.colors_dic[track],linewidth = 10)
+    lines!(ax2, track.zeta, track.logT_val, label = label, color=extrapolGrid.colors_dic[track],linewidth = 10)
+end
+for logM in logMs_used #    actual JEMS tracks
+    lines!(ax1, modeltracks[logM].zeta, modeltracks[logM].logL_val ,color=:black,linewidth=2)
+    lines!(ax2, modeltracks[logM].zeta, modeltracks[logM].logT_val ,color=:black,linewidth=2)
+end
+
+ax3 = Axis(fig[2,1], xlabel = L"$\zeta$", ylabel = L"\partial \log L / \partial \log M")
+hlines!(ax3, [3], color=:black, linestyle=:dot,alpha=0.4)
+scatter!(ax3, modeltracks[0.0].zeta, modeltracks[0.0].logL_partial, label = "Original Track", color=:black)
+ax4 = Axis(fig[2,2], xlabel = L"$\zeta$", ylabel = L"\partial \log T / \partial \log M")
+scatter!(ax4, modeltracks[0.0].zeta, modeltracks[0.0].logT_partial, label = "Original Track", color=:black)
+
+for logM in logMs_used
+    lines!(ax3, modeltracks[logM].zeta, modeltracks[logM].logL_partial, label = "$logM",alpha=0.3,linewidth=5)
+    lines!(ax4, modeltracks[logM].zeta, modeltracks[logM].logT_partial, label = "$logM",alpha=0.3,linewidth=5)
+end
+
+
+
+fig[1,3] = Legend(fig, ax1,"bla")
+fig[3,1:3] = Legend(fig, ax3,orientation=:horizontal,tellwidth=true)
 fig
 ##
 

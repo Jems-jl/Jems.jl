@@ -65,7 +65,7 @@ open("example_options.toml", "w") do file
           """)
 end
 ##
-logM_range = [0.04,0.05,0.2,0.3]
+logM_range = [0.15,0.25]
 X = 0.7381
 overwrite = false
 ## Model creation, as usual
@@ -75,6 +75,9 @@ for logM in logM_range
     println("STARTING NEW logM = $logM , M = $M ###########################################")
     history_path = "Jems.jl/DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".history.hdf5"
     profile_path = "Jems.jl/DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".profiles.hdf5"
+    #history_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".history.hdf5"
+    #profile_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".profiles.hdf5"
+    
     @show history_path
     @show profile_path
     if isfile(history_path)
