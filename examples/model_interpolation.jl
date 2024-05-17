@@ -85,9 +85,6 @@ function D_computer(logLs, logTs)
         distances[i] = distances[i-1] + delta
     end
     distances = distances ./distances[end]
-
-    #values = cumsum(distances) .- distances[1]
-    @show distances
     return distances
 end
 
@@ -123,14 +120,15 @@ function Track(model, ZAMS_X, TAMS_X, nbpoints=1000)
     logT_ZAMS = param1_to_param2(ZAMS_X, model.history, "X_center", "logT")
     logL_TAMS = param1_to_param2(TAMS_X, model.history, "X_center", "logL")
     logT_TAMS = param1_to_param2(TAMS_X, model.history, "X_center", "logT")
+
     track_history = copy(model.history[ZAMS_index:TAMS_index,:])
-    zetas = D_computer(log10.(model.history.L_surf[ZAMS_index:TAMS_index]), log10.(model.history.T_surf[ZAMS_index:TAMS_index]))
-    track_history[!,"zeta"] = zetas
-    
     track_history[1,"logL"]   = logL_ZAMS 
     track_history[1,"logT"]   = logT_ZAMS 
     track_history[end,"logL"] = logL_TAMS 
     track_history[end,"logT"] = logT_TAMS 
+    #zetas = D_computer(log10.(model.history.L_surf[ZAMS_index:TAMS_index]), log10.(model.history.T_surf[ZAMS_index:TAMS_index]))
+    zetas = D_computer(track_history[!,"logL"], track_history[!,"logT"])
+    track_history[!,"zeta"] = zetas
     zetas = LinRange(0,1,nbpoints)
     logL = param1_to_param2.(zetas[2:end-1], Ref(track_history), "zeta", "logL") 
     pushfirst!(logL,logL_ZAMS); push!(logL, logL_TAMS)
@@ -250,11 +248,6 @@ function param1_to_param2(param1_value,history,param1_name,param2_name)
     elseif history[!, param1_name][index_closest] > param1_value > history[!,param1_name][index_closest + 1]
         indices = [index_closest + 1, index_closest]
     end
-    #@show indices
-    #@show history[!,param1_name][indices[1]]
-    #@show history[!,param2_name][indices[1]]
-    #@show history[!,param1_name][indices[2]]
-    #@show history[!,param2_name][indices[2]]
     return my_linear_interpolation(history[!,param1_name][indices], history[!,param2_name][indices])(param1_value)
 end
 
@@ -284,7 +277,7 @@ model1_extrapolate = extrapolate(model1, delta_params)
 model1_extrapolate.history_value # acces history in value form (extrapolated models DO NOT have history in dual form!)
 
 ##
-track1 = Track(model1, 0.999*model1.history_value.X_center[1], 0.5,5000);
+track1 = Track(model1, 0.999*model1.history_value.X_center[1], 0.1,5000);
 #extrapolGrid = ExtrapolGrid(track1, [-0.02,-0.01,0.01,0.02]);
 extrapolGrid = ExtrapolGrid(track1, [0.01,0.02,0.03]);
 extrapolGrid = ExtrapolGrid(track1, [-0.01,-0.02,-0.03,-0.05,-0.08,-0.1,-0.2]);
@@ -306,6 +299,7 @@ end
 
 scatter!(ax2, track1.zeta, track1.logT_val, label = "Original Track", color=:black)
 ax3 = Axis(fig[2,1], xlabel = L"$\zeta$", ylabel = L"\partial \log L / \partial \log M")
+hlines!(ax3, [3], color=:black, linestyle=:dot,alpha=0.4)
 scatter!(ax3, track1.zeta, track1.logL_partial, label = "Original Track", color=:black)
 ax4 = Axis(fig[2,2], xlabel = L"$\zeta$", ylabel = L"\partial \log T / \partial \log M")
 hlines!(ax4, [0], color=:black, linestyle=:dot,alpha=0.4)
@@ -313,9 +307,8 @@ scatter!(ax4, track1.zeta, track1.logT_partial, label = "Original Track", color=
 ax5 = Axis(fig[1,3], xlabel=L"$\zeta$", ylabel=L"$X$ and $Y$")
 lines!(ax5, track1.history_value.zeta, track1.history_value.X_center, color=:black)
 lines!(ax5, track1.history_value.zeta, track1.history_value.Y_center, color=:black,linestyle=:dot)
-
 fig
-## PLOT ZAMS
+## PLOT ZAMS, TAMS
 deltas = collect(-0.5:0.01:0.5)
 fig = Figure()
 ax = Axis(fig[1,1], xlabel = L"$\log(T_{\text{eff}} / K)$", ylabel = L"$\log (L / L_\odot)$", xreversed = true,title="ZAMS and TAMS")
@@ -332,10 +325,30 @@ for (i,delta) in enumerate(deltas)
         scatter!(ax, extrapol.logT_val, extrapol.logL_val, label=label,color=:gray,alpha=0.4)
     end
 end
-#axislegend(ax,position=:lb)
+fig
+## PLOT DIFFERENT ZAMSES
+deltas = collect(-0.4:0.01:0.4)
+fig = Figure()
+ax = Axis(fig[1,1], xlabel = L"$\log(T_{\text{eff}} / K)$", ylabel = L"$\log (L / L_\odot)$", xreversed = true,title="ZAMS and TAMS")
+logM = model1.initial_params_dict[:logM].value
+plot_track!(track1, ax, label = L"Original track $\log M = %$logM $",scatter=true)
+tamsvals = [0.5,0.4,0.3,0.2,0.1,0.01]
+for xtams in tamsvals
+    mytrack = Track(model1, 0.999*model1.history_value.X_center[1], xtams,1000);
+    for (i,delta) in enumerate(deltas)
+        extrapol = ExtrapolTrack(mytrack, delta)
+        label = L"$\Delta \log M = %$delta $"
+        scatter!(ax, extrapol.logT_val[1], extrapol.logL_val[1], label=label,color=:green)
+        scatter!(ax, extrapol.logT_val[end], extrapol.logL_val[end], label=label,color=:red)
+        #scatter!(ax, extrapol.logT_val[end-1], extrapol.logL_val[end-1], label=label,color=:red)
+        if i%10 == 11
+            continue
+            scatter!(ax, extrapol.logT_val, extrapol.logL_val, label=label,color=:gray,alpha=0.4)
+        end
+    end
+end
 fig
 ##
-1+1
 
 ###########################################################################################################################
 ## TESTING the interpolator

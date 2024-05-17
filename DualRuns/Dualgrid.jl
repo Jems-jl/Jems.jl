@@ -65,16 +65,16 @@ open("example_options.toml", "w") do file
           """)
 end
 ##
-logM_range = [-0.01,-0.1]
+logM_range = [0.04,0.05,0.2,0.3]
 X = 0.7381
-overwrite = true
+overwrite = false
 ## Model creation, as usual
 for logM in logM_range
     M = 10^logM
     println("############################################################################################")
     println("STARTING NEW logM = $logM , M = $M ###########################################")
-    history_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".history.hdf5"
-    profile_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".profiles.hdf5"
+    history_path = "Jems.jl/DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".history.hdf5"
+    profile_path = "Jems.jl/DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".profiles.hdf5"
     @show history_path
     @show profile_path
     if isfile(history_path)
@@ -128,16 +128,20 @@ for logM in logM_range
     StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_dual,Chem.abundance_lists[:ASG_09],
                                                 mass_dual, R_dual; initial_dt=10 * SECYEAR)
     @time Evolution.do_evolution_loop!(sm);
-    if overwrite == true
-        cp("history.hdf5",  history_path, force = true)
-        cp("profiles.hdf5", profile_path, force = true)
-        println("RUN ENDED, SAVED HISTORY AND PROFILES")
-        @show history_path
-        @show profile_path
-    end
+    cp("history.hdf5",  history_path, force = true)
+    cp("profiles.hdf5", profile_path, force = true)
+    println("RUN ENDED, SAVED HISTORY AND PROFILES")
+    @show history_path
+    @show profile_path
 end
-
-
+##
+history_path = "Jems.jl/DualRuns/DualGrid/logM_0.03_X_0.7381_.history.hdf5"
+profile_path = "Jems.jl/DualRuns/DualGrid/logM_0.03_X_0.7381_.profiles.hdf5"
+cp("history.hdf5",  history_path, force = true)
+cp("profiles.hdf5", profile_path, force = true)
+println("RUN ENDED, SAVED HISTORY AND PROFILES")
+@show history_path
+@show profile_path
 ##
 #=
 ###Accessing the Dual profiles
