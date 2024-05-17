@@ -280,7 +280,7 @@ end
 ##
 extrapolGrid_00 = ExtrapolGrid(modeltracks[0.0], [0.01,0.02,-0.01,0.03]);
 
-##
+## SMALL MASS CHANGES
 fig = Figure(figsize=(2000,1500))
 ax = Axis(fig[1,1], xlabel=L"$\log (T_{\text{eff}} / K)$", ylabel=L"$\log (L/L_\odot)$", title=L"Extrapolation from $\log M = 0.0$",xreversed=true)
 plot_track!(modeltracks[0.0], ax ; label = L"JEMS $\log M = 0.0$",color=:black,scatter=false)
@@ -292,3 +292,15 @@ plot!(extrapolGrid_00, ax; plot_original=false)
 leg = Legend(fig[1,2],ax)
 fig
 ##
+
+## LARGER MASS CHANGES
+extrapolGrid_00 = ExtrapolGrid(modeltracks[0.0], [0.1]);
+fig = Figure(figsize=(2000,1500))
+ax = Axis(fig[1,1], xlabel=L"$\log (T_{\text{eff}} / K)$", ylabel=L"$\log (L/L_\odot)$", title=L"Extrapolation from $\log M = 0.0$",xreversed=true)
+plot_track!(modeltracks[0.0], ax ; label = L"JEMS $\log M = 0.0$",color=:black,scatter=false)
+plot_track!(modeltracks[0.1], ax; label = L"JEMS $\log M = 0.1$")
+plot!(extrapolGrid_00, ax; plot_original=false)
+leg = Legend(fig[1,2],ax)
+fig
+##
+
