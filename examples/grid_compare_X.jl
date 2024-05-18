@@ -6,7 +6,6 @@ using Interpolations
 using HDF5
 using Jems.Constants
 using CairoMakie, LaTeXStrings, MathTeXEngine, Makie.Colors, PlotUtils
-#using GLMakie
 basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                            italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
                     fontsize=30, size=(1000, 750), linewidth=7,
@@ -17,7 +16,7 @@ basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                           xticklabelsize=35, yticklabelsize=35, xticksmirrored=true, yticksmirrored=true),
                     Legend=(patchsize=(70, 10), framevisible=false, patchlabelgap=20, rowgap=10))
 set_theme!(basic_theme)
-#GLMakie.activate!()
+
 
 function get_partial_profile_dataframe_from_hdf5(hdf5_filename, value_name, partials_names)
     value_dataframe = StellarModels.get_profile_dataframe_from_hdf5(hdf5_filename, value_name)
@@ -114,15 +113,15 @@ function Track(model, ZAMS_X, TAMS_X, nbpoints=1000)
     #zetas = D_computer(log10.(model.history.L_surf[ZAMS_index:TAMS_index]), log10.(model.history.T_surf[ZAMS_index:TAMS_index]))
     zetas = D_computer(track_history[!,"logL"], track_history[!,"logT"])
     track_history[!,"zeta"] = zetas
-    zetas = LinRange(0,1,nbpoints)
-    logL = param1_to_param2.(zetas[2:end-1], Ref(track_history), "zeta", "logL") 
+    Xs = LinRange(ZAMS_X,TAMS_X,nbpoints)
+    logL = param1_to_param2.(Xs[2:end-1], Ref(track_history), "X_center", "logL") 
     pushfirst!(logL,logL_ZAMS); push!(logL, logL_TAMS)
-    logT = param1_to_param2.(zetas[2:end-1], Ref(track_history), "zeta", "logT")
+    logT = param1_to_param2.(Xs[2:end-1], Ref(track_history), "X_center", "logT")
     pushfirst!(logT,logT_ZAMS); push!(logT, logT_TAMS)
     track_history_value = (dual -> dual.value).(track_history)
     logL_val = (d -> d.value).(logL); logL_partial = (d -> d.partials[1]).(logL)
     logT_val = (d -> d.value).(logT); logT_partial = (d -> d.partials[1]).(logT)
-    return Track(model, ZAMS_index, TAMS_index, logL, logL_val, logL_partial, logT, logT_val, logT_partial, zetas, track_history, track_history_value)
+    return Track(model, ZAMS_index, TAMS_index, logL, logL_val, logL_partial, logT, logT_val, logT_partial, Xs, track_history, track_history_value)
 end
 function plot_track!(track, ax; scatter = true, label = "Track",color=nothing)
     if scatter
@@ -249,7 +248,6 @@ get_logM(path) = parse(Float64, split(split(path, "logM_")[2], "_")[1])
 historypaths = filter(x -> occursin(".history.hdf5", x), readdir(gridpath))
 profilepaths = filter(x -> occursin(".profiles.hdf5", x), readdir(gridpath))
 N = length(historypaths)
-println("$N history files found")
 models = Dict()
 modeltracks = Dict()
 X_dual         = ForwardDiff.Dual{}(0.7381,  0.0,1.0,0.0,0.0,0.0)
@@ -268,10 +266,10 @@ for i in 1:N
     logM_dual = ForwardDiff.Dual{}(logM, 1.0,0.0,0.0,0.0,0.0)
     initial_params = [logM_dual, X_dual, Z_dual, Dfraction_dual, R_dual]
     model = Model_constructor(history_dual, profiles_dual, initial_params, inititial_params_names)
-    models[logM] = model
+    #models[logM] = model
     track = nothing
     try 
-        track = Track(model, 0.05*model.history_value.X_center[1], 0.01, 1000)
+        track = Track(model, 0.99*model.history_value.X_center[1], 0.01)
     catch 
         println(" Track FAILED at logM = $logM")
         continue
@@ -280,32 +278,28 @@ for i in 1:N
     push!(all_logMs, logM)
 end
 
+##
+extrapolGrid_00 = ExtrapolGrid(modeltracks[0.0], [0.01,0.02,-0.01,0.03]);
 
 ## SMALL MASS CHANGES
-extrapolGrid_00 = ExtrapolGrid(modeltracks[0.0], .- all_logMs);
-extrapolGrid_00 = ExtrapolGrid(modeltracks[0.0], [0.01,0.02,-0.01,0.03]);
-## 
-fig = Figure(figsize=(2000,1500))
-ax = Axis(fig[1,1], xlabel=L"$\log (T_{\text{eff}} / K)$", ylabel=L"$\log (L/L_\odot)$", title=L"Extrapolation from $\log M = 0.0$",xreversed=true)
-#plot_track!(modeltracks[0.0], ax ; label = L"JEMS $\log M = 0.0$",color=:black,scatter=false)
-#plot_track!(modeltracks[0.01], ax; label = L"JEMS $\log M = 0.01$")
-#plot_track!(modeltracks[0.02], ax; label = L"JEMS $\log M = 0.02$")
-#plot_track!(modeltracks[-0.01], ax; label = L"JEMS $\log M = -0.01$")
-#plot_track!(modeltracks[0.03], ax; label = L"JEMS $\log M = 0.03$")
-plot!(extrapolGrid_00, ax; plot_original=false,scatter=true)
-leg = Legend(fig[1,2],ax)
-xlims!(ax, 4,3.975)
-ylims!(ax, 0.38,0.42)
-
-fig
-## LARGER MASS CHANGES
-extrapolGrid_00 = ExtrapolGrid(modeltracks[0.0], [0.1,0.2,0.3]);
 fig = Figure(figsize=(2000,1500))
 ax = Axis(fig[1,1], xlabel=L"$\log (T_{\text{eff}} / K)$", ylabel=L"$\log (L/L_\odot)$", title=L"Extrapolation from $\log M = 0.0$",xreversed=true)
 plot_track!(modeltracks[0.0], ax ; label = L"JEMS $\log M = 0.0$",color=:black,scatter=false)
-plot_track!(modeltracks[0.1], ax; label = L"JEMS $\log M = 0.1$", color=:blue)
-plot_track!(modeltracks[0.2], ax; label = L"JEMS $\log M = 0.2$", color=:blue)
-plot_track!(modeltracks[0.3], ax; label = L"JEMS $\log M = 0.3$", color=:blue)
+plot_track!(modeltracks[0.01], ax; label = L"JEMS $\log M = 0.01$")
+plot_track!(modeltracks[0.02], ax; label = L"JEMS $\log M = 0.02$")
+plot_track!(modeltracks[-0.01], ax; label = L"JEMS $\log M = -0.01$")
+plot_track!(modeltracks[0.03], ax; label = L"JEMS $\log M = 0.03$")
+plot!(extrapolGrid_00, ax; plot_original=false)
+leg = Legend(fig[1,2],ax)
+fig
+
+
+## LARGER MASS CHANGES
+extrapolGrid_00 = ExtrapolGrid(modeltracks[0.0], [0.1]);
+fig = Figure(figsize=(2000,1500))
+ax = Axis(fig[1,1], xlabel=L"$\log (T_{\text{eff}} / K)$", ylabel=L"$\log (L/L_\odot)$", title=L"Extrapolation from $\log M = 0.0$",xreversed=true)
+plot_track!(modeltracks[0.0], ax ; label = L"JEMS $\log M = 0.0$",color=:black,scatter=false)
+plot_track!(modeltracks[0.1], ax; label = L"JEMS $\log M = 0.1$")
 plot!(extrapolGrid_00, ax; plot_original=false)
 leg = Legend(fig[1,2],ax)
 fig
@@ -317,8 +311,8 @@ logMs_used = all_logMs
 extrapolGrid = ExtrapolGrid(modeltracks[0.0],logMs_used);
 ##
 fig = Figure(figsize=(3000,3000))
-ax1 = Axis(fig[1,1], ylabel = L"$\log (L / L_\odot)$")
-ax2 = Axis(fig[1,2], ylabel = L"$\log (T_{\text{eff}} / K)$")
+ax1 = Axis(fig[1,1], ylabel = L"$\log (L / L_\odot)$",xreversed=true)
+ax2 = Axis(fig[1,2], ylabel = L"$\log (T_{\text{eff}} / K)$",xreversed=true)
 scatter!(ax1, modeltracks[0.0].zeta, modeltracks[0.0].logL_val ; label = L"JEMS $\log M = 0.0$",color=:black)
 scatter!(ax2, modeltracks[0.0].zeta, modeltracks[0.0].logT_val ; label = L"JEMS $\log M = 0.0$",color=:black)
 for track in extrapolGrid.extrapoltracks
@@ -332,12 +326,13 @@ for logM in logMs_used #    actual JEMS tracks
     lines!(ax2, modeltracks[logM].zeta, modeltracks[logM].logT_val ,color=:black,linewidth=2)
 end
 
-ax3 = Axis(fig[2,1], xlabel = L"$\zeta$", ylabel = L"\partial \log L / \partial \log M")
+ax3 = Axis(fig[2,1], xlabel = L"$X$", ylabel = L"\partial \log L / \partial \log M",xreversed=true)
 hlines!(ax3, [3], color=:black, linestyle=:dot,alpha=0.4)
 scatter!(ax3, modeltracks[0.0].zeta, modeltracks[0.0].logL_partial, label = "Original Track", color=:black)
-ax4 = Axis(fig[2,2], xlabel = L"$\zeta$", ylabel = L"\partial \log T / \partial \log M")
+ax4 = Axis(fig[2,2], xlabel = L"$X$", ylabel = L"\partial \log T / \partial \log M",xreversed=true)
 scatter!(ax4, modeltracks[0.0].zeta, modeltracks[0.0].logT_partial, label = "Original Track", color=:black)
 
+linkxaxes!(ax1,ax3); linkxaxes!(ax2,ax4)
 for logM in logMs_used
     lines!(ax3, modeltracks[logM].zeta, modeltracks[logM].logL_partial, label = "$logM",alpha=0.3,linewidth=5)
     lines!(ax4, modeltracks[logM].zeta, modeltracks[logM].logT_partial, label = "$logM",alpha=0.3,linewidth=5)
@@ -345,7 +340,7 @@ end
 
 
 
-fig[1,3]   = Legend(fig, ax1)
+fig[1,3] = Legend(fig, ax1,"bla")
 fig[3,1:3] = Legend(fig, ax3,orientation=:horizontal,tellwidth=true)
 fig
 ##
