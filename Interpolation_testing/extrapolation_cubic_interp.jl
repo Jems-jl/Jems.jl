@@ -2,7 +2,7 @@ using DataFrames
 using ForwardDiff
 import ForwardDiff.Dual
 using Jems.StellarModels
-using Interpolations
+using Interpolations, Dierckx
 using HDF5
 using Jems.Constants
 using CairoMakie, LaTeXStrings, MathTeXEngine, Makie.Colors, PlotUtils
@@ -17,7 +17,7 @@ basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                           xticklabelsize=35, yticklabelsize=35, xticksmirrored=true, yticksmirrored=true),
                     Legend=(patchsize=(70, 10), framevisible=false, patchlabelgap=20, rowgap=10))
 set_theme!(basic_theme)
-#GLMakie.activate!()
+
 
 function get_partial_profile_dataframe_from_hdf5(hdf5_filename, value_name, partials_names)
     value_dataframe = StellarModels.get_profile_dataframe_from_hdf5(hdf5_filename, value_name)
@@ -146,7 +146,8 @@ function Track(model, ZAMS_X, TAMS_X, nbpoints=1000)
     logT_val = (d -> d.value).(logT); logT_partial = (d -> d.partials[1]).(logT)
     return Track(model, ZAMS_index, TAMS_index, logL, logL_val, logL_partial, logT, logT_val, logT_partial, zetas, track_history, track_history_value)
 end
-cubic_interpolator(x,y) = interpolate(x,y,FritschCarlsonMonotonicInterpolation())
+#cubic_interpolator(x,y) = interpolate(x,y,FritschCarlsonMonotonicInterpolation())
+cubic_interpolator(x,y) = Spline1D(x,y)
 function plot_track!(track, ax; scatter = true, label = "Track",color=nothing)
     if scatter
         if color == nothing
@@ -299,7 +300,7 @@ R_dual         = ForwardDiff.Dual{}(100*RSUN,0.0,0.0,0.0,0.0,1.0)
 inititial_params_names = [:logM, :X, :Z, :Dfraction, :R]
 all_logMs = []
 i=8
-for i in 1:N
+#for i in 1:N
     historypath = joinpath(gridpath, historypaths[i])
     profilepath = joinpath(gridpath, profilepaths[i])
     history_dual, profiles_dual = bookkeeping(historypath, profilepath)
@@ -310,7 +311,7 @@ for i in 1:N
     model = Model_constructor(history_dual, profiles_dual, initial_params, inititial_params_names)
     models[logM] = model
     track = nothing
-    try 
+    #try 
         track = Track(model, 0.05*model.history_value.X_center[1], 0.001, 1000)
     catch 
         println(" Track FAILED at logM = $logM")
