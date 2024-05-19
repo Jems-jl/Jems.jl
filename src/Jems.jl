@@ -12,6 +12,6 @@ include("Turbulence/Turbulence.jl")
 include("StellarModels/StellarModels.jl")
 include("Plotting/Plotting.jl")
 include("Evolution/Evolution.jl")
-
+include("DualExtrapolation/DualExtrapolation.jl") #new
 
 end
