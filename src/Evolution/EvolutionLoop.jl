@@ -208,6 +208,12 @@ function do_evolution_loop!(sm::StellarModel)
             break
         end
 
+        if (get_value(sm.props.xa[1, sm.network.xa_index[:H1]]) < sm.opt.termination.min_center_X)
+            StellarModels.write_terminal_info(sm; now=true)
+            println("Reached minimum central hydrogen mass fraction")
+            break
+        end
+
         # get dt for coming step
         sm.props.dt_next = get_dt_next(sm)
     end
