@@ -1,12 +1,12 @@
 module DualExtrapolation 
 
 using DataFrames
-using ForwardDiff: Dual
+using ForwardDiff
 using Jems.StellarModels
 using Interpolations#, Dierckx
 using HDF5
 using DataInterpolations: CubicSpline
-using LaTeXStrings
+using CairoMakie, LaTeXStrings, MathTeXEngine, Makie.Colors, PlotUtils
 
 function get_partial_profile_dataframe_from_hdf5(hdf5_filename, value_name, partials_names)
     value_dataframe = StellarModels.get_profile_dataframe_from_hdf5(hdf5_filename, value_name)
@@ -24,8 +24,7 @@ function get_dual_history_dataframe_from_hdf5(hdf5_filename)
     return ForwardDiff.Dual.(history_value, history_partials...)
 end
 
-function bookkeeping(historypath, profilespath)
-    number_of_partials = 5
+function bookkeeping(historypath, profilespath, number_of_partials)
     profile_names = StellarModels.get_profile_names_from_hdf5(profilespath)#all profiles, regular profiles and dual profiles
     value_names = [name for name in profile_names if !occursin("partial", name)]
     partial_names_unpacked = [name for name in profile_names if occursin("partial", name)]
@@ -50,7 +49,7 @@ struct Model
     initial_params_dict::Dict{}
 end
 
-function D_computer_old(logLs, logTs)
+function D_computer(logLs, logTs)
     distances = zeros(typeof(logLs[1]),length(logLs))
     distances[1] = zero(logLs[1])
     for i in 2:length(logLs)
@@ -63,7 +62,7 @@ function D_computer_old(logLs, logTs)
     return distances
 end
 
-function D_computer(logLs, logTs)
+function D_computer_new(logLs, logTs)
     #smaller covered 'distance in L or T space' means a larger weight for each covered distance
     logL_weight = 1/(maximum(logLs) - minimum(logLs)); logT_weight = 1/(maximum(logTs) - minimum(logTs))
     distances = zeros(typeof(logLs[1]),length(logLs))
@@ -85,6 +84,7 @@ end
 
 struct Track
     model::Model
+    logM
     ZAMS_index
     TAMS_index
     logL
@@ -134,31 +134,20 @@ function Track(model, ZAMS_X, TAMS_X, nbpoints=1000)
     track_history_value = (dual -> dual.value).(track_history)
     logL_val = (d -> d.value).(logL); logL_partial = (d -> d.partials[1]).(logL)
     logT_val = (d -> d.value).(logT); logT_partial = (d -> d.partials[1]).(logT)
-    return Track(model, ZAMS_index, TAMS_index, logL, logL_val, logL_partial, logT, logT_val, logT_partial, zetas, track_history, track_history_value)
+    logM = model.initial_params_dict[:logM].value
+    return Track(model, logM,ZAMS_index, TAMS_index, logL, logL_val, logL_partial, logT, logT_val, logT_partial, zetas, track_history, track_history_value)
 end
 #cubic_interpolator(x,y) = interpolate(x,y,FritschCarlsonMonotonicInterpolation())
 #cubic_interpolator(x,y) = Spline1D(x,y)
 cubic_interpolator(x,y) = CubicSpline(y,x)
 
-function plot_track!(track, ax; scatter = true, label = "Track",color=nothing)
-    if scatter
-        if color == nothing
-            scatter!(ax, track.logT_val, track.logL_val, label=label)
-        else
-            scatter!(ax, track.logT_val, track.logL_val, label=label,color=color)
-        end
-    else 
-        if color == nothing
-            lines!(ax, track.logT_val, track.logL_val,  label=label)
-        else
-            lines!(ax, track.logT_val, track.logL_val,  label=label,color=color)
-        end
-
-    end
+function plot!(track::Track, ax; scatter = true, kwargs...)
+    plotfunc = scatter ? scatter! : lines!
+    plotfunc(ax, track.logT_val, track.logL_val; kwargs...)
 end
 struct ExtrapolTrack
     delta_logM
-    original_M
+    logM
     original_model::Model
     original_track::Track
     logL_val
@@ -168,9 +157,12 @@ end
 function ExtrapolTrack(track::Track, delta_logM) #EXTRAPOLATION HAPPENS HERE
     logL_new = track.logL_val .+ delta_logM * track.logL_partial
     logT_new = track.logT_val .+ delta_logM * track.logT_partial
-    return ExtrapolTrack(delta_logM, track.model.initial_params_dict[:logM], track.model, track, logL_new, logT_new, track.zeta)
+    return ExtrapolTrack(delta_logM, track.logM + delta_logM, track.model, track, logL_new, logT_new, track.zeta)
 end
-
+function plot!(extrapolTrack, ax; scatter=true, kwargs...)
+    plotfunc = scatter ? scatter! : lines!
+    plotfunc(ax, extrapolTrack.logT_val, extrapolTrack.logL_val; kwargs...)
+end
 struct ExtrapolGrid
     track::Track
     extrapoltracks::Vector{ExtrapolTrack}
@@ -206,6 +198,43 @@ function plot!(extrapolGrid::ExtrapolGrid, ax; scatter = true, plot_original = t
     end
 end
 
+struct InterpolTrack
+    track_down::Track
+    extrapoltrack_down::ExtrapolTrack
+    track_up::Track
+    extrapoltrack_up::ExtrapolTrack
+    logM
+    logL_val
+    logT_val
+    zeta
+end
+
+function InterpolTrack(track1::Track, track2::Track, logM_wanted)
+    logM1 = track1.logM ; logM2 = track2.logM
+    if !in_between(logM1, logM_wanted, logM2)
+        throw(ErrorException("Wanted logM is not in between the two tracks, interpolation not possible"))
+    end
+    if length(track1.zeta) != length(track2.zeta)
+        throw(ErrorException("Tracks do not have the same zeta sampling, interpolation not possible"))
+    end
+    track_down = logM1 < logM2 ? track1 : track2; track_up = logM1 < logM2 ? track2 : track1
+    delta_logM_down = logM_wanted - track_down.logM; delta_logM_up = logM_wanted - track_up.logM
+    weight_up = 1 / abs(delta_logM_down); weight_down = 1 / abs(delta_logM_up)
+    total_weight = weight_up + weight_down
+    extrapoltrack_from_down = ExtrapolTrack(track_down, delta_logM_down)
+    extrapoltrack_from_up = ExtrapolTrack(track_up, delta_logM_up)
+    logL_val = (weight_up * extrapoltrack_from_down.logL_val + weight_down * extrapoltrack_from_up.logL_val) / total_weight
+    logT_val = (weight_up * extrapoltrack_from_down.logT_val + weight_down * extrapoltrack_from_up.logT_val) / total_weight
+    zeta = track_down.zeta
+    return InterpolTrack(track_down, extrapoltrack_from_down, track_up, extrapoltrack_from_up, logM_wanted, logL_val, logT_val, zeta)
+end
+
+function plot!(interpolTrack::InterpolTrack, ax; scatter=true, kwargs...)
+    plotfunc = scatter ? scatter! : lines!
+    plotfunc(ax, interpolTrack.logT_val, interpolTrack.logL_val; kwargs...)
+
+end
+
 function extrapolate_master(model, init_param_index, init_param_delta, condition_param_name, condition_param_value, target_param_name)
     dual_old = param1_to_param2(condition_param_value,model.history,condition_param_name,target_param_name)
     dual_new = dual_old.value + init_param_delta * dual_old.partials[init_param_index]
@@ -226,6 +255,7 @@ function find_index_raw(param_value, array)
     return index
 end
 
+in_between(a,x,b) = a <= x <= b || b <= x <= a #helper function
 
 # THE MAIN INTERPOLATOR FUNCTION
 function param1_to_param2(param1_value,history,param1_name,param2_name)
@@ -239,7 +269,7 @@ function param1_to_param2(param1_value,history,param1_name,param2_name)
         indices = [length(history[!,param1_name])-1, length(history[!,param1_name])]
         return linear_interpolation(history[!,param1_name][indices], history[!,param2_name][indices])(param1_value)
     end
-    in_between(a,x,b) = a <= x <= b || b <= x <= a
+    
     if in_between(history[!,param1_name][index_closest - 1],param1_value,history[!,param1_name][index_closest])
         indices = [index_closest - 1, index_closest]
     elseif in_between(history[!,param1_name][index_closest],param1_value,history[!,param1_name][index_closest + 1])
