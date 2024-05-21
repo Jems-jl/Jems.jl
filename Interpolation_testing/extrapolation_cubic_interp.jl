@@ -72,7 +72,7 @@ extrapolGrid_00 = de.ExtrapolGrid(modeltracks[0.0], [0.01,0.02,-0.01,0.03]);
 extrapolGrid_00 = de.ExtrapolGrid(modeltracks[0.0], [0.3]);
 extrapolGrid_00 = de.ExtrapolGrid(modeltracks[0.0], [0.02]);
 ## 
-fig = Figure(figsize=(2000,1000))
+fig = Figure(size=(2000,1000))
 ax = Axis(fig[1,1], xlabel=L"$\log (T_{\text{eff}} / K)$", ylabel=L"$\log (L/L_\odot)$", title=L"Extrapolation from $\log M = 0.0$",xreversed=true)
 de.plot!(modeltracks[0.0], ax ;scatter=false, label = L"JEMS $\log M = 0.0$ (interpolated)",color=:black)
 scatter!(modeltracks[0.0].history_value.logT, modeltracks[0.0].history_value.logL;alpha=1.0, markersize=5,color=:white, label="JEMS Output")
