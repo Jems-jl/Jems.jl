@@ -21,8 +21,8 @@ open("example_options.toml", "w") do file
 
           [solver]
           newton_max_iter_first_step = 1000
-          newton_max_iter = 30
-          initial_model_scale_max_correction = 0.1
+          newton_max_iter = 100
+          initial_model_scale_max_correction = 0.5
           scale_max_correction = 0.1
           report_solver_progress = false
 
@@ -30,11 +30,12 @@ open("example_options.toml", "w") do file
           dt_max_increase = 1.5
           delta_R_limit = 0.01
           delta_Tc_limit = 0.01
-          delta_Xc_limit = 0.002
+          delta_Xc_limit = 0.001
 
           [termination]
           max_model_number = $nbmodmax
           max_center_T = 1e8
+          min_center_X = 1e-10
 
           [plotting]
           do_plotting = false
@@ -58,23 +59,24 @@ open("example_options.toml", "w") do file
 
           [io]
           history_interval = 1
-          profile_interval = 50
+          profile_interval = 200
           terminal_header_interval = 50
           terminal_info_interval = 10
 
           """)
 end
 ##
-logM_range = [0.15,0.25]
-X = 0.7381
+logM_range = [-0.5,0.35,0.4,0.45,0.5,0.55,0.6,0.65,0.7,0.8,0.9,1.0]
+X = 0.7154
 overwrite = false
 ## Model creation, as usual
 for logM in logM_range
     M = 10^logM
     println("############################################################################################")
-    println("STARTING NEW logM = $logM , M = $M ###########################################")
-    history_path = "Jems.jl/DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".history.hdf5"
-    profile_path = "Jems.jl/DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".profiles.hdf5"
+    println("STARTING NEW logM
+    = $logM , M = $M ##########################################")
+    history_path = "Jems.jl/DualRuns/DualGrid2/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".history.hdf5"
+    profile_path = "Jems.jl/DualRuns/DualGrid2/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".profiles.hdf5"
     #history_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".history.hdf5"
     #profile_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".profiles.hdf5"
     
@@ -90,6 +92,7 @@ for logM in logM_range
     end
 
 
+
     println("Create StellarModel ############################")
     varnames = [:lnρ, :lnT, :lnr, :lum]
     structure_equations = [Evolution.equationHSE, Evolution.equationT,
@@ -102,20 +105,21 @@ for logM in logM_range
     eos = EOS.IdealEOS(true)
     opacity = Opacity.SimpleElectronScatteringOpacity()
     turbulence = Turbulence.BasicMLT(1.0)
-    number_of_partials = 5 #number of partials we want to keep track of
+    number_of_partials = 3 #number of partials we want to keep track of
     dual_type = ForwardDiff.Dual{tag_external,Float64,number_of_partials}
     sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence, number_type = dual_type);
     ##
     println("Initialize StellarModel ############################")
     n = 3
     #define dual input numbers, all partial derivatives are with respect to the mass, give a '1.0' to indicate the order of the partials
-    logM_dual      = ForwardDiff.Dual{tag_external}(logM,     1.0,0.0,0.0,0.0,0.0)
+    logM_dual      = ForwardDiff.Dual{tag_external}(logM,  1.0,0.0,0.0)#,0.0,0.0)
     mass_dual      = MSUN*10^logM_dual
-    X_dual         = ForwardDiff.Dual{tag_external}(X,  0.0,1.0,0.0,0.0,0.0)
-    Z_dual         = ForwardDiff.Dual{tag_external}(0.0134,  0.0,0.0,1.0,0.0,0.0)
+    X_dual         = ForwardDiff.Dual{tag_external}(X,     0.0,1.0,0.0)#,0.0,0.0)
+    Z_dual         = ForwardDiff.Dual{tag_external}(0.0142,0.0,0.0,1.0)#,0.0,0.0)
     #Dfraction_dual = ForwardDiff.Dual{tag_external}(0.0,     0.0,0.0,0.0,1.0,0.0)
-    Dfraction_dual = ForwardDiff.Dual{tag_external}(0.000312,0.0,0.0,0.0,1.0,0.0)
-    R_dual         = ForwardDiff.Dual{tag_external}(100*RSUN,0.0,0.0,0.0,0.0,1.0)
+    Dfraction_dual = 0.0
+    #R_dual         = ForwardDiff.Dual{tag_external}(100*RSUN,0.0,0.0,0.0,0.0,1.0)
+    R_dual = 100*RSUN
     StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_dual,Chem.abundance_lists[:ASG_09],mass_dual, R_dual; initial_dt=10 * SECYEAR)
     StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
     Evolution.cycle_props!(sm);
@@ -136,6 +140,7 @@ for logM in logM_range
     println("RUN ENDED, SAVED HISTORY AND PROFILES")
     @show history_path
     @show profile_path
+    sleep(10)
 end
 ##
 history_path = "Jems.jl/DualRuns/DualGrid/logM_0.03_X_0.7381_.history.hdf5"
@@ -334,3 +339,6 @@ advantage of `julia` as a scripting language to post-process your simulation out
 rm("history.hdf5")
 rm("profiles.hdf5")
 rm("example_options.toml")
+
+
+

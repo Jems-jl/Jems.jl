@@ -139,7 +139,7 @@ for logM in interpol_asked
     interpolTrackxs[logM] = interpolTrack; diffs_with_JEMS[logM] = Difference_with_JEMS(interpolTrack, modeltracks[logM])
 end
 ##
-fig = Figure(size=(2000,1000)); logM1 = modeltrack1.logM; logM2 = modeltrack2.logM; title = "Interpolation between $logM1 and $logM2"
+fig = Figure(size=(2000,800)); logM1 = modeltrack1.logM; logM2 = modeltrack2.logM; title = "Interpolation between $logM1 and $logM2"
 ax = Axis(fig[1,1], xlabel=L"$\log (T_{\text{eff}} / K)$", ylabel=L"$\log (L/L_\odot)$", title=title,xreversed=true)
 de.plot!(modeltrack2, ax; color=:blue, scatter=false,label = "JEMS log M = " * string(modeltrack2.logM),linestyle=:dot, linewidth=5)
 de.plot!(modeltrack1, ax; color=:red, scatter=false, label = "JEMS log M = " * string(modeltrack1.logM),linestyle=:dash, linewidth=5)
@@ -172,6 +172,8 @@ for extrapolTrack in extrapolGrid2.extrapoltracks
 end
 leg = Legend(fig[1,3],ax2;tellwidth=true)
 fig
+##
+save("Figures/master_MSInterpo.png", fig, px_per_unit=3)
 ##
 fig = Figure(size=(2000,1000))
 ax1 = Axis(fig[1,1],aspect=2, xlabel=L"\zeta", ylabel = L"\Delta \log (L/L_\odot)",title="JEMS - Interpolation"); 
@@ -235,7 +237,7 @@ for logM in interpol_asked
     interpolTrackxs[logM] = interpolTrack
 end
 ##
-fig = Figure(size=(2000,1000))
+fig = Figure(size=(2000,800))
 ax = Axis(fig[1,1], xlabel=L"$\log (T_{\text{eff}} / K)$", ylabel=L"$\log (L/L_\odot)$", title=L"Interpolation between $\log M = 0.0$ and $0.02",xreversed=true)
 de.plot!(modeltrack1, ax; color=:red, scatter=false, label = "JEMS log M = " * string(modeltrack1.logM),linestyle=:dash, linewidth=5)
 de.plot!(modeltrack2, ax; color=:blue, scatter=false,label = "JEMS log M = " * string(modeltrack2.logM),linestyle=:dot, linewidth=5)
@@ -253,7 +255,7 @@ end
 de.plot_arrows!(ax, modeltrack1, 0:0.01:1,0.01)
 de.plot_arrows!(ax, modeltrack2, 0:0.01:1,-0.01)
 axislegend(ax,position = :lb)
-ax2 = Axis(fig[1,2], xlabel=L"$\log (T_{\text{eff}} / K)$", ylabel=L"$\log (L/L_\odot)$", title=L"Interpolation of $\log M =0.01$",xreversed=true)
+ax2 = Axis(fig[1,2], xlabel=L"$\log (T_{\text{eff}} / K)$", ylabel=L"$\log (L/L_\odot)$",xreversed=true)
 for logM in interpol_asked
     interpolTrack = interpolTrackxs[logM]
     de.plot!(interpolTrack, ax2; color=:lightblue, scatter=true,label="Interpol",linewidth=5)
@@ -267,3 +269,52 @@ for extrapolTrack in extrapolGrid2.extrapoltracks
 end
 leg = Legend(fig[1,3],ax2;tellwidth=true)
 fig
+##
+save("Figures/MSInterpo_mini.png", fig)
+##
+
+
+interpol_asked = [0.05]
+interpolTrackxs = Dict()
+modeltrack1, modeltrack2 = modeltracks[0.0], modeltracks[0.1]
+extrapolGrid1 = de.ExtrapolGrid(modeltrack1, interpol_asked .- modeltrack1.logM);
+extrapolGrid2 = de.ExtrapolGrid(modeltrack2, interpol_asked .- modeltrack2.logM);
+for logM in interpol_asked
+    interpolTrack = de.InterpolTrack(modeltrack1, modeltrack2,logM);
+    interpolTrackxs[logM] = interpolTrack
+end
+##
+fig = Figure(size=(2000,800))
+ax = Axis(fig[1,1], xlabel=L"$\log (T_{\text{eff}} / K)$", ylabel=L"$\log (L/L_\odot)$", title=L"Interpolation between $\log M = 0.0$ and $0.1",xreversed=true)
+de.plot!(modeltrack1, ax; color=:red, scatter=false, label = "JEMS log M = " * string(modeltrack1.logM),linestyle=:dash, linewidth=5)
+de.plot!(modeltrack2, ax; color=:blue, scatter=false,label = "JEMS log M = " * string(modeltrack2.logM),linestyle=:dot, linewidth=5)
+for logM in interpol_asked
+    interpolTrack = interpolTrackxs[logM]
+    de.plot!(interpolTrack, ax; color=:lightblue, scatter=true,linewidth=5)
+    de.plot!(modeltracks[logM], ax; color=:black, scatter=false,linewidth=2)
+end
+for extrapolTrack in extrapolGrid1.extrapoltracks
+    de.plot!(extrapolTrack, ax; color=:red, scatter=false,linewidth=2,linestyle = :dash)
+end
+for extrapolTrack in extrapolGrid2.extrapoltracks
+    de.plot!(extrapolTrack, ax; color=:blue, scatter=false,linewidth=2, linestyle = :dot)
+end
+de.plot_arrows!(ax, modeltrack1, 0:0.01:1,0.05)
+de.plot_arrows!(ax, modeltrack2, 0:0.01:1,-0.05)
+axislegend(ax,position = :lb)
+ax2 = Axis(fig[1,2], xlabel=L"$\log (T_{\text{eff}} / K)$", ylabel=L"$\log (L/L_\odot)$",xreversed=true)
+for logM in interpol_asked
+    interpolTrack = interpolTrackxs[logM]
+    de.plot!(interpolTrack, ax2; color=:lightblue, scatter=true,label="Interpol",linewidth=5)
+    de.plot!(modeltracks[logM], ax2; color=:black, scatter=false,label="JEMS log M = 0.05",linewidth=1)
+end
+for extrapolTrack in extrapolGrid1.extrapoltracks
+    de.plot!(extrapolTrack, ax2; color=:red, scatter=false,label="Extrapol from below",linewidth=2,linestyle = :dash)
+end
+for extrapolTrack in extrapolGrid2.extrapoltracks
+    de.plot!(extrapolTrack, ax2; color=:blue, scatter=false,label="Extrapol from above",linewidth=2, linestyle = :dot)
+end
+leg = Legend(fig[1,3],ax2;tellwidth=true)
+fig
+##
+save("Figures/MSInterpo_mini.png", fig)

@@ -126,14 +126,15 @@ open("example_options.toml", "w") do file
           dt_max_increase = 1.5
           delta_R_limit = 0.01
           delta_Tc_limit = 0.01
-          delta_Xc_limit = 0.005
+          delta_Xc_limit = 0.001
 
           [termination]
           max_model_number = 4000
           max_center_T = 1e8
+          min_center_X = 0.7
 
           [plotting]
-          do_plotting = true
+          do_plotting = false
           wait_at_termination = false
           plotting_interval = 1
 
@@ -154,8 +155,8 @@ open("example_options.toml", "w") do file
 
           [io]
           profile_interval = 50
-          terminal_header_interval = 100
-          terminal_info_interval = 100
+          terminal_header_interval = 10
+          terminal_info_interval = 1
 
           """)
 end
@@ -164,7 +165,10 @@ rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+                                            10^-0.1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+#StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7381,0.0134, 0.0, Chem.abundance_lists[:ASG_09], 
+#                                            10^-0.1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+
 @time Evolution.do_evolution_loop!(sm);
 
 ##

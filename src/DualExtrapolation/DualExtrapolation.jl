@@ -49,7 +49,7 @@ struct Model
     initial_params_dict::Dict{}
 end
 
-function D_computer(logLs, logTs)
+function D_computer_old(logLs, logTs)
     distances = zeros(typeof(logLs[1]),length(logLs))
     distances[1] = zero(logLs[1])
     for i in 2:length(logLs)
@@ -62,7 +62,7 @@ function D_computer(logLs, logTs)
     return distances
 end
 
-function D_computer_new(logLs, logTs)
+function D_computer(logLs, logTs)
     #smaller covered 'distance in L or T space' means a larger weight for each covered distance
     logL_weight = 1/(maximum(logLs) - minimum(logLs)); logT_weight = 1/(maximum(logTs) - minimum(logTs))
     distances = zeros(typeof(logLs[1]),length(logLs))
