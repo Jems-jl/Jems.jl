@@ -66,13 +66,27 @@ for i in 1:N
 end
 ##
 fig = Figure();
-ax = Axis(fig[1, 1],xlabel=L"\log (M/M_{\odot})", ylabel=L"\log(\text{Age/yr})")
+ax = Axis(fig[1, 1],ylabel=L"\log (M/M_{\odot})", xlabel=L"\log(\text{Age/yr})")
 ax.xgridvisible=true; ax.ygridvisible=true
 for (logM, track) in modeltracks
-    scatter!.(ax, logM, log10.(track.history_value.star_age), color=:black)
-    scatter!.(ax, logM, log10.(models[logM].history_value.star_age), color=:yellow,alpha=0.5,markersize=50)
+    scatter!.(ax, log10.(models[logM].history_value.star_age),logM, color=:yellow,alpha=0.5,markersize=15)
+    scatter!.(ax, log10.(track.history_value.star_age)       ,logM, color=:black)
+end
+ax2 = Axis(fig[1, 2],ylabel=L"\log (M/M_{\odot})", xlabel=L"Central hydrogen $X$",xreversed=true)
+for (logM, track) in modeltracks
+    scatter!.(ax2, models[logM].history_value.X_center,logM, color=:yellow,alpha=0.5,markersize=15)
+    scatter!.(ax2, track.history_value.X_center       ,logM, color=:black)
 end
 
 fig
 ##
 track = modeltracks[0.0];
+
+##
+fig = Figure();
+#hrd
+ax = Axis(fig[1, 1],ylabel=L"\log T_{\text{eff}}", xlabel=L"\log L/L_{\odot}",xreversed=true)
+model = models[-0.45]
+scatter!(ax, log10.(model.history_value.T_surf),log10.(model.history_value.L_surf), color=:yellow,alpha=0.5,markersize=15)
+fig
+##
