@@ -1,4 +1,4 @@
-# Plotting.md
+# Plotting
 
 This module provides live plotting routines for simulations
 
@@ -28,6 +28,13 @@ Pages = ["Plotting/History.jl"]
 ```@autodocs
 Modules = [Jems.Plotting]
 Pages = ["Plotting/HRD.jl"]
+```
+
+## TRhoProfile.jl
+
+```@autodocs
+Modules = [Jems.Plotting]
+Pages = ["Plotting/TRhoProfile.jl"]
 ```
 
 ## Profile.jl

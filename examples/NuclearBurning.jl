@@ -10,6 +10,7 @@ using Jems.Constants
 using Jems.EOS
 using Jems.Opacity
 using Jems.NuclearNetworks
+using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
@@ -28,17 +29,19 @@ to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
 
 varnames = [:lnρ, :lnT, :lnr, :lum]
+varscaling = [:log, :log, :log, :maxval]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
-net = NuclearNetwork([:H1,:He4,:C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 nz = 1000
 nextra = 100
-eos = EOS.IdealEOS(false)
+eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
-sm = StellarModel(varnames, structure_equations, nz, nextra,
-                  remesh_split_functions, net, eos, opacity);
+turbulence = Turbulence.BasicMLT(1.0)
+sm = StellarModel(varnames, varscaling, structure_equations, Evolution.equation_composition,
+                    nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
 
 ##
 #=
@@ -55,24 +58,29 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 (_previous step info_) to populate the information needed before the Newton solver in `sm.ssi` (_start step info_).
 At last we are in position to evaluate the equations and compute the Jacobian.
 =#
-n=3
-StellarModels.n_polytrope_initial_condition!(n, sm, MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-Evolution.set_step_info!(sm, sm.esi)
-Evolution.cycle_step_info!(sm);
-Evolution.set_step_info!(sm, sm.ssi)
+n = 3
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], MSUN,
+                                             100 * RSUN; initial_dt=10 * SECYEAR)
+StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+StellarModels.cycle_props!(sm);
+StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
+StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props)  # or do StellarModels.remesher!(sm);
+StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
+StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
+StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
 
 ##
 #=
 ### Benchmarking
 
-The previous code leaves everything ready to solve the linearized system. 
+The previous code leaves everything ready to solve the linearized system.
 For now we make use of a the serial Thomas algorithm for tridiagonal block matrices.
 We first show how long it takes to evaluate the Jacobian matrix. This requires two
 steps, the first is to evaluate properties across the model (for example, the EOS)
 and then evaluate all differential equations.
 =#
 @benchmark begin
-    StellarModels.update_stellar_model_properties!($sm, $sm.props)
+    StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
     Evolution.eval_jacobian_eqs!($sm)
 end
 
@@ -86,7 +94,7 @@ to run only the matrix solver can be determined by substracting the previous ben
 =#
 
 @benchmark begin
-    StellarModels.update_stellar_model_properties!($sm, $sm.props)
+    StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
     Evolution.eval_jacobian_eqs!($sm)
     Evolution.thomas_algorithm!($sm)
 end
@@ -112,35 +120,41 @@ open("example_options.toml", "w") do file
 
           [solver]
           newton_max_iter_first_step = 1000
-          newton_max_iter = 200
+          initial_model_scale_max_correction = 0.2
+          newton_max_iter = 50
+          scale_max_correction = 0.1
 
           [timestep]
-          dt_max_increase = 10.0
+          dt_max_increase = 1.5
           delta_R_limit = 0.01
           delta_Tc_limit = 0.01
+          delta_Xc_limit = 0.005
 
           [termination]
           max_model_number = 2000
-          max_center_T = 4e7
+          max_center_T = 1e8
 
           [plotting]
-          do_plotting = false
+          do_plotting = true
           wait_at_termination = false
           plotting_interval = 1
 
-          window_specs = ["HR", "profile", "history"]
-          window_layouts = [[1, 1],  # arrangement of plots
+          window_specs = ["HR", "Kippenhahn", "profile", "TRhoProfile"]
+          window_layout = [[1, 1],  # arrangement of plots
+                            [1, 2],
                             [2, 1],
-                            [3, 1]
+                            [2, 2]
                             ]
 
           profile_xaxis = 'mass'
           profile_yaxes = ['log10_T']
           profile_alt_yaxes = ['X','Y']
 
-          history_xaxis = 'star_age'
+          history_xaxis = 'age'
           history_yaxes = ['R_surf']
           history_alt_yaxes = ['T_center']
+
+          max_log_eps = 5.0
 
           [io]
           profile_interval = 50
@@ -152,8 +166,11 @@ end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
-StellarModels.n_polytrope_initial_condition!(n, sm, 1*MSUN, 100 * RSUN; initial_dt=1000 * SECYEAR)
-@time sm = Evolution.do_evolution_loop!(sm);
+
+n = 3
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
+                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+@time Evolution.do_evolution_loop!(sm);
 
 ##
 #=
@@ -228,21 +245,25 @@ the [IO](Evolution.md##Io.jl) options (and probably adjust the framerate).
 profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
 
 f = Figure();
-ax = Axis(f[1, 1]; xlabel=L"\mathrm{Mass}\;[M_\odot]", ylabel=L"X")
+ax = Axis(f[1, 1]; xlabel=L"\mathrm{Mass}\;[M_\odot]", ylabel=L"Abundance")
 
 pname = Observable(profile_names[1])
 
 profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
 mass = @lift($profile[!, "mass"])
 X = Observable(rand(length(mass.val)))
+Y = Observable(rand(length(mass.val)))
 model_number_str = @lift("model number=$(parse(Int,$pname))")
 
-profile_line = lines!(ax, mass, X; label="real profile")
+profile_line = lines!(ax, mass, X; label="X")
+profile_line = lines!(ax, mass, Y; label="Y")
 profile_text = text!(ax, 0.7, 0.0; text=model_number_str)
+axislegend(ax; position=:rb)
 
 record(f, "X_evolution.gif", profile_names[1:end]; framerate=2) do profile_name
     profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", profile_name)
     X.val = profile[!, "X"]
+    Y.val = profile[!, "Y"]
     pname[] = profile_name
 end
 

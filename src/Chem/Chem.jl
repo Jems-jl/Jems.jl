@@ -56,4 +56,7 @@ end
 
 isotope_list::Dict{Symbol,Isotope} = get_isotope_list()
 
+include("Abundances.jl")
+
 end
+

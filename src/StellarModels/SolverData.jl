@@ -14,7 +14,9 @@ abstract type AbstractSolverData end
     solver_β::Vector{TVECTOR}
     solver_x::Vector{TVECTOR}
     solver_corr::Vector{TNUMBER}
+    preconditioning_factor::Vector{TNUMBER}
     newton_iters::Int
+    use_static_arrays::Bool
 end
 
 function SolverData(nvars, nz, nextra, use_static_arrays, number_type)
@@ -58,6 +60,8 @@ function SolverData(nvars, nz, nextra, use_static_arrays, number_type)
     # create the equation results vector for the solver (holds plain numbers instead of duals)
     eqs_numbers = ones(number_type, nvars * (nz+nextra))
 
+    preconditioning_factor = ones(number_type, nvars * (nz+nextra))
+
     SolverData(eqs_numbers = eqs_numbers,
                eqs_duals = eqs_duals,
                jacobian_D = jacobian_D,
@@ -69,5 +73,7 @@ function SolverData(nvars, nz, nextra, use_static_arrays, number_type)
                solver_β = solver_β,
                solver_x = solver_x,
                solver_corr = solver_corr,
-               newton_iters = 0)
+               preconditioning_factor = preconditioning_factor,
+               newton_iters = 0,
+               use_static_arrays = use_static_arrays)
 end

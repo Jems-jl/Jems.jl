@@ -6,7 +6,7 @@ using Literate
 pkg_path = pkgdir(Jems)
 
 function ignore_code_blocks(content)
-    content = replace(content, "##\n" => "\n")  # remove code blocks 
+    content = replace(content, "##\n" => "\n")  # remove code blocks
     content = replace(content, "###" => "##")  # make level 3 headers level 2
 end
 
@@ -24,8 +24,10 @@ makedocs(modules=[Jems],
                                 assets=String[]),
          pages=["Home" => "index.md",
                 "Examples" => ["NuclearBurning.md"],
-                "Modules" => ["Chem.md", "Constants.md", "EOS.md", "Opacity.md",
-                              "StellarModels.md", "Evolution.md", "Plotting.md"],
-                "Developing" => ["style.md"]])
+                "Modules" => ["Chem.md", "Constants.md", "DualSupport.md", "EOS.md", "Evolution.md", "Opacity.md",
+                              "Plotting.md", "ReactionRates.md", "StellarModels.md", "Turbulence.md"],
+                "Developing" => ["style.md"]],
+         checkdocs=:exports
+)
 
 deploydocs(repo="github.com/Jems-jl/Jems.jl", devbranch="main")

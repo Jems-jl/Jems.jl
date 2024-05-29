@@ -4,7 +4,7 @@
 CurrentModule = Jems
 ```
 
-Documentation for [Jems.jl](https://github.com/orlox/Jems.jl).
+Documentation for [Jems.jl](https://github.com/Jems-jl/Jems.jl).
 
 Jems is a package designed for performing stellar structure and evolution calculations.
 Its main module is [Evolution](@ref) where a stellar model can be evolved according to user-defined equations.
@@ -16,9 +16,11 @@ Jems contains the following modules:
 Pages = [
     "Chem.md",
     "Constants.md",
+    "DualSupport.md",
     "EOS.md",
-    "StellarModels.md",
     "Evolution.md",
     "Opacity.md",
+    "ReactionRates.md",
+    "StellarModels.md"
 ]
 ```
