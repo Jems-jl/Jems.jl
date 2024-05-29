@@ -123,7 +123,7 @@ The temperature at which this occurs is returned.
 
 """
 function getlnT_NewtonRhapson(lnT_initial, lnρ, P, massfractions, eos)
-    (species_names, xa) = (collect(Symbol,keys(massfractions)), collect(values(massfractions)))
+    (species_names, xa) = (collect(Symbol,keys(massfractions)), collect(typeof(lnT_initial),values(massfractions)))
     ΔlnPmin = 1e-4
     lnT = lnT_initial
     lnT_dual = ForwardDiff.Dual(lnT_initial,1.0)
@@ -210,9 +210,10 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfra
 
     # set radii, pressure and temperature, and mass fractions
     massfractions = get_mass_fractions(abundanceList, sm.network.species_names, X, Z, Dfraction)
+    array = collect(values(massfractions))
+    type = typeof(array[1])
+    μ = EOS.get_μ_IdealEOS(collect(type,array), sm.network.species_names)
     for i = 1:nz
-        μ = 0.5
-        XH = 1.0
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]] = log(rn * ξ_face[i])
         if i > 1
             P = Pc * (θ_n(ξ_cell[i]))^(n + 1)
@@ -224,7 +225,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfra
         lnT_initial = log(P * μ / (CGAS * ρ))  # ideal gas temperature as intial guess
         # fit the temperature using the equation of state
         #lnT = getlnT_NewtonRhapson(lnT_initial, log(ρ),P,[1.0,0],[:H1,:He4],sm.eos)
-        lnT = getlnT_NewtonRhapson(lnT_initial, log(ρ),P,massfractions,sm.eos)
+        lnT = getlnT_NewtonRhapson(lnT_initial, log(ρ), P, massfractions, sm.eos)
 
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]] = log(ρ)
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = lnT
@@ -242,7 +243,6 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfra
 
     # set luminosity
     for i = 1:nz - 1
-        μ = 0.5
         Pface = Pc * (θ_n(ξ_face[i]))^(n + 1)
         ρface = ρc * (θ_n(ξ_face[i]))^(n)
         Tfaceinit = Pface * μ / (CGAS * ρface)
@@ -277,4 +277,3 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfra
     sm.props.model_number = 0
     sm.props.nz = nz
 end
-

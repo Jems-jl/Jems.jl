@@ -75,7 +75,7 @@ Identical to [`equationHSE`](@ref) for compatibility with StellarModels.TypeStab
 
 # Returns
 
-Residual of comparing dlnT/dm with -∇*GMT/4πr^4P, where the latter is evaluated at the face of cell `k` and `k+1`.
+Residual of comparing T dlnT/dm with -∇*GMT/4πr^4P, where the latter is evaluated at the face of cell `k` and `k+1`.
 """
 function equationT(sm::StellarModel, k::Int)
     lnT₀ = get_00_dual(sm.props.eos_res[k].lnT)

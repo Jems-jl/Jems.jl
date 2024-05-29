@@ -207,7 +207,6 @@ function do_evolution_loop!(sm::StellarModel)
             println("Reached maximum central temperature")
             break
         end
-
         if (get_value(sm.props.xa[1, sm.network.xa_index[:H1]]) < sm.opt.termination.min_center_X)
             StellarModels.write_terminal_info(sm; now=true)
             println("Reached minimum central hydrogen mass fraction")

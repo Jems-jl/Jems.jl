@@ -21,6 +21,7 @@ set_theme!(basic_theme)
 ##
 gridpath = "DualRuns/DualGrid"
 gridpath = "DualRuns/DualGrid2"
+gridpath = "DualRuns/DualGrid3"
 path = "DualRuns/DualGrid/logM_-0.1_X_0.7381_.history.hdf5"
 get_logM(path) = parse(Float64, split(split(path, "logM_")[2], "_")[1])
 
@@ -91,21 +92,26 @@ logL_val_zams = zeros(N); logL_partial_zams = zeros(N); logL_zams = zeros(typeof
 logL_val_tams = zeros(N); logL_partial_tams = zeros(N); logL_tams = zeros(typeof(Dual(1.0,1.0,1.0,1.0)),N)
 logL_val_pms =  zeros(N); logL_partial_pms =  zeros(N); logL_pms  = zeros(typeof(Dual(1.0,1.0,1.0,1.0)),N)
 for ( (logM,model), i) in zip(models, 1:N)
+
+    try
+        T_pms = 5000
+        logL = log10(de.param1_to_param2(T_pms, model.history, "T_surf","L_surf"))
+        logL_val_pms[i] = logL.value; logL_partial_pms[i] = logL.partials[1]; logL_pms[i] = logL;
+    catch
+        println("PMS failed for logM = $logM")
+        continue
+    end
+
     X_zams = 0.999*model.history_value.X_center[1]
     logL = log10(de.param1_to_param2(X_zams, model.history, "X_center","L_surf"))
     logMs[i] = logM; 
     logL_val_zams[i] = logL.value; 
     logL_partial_zams[i] = logL.partials[1]; 
-    @show logL
     logL_zams[i] = logL
 
     X_tams = 0.0001
     logL = log10(de.param1_to_param2(X_tams, model.history, "X_center","L_surf"))
-    logL_val_tams[i] = logL.value; logL_partial_tams[i] = logL.partials[1]; logL_tams[i] = logL
-
-    T_pms = 5000
-    logL = log10(de.param1_to_param2(T_pms, model.history, "T_surf","L_surf"))
-    logL_val_pms[i] = logL.value; logL_partial_pms[i] = logL.partials[1]; logL_pms[i] = logL
+    logL_val_tams[i] = logL.value; logL_partial_tams[i] = logL.partials[1]; logL_tams[i] = logL; 
 end
 
 ## ###### FIGUUR MASS LUMINOSITY 

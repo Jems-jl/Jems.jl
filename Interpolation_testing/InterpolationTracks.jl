@@ -43,6 +43,8 @@ end
 ##
 gridpath = "DualRuns/DualGrid"
 gridpath = "DualRuns/DualGrid2"
+gridpath = "DualRuns/DualGrid3"
+
 path = "DualRuns/DualGrid/logM_-0.1_X_0.7381_.history.hdf5"
 get_logM(path) = parse(Float64, split(split(path, "logM_")[2], "_")[1])
 
@@ -77,7 +79,7 @@ for i in 1:N
     track = nothing
     try 
         X_init = 0.4; X_end = 0.0000001
-        X_init = 0.99*model.history_value.X_center[1]; X_end = 0.001
+        X_init = 0.99*model.history_value.X_center[1]; X_end = 0.01
         track = de.Track(model,X_init, X_end, 1000)
     catch 
         println(" Track FAILED for logM = $logM")
@@ -132,6 +134,52 @@ fig
 ## ################################"
 interpol_asked = [-0.05,0.0,0.05,0.1,0.15,0.2,0.25]; interpolTrackxs = Dict(); diffs_with_JEMS = Dict()
 modeltrack1, modeltrack2 = modeltracks[-0.1], modeltracks[0.3]
+extrapolGrid1 = de.ExtrapolGrid(modeltrack1, interpol_asked .- modeltrack1.logM);
+extrapolGrid2 = de.ExtrapolGrid(modeltrack2, interpol_asked .- modeltrack2.logM);
+for logM in interpol_asked
+    interpolTrack = de.InterpolTrack(modeltrack1, modeltrack2,logM);
+    interpolTrackxs[logM] = interpolTrack; diffs_with_JEMS[logM] = Difference_with_JEMS(interpolTrack, modeltracks[logM])
+end
+##
+fig = Figure(size=(2000,800)); logM1 = modeltrack1.logM; logM2 = modeltrack2.logM; title = "Interpolation between $logM1 and $logM2"
+ax = Axis(fig[1,1], xlabel=L"$\log (T_{\text{eff}} / K)$", ylabel=L"$\log (L/L_\odot)$", title=title,xreversed=true)
+de.plot!(modeltrack2, ax; color=:blue, scatter=false,label = "JEMS log M = " * string(modeltrack2.logM),linestyle=:dot, linewidth=5)
+de.plot!(modeltrack1, ax; color=:red, scatter=false, label = "JEMS log M = " * string(modeltrack1.logM),linestyle=:dash, linewidth=5)
+colormap = :viridis; nb_colors = length(interpol_asked); colors = palette(colormap); vals = collect(1:nb_colors).*255 ./ nb_colors
+colors = [colors[round(Int,vals[i])] for i in 1:nb_colors]
+for (logM,color) in zip(interpol_asked,colors)
+    interpolTrack = interpolTrackxs[logM]
+    de.plot!(interpolTrack, ax; color=color, scatter=true,linewidth=5)
+    de.plot!(modeltracks[logM], ax; color=:black, scatter=false,linewidth=2)
+end
+for extrapolTrack in extrapolGrid1.extrapoltracks
+    de.plot!(extrapolTrack, ax; color=:red, scatter=false,linewidth=2,linestyle = :dash)
+end
+for extrapolTrack in extrapolGrid2.extrapoltracks
+    de.plot!(extrapolTrack, ax; color=:blue, scatter=false,linewidth=2, linestyle = :dot)
+end
+#de.plot_arrows!(ax, modeltrack1, 0:0.1:1,0.1);de.plot_arrows!(ax, modeltrack2, 0:0.1:1,-0.1)
+axislegend(ax,position = :lb)
+ax2 = Axis(fig[1,2], xlabel=L"$\log (T_{\text{eff}} / K)$", ylabel=L"$\log (L/L_\odot)$", title="$interpol_asked",xreversed=true)
+for (logM,color) in zip(interpol_asked,colors)
+    interpolTrack = interpolTrackxs[logM]
+    de.plot!(interpolTrack, ax2; color=color, scatter=true,linewidth=5)
+    de.plot!(modeltracks[logM], ax2; color=:black, scatter=false,linewidth=2)
+end
+for extrapolTrack in extrapolGrid1.extrapoltracks
+    de.plot!(extrapolTrack, ax2; color=:red, scatter=false,label="Extrapol from below",linewidth=2,linestyle = :dash)
+end
+for extrapolTrack in extrapolGrid2.extrapoltracks
+    de.plot!(extrapolTrack, ax2; color=:blue, scatter=false,label="Extrapol from above",linewidth=2, linestyle = :dot)
+end
+leg = Legend(fig[1,3],ax2;tellwidth=true)
+fig
+##
+save("Figures/master_MSInterpo.png", fig, px_per_unit=3)
+##
+## ################################"
+interpol_asked = [0.05,0.1,0.15,0.2,0.25]; interpolTrackxs = Dict(); diffs_with_JEMS = Dict()
+modeltrack1, modeltrack2 = modeltracks[0.0], modeltracks[0.3]
 extrapolGrid1 = de.ExtrapolGrid(modeltrack1, interpol_asked .- modeltrack1.logM);
 extrapolGrid2 = de.ExtrapolGrid(modeltrack2, interpol_asked .- modeltrack2.logM);
 for logM in interpol_asked

@@ -66,7 +66,9 @@ open("example_options.toml", "w") do file
           """)
 end
 ##
-logM_range = collect(0.0:0.05:1.5)
+logM_range = [-0.1,-0.2]
+logM_range = collect(-1:0.05:1)
+@show logM_range
 X = 0.7154
 overwrite = false
 ## Model creation, as usual
@@ -74,8 +76,8 @@ for logM in logM_range
     M = 10^logM
     println("############################################################################################")
     println("STARTING NEW logM = $logM , M = $M ##########################################")
-    history_path = "Jems.jl/DualRuns/DualGrid2/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".history.hdf5"
-    profile_path = "Jems.jl/DualRuns/DualGrid2/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".profiles.hdf5"
+    history_path = "Jems.jl/DualRuns/DualGrid3/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".history.hdf5"
+    profile_path = "Jems.jl/DualRuns/DualGrid3/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".profiles.hdf5"
     #history_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".history.hdf5"
     #profile_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".profiles.hdf5"
     
@@ -88,9 +90,9 @@ for logM in logM_range
             println("History file for mass = $M / logM = $logM already exists: SKIPPING")
             continue
         end
+    else
+        println("History file for mass = $M / logM = $logM does not exist: CREATING")
     end
-
-
 
     println("Create StellarModel ############################")
     varnames = [:lnρ, :lnT, :lnr, :lum]
@@ -139,7 +141,7 @@ for logM in logM_range
     println("RUN ENDED, SAVED HISTORY AND PROFILES")
     @show history_path
     @show profile_path
-    sleep(50)
+    s = 30; println("SLEEPING $s seconds"); sleep(s)
 end
 ##
 history_path = "Jems.jl/DualRuns/DualGrid/logM_0.03_X_0.7381_.history.hdf5"

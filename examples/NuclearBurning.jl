@@ -131,7 +131,7 @@ open("example_options.toml", "w") do file
           [termination]
           max_model_number = 4000
           max_center_T = 1e8
-          min_center_X = 0.7
+          min_center_X = 1e-10
 
           [plotting]
           do_plotting = false
@@ -155,8 +155,8 @@ open("example_options.toml", "w") do file
 
           [io]
           profile_interval = 50
-          terminal_header_interval = 10
-          terminal_info_interval = 1
+          terminal_header_interval = 50
+          terminal_info_interval = 10
 
           """)
 end
