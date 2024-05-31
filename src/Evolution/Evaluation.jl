@@ -46,27 +46,28 @@ function eval_jacobian_eqs_row!(m::AbstractModel, k::Int)
     jacobian_Uk = m.solver_data.jacobian_U[k]
     eqs_duals = m.solver_data.eqs_duals
     for i = 1:(m.nvars)
+        block_select = eqs_duals[k, i]
         if k == 1
             for j = 1:(m.nvars)
                 jacobian_Lk[i, j] = 0
-                jacobian_Dk[i, j] = eqs_duals[k, i].partials[j + m.nvars]
-                jacobian_Uk[i, j] = eqs_duals[k, i].partials[j + 2 * m.nvars]
+                jacobian_Dk[i, j] = block_select.partials[j + m.nvars]
+                jacobian_Uk[i, j] = block_select.partials[j + 2 * m.nvars]
             end
         elseif k == m.props.nz
             for j = 1:(m.nvars)
-                jacobian_Lk[i, j] = eqs_duals[k, i].partials[j]
-                jacobian_Dk[i, j] = eqs_duals[k, i].partials[j + m.nvars]
+                jacobian_Lk[i, j] = block_select.partials[j]
+                jacobian_Dk[i, j] = block_select.partials[j + m.nvars]
                 jacobian_Uk[i, j] = 0
             end
         else
             for j = 1:(m.nvars)
-                jacobian_Lk[i, j] = eqs_duals[k, i].partials[j]
-                jacobian_Dk[i, j] = eqs_duals[k, i].partials[j + m.nvars]
-                jacobian_Uk[i, j] = eqs_duals[k, i].partials[j + 2 * m.nvars]
+                jacobian_Lk[i, j] = block_select.partials[j]
+                jacobian_Dk[i, j] = block_select.partials[j + m.nvars]
+                jacobian_Uk[i, j] = block_select.partials[j + 2 * m.nvars]
             end
         end
         # populate the eqs_numbers with relevant entries (will be RHS for linear solver)
-        m.solver_data.eqs_numbers[(k - 1) * m.nvars + i] = eqs_duals[k, i].value
+        m.solver_data.eqs_numbers[(k - 1) * m.nvars + i] = block_select.value
     end
 end
 
