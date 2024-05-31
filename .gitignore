@@ -15,3 +15,4 @@ NuclearBurning.md
 developing/test*
 profile.pb.gz
 benchmarking
+developing/*.jl
