@@ -80,7 +80,7 @@ function get_reaction_rate(reaction::KippReactionRate, T::T1, ρ::T2, xa::Abstra
     elseif reaction.name == :kipp_3alphaA99
         f_3alpha = 1
         X4 = xa[xa_index[:He4]]
-        T9 = eos00.T / 1e9
+        T9 = T / 1e9
 
         ϵnuc = 6.272 * ρ^2 * X4^3 * (1 + 0.0158 * T9^(-0.65)) *
                (2.43e9 * cbrt(T9^(-2)) * exp(-13.490 * cbrt(T9^(-1)) - (T9 / 0.15)^2) * (1 + 74.5 * T9) +
@@ -93,7 +93,7 @@ function get_reaction_rate(reaction::KippReactionRate, T::T1, ρ::T2, xa::Abstra
         f_12alpha = 1
         X4 = xa[xa_index[:He4]]
         X12 = xa[xa_index[:C12]]
-        T8 = eos00.T / 1e8
+        T8 = T / 1e8
 
         ϵnuc = 1.3e27 * f_12alpha * ρ * X4 * X12 * T8^(-2) *
                ((1 + 0.134 * cbrt(T8^(2))) / (1 + 0.017 * cbrt(T8^(2))))^2 * exp(-69.20 / cbrt(T8))
@@ -102,7 +102,7 @@ function get_reaction_rate(reaction::KippReactionRate, T::T1, ρ::T2, xa::Abstra
         f_16alpha = 1
         X4 = xa[xa_index[:He4]]
         X16 = xa[xa_index[:O16]]
-        T9 = eos00.T / 1e9
+        T9 = T / 1e9
 
         # ϵnuc = 1.91e27 * cbrt(T9^(-2)) * X16 * X4 * eos00.ρ * f_16alpha *
         #        exp(-39.76 * T9^(-1/3) - (T9/1.6)^2) 
