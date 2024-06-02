@@ -79,7 +79,7 @@ for i in 1:N
     track = nothing
     try 
         X_init = 0.4; X_end = 0.0000001
-        X_init = 0.99*model.history_value.X_center[1]; X_end = 0.01
+        X_init = 0.999*model.history_value.X_center[1]; X_end = 0.01
         track = de.Track(model,X_init, X_end, 1000)
     catch 
         println(" Track FAILED for logM = $logM")

@@ -25,6 +25,8 @@ open("example_options.toml", "w") do file
           initial_model_scale_max_correction = 0.5
           scale_max_correction = 0.1
           report_solver_progress = false
+          relative_correction_tolerance = 1e8
+          maximum_residual_tolerance =  5e-4    
 
           [timestep]
           dt_max_increase = 1.5
@@ -62,22 +64,23 @@ open("example_options.toml", "w") do file
           profile_interval = 200
           terminal_header_interval = 50
           terminal_info_interval = 10
-
           """)
 end
 ##
 logM_range = [-0.1,-0.2]
-logM_range = collect(-1:0.05:1)
+logM_range = collect(0.75:0.01:0.85)
+logM_range = collect(-0.8:0.1:1)
+logM_range = [-0.4]
 @show logM_range
 X = 0.7154
-overwrite = false
+overwrite = true
 ## Model creation, as usual
 for logM in logM_range
     M = 10^logM
     println("############################################################################################")
     println("STARTING NEW logM = $logM , M = $M ##########################################")
     history_path = "Jems.jl/DualRuns/DualGrid3/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".history.hdf5"
-    profile_path = "Jems.jl/DualRuns/DualGrid3/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".profiles.hdf5"
+    profile_path = "    Jems.jl/DualRuns/DualGrid3/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".profiles.hdf5"
     #history_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".history.hdf5"
     #profile_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".profiles.hdf5"
     

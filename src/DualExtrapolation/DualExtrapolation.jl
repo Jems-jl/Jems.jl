@@ -29,10 +29,7 @@ function bookkeeping(historypath, profilespath, number_of_partials)
     value_names = [name for name in profile_names if !occursin("partial", name)]
     partial_names_unpacked = [name for name in profile_names if occursin("partial", name)]
     partial_names = [[partial_name for partial_name in partial_names_unpacked[lo:lo+number_of_partials-1] ] for lo in 1:number_of_partials:(length(partial_names_unpacked))] 
-
-
     profiles_dual = [get_partial_profile_dataframe_from_hdf5(profilespath, value_name, partial_names) for (value_name,partial_names) in zip(value_names, partial_names)]
-
     history = StellarModels.get_history_dataframe_from_hdf5(historypath) #as before
     history_dual = get_dual_history_dataframe_from_hdf5(historypath)#dataframe with history in dual numbers
 
@@ -139,6 +136,7 @@ function Track(model, ZAMS_X, TAMS_X, nbpoints=1000)
 end
 #cubic_interpolator(x,y) = interpolate(x,y,FritschCarlsonMonotonicInterpolation())
 #cubic_interpolator(x,y) = Spline1D(x,y)
+#cubic_interpolator(x,y) = my_linear_spline(x,y)
 cubic_interpolator(x,y) = CubicSpline(y,x)
 
 function plot!(track::Track, ax; scatter = true, kwargs...)
@@ -185,16 +183,26 @@ function get_colors(extrapoltracks)
     end
     return colors_dic
 end
-function plot!(extrapolGrid::ExtrapolGrid, ax; scatter = true, plot_original = true)
+
+function get_colors(values, colormap)
+    nb_colors = length(values)
+    colors = palette(colormap)
+    vals = collect(1:nb_colors).*255 ./ nb_colors
+    colors  = [colors[round(Int,vals[i])] for i in 1:nb_colors]
+    return colors
+end
+
+
+function plot!(extrapolGrid::ExtrapolGrid, ax; scatter = true, plot_original = true, kwargs...)
     plotfunc = scatter ? scatter! : lines!
     colors_dic = extrapolGrid.colors_dic
     if plot_original
-        plotfunc(ax, extrapolGrid.track.logT_val, extrapolGrid.track.logL_val, color=:black, label="Original track")
+        plotfunc(ax, extrapolGrid.track.logT_val, extrapolGrid.track.logL_val, color=:black, label="Original track";kwargs...)
     end
     for extrapoltrack in extrapolGrid.extrapoltracks
         delta_logM = extrapoltrack.delta_logM
         label = L"$\Delta \log M = %$delta_logM $"
-        plotfunc(ax, extrapoltrack.logT_val, extrapoltrack.logL_val,color=colors_dic[extrapoltrack],label=label)
+        plotfunc(ax, extrapoltrack.logT_val, extrapoltrack.logL_val,color=colors_dic[extrapoltrack],label=label; kwargs...)
     end
 end
 
@@ -284,21 +292,43 @@ function my_linear_interpolation(xs, ys)
     slope = (ys[2] - ys[1]) / (xs[2] - xs[1])
     return x -> ys[1] + slope * (x - xs[1])
 end
+
+function my_linear_spline(xs, ys)
+    function linear_interpolator(x)
+        for i in 1:length(xs)-1
+            if xs[i] <= x <= xs[i+1]
+                return my_linear_interpolation([xs[i],xs[i+1]],[ys[i],ys[i+1]])(x)
+            end
+        end
+    end
+    return linear_interpolator
+end
+
 function arrow_coords(dual_number_x, dual_number_y, deltaM)
     x_begin = dual_number_x.value; y_begin = dual_number_y.value
     return x_begin, dual_number_x.partials[1]*deltaM, y_begin, dual_number_y.partials[1]*deltaM
 end
-function plot_arrows!(ax,track,zetas,deltaLogM) 
+function plot_arrows!(ax,track,zetas,deltaLogM; kwargs...) 
     interpolator_logL = cubic_interpolator(track.zeta, track.logL)
     interpolator_logT = cubic_interpolator(track.zeta, track.logT)
     logLs = interpolator_logL.(zetas); logTs = interpolator_logT.(zetas)
-    #logLs = param1_to_param2.(zetas, Ref(track.history), "zeta", "logL")
-    #logTs = param1_to_param2.(zetas, Ref(track.history), "zeta", "logT")
     for (logT, logL) in zip(logTs, logLs)
         x, dx, y, dy = arrow_coords(logT, logL, deltaLogM)
-        arrows!(ax,[x], [y],  [dx], [dy])
+        arrows!(ax,[x], [y],  [dx], [dy]; kwargs...)
     end
 end
+
+function plot_arrows_gradient!(ax,track,zetas,deltaLogM; kwargs...) 
+    interpolator_logL = cubic_interpolator(track.zeta, track.logL)
+    interpolator_logT = cubic_interpolator(track.zeta, track.logT)
+    logLs = interpolator_logL.(zetas); logTs = interpolator_logT.(zetas)
+    colors = get_colors(zetas, :dense)
+    for (logT, logL, color) in zip(logTs, logLs, colors)
+        x, dx, y, dy = arrow_coords(logT, logL, deltaLogM)
+        arrows!(ax,[x], [y],  [dx], [dy]; color, kwargs...)
+    end
+end
+
 
 
 end # end of module
