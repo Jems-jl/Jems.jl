@@ -329,6 +329,89 @@ function plot_arrows_gradient!(ax,track,zetas,deltaLogM; kwargs...)
     end
 end
 
+struct DualGrid
+    modelTracks::Dict{Float64, Track}
+    models::Dict{Float64, Model}
+    logMs::Vector{Float64}
+end
 
+
+function DualGrid_cut(dualGrid::DualGrid, logM_min::Float64, logM_max::Float64)
+    modelTracks = Dict{Float64, Track}()
+    models = Dict{Float64, Model}()
+    logMs = []
+    for logM in dualGrid.logMs
+        if logM_min <= logM <= logM_max
+            modelTracks[logM] = dualGrid.modelTracks[logM]
+            models[logM] = dualGrid.models[logM]
+            push!(logMs, logM)
+        end
+    end
+    return DualGrid(modelTracks, models, logMs)
+end
+
+
+struct Isochrones
+    zeta::Vector{Float64}
+    logL::Dict{Float64, Vector{Float64}}
+    logT::Dict{Float64, Vector{Float64}}
+end
+
+function make_interpoltracks(track1::Track, track2::Track, nb_masses_between::Int)
+    logM1 = track1.logM; logM2 = track2.logM
+    track_down = logM1 < logM2 ? track1 : track2; track_up = logM1 < logM2 ? track2 : track1
+    masses = range(logM1, logM2, length=nb_masses_between+2)[2:end-1] #tja de randen doen nu ook mee
+    interpolTracks = Vector{InterpolTrack}()
+    for logM in masses
+        push!(interpolTracks, InterpolTrack(track_down, track_up, logM))
+    end
+    return interpolTracks
+end
+
+function make_interpoltracks(dualGrid::DualGrid, nb_masses_between)
+    logMs = sort(dualGrid.logMs)
+    all_interpoltracks = []
+    for i in 1:length(logMs)-1
+        logM_down = logMs[i]; logM_up = logMs[i+1]
+        track1 = dualGrid.modelTracks[logM_down]; track2 = dualGrid.modelTracks[logM_up]
+        interpolTracks = make_interpoltracks(track1, track2, nb_masses_between)
+        all_interpoltracks = vcat(all_interpoltracks, interpolTracks)
+    end
+    return all_interpoltracks
+end
+
+function Isochrones(dualGrid::DualGrid, nb_masses_between::Int; massrange = nothing)
+    if massrange != nothing
+        dualGrid = DualGrid_cut(dualGrid, massrange[1], massrange[2])
+    end
+    all_interpoltracks = make_interpoltracks(dualGrid, nb_masses_between)
+    logLs = Dict{Float64, Vector{Float64}}(); logTs = Dict{Float64, Vector{Float64}}()
+    zetas = all_interpoltracks[1].zeta
+
+    for zeta in zetas #initialize empty arrays
+        logLs[zeta] = Vector{Float64}(); logTs[zeta] = Vector{Float64}()
+    end
+    #loop over all interpolated tracks
+    for interpoltrack in all_interpoltracks
+        #for each interpolated track, push all logL and logT values in the corresponding zeta
+        for (zeta, logL, logT) in zip(interpoltrack.zeta, interpoltrack.logL_val, interpoltrack.logT_val)
+            push!(logLs[zeta], logL); push!(logTs[zeta], logT)
+        end
+    end
+    return Isochrones(zetas, logLs, logTs)
+end
+
+function plot!(isochrones::Isochrones, ax; nbzeta = 10, scatter = true, kwargs...)
+    plotfunc = scatter ? scatter! : lines!
+    N = length(isochrones.zeta); 
+    if nbzeta > N 
+        throw(ArgumentError("nbzeta > N")) 
+    end
+    zetarange = isochrones.zeta[1:div(N,nbzeta):N]
+    for zeta in zetarange
+        plotfunc(ax, isochrones.logT[zeta], isochrones.logL[zeta]; kwargs...)
+        #plotfunc(ax, exp10.(isochrones.logT[zeta]), exp10.(isochrones.logL[zeta]); kwargs...)
+    end
+end
 
 end # end of module
