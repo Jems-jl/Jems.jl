@@ -53,6 +53,7 @@ bbrates = [(:jina_rates, :n_to_H1_wc12_w_x_0),
            (:jina_rates, :He4_He4_to_H1_Li7_de04_r_v_1)]
 net = NuclearNetwork([:n, :H1, :D2, :T3, :He3, :He4, :Be7, :Li7],
                      bbrates)
+
 function equation_composition(oz::OneZone, k::Int, iso_name::Symbol)  # needs this signature for TypeStableEquations
     # Get mass fraction for this iso
     X00 = get_00_dual(oz.props.xa[oz.network.xa_index[iso_name]])
@@ -71,22 +72,38 @@ function equation_composition(oz::OneZone, k::Int, iso_name::Symbol)  # needs th
     return ((X00 - Xi) / oz.props.dt - dXdt_nuc)
 end
 
+##
 function T(oz::OneZone)
     return 0.1 * Constants.MEV_TO_ERGS / (KERG * sqrt(oz.props.time / 132))
 end
 
+t₀ = 13.797e9 * SECYEAR
+T_CMB = 2.72548  # K
+a_eq = 1.0 / (1 + 3387)
+t_eq = t₀ * (a_eq)^1.5
+
+function T_new(oz::OneZone)
+    return T_CMB * sqrt(t_eq / oz.props.time) / a_eq
+end
+
+Ω_b = 0.02237
+ρ_today = Ω_b * 1.8788e-29  # g/cm^3
+function ρ_new(oz::OneZone)
+    return ρ_today * (t_eq / oz.props.time)^(1.5) / (a_eq^3)
+end
+
 conversion = KERG^4 / (Constants.HBAR^3 * CLIGHT^5)
 function ρ(oz::OneZone)
-    photondensity = pi^2 / 15 * (oz.props.T)^4 * conversion  # photon density
+    photondensity = pi^2 / 15 * (oz.props.T)^4 * conversion
     return photondensity * 6.23e-10  # baryon density
 end
 
 oz = OneZone(equation_composition, net);
 
 ## IC
-oz.props.time = 10
-oz.props.T = T(oz)  # K
-oz.props.ρ = ρ(oz)  # g cm^{-3}
+oz.props.time = 5.0  # s
+oz.props.T = T_new(oz)  # K
+oz.props.ρ = ρ_new(oz)  # g cm^{-3}
 oz.props.ind_vars = zeros(oz.network.nspecies)
 oz.props.ind_vars[oz.network.xa_index[:H1]] = 0.85
 oz.props.ind_vars[oz.network.xa_index[:n]] = 0.15
@@ -94,25 +111,25 @@ oz.props.ind_vars[oz.network.xa_index[:n]] = 0.15
 oz.props.dt_next = 1.0
 oz.props.model_number = 0
 
-## first eval setup
-StellarModels.evaluate_model_properties!(oz, oz.props);
-StellarModels.cycle_props!(oz);
-oz.props = deepcopy(oz.prv_step_props)
-oz.props.dt = oz.prv_step_props.dt_next
+# ## first eval setup
+# StellarModels.evaluate_model_properties!(oz, oz.props);
+# StellarModels.cycle_props!(oz);
+# oz.props = deepcopy(oz.prv_step_props);
+# oz.props.dt = oz.prv_step_props.dt_next
 
-##
-get_value.(oz.props.xa)
+# ##
+# get_value.(oz.props.xa)
 
-##
-Evolution.eval_jacobian_eqs!(oz)
+# ##
+# Evolution.eval_jacobian_eqs!(oz)
 
-##
-oz.solver_data.jacobian_D[1]
-oz.solver_data.eqs_numbers
+# ##
+# oz.solver_data.jacobian_D[1]
+# oz.solver_data.eqs_numbers
 
-##
-Evolution.thomas_algorithm!(oz)
-oz.solver_data.solver_corr
+# ##
+# Evolution.thomas_algorithm!(oz)
+# oz.solver_data.solver_corr
 
 ## evolution
 function do_one_zone_burn!(oz::OneZone)
@@ -136,8 +153,8 @@ function do_one_zone_burn!(oz::OneZone)
         retry_step = false
         oz.props = deepcopy(oz.prv_step_props)
         oz.props.dt = oz.prv_step_props.dt_next  # dt of this step becomes dt_next of previous
-        oz.props.T = T(oz)
-        oz.props.ρ = ρ(oz)
+        oz.props.T = T_new(oz)
+        oz.props.ρ = ρ_new(oz)
 
         corr = oz.solver_data.solver_corr
         equs = oz.solver_data.eqs_numbers
@@ -245,6 +262,9 @@ function do_one_zone_burn!(oz::OneZone)
             # StellarModels.write_terminal_info(oz; now=true)
             println("Reached maximum model number")
             break
+        elseif oz.props.time >= oz.opt.termination.max_time * SECYEAR
+            println("max time reached, ending simulation")
+            break
         end
 
         # get dt for coming step
@@ -270,10 +290,11 @@ open("example_options.toml", "w") do file
           [timestep]
           dt_max_increase = 2.0
           delta_Xc_limit = 0.005
-          max_dt = 1e-6
+          max_dt = 1e-7
 
           [termination]
           max_model_number = 2000
+          max_time = 3e-3
 
           [plotting]
           do_plotting = false
@@ -299,6 +320,8 @@ open("example_options.toml", "w") do file
 end
 StellarModels.set_options!(oz.opt, "./example_options.toml")
 @time do_one_zone_burn!(oz)
+
+
 ##
 using CairoMakie, LaTeXStrings, MathTeXEngine
 basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
@@ -315,14 +338,33 @@ set_theme!(basic_theme)
 ##
 ### Plot the history
 f = Figure();
-ax = Axis(f[1, 1]; xlabel=L"k_\textrm{B}T\,\textrm{(MeV)}", ylabel=L"\log_{10}(X)", xreversed=true, xscale=log10)
-history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
-lines!(ax, history[!, "T"] .* KERG ./ Constants.MEV_TO_ERGS, log10.(history[!, "n"]), label=L"n")
-lines!(ax, history[!, "T"] .* KERG ./ Constants.MEV_TO_ERGS, log10.(history[!, "H1"]), label=L"^1H")
-lines!(ax, history[!, "T"] .* KERG ./ Constants.MEV_TO_ERGS, log10.(history[!, "D2"]), label=L"^2H")
-lines!(ax, history[!, "T"] .* KERG ./ Constants.MEV_TO_ERGS, log10.(history[!, "He3"]), label=L"^3He")
-lines!(ax, history[!, "T"] .* KERG ./ Constants.MEV_TO_ERGS, log10.(history[!, "He4"]), label=L"^4He")
-lines!(ax, history[!, "T"] .* KERG ./ Constants.MEV_TO_ERGS, log10.(history[!, "Li7"]), label=L"^7Li")
-lines!(ax, history[!, "T"] .* KERG ./ Constants.MEV_TO_ERGS, log10.(history[!, "Be7"]), label=L"^7Be")
-axislegend(position=:lt)
+ax = Axis(f[1, 1]; xlabel=L"k_\textrm{B}T\,\textrm{(MeV)}", ylabel=L"\log_{10}(X)", xreversed=true, xscale=log10, yticksmirrored=false)
+history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5");
+temperature = history[!, "T"] .* KERG ./ Constants.MEV_TO_ERGS;
+lines!(ax, temperature, log10.(history[!, "n"]), label=L"n")
+lines!(ax, temperature, log10.(history[!, "H1"]), label=L"^1H")
+lines!(ax, temperature, log10.(history[!, "D2"]), label=L"^2H")
+lines!(ax, temperature, log10.(history[!, "He3"]), label=L"^3He")
+lines!(ax, temperature, log10.(history[!, "He4"]), label=L"^4He")
+lines!(ax, temperature, log10.(history[!, "Li7"]), label=L"^7Li")
+lines!(ax, temperature, log10.(history[!, "Be7"]), label=L"^7Be")
+axislegend(position=:lc)
+# hidespines!(ax, :r)
+
+# ax2 = Axis(f[1, 1]; yaxisposition=:right, ylabel=L"\log_{10}(T, ρ)",xreversed = true, xscale=log10, yticksmirrored=false)
+# hidespines!(ax2, :l, :t, :b)
+# hidexdecorations!(ax2, ticks=false)
+# lines!(ax2, temperature, log10.(history[!, "T"]), color=:red, label=L"T")
+# lines!(ax2, temperature, log10.(history[!, "ρ"]), color=:blue, label=L"ρ")
+# axislegend(position=:rb)
+ylims!(ax, -11, 1)
 f
+
+##  number fractions
+println("BBN results")
+println("He4 ", history[end, "He4"])
+println("number fractions")
+for el in ["D2", "He3", "Li7"]
+    massfraction = history[end, el]
+    println(el, " ", massfraction / (Chem.isotope_list[Symbol(el)].mass * history[end, "H1"]))
+end
