@@ -38,7 +38,7 @@ function DualGrid(gridpath::String, Xzams_ratio::Float64, Xtams::Float64, nbZeta
     R_dual         = ForwardDiff.Dual{}(100*RSUN,0.0,0.0,0.0,0.0,1.0)
     inititial_params_names = [:logM, :X, :Z, :Dfraction, :R]
     all_logMs = []
-    only_use_these_logMs =[]# [0.0,0.02]; only_use_these_logMs = [0.0]
+    only_use_these_logMs = -1.0:0.05:1.0 # [0.0,0.02]; only_use_these_logMs = [0.0]
     for i in 1:N
         historypath = joinpath(gridpath, historypaths[i])
         profilepath = joinpath(gridpath, profilepaths[i])
@@ -70,8 +70,7 @@ end
 ##
 ##
 dualGrid = DualGrid(gridpath, 0.99, 0.01,150);
-isochrones = de.Isochrones(dualGrid,5; massrange = [0.0,0.2])
-isochrones = de.Isochrones(dualGrid,15)
+isochrones = de.Isochrones(dualGrid,15);
 ##
 fig = Figure(size=(1000,800))
 ax1 = Axis(fig[1,1], ylabel = L"$\log (L / L_\odot)$",  
@@ -93,4 +92,89 @@ ax1.xgridvisible = ax1.ygridvisible = true
 fig
 ##
 savepath = "Figures/isochrones_master.png"; save(savepath, fig; px_per_unit=3); @show savepath
+##
+
+
+######################################## CHECK THE GRID DENSITY
+struct Difference_with_JEMS
+    logM
+    diff_logL
+    diff_logT
+    diff_pyth
+    diff_tot
+    diff_max
+    zeta
+end
+function Difference_with_JEMS(interpolTrack::de.InterpolTrack, modeltrack::de.Track)
+    if interpolTrack.logM != modeltrack.logM
+       @warn "logM of modeltrack (=$modeltrack.logM) and interpoltrack (=$interpolTrack.logM) not the same"
+    end
+    if length(interpolTrack.zeta) != length(modeltrack.zeta)
+        throw(ArgumentError("Not the same zeta sampling"))
+    end
+    diff_logL = modeltrack.logL_val - interpolTrack.logL_val; logL_norm = maximum(abs.(diff_logL)) 
+    diff_logT = modeltrack.logT_val - interpolTrack.logT_val; logT_norm = maximum(abs.(diff_logT))
+    diff_pyth = sqrt.((diff_logL/logL_norm).^2 .+ (diff_logT/logT_norm).^2); 
+    diff_tot = sum(diff_pyth)
+    weight_L = 1 / abs(modeltrack.logL_val[end] - modeltrack.logL_val[1])
+    weight_T = 1 / abs(modeltrack.logT_val[end] - modeltrack.logT_val[1])
+    factor_L = weight_L / (weight_L + weight_T); factor_T = weight_T / (weight_L + weight_T)
+    diff_pyth = sqrt.((diff_logL*factor_L).^2 .+ (diff_logT*factor_T).^2); 
+    diff_tot = sum(diff_pyth); diff_max = maximum(diff_pyth)
+    return Difference_with_JEMS(interpolTrack.logM, diff_logL, diff_logT, diff_pyth, diff_tot, diff_max, interpolTrack.zeta)
+end
+
+function max_diff(gridTrack_down::de.Track, gridTrack_middle::de.Track, gridTrack_up::de.Track; nb_tracks_between = 20)
+    logM = gridTrack_middle.logM
+    interpolTrack = de.InterpolTrack(gridTrack_down, gridTrack_up, logM)
+    diff = Difference_with_JEMS(interpolTrack, gridTrack_middle)
+    largest_diff = diff.diff_max
+    return largest_diff
+end
+
+function max_diff(dualGrid::de.DualGrid, leap = 1)
+    logMs = sort(dualGrid.logMs)
+    max_diffs = Vector{Float64}()
+    max_logMs = Vector{Float64}()
+    for i in 1+leap:length(logMs)-leap
+        logM_down = logMs[i-leap]; logM_middle = logMs[i]; logM_up = logMs[i+leap]
+        if round(logM_up - logM_middle,digits=2) != round(logM_middle - logM_down,digits=2)
+            println("Skipping logM = $logM_middle")
+            continue
+        end
+        gridTrack_down = dualGrid.modelTracks[logM_down]
+        gridTrack_middle = dualGrid.modelTracks[logM_middle]
+        gridTrack_up = dualGrid.modelTracks[logM_up]
+        largest_diff = max_diff(gridTrack_down, gridTrack_middle, gridTrack_up)
+        push!(max_diffs, largest_diff); push!(max_logMs, logM_middle)
+        println(" logM = $logM_middle, largest_diff = $largest_diff")
+    end
+    return max_logMs, max_diffs
+end
+##
+
+
+fig = Figure(size=(900,300))
+ax = Axis(fig[1,1], xlabel = L"$\log M$", ylabel = L" $\eta$")
+#scatter!(ax, max_logMs, log10.(max_diffs))
+
+max_logMs, max_diffs  =  max_diff(dualGrid,6);
+scatter!(ax, max_logMs, max_diffs, markersize=20,color=:black, label = L"$\pm 0.3$")
+
+max_logMs, max_diffs  =  max_diff(dualGrid,4);
+scatter!(ax, max_logMs, max_diffs, markersize=20,color=:green, label = L"$\pm 0.2$",marker=:cross)
+
+max_logMs, max_diffs  =  max_diff(dualGrid,2);
+scatter!(ax, max_logMs, max_diffs, markersize=20,color=:red, label = L"$\pm 0.1$",marker=:x)
+
+max_logMs, max_diffs  =  max_diff(dualGrid,1);
+scatter!(ax, max_logMs, max_diffs, markersize=15,color=:blue, label = L"$\pm 0.05$",marker=:diamond)
+
+
+
+vlines!(ax, dualGrid.logMs, color=:black, linewidth=2, alpha=0.1)
+leg = Legend(fig[1,2], ax)
+fig
+##
+savepath = "Figures/DSE_max_diffs_ifv_mass.png"; save(savepath, fig; px_per_unit=3); @show savepath
 ##

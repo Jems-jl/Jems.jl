@@ -237,6 +237,24 @@ function InterpolTrack(track1::Track, track2::Track, logM_wanted)
     return InterpolTrack(track_down, extrapoltrack_from_down, track_up, extrapoltrack_from_up, logM_wanted, logL_val, logT_val, zeta)
 end
 
+function InterpolTrack_dotter(track1::Track, track2::Track, logM_wanted)
+    logM1 = track1.logM ; logM2 = track2.logM
+    if !in_between(logM1, logM_wanted, logM2)
+        throw(ErrorException("Wanted logM is not in between the two tracks, interpolation not possible"))
+    end
+    if length(track1.zeta) != length(track2.zeta)
+        throw(ErrorException("Tracks do not have the same zeta sampling, interpolation not possible"))
+    end
+    track_down = logM1 < logM2 ? track1 : track2; track_up = logM1 < logM2 ? track2 : track1
+    delta_logM_down = logM_wanted - track_down.logM; delta_logM_up = logM_wanted - track_up.logM
+    weight_up = 1 / abs(delta_logM_down); weight_down = 1 / abs(delta_logM_up)
+    total_weight = weight_up + weight_down
+    logL_val = (weight_up * track_down.logL_val + weight_down * track_up.logL_val) / total_weight
+    logT_val = (weight_up * track_down.logT_val + weight_down * track_up.logT_val) / total_weight
+    zeta = track_down.zeta
+    return InterpolTrack(track_down, ExtrapolTrack(track_down, delta_logM_down), track_up, ExtrapolTrack(track_up, delta_logM_up), logM_wanted, logL_val, logT_val, zeta)
+end
+
 function plot!(interpolTrack::InterpolTrack, ax; scatter=true, kwargs...)
     plotfunc = scatter ? scatter! : lines!
     plotfunc(ax, interpolTrack.logT_val, interpolTrack.logL_val; kwargs...)
@@ -357,34 +375,35 @@ struct Isochrones
     logT::Dict{Float64, Vector{Float64}}
 end
 
-function make_interpoltracks(track1::Track, track2::Track, nb_masses_between::Int)
+function make_interpoltracks(track1::Track, track2::Track, nb_masses_between::Int; do_linear_dotter = false)
     logM1 = track1.logM; logM2 = track2.logM
     track_down = logM1 < logM2 ? track1 : track2; track_up = logM1 < logM2 ? track2 : track1
     masses = range(logM1, logM2, length=nb_masses_between+2)[2:end-1] #tja de randen doen nu ook mee
     interpolTracks = Vector{InterpolTrack}()
+    constructor = do_linear_dotter ? InterpolTrack_dotter : InterpolTrack
     for logM in masses
-        push!(interpolTracks, InterpolTrack(track_down, track_up, logM))
+        push!(interpolTracks, constructor(track_down, track_up, logM))
     end
     return interpolTracks
 end
 
-function make_interpoltracks(dualGrid::DualGrid, nb_masses_between)
+function make_interpoltracks(dualGrid::DualGrid, nb_masses_between; do_linear_dotter = false)
     logMs = sort(dualGrid.logMs)
     all_interpoltracks = []
     for i in 1:length(logMs)-1
         logM_down = logMs[i]; logM_up = logMs[i+1]
         track1 = dualGrid.modelTracks[logM_down]; track2 = dualGrid.modelTracks[logM_up]
-        interpolTracks = make_interpoltracks(track1, track2, nb_masses_between)
+        interpolTracks = make_interpoltracks(track1, track2, nb_masses_between; do_linear_dotter = do_linear_dotter)
         all_interpoltracks = vcat(all_interpoltracks, interpolTracks)
     end
     return all_interpoltracks
 end
 
-function Isochrones(dualGrid::DualGrid, nb_masses_between::Int; massrange = nothing)
+function Isochrones(dualGrid::DualGrid, nb_masses_between::Int; massrange = nothing, do_linear_dotter = false)
     if massrange != nothing
         dualGrid = DualGrid_cut(dualGrid, massrange[1], massrange[2])
     end
-    all_interpoltracks = make_interpoltracks(dualGrid, nb_masses_between)
+    all_interpoltracks = make_interpoltracks(dualGrid, nb_masses_between; do_linear_dotter = do_linear_dotter)
     logLs = Dict{Float64, Vector{Float64}}(); logTs = Dict{Float64, Vector{Float64}}()
     zetas = all_interpoltracks[1].zeta
 

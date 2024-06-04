@@ -36,7 +36,7 @@ remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 nz = 1000
 nextra = 100
-eos = EOS.IdealEOS(true)
+eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 turbulence = Turbulence.BasicMLT(1.0)
 sm = StellarModel(varnames, structure_equations, nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
@@ -121,6 +121,8 @@ open("example_options.toml", "w") do file
           newton_max_iter = 30
           scale_max_correction = 0.1
           report_solver_progress = false
+          relative_correction_tolerance = 1e8
+          maximum_residual_tolerance =  5e-4    
 
           [timestep]
           dt_max_increase = 1.5
@@ -131,7 +133,7 @@ open("example_options.toml", "w") do file
           [termination]
           max_model_number = 4000
           max_center_T = 1e8
-          min_center_X = 1e-10
+          min_center_X = -1.0
 
           [plotting]
           do_plotting = false
@@ -165,7 +167,7 @@ rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            10^-0.1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+                                            1.0* MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 #StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7381,0.0134, 0.0, Chem.abundance_lists[:ASG_09], 
 #                                            10^-0.1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 
