@@ -78,37 +78,28 @@ function T(oz::OneZone)
 end
 
 t₀ = 13.797e9 * SECYEAR
-T_CMB = 2.72548  # K
 a_eq = 1.0 / (1 + 3387)
 t_eq = t₀ * (a_eq)^1.5
 
-function T_new(oz::OneZone)
-    return T_CMB * sqrt(t_eq / oz.props.time) / a_eq
-end
-
 Ω_b = 0.02237
 ρ_today = Ω_b * 1.8788e-29  # g/cm^3
-function ρ_new(oz::OneZone)
-    return ρ_today * (t_eq / oz.props.time)^(1.5) / (a_eq^3)
-end
-
-conversion = KERG^4 / (Constants.HBAR^3 * CLIGHT^5)
 function ρ(oz::OneZone)
-    photondensity = pi^2 / 15 * (oz.props.T)^4 * conversion
-    return photondensity * 6.23e-10  # baryon density
+    return ρ_today * (t_eq / oz.props.time)^(1.5) / (a_eq^3)
 end
 
 oz = OneZone(equation_composition, net);
 
 ## IC
 oz.props.time = 5.0  # s
-oz.props.T = T_new(oz)  # K
-oz.props.ρ = ρ_new(oz)  # g cm^{-3}
+oz.props.T = T(oz)  # K
+oz.props.ρ = ρ(oz)  # g cm^{-3}
 oz.props.ind_vars = zeros(oz.network.nspecies)
-oz.props.ind_vars[oz.network.xa_index[:H1]] = 0.85
-oz.props.ind_vars[oz.network.xa_index[:n]] = 0.15
+# oz.props.ind_vars .= 1e-30
+
+oz.props.ind_vars[oz.network.xa_index[:H1]] = 0.84
+oz.props.ind_vars[oz.network.xa_index[:n]] = 0.16
 # oz.props.ind_vars[oz.network.xa_index[:n]] = 1.0
-oz.props.dt_next = 1.0
+oz.props.dt_next = 1e-1
 oz.props.model_number = 0
 
 # ## first eval setup
@@ -153,8 +144,8 @@ function do_one_zone_burn!(oz::OneZone)
         retry_step = false
         oz.props = deepcopy(oz.prv_step_props)
         oz.props.dt = oz.prv_step_props.dt_next  # dt of this step becomes dt_next of previous
-        oz.props.T = T_new(oz)
-        oz.props.ρ = ρ_new(oz)
+        oz.props.T = T(oz)
+        oz.props.ρ = ρ(oz)
 
         corr = oz.solver_data.solver_corr
         equs = oz.solver_data.eqs_numbers
@@ -288,13 +279,13 @@ open("example_options.toml", "w") do file
           solver_progress_iter = 1
 
           [timestep]
-          dt_max_increase = 2.0
-          delta_Xc_limit = 0.005
-          max_dt = 1e-7
+          dt_max_increase = 1.1
+          delta_Xc_limit = 0.001
+          max_dt = 1e-1
 
           [termination]
-          max_model_number = 2000
-          max_time = 3e-3
+          max_model_number = 5000
+          max_time = 5e-3
 
           [plotting]
           do_plotting = false
