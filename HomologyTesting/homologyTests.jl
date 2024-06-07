@@ -102,6 +102,7 @@ end
 overwrite = true
 
 logmassrange = (-0.1:0.1:0.8)
+logmassrange = (0.8:0.1:0.9)
 #Xrange = (0.6:0.05:0.7)
 Xrange = [0.7]
 #ogmassrange = (-1.0:0.1:0.7)
