@@ -12,7 +12,9 @@ DigontoTesting
 example_options.toml
 docs/build
 alloc-profile.pb.gz
-
+*.hdf5
 NuclearBurning.md
 developing/test*
 profile.pb.gz
+
+
