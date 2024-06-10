@@ -84,8 +84,6 @@ ax = Axis(f[1,1], xlabel= L"Particle height $y$", ylabel= L"\partial t / \partia
 lines!(ax, y_interps,(d -> d.partials[1]).(t_interps), color = :blue, size = 0.1, label="Interpolation")
 lines!(ax, y_interps,analytical_dt_dh.(y_interps, 10), color = :red, linewidth = 2, linestyle = :dash, label="Analytical")
 axislegend()
-
-
 f
 ##
 fig = Figure(size=(500, 600))

@@ -208,9 +208,9 @@ end
 
 struct InterpolTrack
     track_down::Track
-    extrapoltrack_down::ExtrapolTrack
+    extrapoltrack_down
     track_up::Track
-    extrapoltrack_up::ExtrapolTrack
+    extrapoltrack_up
     logM
     logL_val
     logT_val

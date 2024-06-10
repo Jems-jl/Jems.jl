@@ -112,7 +112,17 @@ logL_val_ms2 = Vector{Float64}(); logL_partial_ms2  = Vector{Float64}(); logL_ms
 for ( (logM,model), i) in zip(models, 1:N)
     if logM == -0.85 continue end
     try
-        T_pms = 10^(logM < -0.25 ? 3.0 : 3.8)
+        power = 0
+        if logM < -0.25
+            power = 3.0
+        elseif -0.5 <= logM < 0.25
+            power = 3.8
+        elseif 0.25 <= logM < 0.5
+            power = 4.0
+        elseif 0.5 <= logM
+            power = 4.1
+        end
+        T_pms = 10^power
         pms = de.find_index(T_pms, model.history, "T_surf"); @show pms
         logL = log10(de.param1_to_param2(T_pms, model.history, "T_surf","L_surf"))
         push!(logL_val_pms,logL.value); push!(logL_partial_pms,logL.partials[1]); push!(logL_pms,logL);
@@ -157,34 +167,35 @@ dlogL_dX(X) =(-20/(3+5*X) - 1 /(1+X))/log(10)
 dlogL_dX(0.7146846)
 
 ## ###### FIGUUR MASS LUMINOSITY 
-fig = Figure(size=(1300,1100));
+fig = Figure(size=(1200,1000));
 ax1 = Axis(fig[1,1],xlabel=L"\log M/M_\odot",ylabel=L"\log( \frac{L}{L_\odot})")
 ax1.xlabelvisible=false; ax1.xticklabelsvisible=false
-scatter!(ax1, logM_zams, logL_val_zams,markersize=15,label="ZAMS",color=:yellow)
+scatter!(ax1, logM_zams, logL_val_zams,markersize=15,label="ZAMS",color=:lightblue)
 scatter!(ax1, logM_pms, logL_val_pms,markersize=15,label="PMS",color=:blue, marker=:star8)
-scatter!(ax1, logM_ms1, logL_val_ms1,markersize=15,label="X=0.1",color=:purple, marker=:diamond)
+#scatter!(ax1, logM_ms1, logL_val_ms1,markersize=15,label="X=0.1",color=:purple, marker=:diamond)
 scatter!(ax1, logM_tams, logL_val_tams,markersize=15,label="TAMS",color=:black, marker=:xcross)
 ax2 = Axis(fig[2,1],ylabel=L"\frac{\partial \log L}{\partial \log M_\text{in}}")
 ax2.xlabelvisible=false; ax2.xticklabelsvisible=false
-scatter!(ax2, logM_zams, logL_partial_zams,markersize=25,label="ZAMS",color=:yellow)
+scatter!(ax2, logM_zams, logL_partial_zams,markersize=25,label="ZAMS",color=:lightblue)
 scatter!(ax2, logM_tams, logL_partial_tams,markersize=15,label="TAMS",color=:black, marker=:xcross)
 scatter!(ax2, logM_pms, logL_partial_pms,markersize=15,label="PMS",color=:blue, marker=:star8)
-scatter!(ax2, logM_ms1, logL_partial_ms1,markersize=15,label="X=0.5",color=:purple, marker=:diamond)
+#scatter!(ax2, logM_ms1, logL_partial_ms1,markersize=15,label="X=0.5",color=:purple, marker=:diamond)
 linkxaxes!(ax1, ax2)
 axislegend(ax1, position=:lt)#; axislegend(ax2, position=:lt)
-ax3 = Axis(fig[3,1],ylabel=L"\frac{\partial \log L}{\partial X_{\text{in}}}")
-linkxaxes!(ax1, ax3); ax3.xlabelvisible=false; ax3.xticklabelsvisible=false
-scatter!(ax3, logM_zams, (d->d.partials[2]).(logL_zams),markersize=25,label="ZAMS",color=:yellow)
+ax3 = Axis(fig[3,1],ylabel=L"\frac{\partial \log L}{\partial X_{\text{in}}}",xlabel=L"\log M/M_\odot")
+linkxaxes!(ax1, ax3); ax3.xlabelvisible=true; ax3.xticklabelsvisible=true
+scatter!(ax3, logM_zams, (d->d.partials[2]).(logL_zams),markersize=25,label="ZAMS",color=:lightblue)
 scatter!(ax3, logM_tams, (d->d.partials[2]).(logL_tams),markersize=15,label="TAMS",color=:black, marker=:xcross)
 scatter!(ax3, logM_pms, (d->d.partials[2]).(logL_pms),markersize=15,label="PMS",color=:blue, marker=:star8)
-scatter!(ax3, logM_ms1, (d->d.partials[2]).(logL_ms1),markersize=15,label="X=0.5",color=:purple, marker=:diamond)
-ax4 = Axis(fig[4,1],xlabel=L"\log M/M_\odot",ylabel=L"\frac{\partial \log L}{\partial Z_{\text{in}}}")
-linkxaxes!(ax1, ax4)
-scatter!(ax4, logM_zams, (d->d.partials[3]).(logL_zams),markersize=25,label="ZAMS",color=:yellow)
-scatter!(ax4, logM_tams, (d->d.partials[3]).(logL_tams),markersize=15,label="TAMS",color=:black, marker=:xcross)
-scatter!(ax4, logM_pms, (d->d.partials[3]).(logL_pms),markersize=15,label="PMS",color=:blue, marker=:star8)
-scatter!(ax4, logM_ms1, (d->d.partials[3]).(logL_ms1),markersize=15,label="X=0.5",color=:purple, marker=:diamond)
-fig
+#ylims!(ax2,2,3.1)
+#scatter!(ax3, logM_ms1, (d->d.partials[2]).(logL_ms1),markersize=15,label="X=0.5",color=:purple, marker=:diamond)
+#ax4 = Axis(fig[4,1],xlabel=L"\log M/M_\odot",ylabel=L"\frac{\partial \log L}{\partial Z_{\text{in}}}")
+#linkxaxes!(ax1, ax4)
+#scatter!(ax4, logM_zams, (d->d.partials[3]).(logL_zams),markersize=25,label="ZAMS",color=:yellow)
+#scatter!(ax4, logM_tams, (d->d.partials[3]).(logL_tams),markersize=15,label="TAMS",color=:black, marker=:xcross)
+#scatter!(ax4, logM_pms, (d->d.partials[3]).(logL_pms),markersize=15,label="PMS",color=:blue, marker=:star8)
+#scatter!(ax4, logM_ms1, (d->d.partials[3]).(logL_ms1),markersize=15,label="X=0.5",color=:purple, marker=:diamond)
+fig 
 ##save fig
 savepath = "Figures/Dualgrid_L_vs_MXZ.png"
 save(savepath, fig, px_per_unit=5); @show savepath

@@ -156,21 +156,23 @@ heights = collect(0.3:0.15:15)
 run = Run(heights)
 ##
 fig = Figure(size = (1500, 1000))
-ax = Axis(fig[2, 1]; xlabel=L"h \, \mathrm{(m)}", ylabel=L"T(h)")
+ax = Axis(fig[1, 1]; ylabel=L"T(h)",xticklabelsvisible=false)
 scatter!(ax, heights, run.T_interpo_val; label="Interpolated", color=:blue)
 scatter!(ax, heights, run.T_nearest_val; label="Nearest neighbour", color=:red, marker=:cross, markersize=15)
-lines!(ax, heights, run.T_analytical_val; label="Analytical", alpha = 0.3, color=:gray)
+lines!(ax, heights, run.T_analytical_val; label="Analytical", alpha = 0.8,linestyle=:dash, color=:orange)
 axislegend(ax,position=:rb)
-ax2 = Axis(fig[1, 1];xticklabelsvisible=false,ylabel=L"\partial T / \partial h")
+ax2 = Axis(fig[2, 1];xticklabelsvisible=true,ylabel=L"\partial T / \partial h",xlabel=L"h \, \mathrm{(m)}")
 linkxaxes!(ax, ax2)
 #scatter!(ax2, heights, run.diffs_interpo; label="Interpolated", color=:blue)
 scatter!(ax2, heights, run.T_interpo_partial; label="Partial from interpolated dual", color=:blue)
 #scatter!(ax2, heights, run.diffs_nearest; label=L"Nearest neighbour $(T_{i+1}-T_i)/(h_{i+1}-h_i)$", color=:red, marker=:cross, markersize=15)
 scatter!(ax2, heights, run.T_nearest_partial; label="Partial from nearest neighbour dual", color=:red, marker=:cross, markersize=15)
 #lines!(ax2, heights, run.diffs_nearest; color=:red,alpha=0.1)
-lines!(ax2, heights, run.T_analytical_partial; alpha=0.3,label="Analytical partial", color=:gray)
+lines!(ax2, heights, run.T_analytical_partial; alpha=0.8,linestyle=:dash,label="Analytical partial", color=:orange)
 #scatter!(ax2, heights, run.T_interpo_partial; label="Interpolated partial", color=:orange)
 axislegend(ax2)
 #leg = Legend(fig[0,1], ax2, position=:lt,fontsize=20,orientation=:horizontal,tellwidth =false)
 fig
+##
+savepath = "Figures/partial_plot_pm.png"; save(savepath, fig; px_per_unit = 3); @show savepath
 ##
