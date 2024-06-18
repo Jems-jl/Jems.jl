@@ -77,27 +77,28 @@ The previous code leaves everything ready to solve the linearized system.
 For now we make use of a the serial Thomas algorithm for tridiagonal block matrices.
 We first show how long it takes to evaluate the Jacobian matrix. This requires two
 steps, the first is to evaluate properties across the model (for example, the EOS)
-and then evaluate all differential equations.
+and then evaluate all differential equations and fill the Jacobian.
 =#
 @benchmark begin
     StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
+end
+##
+
+@benchmark begin
     Evolution.eval_jacobian_eqs!($sm)
 end
 
 ##
 #=
 
-To get an idea of how much a complete iteration of the solver takes, we need to benchmark
-both the calculation of the Jacobian and the matrix solver. This is because the matrix solver
-is destructive, as it uses the allocated Jacobian to store intermediate results. The time it takes
-to run only the matrix solver can be determined by substracting the previous benchmark from this one.
+To get an idea of how much a complete iteration of the solver takes, we need to Perform
+the jacobian evaluation as a setup for the benchmark. This is because the solver
+destroys the Jacobian to perform in-place operations.
 =#
 
 @benchmark begin
-    StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
-    Evolution.eval_jacobian_eqs!($sm)
     Evolution.thomas_algorithm!($sm)
-end
+end setup=(Evolution.eval_jacobian_eqs!($sm))
 
 ##
 #=

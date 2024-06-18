@@ -53,6 +53,7 @@ Output:
 """
 function get_reaction_rate(reaction::KippReactionRate, T::T1, ρ::T2, xa::AbstractVector{TT},
                            xa_index::Dict{Symbol,Int})::TT where {TT,T1,T2}
+    ϵnuc::TT = 0
     if reaction.name == :kipp_pp
         phi = 1
         f_11 = 1

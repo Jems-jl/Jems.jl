@@ -195,13 +195,14 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
     reactions_in = sm.network.species_reactions_in[sm.network.xa_index[iso_name]]
     for reaction_in in reactions_in
         rate = get_00_dual(sm.props.rates[k,reaction_in[1]])
-        dXdt_nuc = dXdt_nuc - rate*reaction_in[2]*Chem.isotope_list[iso_name].A*AMU
+        dXdt_nuc = dXdt_nuc - rate*reaction_in[2]
     end
     reactions_out = sm.network.species_reactions_out[sm.network.xa_index[iso_name]]
     for reaction_out in reactions_out
         rate = get_00_dual(sm.props.rates[k,reaction_out[1]])
-        dXdt_nuc = dXdt_nuc + rate*reaction_out[2]*Chem.isotope_list[iso_name].A*AMU
+        dXdt_nuc = dXdt_nuc + rate*reaction_out[2]
     end
+    dXdt_nuc = dXdt_nuc*Chem.isotope_list[iso_name].A*AMU
 
     #mixing terms
     flux_down::typeof(X00) = 0
