@@ -64,9 +64,6 @@ function DualGrid(gridpath::String, Xzams_ratio::Float64, Xtams::Float64, nbZeta
     end
     return de.DualGrid(modeltracks, models, all_logMs)
 end
-
-
-
 ##
 ##
 dualGrid = DualGrid(gridpath, 0.99, 0.01,150);

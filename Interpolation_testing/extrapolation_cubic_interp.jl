@@ -142,3 +142,5 @@ fig[3,1:3] = Legend(fig, ax3,orientation=:horizontal,tellwidth=true)
 fig
 ##
 
+func(X) = (-1/log(10) ) * (20/(3+5*X)) - (1 / log(10)) * (1/(1+X))
+func(0.7154)

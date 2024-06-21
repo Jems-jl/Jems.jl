@@ -148,6 +148,7 @@ de.plot!(extrapolGrid_00, ax2; plot_original=false, scatter=false,linewidth=8,al
 for logM in logMs 
     de.plot_arrows!(ax,modeltracks[0.0],0.0:0.1:1,logM; linewidth=0.1) 
     de.plot_arrows!(ax2,modeltracks[0.0],0.0:0.01:1,logM; linewidth=0.2) 
+    de.plot!(modeltracks[logM], ax; scatter=false,linewidth=2,color=:black)
 end
 
 de.plot_arrows!(ax, modeltracks[0.0],[0.0],-1; linewidth=5,color=:red)
