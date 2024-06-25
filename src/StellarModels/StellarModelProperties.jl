@@ -23,23 +23,23 @@ using Jems.Turbulence
     lnT::Vector{TCellDualData}  # [K]
     lnρ::Vector{TCellDualData}  # [g cm^-3]
     lnr::Vector{TCellDualData}  # [cm]
-    L::Vector{TCellDualData}    # Lsun
+    L::Vector{TCellDualData}    # [Lsun]
     xa::Matrix{TCellDualData}   # dim-less
     xa_dual::Matrix{TDual}      # only the cell duals wrt itself
 
     # opacity (cell centered)
-    κ::Vector{TCellDualData}  # cm^2 g^-1
+    κ::Vector{TCellDualData}  # [cm^2 g^-1]
     ∇ᵣ::Vector{TCellDualData}  # dim-less
 
     # rates (cell centered)
-    rates::Matrix{TCellDualData}  # g^-1 s^-1
+    rates::Matrix{TCellDualData}  # [g^-1 s^-1]
     rates_dual::Matrix{TDual}     # only cell duals wrt itself
 
     # face values
     lnP_face::Vector{TFaceDualData}  # [dyne]
     lnT_face::Vector{TFaceDualData}  # [K]
     lnρ_face::Vector{TFaceDualData}  # [g cm^-3]
-    κ_face::Vector{TFaceDualData}    # cm^2 g^-1
+    κ_face::Vector{TFaceDualData}    # [cm^2 g^-1]
     ∇ₐ_face::Vector{TFaceDualData}   # dim-less
     ∇ᵣ_face::Vector{TFaceDualData}   # dim-less
 
@@ -53,6 +53,12 @@ using Jems.Turbulence
     ϵ_nuc::Vector{TN}
 
     mixing_type::Vector{Symbol}
+
+    # rotation
+    i_rot::Vector{TCellDualData}  # [cm^2]
+    j_rot::Vector{TCellDualData}  # [cm^2 s^-1]
+    ω::Vector{TCellDualData}      # [(rad) s^-1]
+    ν_ω::Vector{TCellDualData}
 end
 
 function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, nspecies::Int, vari::Dict{Symbol,Int},
