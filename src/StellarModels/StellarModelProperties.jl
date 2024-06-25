@@ -132,32 +132,33 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
         end
     end
 
+    i_rot = Vector{CDDTYPE}(undef, nz+nextra)
+    j_rot = Vector{CDDTYPE}(undef, nz+nextra)
+    ω = Vector{CDDTYPE}(undef, nz+nextra)
+    ν_ω = Vector{CDDTYPE}(undef, nz+nextra)
+    for k in 1:(nz+nextra)
+        i_rot[k] = CellDualData(nvars, TN)
+        j_rot[k] = CellDualData(nvars, TN)
+        ω[k] = CellDualData(nvars, TN)
+        ν_ω[k] = CellDualData(nvars, TN)
+    end
+
     return StellarModelProperties(; ind_vars=ind_vars, model_number=zero(Int),
                                   nz=nz, m=m, dm=dm, mstar=zero(TN),
                                   dt=zero(TN), dt_next=zero(TN), time=zero(TN),
                                   eos_res_dual=eos_res_dual,
                                   eos_res=eos_res,
-                                  turb_res_dual=turb_res_dual,
-                                  turb_res=turb_res,
+                                  turb_res_dual=turb_res_dual, turb_res=turb_res,
                                   flux_term=flux_term,
-                                  lnT=lnT,
-                                  lnρ=lnρ,
-                                  lnr=lnr,
-                                  L=L,
-                                  xa=xa,
-                                  xa_dual=xa_dual,
-                                  lnP_face=lnP_face,
-                                  lnρ_face=lnρ_face,
-                                  lnT_face=lnT_face,
-                                  κ_face=κ_face,
-                                  ∇ₐ_face=∇ₐ_face,
-                                  ∇ᵣ_face=∇ᵣ_face,
-                                  ∇ᵣ=∇ᵣ,
-                                  κ=κ,
-                                  rates=rates,
+                                  lnT=lnT, lnρ=lnρ, lnr=lnr, L=L,
+                                  xa=xa, xa_dual=xa_dual,
+                                  lnP_face=lnP_face, lnρ_face=lnρ_face, lnT_face=lnT_face,
+                                  κ_face=κ_face, ∇ₐ_face=∇ₐ_face, ∇ᵣ_face=∇ᵣ_face,
+                                  ∇ᵣ=∇ᵣ, κ=κ,
+                                  rates=rates, rates_dual=rates_dual,
                                   ϵ_nuc=zeros(nz + nextra),
-                                  rates_dual=rates_dual,
-                                  mixing_type=mixing_type)
+                                  mixing_type=mixing_type,
+                                  i_rot=i_rot, j_rot=j_rot, ω=ω, ν_ω=ν_ω)
 end
 
 """
@@ -174,6 +175,9 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
     lnρ_i = sm.vari[:lnρ]
     lnr_i = sm.vari[:lnr]
     L_i = sm.vari[:lum]
+    if sm.doing_rotation
+        jrot_i = sm.vari[:jrot]
+    end
 
     Threads.@threads for i = 1:(props.nz)
         # update independent variables
@@ -181,6 +185,9 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         update_cell_dual_data_value!(props.lnρ[i], props.ind_vars[(i-1)*(sm.nvars)+lnρ_i])
         update_cell_dual_data_value!(props.lnr[i], props.ind_vars[(i-1)*(sm.nvars)+lnr_i])
         update_cell_dual_data_value!(props.L[i], props.ind_vars[(i-1)*(sm.nvars)+L_i])
+        if sm.doing_rotation
+            update_cell_dual_data_value!(props.j_rot[i], props.ind_vars[(i-1)*(sm.nvars)+jrot_i])
+        end
         for j in 1:sm.network.nspecies
             update_cell_dual_data_value!(props.xa[i,j],
                             props.ind_vars[(i-1)*(sm.nvars)+(sm.nvars - sm.network.nspecies + j)])
@@ -244,6 +251,12 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
             props.mixing_type[i] = :no_mixing
         else
             props.mixing_type[i] = :convection
+        end
+
+        if sm.doing_rotation
+            update_cell_dual_data!(props.i_rot[i], get_i_rot(sm, k))
+            update_cell_dual_data!(props.ω[i], get_ω(sm, k))
+            update_cell_dual_data!(props.ν_ω[i], get_ν_ω(sm, k))
         end
     end
 

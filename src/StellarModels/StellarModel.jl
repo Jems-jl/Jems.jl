@@ -21,6 +21,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     var_scaling::Vector{Symbol}
     vari::Dict{Symbol,Int}  # Maps variable names to ind_vars vector
     nextra::Int  # Number of extra zones used to avoid constant reallocation while remeshing
+    doing_rotation::Bool  # flag that remembers whether rotation is included in nvars
 
     ## Properties related to the solver ##
     # original vector of functions that are solved. These are turned into TypeStableEquations.
