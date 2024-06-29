@@ -78,10 +78,10 @@ end
 Updates all data of the CellDualData object to the given value.
 """
 function update_cell_dual_data_value!(cd::CellDualData, value)
-    cd.diff_cache_cell.dual_data[1] = value
-    cd.diff_cache_m1.dual_data[1] = value
-    cd.diff_cache_00.dual_data[1] = value
-    cd.diff_cache_p1.dual_data[1] = value
+    @inbounds cd.diff_cache_cell.dual_data[1] = value
+    @inbounds cd.diff_cache_m1.dual_data[1] = value
+    @inbounds cd.diff_cache_00.dual_data[1] = value
+    @inbounds cd.diff_cache_p1.dual_data[1] = value
 end
 
 """
@@ -92,12 +92,10 @@ Updates all data of the CellDualData object to the data of a given dual number.
 function update_cell_dual_data!(cd::CellDualData{SIZE1, SIZE2, TNUMBER}, dual::TDSC) where {SIZE1, SIZE2, TNUMBER, TDSC}
     update_cell_dual_data_value!(cd, dual.value)
     nvars = SIZE1-1
-    for i in 1:nvars
-        cd.diff_cache_cell.dual_data[1+i] = dual.partials[i]
-        cd.diff_cache_m1.dual_data[1+i] = dual.partials[i]
-        cd.diff_cache_00.dual_data[1+nvars+i] = dual.partials[i]
-        cd.diff_cache_p1.dual_data[1+2*nvars+i] = dual.partials[i]
-    end
+    @inbounds @views cd.diff_cache_cell.dual_data[2:1+nvars] .= dual.partials[:]
+    @inbounds @views cd.diff_cache_m1.dual_data[2:1+nvars] .= dual.partials[:]
+    @inbounds @views cd.diff_cache_00.dual_data[2+nvars:1+2*nvars] .= dual.partials[:]
+    @inbounds @views cd.diff_cache_p1.dual_data[2+2*nvars:1+3*nvars] .= dual.partials[:]
 end
 
 function get_value(cd::CellDualData)

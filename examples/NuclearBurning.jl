@@ -122,7 +122,7 @@ open("example_options.toml", "w") do file
           [solver]
           newton_max_iter_first_step = 1000
           initial_model_scale_max_correction = 0.2
-          newton_max_iter = 50
+          newton_max_iter = 20
           scale_max_correction = 0.1
 
           [timestep]

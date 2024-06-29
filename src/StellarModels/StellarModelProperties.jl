@@ -215,9 +215,9 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         κ_dual = get_opacity_resultsTρ(sm.opacity, lnT, lnρ, xa, sm.network.species_names)
         update_cell_dual_data!(props.κ[i], κ_dual)
 
-        ∇ᵣ_dual = 3 * get_00_dual(props.κ[i]) * get_00_dual(props.L[i]) * LSUN *
-                  exp(get_00_dual(props.eos_res[i].lnP)) /
-                  (16π * CRAD * CLIGHT * CGRAV * props.m[i] * exp(4 * get_00_dual(props.lnT[i])))
+        ∇ᵣ_dual = 3 * get_cell_dual(props.κ[i]) * get_cell_dual(props.L[i]) * LSUN *
+                  exp(get_cell_dual(props.eos_res[i].lnP)) /
+                  (16π * CRAD * CLIGHT * CGRAV * props.m[i] * exp(4 * get_cell_dual(props.lnT[i])))
         update_cell_dual_data!(props.∇ᵣ[i], ∇ᵣ_dual)
 
         # evaluate rates
