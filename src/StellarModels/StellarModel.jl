@@ -119,7 +119,7 @@ function StellarModel(var_names::Vector{Symbol}, var_scaling::Vector{Symbol},
     # create the stellar model
     sm = StellarModel(;nvars=nvars,
                       var_names=var_names_full, var_scaling=var_scaling_full,
-                      vari=vari, nextra=nextra,
+                      vari=vari, nextra=nextra, doing_rotation=:jrot in var_names,
                       solver_data = solver_data,
                       structure_equations_original=structure_equations,
                       structure_equations=tpe_stbl_funcs,
@@ -158,83 +158,4 @@ function uncycle_props!(sm::StellarModel)
     sm.props = sm.prv_step_props
     sm.prv_step_props = sm.start_step_props
     sm.start_step_props = temp_props
-end
-
-"""
-    adjusted_stellar_model_data(sm, new_nz::Int, new_nextra::Int)
-
-Returns a new copy of sm with an adjusted allocated size. This creates a full duplicate
-without removing the old stellar model, which is not very memory friendly. One
-possible optimization for the future. The new model is created to have `new_nz`
-zones with an extra padding of `new_nextra` zones to allow for remeshing.
-The new model will copy the contents of
-
-  - ind_vars
-  - mstar
-  - m
-  - dm
-  - time
-  - dt
-  - model_number
-  - psi, ssi, esi
-  - opt
-    As well as the nuclear network, opacity and EOS.
-"""
-function adjusted_stellar_model_data(sm, new_nz::Int, new_nextra::Int)
-    # verify that new size can contain old sm
-    if sm.nz > new_nz + new_nextra
-        throw(ArgumentError("Can't fit model of size nz=$(sm.nz) using new_nz=$(new_nz) and new_nextra=$(new_nextra)."))
-    end
-    #get var_names without species
-    var_names = sm.var_names[1:(sm.nvars - sm.network.nspecies)]
-
-    new_sm = StellarModel(var_names, sm.structure_equations_original, sm.composition_equation_original,
-                          new_nz, new_nextra, sm.remesh_split_functions,
-                          sm.network, sm.eos, sm.opacity, sm.turbulence)
-    new_sm.nz = sm.nz # If this needs to be adjusted it will be done by remeshing routines
-    new_sm.opt = sm.opt
-
-    # backup scalar quantities
-    new_sm.time = sm.time
-    new_sm.dt = sm.dt
-    new_sm.model_number = sm.model_number
-    new_sm.mstar = sm.mstar
-    new_sm.plt = sm.plt
-
-    new_sm.history_file = sm.history_file
-    new_sm.profiles_file = sm.profiles_file
-
-    # copy arrays
-    for i = 1:(sm.nz)
-        for j = 1:(sm.nvars)
-            new_sm.ind_vars[(i - 1) * sm.nvars + j] = sm.ind_vars[(i - 1) * sm.nvars + j]
-        end
-        new_sm.m[i] = sm.m[i]
-        new_sm.dm[i] = sm.dm[i]
-    end
-
-    # Copy StellarStepInfo objects
-    for (new_ssi, old_ssi) in [(new_sm.psi, sm.psi), (new_sm.ssi, sm.ssi), (new_sm.esi, sm.esi)]
-        new_ssi.nz = old_ssi.nz
-        new_ssi.time = old_ssi.time
-        new_ssi.dt = old_ssi.dt
-        new_ssi.model_number = old_ssi.model_number
-        new_ssi.mstar = old_ssi.mstar
-        for i = 1:(sm.nz)
-            for j = 1:(sm.nvars)
-                new_ssi.ind_vars[(i - 1) * sm.nvars + j] = old_ssi.ind_vars[(i - 1) * sm.nvars + j]
-            end
-            new_ssi.m[i] = old_ssi.m[i]
-            new_ssi.dm[i] = old_ssi.dm[i]
-            new_ssi.lnT[i] = old_ssi.lnT[i]
-            new_ssi.L[i] = old_ssi.L[i]
-            new_ssi.lnP[i] = old_ssi.lnP[i]
-            new_ssi.lnρ[i] = old_ssi.lnρ[i]
-            new_ssi.lnr[i] = old_ssi.lnr[i]
-            new_ssi.X[i] == old_ssi.X[i]
-            new_ssi.Y[i] == old_ssi.Y[i]
-        end
-    end
-
-    return new_sm
 end

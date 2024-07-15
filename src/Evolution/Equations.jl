@@ -176,7 +176,7 @@ function equationContinuity(sm::StellarModel, k::Int)
     return (expected_dr³_dm - actual_dr³_dm) * ρ₀  # times ρ to make eq. dim-less
 end
 
-function equation_j_rot(sm::StellarModel, k::Int)
+function equationJrot(sm::StellarModel, k::Int)
     jrot₀ = get_00_dual(sm.props.j_rot[k])
     r₀ = exp(get_00_dual(sm.props.lnr[k]))  # defined at outer face
     ρface₊ = exp(get_00_dual(sm.props.lnρ_face[k]))  # defined at outer face
@@ -195,7 +195,7 @@ function equation_j_rot(sm::StellarModel, k::Int)
             (get_m1_dual(sm.props.i_rot[k-1]) + irot₀) * (get_m1_dual(sm.props.ν_ω[k - 1]) + ν₀) *
             (ω₀ - get_m1_dual(sm.props.ω[k-1])) / sm.props.dm[k-1]
     end
-    return ((jrot₀ - get_value(sm.start_step_props.j_rot[k])) - (F₊ - F₋) * sm.props.dt) / get_value(sm.props.j_rot[k])
+    return ((jrot₀ - get_value(sm.start_step_props.j_rot[k])) - (F₊ - F₋) * sm.props.dt) / max(1e-6, get_value(sm.props.j_rot[k]))
 end
 
 """

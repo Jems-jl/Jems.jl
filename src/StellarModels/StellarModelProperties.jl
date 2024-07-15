@@ -1,5 +1,6 @@
 using ForwardDiff
 using Jems.Turbulence
+using Jems.Rotation
 
 @kwdef mutable struct StellarModelProperties{TN, TDual, TDualFace, TCellDualData, TFaceDualData} <: AbstractModelProperties
     # scalar quantities
@@ -86,10 +87,11 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
     lnr = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnr]) for i in 1:(nz+nextra)]
     L = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lum]) for i in 1:(nz+nextra)]
     xa = Matrix{CDDTYPE}(undef,nz+nextra, nspecies)
+    j_rot = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:jrot]) for i in 1:(nz+nextra)]
+
     for k in 1:(nz+nextra)
         for i in 1:nspecies
-            xa[k,i] = CellDualData(nvars, TN;
-                        is_ind_var=true, ind_var_i=4+i) # 4 in here is the number of non-composition variables being solved
+            xa[k,i] = CellDualData(nvars, TN; is_ind_var=true, ind_var_i=nvars-nspecies+i)
         end
     end
 
@@ -133,7 +135,6 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
     end
 
     i_rot = Vector{CDDTYPE}(undef, nz+nextra)
-    j_rot = Vector{CDDTYPE}(undef, nz+nextra)
     ω = Vector{CDDTYPE}(undef, nz+nextra)
     ν_ω = Vector{CDDTYPE}(undef, nz+nextra)
     for k in 1:(nz+nextra)
@@ -254,9 +255,9 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         end
 
         if sm.doing_rotation
-            update_cell_dual_data!(props.i_rot[i], get_i_rot(sm, k))
-            update_cell_dual_data!(props.ω[i], get_ω(sm, k))
-            update_cell_dual_data!(props.ν_ω[i], get_ν_ω(sm, k))
+            update_cell_dual_data!(props.i_rot[i], Rotation.get_i_rot(sm, i))
+            update_cell_dual_data!(props.ω[i], Rotation.get_ω(sm, i))
+            update_cell_dual_data!(props.ν_ω[i], Rotation.get_ν_ω(sm, i))
         end
     end
 
