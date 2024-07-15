@@ -30,8 +30,6 @@ struct JinaReactionRate{TT<:Real} <: ReactionRates.AbstractReactionRate
     chapter::Int64
 end
 
-# num_iso_in & out
-
 """
     add_to_references(main_dict, ref_dict, reaction, new_info::JinaReactionRate)
 
@@ -402,21 +400,20 @@ end
     get_reaction_rate(reaction::JinaReactionRate, T::T1, ρ::T2, xa::AbstractVector{TT}, 
                       xa_index::Dict{Symbol,Int})
 
-Evaluates the reaction rate, in s^{-1}g^{-1}, given an equation of state result for the relevant cell, is abundances and
+Evaluates the reaction rate, in s^{-1}g^{-1}, given T and ρ for the relevant cell and the abundances and its
 index array, by computing Eqs. 1 and 2 from Cyburt+2010.
 """
-function get_reaction_rate(reaction::JinaReactionRate, T::T1, ρ::T2, xa::AbstractVector{TT},
-                           xa_index::Dict{Symbol,Int})::TT where {TT,T1,T2}
+function get_reaction_rate(reaction::JinaReactionRate, cache::RateCache{TT}, 
+                           ρ::TT, xa::AbstractVector{TT}, xa_index::Dict{Symbol,Int})::TT where {TT}
 
     # determine λ
 
-    T_9 = (T / 1e9)
     a = reaction.coeff
 
-    x = a[1] + a[7] * log(T_9)
+    x = a[1] + a[7] * cache.logT9
 
     for i = 2:6
-        x += a[i] * cbrt(T_9^((2(i - 1) - 5)))
+        x += a[i] * cache.cbrtT9^((2(i - 1) - 5))
     end
 
     λ = exp(x)
@@ -438,20 +435,17 @@ function get_reaction_rate(reaction::JinaReactionRate, T::T1, ρ::T2, xa::Abstra
         # println("X_elem = ", X_elem)
         m_elem = Chem.isotope_list[elem].mass * Constants.AMU       # m_A
         # println("m_elem = ", m_elem)
-        Y_elem = X_elem / (m_elem * Constants.AVO)                   # Y_A
+        Y_elem = X_elem / (m_elem * Constants.AVO)                  # Y_A
         # println("Y_elem = ", Y_elem)
         ν += N_elem
         # println("ν = ", ν)
         factor_elem = Y_elem^(N_elem) / factorial(N_elem)
         # println("factor_elem = ", factor_elem)
         factors *= factor_elem
-
     end
 
     # Calculate the reaction rate
-    RR = ρ^ν * λ * factors
-
-    return RR * Constants.AVO
+    return ρ^ν * λ * factors * Constants.AVO
 end
 
 # executes when laoding in ReactionRates

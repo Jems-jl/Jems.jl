@@ -1,5 +1,6 @@
 using ForwardDiff
 using Jems.Turbulence
+using Jems.ReactionRates
 
 @kwdef mutable struct StellarModelProperties{TN, TDual, TDualFace, TCellDualData, TFaceDualData} <: AbstractModelProperties
     # scalar quantities
@@ -34,6 +35,7 @@ using Jems.Turbulence
     # rates (cell centered)
     rates::Matrix{TCellDualData}  # g^-1 s^-1
     rates_dual::Matrix{TDual}     # only cell duals wrt itself
+    rate_caches::Vector{RateCache{TDual}}  # cache holding temperature powers etc.
 
     # face values
     lnP_face::Vector{TFaceDualData}  # [dyne]
@@ -125,6 +127,8 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
             rates[k, i] = CellDualData(nvars, TN)
         end
     end
+    rate_caches = [RateCache{TD}() for i in 1:(nz + nextra)]
+
 
     return StellarModelProperties(; ind_vars=ind_vars, model_number=zero(Int),
                                   nz=nz, m=m, dm=dm, mstar=zero(TN),
@@ -148,7 +152,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
                                   ∇ᵣ_face=∇ᵣ_face,
                                   ∇ᵣ=∇ᵣ,
                                   κ=κ,
-                                  rates=rates,
+                                  rates=rates, rate_caches=rate_caches,
                                   ϵ_nuc=zeros(nz + nextra),
                                   rates_dual=rates_dual,
                                   mixing_type=mixing_type)
@@ -222,7 +226,8 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
 
         # evaluate rates
         rates = @view props.rates_dual[i, :]
-        set_rates_for_network!(rates, sm.network, exp(lnT), exp(lnρ), xa)
+        update_rate_cache!(props.rate_caches[i], lnT)
+        set_rates_for_network!(rates, sm.network, props.rate_caches[i], exp(lnρ), xa)
         for j in eachindex(rates)
             update_cell_dual_data!(props.rates[i, j], rates[j])
         end
