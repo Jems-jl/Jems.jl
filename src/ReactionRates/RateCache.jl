@@ -12,7 +12,7 @@ end
 
 
 function update_rate_cache!(cache::RateCache{TT}, Temp::TT) where {TT}
-    cache.T9 = Temp^9
+    cache.T9 = Temp / 1e9
     cache.logT9 = log(cache.T9)
     cache.cbrtT9 = cbrt(cache.T9)
 end

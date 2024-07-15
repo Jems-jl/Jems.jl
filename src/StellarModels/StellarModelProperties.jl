@@ -226,7 +226,7 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
 
         # evaluate rates
         rates = @view props.rates_dual[i, :]
-        update_rate_cache!(props.rate_caches[i], lnT)
+        update_rate_cache!(props.rate_caches[i], exp(lnT))
         set_rates_for_network!(rates, sm.network, props.rate_caches[i], exp(lnρ), xa)
         for j in eachindex(rates)
             update_cell_dual_data!(props.rates[i, j], rates[j])
