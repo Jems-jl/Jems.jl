@@ -13,4 +13,4 @@ include("JinaRates.jl")
 include("KippRates.jl")
 include("ToyRates.jl")
 
-end
+end  # module ReactionRates

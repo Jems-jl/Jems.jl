@@ -10,9 +10,13 @@ mutable struct RateCache{TT}
     RateCache{TT}() where {TT} = new(zero(TT), zero(TT), zero(TT))
 end
 
+"""
+    function update_rate_cache!(cache::RateCache{TT}, Temp::TT) where {TT}
 
-function update_rate_cache!(cache::RateCache{TT}, Temp::TT) where {TT}
-    cache.T9 = Temp / 1e9
+Update the given `cache` with the given `temp`.
+"""
+function update_rate_cache!(cache::RateCache{TT}, temp::TT) where {TT}
+    cache.T9 = temp / 1e9
     cache.logT9 = log(cache.T9)
     cache.cbrtT9 = cbrt(cache.T9)
 end
