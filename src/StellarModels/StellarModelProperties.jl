@@ -245,27 +245,27 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
     Threads.@threads for i = 1:(props.nz - 1)
         κ00 = get_face_00_dual(props.κ[i])
         κp1 = get_face_p1_dual(props.κ[i + 1])
-        κface_dual = exp((props.dm[i] * log(κ00) + props.dm[i + 1] * log(κp1)) / (props.dm[i] + props.dm[i + 1]))
+        κface_dual = exp((props.dm[i+1] * log(κ00) + props.dm[i] * log(κp1)) / (props.dm[i] + props.dm[i + 1]))
         update_face_dual_data!(props.κ_face[i], κface_dual)
 
         lnP₀ = get_face_00_dual(props.eos_res[i].lnP)
         lnP₊ = get_face_p1_dual(props.eos_res[i + 1].lnP)
-        lnP_face_dual = (props.dm[i] * lnP₀ + props.dm[i + 1] * lnP₊) / (props.dm[i] + props.dm[i + 1])
+        lnP_face_dual = (props.dm[i+1] * lnP₀ + props.dm[i] * lnP₊) / (props.dm[i] + props.dm[i + 1])
         update_face_dual_data!(props.lnP_face[i], lnP_face_dual)
 
         lnρ₀ = get_face_00_dual(props.eos_res[i].lnρ)
         lnρ₊ = get_face_p1_dual(props.eos_res[i + 1].lnρ)
-        lnρ_face_dual = (props.dm[i] * lnρ₀ + props.dm[i + 1] * lnρ₊) / (props.dm[i] + props.dm[i + 1])
+        lnρ_face_dual = (props.dm[i+1] * lnρ₀ + props.dm[i] * lnρ₊) / (props.dm[i] + props.dm[i + 1])
         update_face_dual_data!(props.lnρ_face[i], lnρ_face_dual)
 
         lnT₀ = get_face_00_dual(props.eos_res[i].lnT)
         lnT₊ = get_face_p1_dual(props.eos_res[i + 1].lnT)
-        lnT_face_dual = (props.dm[i] * lnT₀ + props.dm[i + 1] * lnT₊) / (props.dm[i] + props.dm[i + 1])
+        lnT_face_dual = (props.dm[i+1] * lnT₀ + props.dm[i] * lnT₊) / (props.dm[i] + props.dm[i + 1])
         update_face_dual_data!(props.lnT_face[i], lnT_face_dual)
 
         ∇ₐ_00 = get_face_00_dual(props.eos_res[i].∇ₐ)
         ∇ₐ_p1 = get_face_p1_dual(props.eos_res[i + 1].∇ₐ)
-        ∇ₐ_face_dual = (props.dm[i] * ∇ₐ_00 + props.dm[i + 1] * ∇ₐ_p1) / (props.dm[i] + props.dm[i + 1])
+        ∇ₐ_face_dual = (props.dm[i+1] * ∇ₐ_00 + props.dm[i] * ∇ₐ_p1) / (props.dm[i] + props.dm[i + 1])
         update_face_dual_data!(props.∇ₐ_face[i], ∇ₐ_face_dual)
 
         L₀_dual = get_face_00_dual(props.L[i]) * LSUN
@@ -275,10 +275,10 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
 
         δ_00 = get_face_00_dual(props.eos_res[i].δ)
         δ_p1 = get_face_p1_dual(props.eos_res[i + 1].δ)
-        δ_face_dual = (props.dm[i] * δ_00 + props.dm[i + 1] * δ_p1) / (props.dm[i] + props.dm[i + 1])
+        δ_face_dual = (props.dm[i+1] * δ_00 + props.dm[i] * δ_p1) / (props.dm[i] + props.dm[i + 1])
         cₚ_00 = get_face_00_dual(props.eos_res[i].cₚ)
         cₚ_p1 = get_face_p1_dual(props.eos_res[i + 1].cₚ)
-        cₚ_face_dual = (props.dm[i] * cₚ_00 + props.dm[i + 1] * cₚ_p1) / (props.dm[i] + props.dm[i + 1])
+        cₚ_face_dual = (props.dm[i+1] * cₚ_00 + props.dm[i] * cₚ_p1) / (props.dm[i] + props.dm[i + 1])
 
         r_dual = exp(get_face_00_dual(props.lnr[i]))
         ρ_face_dual = exp(lnρ_face_dual)
