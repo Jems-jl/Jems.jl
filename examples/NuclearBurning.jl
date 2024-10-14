@@ -89,11 +89,6 @@ end
 end
 
 ##
-@profview for i in 1:1000
-    StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
-end
-
-##
 #=
 
 To get an idea of how much a complete iteration of the solver takes, we need to Perform
@@ -104,12 +99,6 @@ destroys the Jacobian to perform in-place operations.
 @benchmark begin
     Evolution.thomas_algorithm!($sm)
 end setup=(Evolution.eval_jacobian_eqs!($sm))
-##
-struct Test{TNUMBER, SIZE}
-    a::TNUMBER
-end
-##
-test = Test{Float64, 3}(2.0)
 
 ##
 #=
@@ -137,6 +126,7 @@ open("example_options.toml", "w") do file
           newton_max_iter = 20
           scale_max_correction = 0.1
           solver_progress_iter = 10
+          maximum_residual_tolerance = 1e10
 
           [timestep]
           dt_max_increase = 1.5
@@ -145,11 +135,11 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 100000
-          max_center_T = 1e99
+          max_model_number = 2000
+          max_center_T = 1e8
 
           [plotting]
-          do_plotting = false
+          do_plotting = true
           wait_at_termination = false
           plotting_interval = 1
 
@@ -174,9 +164,6 @@ open("example_options.toml", "w") do file
           profile_interval = 50
           terminal_header_interval = 100
           terminal_info_interval = 100
-
-          [physics]
-          flux_limiter = 1e6
 
           """)
 end
@@ -309,51 +296,3 @@ advantage of `julia` as a scripting language to post-process your simulation out
 rm("history.hdf5")
 rm("profiles.hdf5")
 rm("example_options.toml")
-
-##
-using Jems.DualSupport
-true∇ = zeros(sm.props.nz)
-for k in 1:sm.props.nz-1
-    lnT₀ = get_value(sm.props.lnT[k])
-    lnT₊ = get_value(sm.props.lnT[k+1])
-    lnP₀ = get_value(sm.props.eos_res[k].lnP)
-    lnP₊ = get_value(sm.props.eos_res[k+1].lnP)
-    true∇[k] = (lnT₊-lnT₀)/(lnP₊-lnP₀)
-end
-true∇2 = zeros(sm.props.nz)
-for k in 1:sm.props.nz-1
-    lnT₀ = get_00_dual(sm.props.eos_res[k].lnT)
-    r₀ = exp(get_00_dual(sm.props.lnr[k]))
-    lnT₀ = get_00_dual(sm.props.lnT[k])
-    lnT₊ = get_p1_dual(sm.props.lnT[k+1])
-    lnP₀ = get_00_dual(sm.props.eos_res[k].lnP)
-    lnP₊ = get_p1_dual(sm.props.eos_res[k+1].lnP)
-
-    Pface = exp(get_00_dual(sm.props.lnP_face[k]))
-    Tface = exp(get_00_dual(sm.props.lnT_face[k]))
-    res = -(Tface * (lnT₊ - lnT₀) / sm.props.dm[k]) / (CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface))
-    true∇2[k] = res.value
-end
-true∇[end] = true∇[end-1]
-∇r = [get_value(sm.props.∇ᵣ_face[k]) for k in 1:sm.props.nz]
-∇ = [get_value(sm.props.turb_res[k].∇) for k in 1:sm.props.nz]
-∇a = [get_value(sm.props.∇ₐ_face[k]) for k in 1:sm.props.nz]
-
-using GLMakie
-f = Figure()
-ax = Axis(f[1,1])
-lines!(ax, 1:sm.props.nz, true∇)
-#lines!(ax, 1:sm.props.nz, true∇2)
-lines!(ax, 1:sm.props.nz, ∇r, linestyle=:dash)
-lines!(ax, 1:sm.props.nz, ∇, linestyle=:dot)
-f
-##
-lnT = [get_00_dual(sm.props.eos_res[k].lnT).value for k in 1:sm.props.nz]
-lnP = [get_00_dual(sm.props.eos_res[k].lnP).value for k in 1:sm.props.nz]
-f = Figure()
-ax = Axis(f[1,1])
-lines!(ax, log10.(exp.(lnP)), log10.(exp.(lnT)))
-xvals = LinRange(5.0,19.0,100)
-lines!(ax, xvals, xvals.*0.4 .+0.22)
-lines!(ax, xvals, xvals.*0.37 .+ 0.745)
-f
