@@ -43,23 +43,28 @@ function Base.convert(::Type{FaceDualData{SIZE1, SIZE2, TN1}}, x::TN2) where {SI
 end
 
 function update_face_dual_data_value!(fd::FaceDualData, value)
-    @inbounds fd.diff_cache_face.dual_data[1] = value
-    @inbounds fd.diff_cache_m1.dual_data[1] = value
-    @inbounds fd.diff_cache_00.dual_data[1] = value
+    fd.diff_cache_face.dual_data[1] = value
+    fd.diff_cache_m1.dual_data[1] = value
+    fd.diff_cache_00.dual_data[1] = value
+    # these are some attempts at speeding this up
+    #@inbounds fd.diff_cache_face.dual_data[1] = value
+    #@inbounds fd.diff_cache_m1.dual_data[1] = value
+    #@inbounds fd.diff_cache_00.dual_data[1] = value
 end
 
 function update_face_dual_data!(fd::FaceDualData{SIZE1, SIZE2, TNUMBER}, dual::TDSC) where {SIZE1, SIZE2, TNUMBER, TDSC}
     update_face_dual_data_value!(fd, dual.value)
     twonvars = (SIZE1-1)
     nvars = twonvars÷2
-    #for i in 1:twonvars
-    #    fd.diff_cache_face.dual_data[1+i] = dual.partials[i]
-    #    fd.diff_cache_m1.dual_data[1+i] = dual.partials[i]
-    #    fd.diff_cache_00.dual_data[1+nvars+i] = dual.partials[i]
-    #end
-    @inbounds @views fd.diff_cache_face.dual_data[2:1+twonvars] .= dual.partials
-    @inbounds @views fd.diff_cache_m1.dual_data[2:1+twonvars] .= dual.partials
-    @inbounds @views fd.diff_cache_00.dual_data[2+nvars:1+nvars+twonvars] .= dual.partials
+    for i in 1:twonvars
+        fd.diff_cache_face.dual_data[1+i] = dual.partials[i]
+        fd.diff_cache_m1.dual_data[1+i] = dual.partials[i]
+        fd.diff_cache_00.dual_data[1+nvars+i] = dual.partials[i]
+    end
+    # these are some attempts at speeding this up
+    #@inbounds @views fd.diff_cache_face.dual_data[2:1+twonvars] .= dual.partials
+    #@inbounds @views fd.diff_cache_m1.dual_data[2:1+twonvars] .= dual.partials
+    #@inbounds @views fd.diff_cache_00.dual_data[2+nvars:1+nvars+twonvars] .= dual.partials
 end
 
 function get_value(fd::FaceDualData)
