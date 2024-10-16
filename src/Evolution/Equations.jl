@@ -89,12 +89,11 @@ function equationT(sm::StellarModel, k::Int)
     lnT₊ = get_p1_dual(sm.props.lnT[k+1])
 
     Pface = exp(get_00_dual(sm.props.lnP_face[k]))
-    Tface = exp(get_00_dual(sm.props.lnT_face[k]))
 
     ∇ = get_00_dual(sm.props.turb_res[k].∇)
-    return (Tface * (lnT₊ - lnT₀) / sm.props.dm[k] +
-            CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface) * ∇) /
-           (CGRAV * sm.props.m[k] * Tface / (4π * r₀^4 * Pface))
+    dm = 0.5*(sm.props.dm[k + 1] + sm.props.dm[k])
+    return ((lnT₊ - lnT₀) / dm + CGRAV * sm.props.m[k] / (4π * r₀^4 * Pface) * ∇) /
+        (CGRAV * sm.props.m[k] / (4π * r₀^4 * Pface))
 
 end
 
