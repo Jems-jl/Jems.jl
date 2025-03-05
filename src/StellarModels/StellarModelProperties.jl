@@ -29,7 +29,6 @@ using Jems.Turbulence
 
     # opacity (cell centered)
     κ::Vector{TCellDualData}  # cm^2 g^-1
-    ∇ᵣ::Vector{TCellDualData}  # dim-less
 
     # rates (cell centered)
     rates::Matrix{TCellDualData}  # g^-1 s^-1
@@ -42,6 +41,8 @@ using Jems.Turbulence
     κ_face::Vector{TFaceDualData}    # cm^2 g^-1
     ∇ₐ_face::Vector{TFaceDualData}   # dim-less
     ∇ᵣ_face::Vector{TFaceDualData}   # dim-less
+    δ_face::Vector{TFaceDualData}   # dim-less
+    cₚ_face::Vector{TFaceDualData}   # erg K^-1 g^-1
 
     # turbulence (i.e. convection, face valued)
     turb_res_dual::Vector{TurbResults{TDualFace}}
@@ -102,8 +103,9 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
     κ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     ∇ₐ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     ∇ᵣ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
+    δ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
+    cₚ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     κ = Vector{CDDTYPE}(undef, nz+nextra)  # zeros(CDDTYPE, nz+nextra)
-    ∇ᵣ = Vector{CDDTYPE}(undef, nz+nextra)
     flux_term = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     mixing_type::Vector{Symbol} = repeat([:no_mixing], nz+nextra)
     for k in 1:(nz+nextra)
@@ -113,8 +115,9 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
         κ_face[k] = FaceDualData(nvars, TN)
         ∇ₐ_face[k] = FaceDualData(nvars, TN)
         ∇ᵣ_face[k] = FaceDualData(nvars, TN)
+        δ_face[k] = FaceDualData(nvars, TN)
+        cₚ_face[k] = FaceDualData(nvars, TN)
         κ[k] = CellDualData(nvars, TN)
-        ∇ᵣ[k] = CellDualData(nvars, TN)
         flux_term[k] = FaceDualData(nvars, TN)
     end
 
@@ -146,12 +149,31 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
                                   κ_face=κ_face,
                                   ∇ₐ_face=∇ₐ_face,
                                   ∇ᵣ_face=∇ᵣ_face,
-                                  ∇ᵣ=∇ᵣ,
+                                  δ_face=δ_face,
+                                  cₚ_face=cₚ_face,
                                   κ=κ,
                                   rates=rates,
                                   ϵ_nuc=zeros(nz + nextra),
                                   rates_dual=rates_dual,
                                   mixing_type=mixing_type)
+end
+
+macro eval_face_property_log(prop_00, prop_p1, dm_00, dm_p1, face_prop)
+    esc(quote
+        val00 = get_face_00_dual($prop_00)
+        valp1 = get_face_p1_dual($prop_p1)
+        valface_dual = exp(($dm_p1 * log(val00) + $dm_00 * log(valp1)) / ($dm_00 + $dm_p1))
+        update_face_dual_data!($face_prop, valface_dual)
+    end)
+end
+
+macro eval_face_property(prop_00, prop_p1, dm_00, dm_p1, face_prop)
+    esc(quote
+        val00 = get_face_00_dual($prop_00)
+        valp1 = get_face_p1_dual($prop_p1)
+        valface_dual = ($dm_p1 * val00 + $dm_00 * valp1) / ($dm_00 + $dm_p1)
+        update_face_dual_data!($face_prop, valface_dual)
+    end)
 end
 
 """
@@ -215,11 +237,6 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         κ_dual = get_opacity_resultsTρ(sm.opacity, lnT, lnρ, xa, sm.network.species_names)
         update_cell_dual_data!(props.κ[i], κ_dual)
 
-        ∇ᵣ_dual = 3 * get_cell_dual(props.κ[i]) * get_cell_dual(props.L[i]) * LSUN *
-                  exp(get_cell_dual(props.eos_res[i].lnP)) /
-                  (16π * CRAD * CLIGHT * CGRAV * props.m[i] * exp(4 * get_cell_dual(props.lnT[i])))
-        update_cell_dual_data!(props.∇ᵣ[i], ∇ᵣ_dual)
-
         # evaluate rates
         rates = @view props.rates_dual[i, :]
         set_rates_for_network!(rates, sm.network, exp(lnT), exp(lnρ), xa)
@@ -232,46 +249,22 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         for j in eachindex(rates)
             props.ϵ_nuc[i] += rates[j].value * sm.network.reactions[j].Qvalue
         end
-
-        # TODO: this comparison mixes face and cell values
-        if get_value(props.eos_res[i].∇ₐ) > get_value(props.∇ᵣ[i])
-            props.mixing_type[i] = :no_mixing
-        else
-            props.mixing_type[i] = :convection
-        end
     end
 
     # do face values next
     Threads.@threads for i = 1:(props.nz - 1)
-        κ00 = get_face_00_dual(props.κ[i])
-        κp1 = get_face_p1_dual(props.κ[i + 1])
-        κface_dual = exp((props.dm[i+1] * log(κ00) + props.dm[i] * log(κp1)) / (props.dm[i] + props.dm[i + 1]))
-        update_face_dual_data!(props.κ_face[i], κface_dual)
+        @eval_face_property_log(props.κ[i], props.κ[i + 1], props.dm[i], props.dm[i+1], props.κ_face[i])
+        @eval_face_property(props.eos_res[i].lnP, props.eos_res[i+1].lnP, props.dm[i], props.dm[i+1], props.lnP_face[i])
+        @eval_face_property(props.eos_res[i].lnρ, props.eos_res[i+1].lnρ, props.dm[i], props.dm[i+1], props.lnρ_face[i])
+        @eval_face_property(props.eos_res[i].lnT, props.eos_res[i+1].lnT, props.dm[i], props.dm[i+1], props.lnT_face[i])
+        @eval_face_property(props.eos_res[i].∇ₐ, props.eos_res[i+1].∇ₐ, props.dm[i], props.dm[i+1], props.∇ₐ_face[i])
 
-        lnP₀ = get_face_00_dual(props.eos_res[i].lnP)
-        lnP₊ = get_face_p1_dual(props.eos_res[i + 1].lnP)
-        lnP_face_dual = (props.dm[i+1] * lnP₀ + props.dm[i] * lnP₊) / (props.dm[i] + props.dm[i + 1])
-        update_face_dual_data!(props.lnP_face[i], lnP_face_dual)
-
-        lnρ₀ = get_face_00_dual(props.eos_res[i].lnρ)
-        lnρ₊ = get_face_p1_dual(props.eos_res[i + 1].lnρ)
-        lnρ_face_dual = (props.dm[i+1] * lnρ₀ + props.dm[i] * lnρ₊) / (props.dm[i] + props.dm[i + 1])
-        update_face_dual_data!(props.lnρ_face[i], lnρ_face_dual)
-
-        lnT₀ = get_face_00_dual(props.eos_res[i].lnT)
-        lnT₊ = get_face_p1_dual(props.eos_res[i + 1].lnT)
-        lnT_face_dual = (props.dm[i+1] * lnT₀ + props.dm[i] * lnT₊) / (props.dm[i] + props.dm[i + 1])
-        update_face_dual_data!(props.lnT_face[i], lnT_face_dual)
-
-        ∇ₐ_00 = get_face_00_dual(props.eos_res[i].∇ₐ)
-        ∇ₐ_p1 = get_face_p1_dual(props.eos_res[i + 1].∇ₐ)
-        ∇ₐ_face_dual = (props.dm[i+1] * ∇ₐ_00 + props.dm[i] * ∇ₐ_p1) / (props.dm[i] + props.dm[i + 1])
-        update_face_dual_data!(props.∇ₐ_face[i], ∇ₐ_face_dual)
-
+        κ_face_dual = get_face_dual(props.κ_face[i])
+        ρ_face_dual = exp(get_face_dual(props.lnρ_face[i]))
+        T_face_dual = exp(get_face_dual(props.lnT_face[i]))
+        P_face_dual = exp(get_face_dual(props.lnP_face[i]))
+        ∇ₐ_face_dual = get_face_dual(props.∇ₐ_face[i])
         L₀_dual = get_face_00_dual(props.L[i]) * LSUN
-        ∇ᵣ_dual = 3κface_dual * L₀_dual * exp(lnP_face_dual) /
-                  (16π * CRAD * CLIGHT * CGRAV * props.m[i] * exp(4 * lnT_face_dual))
-        update_face_dual_data!(props.∇ᵣ_face[i], ∇ᵣ_dual)
 
         δ_00 = get_face_00_dual(props.eos_res[i].δ)
         δ_p1 = get_face_p1_dual(props.eos_res[i + 1].δ)
@@ -281,9 +274,8 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         cₚ_face_dual = (props.dm[i+1] * cₚ_00 + props.dm[i] * cₚ_p1) / (props.dm[i] + props.dm[i + 1])
 
         r_dual = exp(get_face_00_dual(props.lnr[i]))
-        ρ_face_dual = exp(lnρ_face_dual)
         set_turb_results!(sm.turbulence, props.turb_res_dual[i],
-                    κface_dual, L₀_dual, ρ_face_dual, exp(lnP_face_dual), exp(lnT_face_dual), r_dual,
+                    κ_face_dual, L₀_dual, ρ_face_dual, P_face_dual, T_face_dual, r_dual,
                     δ_face_dual, cₚ_face_dual, ∇ₐ_face_dual, props.m[i])
         update_face_dual_data!(props.turb_res[i].∇, props.turb_res_dual[i].∇)
         update_face_dual_data!(props.turb_res[i].∇ᵣ, props.turb_res_dual[i].∇ᵣ)
@@ -295,6 +287,12 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         flux_term_dual = (4π*r_dual^2*ρ_face_dual)^2*props.turb_res_dual[i].D_turb/
                             (0.5*(sm.props.dm[i]+sm.props.dm[i+1]))
         update_face_dual_data!(props.flux_term[i], flux_term_dual)
+
+        if get_value(props.turb_res[i].∇) < get_value(props.turb_res[i].∇ᵣ)
+            props.mixing_type[i] = :convection
+        else
+            props.mixing_type[i] = :no_mixing
+        end
     end
 end
 
