@@ -158,22 +158,34 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
                                   mixing_type=mixing_type)
 end
 
-macro eval_face_property_log(prop_00, prop_p1, dm_00, dm_p1, face_prop)
-    esc(quote
-        val00 = get_face_00_dual($prop_00)
-        valp1 = get_face_p1_dual($prop_p1)
-        valface_dual = exp(($dm_p1 * log(val00) + $dm_00 * log(valp1)) / ($dm_00 + $dm_p1))
-        update_face_dual_data!($face_prop, valface_dual)
-    end)
+@inline function eval_face_property_log!(prop_00, prop_p1, dm_00, dm_p1, face_prop)
+    val00 = get_face_00_dual(prop_00)
+    valp1 = get_face_p1_dual(prop_p1)
+    valface_dual = exp((dm_p1 * log(val00) + dm_00 * log(valp1)) / (dm_00 + dm_p1))
+    update_face_dual_data!(face_prop, valface_dual)
 end
 
-macro eval_face_property(prop_00, prop_p1, dm_00, dm_p1, face_prop)
-    esc(quote
-        val00 = get_face_00_dual($prop_00)
-        valp1 = get_face_p1_dual($prop_p1)
-        valface_dual = ($dm_p1 * val00 + $dm_00 * valp1) / ($dm_00 + $dm_p1)
-        update_face_dual_data!($face_prop, valface_dual)
-    end)
+@inline function eval_face_property!(prop_00, prop_p1, dm_00, dm_p1, face_prop)
+    val00 = get_face_00_dual(prop_00)
+    valp1 = get_face_p1_dual(prop_p1)
+    valface_dual = (dm_p1 * val00 + dm_00 * valp1) / (dm_00 + dm_p1)
+    update_face_dual_data!(face_prop, valface_dual)
+end
+
+@generated function update_struct_cell_dual_data(obj::T1,obj_dual::T2) where{T1,T2}
+    names = fieldnames(T1)
+    lines::Vector{Expr} = [:(update_cell_dual_data!(obj.$name, obj_dual.$name)) for name in names]
+    return quote
+        $(lines...)
+    end
+end
+
+@generated function update_struct_face_dual_data(obj::T1,obj_dual::T2) where{T1,T2}
+    names = fieldnames(T1)
+    lines::Vector{Expr} = [:(update_face_dual_data!(obj.$name, obj_dual.$name)) for name in names]
+    return quote
+        $(lines...)
+    end
 end
 
 """
@@ -209,29 +221,7 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
 
         # evaluate EOS
         set_EOS_resultsTρ!(sm.eos, props.eos_res_dual[i], lnT, lnρ, xa, sm.network.species_names)
-        #names = fieldnames(EOSResults)
-        #for name in names
-        #    dual = getfield(props.eos_res_dual[i], name)
-        #    dual_cell_data = getfield(props.eos_res[i], name)
-        #    update_cell_dual_data!(dual_cell_data, dual)
-        #end
-        update_cell_dual_data!(props.eos_res[i].T, props.eos_res_dual[i].T)
-        update_cell_dual_data!(props.eos_res[i].P, props.eos_res_dual[i].P)
-        update_cell_dual_data!(props.eos_res[i].ρ, props.eos_res_dual[i].ρ)
-        update_cell_dual_data!(props.eos_res[i].lnT, props.eos_res_dual[i].lnT)
-        update_cell_dual_data!(props.eos_res[i].lnP, props.eos_res_dual[i].lnP)
-        update_cell_dual_data!(props.eos_res[i].lnρ, props.eos_res_dual[i].lnρ)
-        update_cell_dual_data!(props.eos_res[i].Prad, props.eos_res_dual[i].Prad)
-        update_cell_dual_data!(props.eos_res[i].μ, props.eos_res_dual[i].μ)
-        update_cell_dual_data!(props.eos_res[i].α, props.eos_res_dual[i].α)
-        update_cell_dual_data!(props.eos_res[i].β, props.eos_res_dual[i].β)
-        update_cell_dual_data!(props.eos_res[i].δ, props.eos_res_dual[i].δ)
-        update_cell_dual_data!(props.eos_res[i].χ_ρ, props.eos_res_dual[i].χ_ρ)
-        update_cell_dual_data!(props.eos_res[i].χ_T, props.eos_res_dual[i].χ_T)
-        update_cell_dual_data!(props.eos_res[i].u, props.eos_res_dual[i].u)
-        update_cell_dual_data!(props.eos_res[i].cₚ, props.eos_res_dual[i].cₚ)
-        update_cell_dual_data!(props.eos_res[i].∇ₐ, props.eos_res_dual[i].∇ₐ)
-        update_cell_dual_data!(props.eos_res[i].Γ₁, props.eos_res_dual[i].Γ₁)
+        update_struct_cell_dual_data(props.eos_res[i], props.eos_res_dual[i])
 
         # evaluate opacity
         κ_dual = get_opacity_resultsTρ(sm.opacity, lnT, lnρ, xa, sm.network.species_names)
@@ -253,36 +243,29 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
 
     # do face values next
     Threads.@threads for i = 1:(props.nz - 1)
-        @eval_face_property_log(props.κ[i], props.κ[i + 1], props.dm[i], props.dm[i+1], props.κ_face[i])
-        @eval_face_property(props.eos_res[i].lnP, props.eos_res[i+1].lnP, props.dm[i], props.dm[i+1], props.lnP_face[i])
-        @eval_face_property(props.eos_res[i].lnρ, props.eos_res[i+1].lnρ, props.dm[i], props.dm[i+1], props.lnρ_face[i])
-        @eval_face_property(props.eos_res[i].lnT, props.eos_res[i+1].lnT, props.dm[i], props.dm[i+1], props.lnT_face[i])
-        @eval_face_property(props.eos_res[i].∇ₐ, props.eos_res[i+1].∇ₐ, props.dm[i], props.dm[i+1], props.∇ₐ_face[i])
+        eval_face_property_log!(props.κ[i], props.κ[i + 1], props.dm[i], props.dm[i+1], props.κ_face[i])
+        eval_face_property!(props.eos_res[i].lnP, props.eos_res[i+1].lnP, props.dm[i], props.dm[i+1], props.lnP_face[i])
+        eval_face_property!(props.eos_res[i].lnρ, props.eos_res[i+1].lnρ, props.dm[i], props.dm[i+1], props.lnρ_face[i])
+        eval_face_property!(props.eos_res[i].lnT, props.eos_res[i+1].lnT, props.dm[i], props.dm[i+1], props.lnT_face[i])
+        eval_face_property!(props.eos_res[i].∇ₐ, props.eos_res[i+1].∇ₐ, props.dm[i], props.dm[i+1], props.∇ₐ_face[i])
+        eval_face_property!(props.eos_res[i].δ, props.eos_res[i+1].δ, props.dm[i], props.dm[i+1], props.δ_face[i])
+        eval_face_property!(props.eos_res[i].cₚ, props.eos_res[i+1].cₚ, props.dm[i], props.dm[i+1], props.cₚ_face[i])
 
         κ_face_dual = get_face_dual(props.κ_face[i])
         ρ_face_dual = exp(get_face_dual(props.lnρ_face[i]))
         T_face_dual = exp(get_face_dual(props.lnT_face[i]))
         P_face_dual = exp(get_face_dual(props.lnP_face[i]))
         ∇ₐ_face_dual = get_face_dual(props.∇ₐ_face[i])
+        δ_face_dual = get_face_dual(props.δ_face[i])
+        cₚ_face_dual = get_face_dual(props.cₚ_face[i])
+
         L₀_dual = get_face_00_dual(props.L[i]) * LSUN
-
-        δ_00 = get_face_00_dual(props.eos_res[i].δ)
-        δ_p1 = get_face_p1_dual(props.eos_res[i + 1].δ)
-        δ_face_dual = (props.dm[i+1] * δ_00 + props.dm[i] * δ_p1) / (props.dm[i] + props.dm[i + 1])
-        cₚ_00 = get_face_00_dual(props.eos_res[i].cₚ)
-        cₚ_p1 = get_face_p1_dual(props.eos_res[i + 1].cₚ)
-        cₚ_face_dual = (props.dm[i+1] * cₚ_00 + props.dm[i] * cₚ_p1) / (props.dm[i] + props.dm[i + 1])
-
         r_dual = exp(get_face_00_dual(props.lnr[i]))
+
         set_turb_results!(sm.turbulence, props.turb_res_dual[i],
                     κ_face_dual, L₀_dual, ρ_face_dual, P_face_dual, T_face_dual, r_dual,
                     δ_face_dual, cₚ_face_dual, ∇ₐ_face_dual, props.m[i])
-        update_face_dual_data!(props.turb_res[i].∇, props.turb_res_dual[i].∇)
-        update_face_dual_data!(props.turb_res[i].∇ᵣ, props.turb_res_dual[i].∇ᵣ)
-        update_face_dual_data!(props.turb_res[i].v_turb, props.turb_res_dual[i].v_turb)
-        update_face_dual_data!(props.turb_res[i].D_turb, props.turb_res_dual[i].D_turb)
-        update_face_dual_data!(props.turb_res[i].Γ, props.turb_res_dual[i].Γ)
-        update_face_dual_data!(props.turb_res[i].Hₚ, props.turb_res_dual[i].Hₚ)
+        update_struct_face_dual_data(props.turb_res[i], props.turb_res_dual[i])
 
         flux_term_dual = (4π*r_dual^2*ρ_face_dual)^2*props.turb_res_dual[i].D_turb/
                             (0.5*(sm.props.dm[i]+sm.props.dm[i+1]))
