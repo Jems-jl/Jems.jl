@@ -153,7 +153,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
                                   cₚ_face=cₚ_face,
                                   κ=κ,
                                   rates=rates,
-                                  ϵ_nuc=zeros(nz + nextra),
+                                  ϵ_nuc=zeros(TN, nz + nextra),
                                   rates_dual=rates_dual,
                                   mixing_type=mixing_type)
 end

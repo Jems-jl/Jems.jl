@@ -1,7 +1,7 @@
 module DualSupport
 
 using ForwardDiff
-using StaticArrays
+#using StaticArrays
 
 export CellDualData, update_cell_dual_data_value!, update_cell_dual_data!,
         get_cell_dual, get_m1_dual, get_00_dual, get_p1_dual, get_value
@@ -14,7 +14,8 @@ Definition of StarDiffCache, a cache that makes room to store partial derivative
 Parametric in types `SIZE`, the size of the array, and `TNUMBER`, the type of the number used for calculations. 
 """
 struct StarDiffCache{SIZE, TNUMBER}
-    dual_data::MVector{SIZE,TNUMBER}
+    dual_data::Vector{TNUMBER}
+    #dual_data::MVector{SIZE,TNUMBER} # using static vectors here can provide a speedup for small networks
 end
 
 
