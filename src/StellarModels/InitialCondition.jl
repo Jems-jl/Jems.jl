@@ -164,7 +164,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfra
     
     logdqs = zeros(length(sm.props.dm))
     for i in 1:nz
-        logdqs[i] = get_logdq(i, nz, -12.0, 0.0, -6.0, 200)
+        logdqs[i] = get_logdq(i, nz, -6.0, 0.0, -6.0, 200)
     end
     dqs = 10 .^ logdqs
     dqs[nz+1:end] .= 0  # extra entries beyond nz have no mass

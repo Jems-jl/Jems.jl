@@ -34,10 +34,13 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
-net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+#net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+reactions::Vector{Tuple{Symbol,Symbol}} = []
+net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [])
+#include("full_net.jl")
 nz = 1000
 nextra = 100
-eos = EOS.IdealEOS(true)
+eos = EOS.IdealEOS(false)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 turbulence = Turbulence.BasicMLT(1.0)
 sm = StellarModel(varnames, varscaling, structure_equations, Evolution.equation_composition,
@@ -124,15 +127,18 @@ open("example_options.toml", "w") do file
           initial_model_scale_max_correction = 0.2
           newton_max_iter = 50
           scale_max_correction = 0.1
+          report_solver_progress = true
+          solver_progress_iter = 1
 
           [timestep]
           dt_max_increase = 1.5
+          dt_retry_decrease = 0.1
           delta_R_limit = 0.01
           delta_Tc_limit = 0.01
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 2000
+          max_model_number = 3000
           max_center_T = 1e8
 
           [plotting]
@@ -170,7 +176,7 @@ rm(sm.opt.io.hdf5_profile_filename; force=true)
 
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+                                            1 * MSUN, 1 * RSUN; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
 
 ##
@@ -293,3 +299,327 @@ advantage of `julia` as a scripting language to post-process your simulation out
 rm("history.hdf5")
 rm("profiles.hdf5")
 rm("example_options.toml")
+
+##
+using Jems.Constants
+using Jems.Chem
+using Jems.EOS
+#function helmholtz_free_energy(lnT::T1, lnρ::T1,
+#    xa::AbstractVector{T2}, species::Vector{Symbol},
+#    frac_HII::T3, frac_HeII::T3, frac_HeIII::T3) where {T1<:Real, T2<:Real, T3<:Real}
+#
+#    T = exp(lnT)
+#    ρ = exp(lnρ)
+#
+#    Frad = - CRAD*T^4/(3*ρ) # radiation term 
+#    n = 0
+#    ne = 0
+#    for i in eachindex(species)
+#        mj = Chem.isotope_list[species[i]].mass*AMU
+#        nj = xa[i]*ρ/mj
+#        n += nj
+#        if species[i]==:H1
+#            ne += frac_HII*nj
+#        elseif species[i]==:He4
+#            ne += frac_HeII*nj + 2*frac_HeIII*nj
+#            #ne += 2*frac_HeIII*nj
+#        else
+#            ne += nj*Chem.isotope_list[species[i]].Z
+#        end
+#    end
+#    Fideal_ion = 0
+#    Fideal_mix = 0
+#    mavg = 0
+#    for i in eachindex(species)
+#        mj = Chem.isotope_list[species[i]].mass*AMU
+#        nj = xa[i]*ρ/mj
+#        yj = nj/n
+#        mavg += yj*mj
+#
+#        nQj = (2*π*Constants.HBAR^2/(mj*KERG*T))^(-3/2)
+#
+#        Fideal_ion += yj*(log((nj+1e-99)/nQj)-1)
+#
+#        Fideal_mix += yj*log(yj+1e99)
+#    end
+#    Fideal_ion = KERG*T/mavg*Fideal_ion
+#    Fideal_mix = KERG*T/mavg*Fideal_mix
+#
+#    nQj = (2*π*Constants.HBAR^2/(ME*KERG*T))^(-3/2)
+#    Felectron = ne*KERG*T/ρ*(log((ne+1e-99)/nQj)-1)
+#
+#    frac_HI = 1 - frac_HII
+#    frac_HeI = 1 - frac_HeII - frac_HeIII 
+#    # do HI
+#    mH = Chem.isotope_list[:H1].mass*AMU
+#    iH1 = findfirst(==(:H1), species)
+#    nHI = frac_HI*xa[iH1]*ρ/mH
+#    Fideal_ion += -nHI*13.6*Constants.EV2ERG/ρ
+#    # do HeI
+#    mHe = Chem.isotope_list[:He4].mass*AMU
+#    iHe4 = findfirst(==(:He4), species)
+#    nHeI = frac_HeI*xa[iHe4]*ρ/mHe
+#    Fideal_ion += -nHeI*78.98*Constants.EV2ERG/ρ
+#    ## do HeII
+#    mHe = Chem.isotope_list[:He4].mass*AMU
+#    iHe4 = findfirst(==(:He4), species)
+#    nHeII = frac_HeII*xa[iHe4]*ρ/mHe
+#    Fideal_ion += -nHeII*54.40*Constants.EV2ERG/ρ
+#
+#    return Frad + Fideal_ion + Fideal_mix + Felectron
+#end
+function helmholtz_free_energy(lnT::T1, lnρ::T1,
+    xa::AbstractVector{T2}, species::Vector{Symbol},
+    frac_HII::T3, frac_HeII::T3, frac_HeIII::T3) where {T1<:Real, T2<:Real, T3<:Real}
+
+    T = exp(lnT)
+    ρ = exp(lnρ)
+
+    frac_HI = max(0.0,min(1.0,1 - frac_HII))
+    frac_HeI = max(0.0, min(1.0,1 - frac_HeII - frac_HeIII)) 
+
+    Frad = - CRAD*T^4/(3*ρ) # radiation term 
+
+    ne = 0
+    Fideal_ion = 0
+    for i in eachindex(species)
+        mj = Chem.isotope_list[species[i]].mass*AMU
+        nj = xa[i]/mj
+
+        if species[i]==:H1
+            Fideal_ion += frac_HI*nj*(log((ρ*(frac_HI*nj+1e-99)*Constants.PLANCK_H^3)/(2*2*pi*mj*KERG*T)^(3/2))-1-13.6*Constants.EV2ERG/(KERG*T))
+            Fideal_ion += frac_HII*nj*(log((ρ*(frac_HII*nj+1e-99)*Constants.PLANCK_H^3)/(2*pi*mj*KERG*T)^(3/2))-1)
+            ne += frac_HII*nj
+        elseif species[i]==:He4
+            Fideal_ion += frac_HeI*nj*(log((ρ*(frac_HeI*nj+1e-99)*Constants.PLANCK_H^3)/(2*pi*mj*KERG*T)^(3/2))-1-78.98*Constants.EV2ERG/(KERG*T))
+            Fideal_ion += frac_HeII*nj*(log((ρ*(frac_HeII*nj+1e-99)*Constants.PLANCK_H^3)/(2*2*pi*mj*KERG*T)^(3/2))-1-54.40*Constants.EV2ERG/(KERG*T))
+            Fideal_ion += frac_HeIII*nj*(log((ρ*(frac_HeIII*nj+1e-99)*Constants.PLANCK_H^3)/(2*pi*mj*KERG*T)^(3/2))-1)
+            ne += frac_HeII*nj + 2*frac_HeIII*nj
+        else
+            Fideal_ion += nj*(log((ρ*(nj+1e-99)*PLANCK_H^3)/(2*pi*mj*KERG*T)^(3/2))-1)
+            ne += nj*Chem.isotope_list[species[i]].Z
+        end
+    end
+    Fideal_ion = KERG*T*Fideal_ion
+
+    Felectron = KERG*T*ne*(log((ρ*(ne+1e-99)*Constants.PLANCK_H^3)/(2*pi*ME*KERG*T)^(3/2))-1)
+
+    return Frad + Fideal_ion + Felectron
+end
+
+using Optim, LineSearches
+function ion_fracs(lnT::TT, lnρ::TT,
+    xa::AbstractVector{TTT}, species::Vector{Symbol}) where{TT, TTT}
+    f(x) = helmholtz_free_energy(lnT, lnρ, xa, species, x[1], (1-x[3])*x[2], x[3])
+    frac_HII_guess::TT = 0.5
+    frac_HeII_guess::TT = 0.5
+    frac_HeIII_guess::TT = 0.5
+
+    lower = [0.00001,0.00001,0.00001]
+    upper = [0.99999,0.99999,0.99999]
+    inner_optimizer = GradientDescent()
+    res = optimize(f, lower, upper, [frac_HII_guess, frac_HeII_guess, frac_HeIII_guess],
+                    Fminbox(inner_optimizer))
+    vals = Optim.minimizer(res)
+    return [vals[1], (1-vals[3])*vals[2], vals[3]]
+end
+
+function minimized_helmholtz_free_energy(lnT::TT, lnρ::TT,
+    xa::AbstractVector{TTT}, species::Vector{Symbol}) where{TT, TTT}
+    fracs = ion_fracs(lnT, lnρ, xa, species)
+    return helmholtz_free_energy(lnT, lnρ, xa, species, fracs[1], fracs[2], fracs[3])
+end
+##
+using ForwardDiff
+xa = [0.7, 0.3]
+species = [:H1, :He4]
+T = 1e6
+ρ = 1e-6
+f = x->minimized_helmholtz_free_energy(log(x[1]), log(x[2]), xa, species)
+grad = ForwardDiff.gradient(f, [T,ρ])
+hessian = ForwardDiff.hessian(f, [T,ρ])
+
+##
+F = minimized_helmholtz_free_energy(log(T), log(ρ), xa, species)
+P = ρ^2*grad[2]
+s = -grad[1]
+e = F + T*s
+cv = grad[1]+s-T*hessian[1,1]
+χT = T*ρ^2/P*hessian[2,1]
+χρ = ρ/P*(2*ρ*grad[2]+ρ^2*hessian[2,2])
+Γ3 = 1 + P/(ρ*cv*T)*χT
+Γ1 = χρ + (Γ3 - 1)*χT
+∇ad = (Γ3 - 1)/Γ1
+
+##
+nvals = 50
+logT_vals = LinRange(3,4,nvals)
+∇_Helm = zeros(nvals)
+∇_ion = zeros(nvals)
+
+eos = EOS.IdealEOS(true)
+eos_res = EOSResults{Float64}()
+
+ρ = 1e-8
+xa = [0.7, 0.3]
+species = [:H1, :He4]
+for (i,logT) in enumerate(logT_vals)
+    T = 10^(logT)
+    f = x->minimized_helmholtz_free_energy(log(x[1]), log(x[2]), xa, species)
+    grad = ForwardDiff.gradient(f, [T,ρ])
+    hessian = ForwardDiff.hessian(f, [T,ρ])
+    F = minimized_helmholtz_free_energy(log(T), log(ρ), xa, species)
+    P = ρ^2*grad[2]
+    s = -grad[1]
+    e = F + T*s
+    cv = grad[1]+s-T*hessian[1,1]
+    χT = T*ρ^2/P*hessian[2,1]
+    χρ = ρ/P*(2*ρ*grad[2]+ρ^2*hessian[2,2])
+    Γ3 = 1 + P/(ρ*cv*T)*χT
+    Γ1 = χρ + (Γ3 - 1)*χT
+    ∇ad = (Γ3 - 1)/Γ1
+
+    set_EOS_resultsTρ!(eos, eos_res, log(T), log(ρ), xa, species)
+
+    ∇_Helm[i] = ∇ad
+    ∇_ion[i] = eos_res.∇ₐ
+end
+##
+using CairoMakie
+f = Figure()
+ax = Axis(f[1,1])
+lines!(logT_vals, ∇_ion)
+lines!(logT_vals, ∇_Helm)
+
+f
+
+##
+eos = EOS.IdealEOS(true)
+eos_res = EOSResults{Float64}()
+set_EOS_resultsTρ!(eos, eos_res, log(T), log(ρ), xa, species)
+eos_res.P
+
+#using ForwardDiff
+#using LinearAlgebra
+#function ion_fracs(lnT::TT, lnρ::TT,
+#    xa::AbstractVector{TTT}, species::Vector{Symbol}) where{TT, TTT}
+#    f(x) = helmholtz_free_energy(lnT, lnρ, xa, species, x[1], (1-x[3])*x[2], x[3])
+#    guess = ones(TT,3)*0.01
+#    guess[2] = 0.0
+#
+#    new_guess = ones(TT,3)*0.5
+#
+#    for i in 1:100
+#        F = f(guess)
+#        grad = ForwardDiff.gradient(f,guess)
+#        hessian = ForwardDiff.hessian(f,guess)
+#        corr = -hessian\grad
+#        new_guess = guess + corr
+#        for i in 1:3
+#            if new_guess[i] < 0
+#                new_guess[i] = 0
+#            elseif new_guess[i] > 1
+#                new_guess[i] = 1
+#            end
+#        end
+#        eff_corr = new_guess - guess
+#        corr_mag = norm(eff_corr)
+#        if corr_mag > 0.05
+#            eff_corr = eff_corr*0.05/corr_mag
+#        end
+#        guess = guess + eff_corr
+#
+#        #@show guess, F
+#    end
+#    return [guess[1], (1-guess[3])*guess[2], guess[3]]
+#end
+
+##
+using ForwardDiff
+xa = [0.7, 0.3];species=[:H1,:He4]
+Tnormal = 1e5
+ρnormal = 1e-10
+T = ForwardDiff.Dual{:caca}(Tnormal,ForwardDiff.Partials((1.0, 0.0)))
+ρ = ForwardDiff.Dual{:caca}(ρnormal ,ForwardDiff.Partials((0.0, 1.0)))
+F =ion_fracs(log(Tnormal), log(ρnormal), xa, species)
+##
+helmholtz_free_energy(log(Tnormal), log(ρnormal), xa, species, 1.0, 0.0, 1.0)
+
+##
+using CairoMakie
+f = Figure()
+ax = Axis(f[1,1], xlabel="logrho", ylabel="logT")
+logρ_vals = LinRange(-10,5,50)
+logT_vals = LinRange(3,6,50)
+for logρ in logρ_vals
+    for logT in logT_vals
+        fracs = ion_fracs(logT*log(10), logρ*log(10), xa, species)
+        if fracs[1] > 0.05 && fracs[1] < 0.95
+            scatter!(ax, [logρ], [logT], color="red")
+        end
+        if fracs[2] > 0.05 && fracs[2] < 0.95
+            scatter!(ax, [logρ], [logT], color="blue")
+        end
+        if fracs[3] > 0.05 && fracs[3] < 0.95
+            scatter!(ax, [logρ], [logT], color="gray")
+        end
+    end
+end
+
+save("ionization_regions.png",f)
+
+f
+##
+using CairoMakie
+f = Figure()
+ax = Axis(f[1,1], xlabel="logT", ylabel="fraction", title="X=0.7, Y=0.3, rho=1e-10")
+logρ = -10
+nvals = 1000
+logT_vals = LinRange(3,5,nvals)
+fracs_HII = zeros(nvals)
+fracs_HeII = zeros(nvals)
+fracs_HeIII = zeros(nvals)
+
+for i in eachindex(logT_vals)
+    logT = logT_vals[i]
+
+    fracs = ion_fracs(logT*log(10), logρ*log(10), xa, species)
+    fracs_HII[i] = fracs[1]
+    fracs_HeII[i] = fracs[2]
+    fracs_HeIII[i] = fracs[3]
+
+end
+
+lines!(ax, logT_vals, fracs_HII, label="HII")
+lines!(ax, logT_vals, fracs_HeII, label="HeII") 
+lines!(ax, logT_vals, fracs_HeIII, label="HeIII")
+
+save("ionization_fractions.png",f)
+
+f
+
+##
+using ForwardDiff
+xa = [1.0, 0.0];species=[:H1,:He4]
+Tnormal = 1e3
+ρnormal = 5e-10
+T = ForwardDiff.Dual(Tnormal,ForwardDiff.Partials((1.0, 0.0)))
+ρ = ForwardDiff.Dual(ρnormal ,ForwardDiff.Partials((0.0, 1.0)))
+F =helmholtz_free_energy(log(T), log(ρ), xa, species, 1.0, 0.0, 1.0)
+
+(ρ^2*F.partials[2]).value
+
+##
+eos = EOS.IdealEOS(true)
+eos_res = EOSResults{Float64}()
+set_EOS_resultsTρ!(eos, eos_res, log(Tnormal), log(ρnormal ), xa, species)
+eos_res.P
+
+
+##
+x = ForwardDiff.Dual(2,
+        ForwardDiff.Partials((ForwardDiff.Dual(1.0, ForwardDiff.Partials((0.0,0.0))),
+                              ForwardDiff.Dual(0.0, ForwardDiff.Partials((0.0,0.0)))))
+    )
+
+x^3

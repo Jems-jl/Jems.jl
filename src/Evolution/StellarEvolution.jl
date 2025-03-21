@@ -146,7 +146,7 @@ function do_evolution_loop!(sm::StellarModel)
             end
             #if not, determine if we give up or retry
             if i == max_steps
-                if retry_count > 10
+                if retry_count > 100
                     exit_evolution = true
                     println("Too many retries, ending simulation")
                 else

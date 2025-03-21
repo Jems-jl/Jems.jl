@@ -52,6 +52,20 @@ function update_face_dual_data_value!(fd::FaceDualData, value)
     #@inbounds fd.diff_cache_00.dual_data[1] = value
 end
 
+#@generated function update_face_dual_data!(fd::FaceDualData{SIZE1, SIZE2, TNUMBER}, dual::TDSC) where {SIZE1, SIZE2, TNUMBER, TDSC}
+#
+#    return quote
+#        update_face_dual_data_value!($fd, $dual.value)
+#        twonvars = ($SIZE1-1)
+#        nvars = twonvars÷2
+#        for i in 1:twonvars
+#            $fd.diff_cache_face.dual_data[1+i] = $dual.partials[i]
+#            $fd.diff_cache_m1.dual_data[1+i] = $dual.partials[i]
+#            $fd.diff_cache_00.dual_data[1+nvars+i] = $dual.partials[i]
+#        end
+#    end
+#end
+
 function update_face_dual_data!(fd::FaceDualData{SIZE1, SIZE2, TNUMBER}, dual::TDSC) where {SIZE1, SIZE2, TNUMBER, TDSC}
     update_face_dual_data_value!(fd, dual.value)
     twonvars = (SIZE1-1)
