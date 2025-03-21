@@ -36,7 +36,7 @@ remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
 #net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 reactions::Vector{Tuple{Symbol,Symbol}} = []
-net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [])
+net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], reactions)
 #include("full_net.jl")
 nz = 1000
 nextra = 100
@@ -167,6 +167,7 @@ open("example_options.toml", "w") do file
           profile_interval = 50
           terminal_header_interval = 100
           terminal_info_interval = 100
+          hdf5_profile_filename = "1Msun_09.hdf5"
 
           """)
 end
@@ -175,7 +176,7 @@ rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 
 n = 3
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.9, 0.02, 0.0, Chem.abundance_lists[:ASG_09], 
                                             1 * MSUN, 1 * RSUN; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
 
