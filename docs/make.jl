@@ -11,6 +11,7 @@ function ignore_code_blocks(content)
 end
 
 Literate.markdown(pkg_path * "/examples/NuclearBurning.jl", pkg_path * "/docs/src/", preprocess=ignore_code_blocks)
+Literate.markdown(pkg_path * "/examples/DualNumbers.jl", pkg_path * "/docs/src/", preprocess=ignore_code_blocks)
 
 DocMeta.setdocmeta!(Jems, :DocTestSetup, :(using Jems); recursive=true)
 
@@ -23,7 +24,7 @@ makedocs(modules=[Jems],
                                 edit_link="main",
                                 assets=String[]),
          pages=["Home" => "index.md",
-                "Examples" => ["NuclearBurning.md"],
+                "Examples" => ["DualNumbers.md","NuclearBurning.md"],
                 "Modules" => ["Chem.md", "Constants.md", "DualSupport.md", "EOS.md", "Evolution.md", "Opacity.md",
                               "Plotting.md", "ReactionRates.md", "StellarModels.md", "Turbulence.md"],
                 "Developing" => ["style.md"]],
