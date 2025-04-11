@@ -1,62 +1,278 @@
 module Constants
 
-# Most of these are taken from MESA, would be good to update them as I took all
-# this numbers quite some time ago
-
-export CGRAV, CLIGHT, KERG, AMU, CGAS, CRAD, BOLTZ_SIGMA, MSUN, RSUN, LSUN, MP, ME, SECYEAR, log10_e
+export CGRAV, CLIGHT, K_BOLTZ, AMU, CGAS, CRAD, SIGMA_SB, MSUN, RSUN, LSUN, MP, ME, SECYEAR, log10_e
 
 # fundamental(ish) constants
-const CGRAV = 6.67428e-8                 # gravitational constant (g^-1 cm^3 s^-2)
-const PLANCK_H = 6.62606896e-27          # Planck's constant (erg s)
+"""
+    CGRAV = 6.67430e-8
+
+Gravitational constant in units of ``\\mathrm{g}^{-1}~\\mathrm{cm}^{3}~\\mathrm{s}^{-2}``
+
+Source: [CODATA 2018](https://www.doi.org/10.1103/RevModPhys.93.025010)
+
+Has a relative uncertainty of ``2.2\\times10^{-5}``
+"""
+const CGRAV = 6.67430e-8
+    
+"""
+    CLIGHT = 2.99792458e10
+
+Speed of light in units of ``\\mathrm{cm}~\\mathrm{s}^{-1}``.
+
+Source [CODATA 2018](https://www.doi.org/10.1103/RevModPhys.93.025010)
+
+Exact constant
+"""
+const CLIGHT = 2.99792458e10
+
+"""
+    PLANCK_H = 6.62607015e-27
+
+Planck constant in units of ``\\mathrm{erg}~\\mathrm{s}``
+
+Source: [CODATA 2018](https://www.doi.org/10.1103/RevModPhys.93.025010)
+
+Exact constant
+"""
+const PLANCK_H = 6.62607015e-27          
+
+"""
+    HBAR = PLANCK_H / (2 * pi) = 1.0545718176461565e-27
+
+Reduced Planck constant in units of ``\\mathrm{erg}~\\mathrm{s}``
+
+Source: [CODATA 2018](https://www.doi.org/10.1103/RevModPhys.93.025010)
+
+Exact constant
+"""
 const HBAR = PLANCK_H / (2 * pi)
-const QE = 4.80320440e-10                # electron charge (esu == (g cm^3 s^-2)^(1/2))
-const AVO = 6.02214179e23                # Avogadro's constant (mole^-1)
-const CLIGHT = 2.99792458e10             # speed of light in vacuum (cm s^-1)
-const KERG = 1.3806504e-16               # Boltzmann's constant (erg K^-1)
-const CGAS = KERG * AVO                    # ideal gas constant; erg/K
 
-# nuclear constants
-const AMU = 1.660538782e-24              # atomic mass unit (g)
-const MN = 1.6749286e-24                 # neutron mass (g)
-const MP = 1.6726231e-24                 # proton mass (g)
-const ME = 9.1093826e-28                 # (was 9.1093897d-28) electron mass (g)
+"""
+    QE = (CLIGHT/10)*1.602176634e-19 = 4.803204712570263e-10
+
+Electron charge in esu==(g cm^3 s^-2)^(1/2) converted from the electron charge in Coulomb.
+
+Source [CODATA 2018](https://www.doi.org/10.1103/RevModPhys.93.025010)
+
+Exact constant
+"""
+const QE = (CLIGHT/10)*1.602176634e-19
+
+"""
+    AVO = 6.02214076e23
+
+Avogadro's constant in units of ``\\mathrm{mol}^{-1}``.
+
+Source [CODATA 2018](https://www.doi.org/10.1103/RevModPhys.93.025010)
+
+Exact constant
+"""
+const AVO = 6.02214076e23
+
+"""
+    K_BOLTZ = 1.380649e-16
+
+Boltzmann constant in units of ``\\mathrm{erg}^{-1}~\\mathrm{K}^{-1}``.
+
+Source [CODATA 2018](https://www.doi.org/10.1103/RevModPhys.93.025010)
+
+Exact constant
+"""
+const K_BOLTZ = 1.380649e-16
+
+"""
+    CGAS = K_BOLTZ * AVO = 8.31446261815324e7
+
+Ideal gas constant in units of ``\\mathrm{erg}~\\mathrm{K}^{-1}~\\mathrm{mol}^{-1}``
+
+Exact constant
+"""
+const CGAS = K_BOLTZ * AVO
+
+"""
+    AMU = 1.6605390666e-24
+
+Atomic mass unit in units of ``\\mathrm{g}``
+
+Source: [CODATA 2018](https://www.doi.org/10.1103/RevModPhys.93.025010)
+
+Has a relative uncertainty of ``3\\times10^{-10}``
+"""
+const AMU = 1.6605390666e-24
+
+"""
+    MN = 1.6749274980e-24
+
+Neutron mass in units of ``\\mathrm{g}``
+
+Source: [CODATA 2018](https://www.doi.org/10.1103/RevModPhys.93.025010)
+
+Has a relative uncertainty of ``5.7\\times10^{-10}``
+"""
+const MN = 1.6749274980e-24 
+
+"""
+    MP = 1.67262192369e-24
+
+Neutron mass in units of ``\\mathrm{g}``
+
+Source: [CODATA 2018](https://www.doi.org/10.1103/RevModPhys.93.025010)
+
+Has a relative uncertainty of ``3.1\\times10^{-10}``
+"""
+const MP = 1.67262192369e-24
+
+"""
+    ME = 9.1093837015e-28
+
+Electron mass in units of ``\\mathrm{g}``
+
+Source: [CODATA 2018](https://www.doi.org/10.1103/RevModPhys.93.025010)
+
+Has a relative uncertainty of ``3.0\\times10^{-10}``
+"""
+const ME = 9.1093837015e-28
+
+"""
+    RBOHR = HBAR^2 / (ME * QE^2) = 5.291772111941798e-9
+
+Bohr radius in units of ``\\mathrm{cm}``
+"""
 const RBOHR = HBAR^2 / (ME * QE^2)         # Bohr radius (cm)
+
+"""
+    FINE = QE^2 / (HBAR * CLIGHT) = 0.007297352565305213
+
+Fine structure constant
+"""
 const FINE = QE^2 / (HBAR * CLIGHT)          # fine structure constant
-const HION = 13.605698140e0              # hydrogen ionization energy (eV)
-const EV2ERG = 1.602176487e-12           # electron volt (erg)
-const MEV_TO_ERGS = 1e6 * EV2ERG
-const MEV_AMU = MEV_TO_ERGS / AMU
-const QCONV = MEV_TO_ERGS * AVO
-# radiation constants
-const BOLTZ_SIGMA = 5.670400e-5          # boltzmann's sigma = a*c/4 (erg cm^-2 K^-4 s^-1)
-const CRAD = BOLTZ_SIGMA * 4 / CLIGHT        # = radiation density constant, a (erg cm^-3 K^-4)
-                                            # Prad = crad * T^4 / 3, approx 7.5657e-15
-const WIENLAM = PLANCK_H * CLIGHT / (KERG * 4.965114232e0)
-const WIENFRE = 2.821439372E0 * KERG / PLANCK_H
-const RHONUC = 2.342e14                  # density of nucleus (g cm^3)
 
-# astronomical constants
-# solar age, L, and R values from Bahcall et al, ApJ 618 (2005) 1049-1056.
-const MSUN = 1.9892e33                   # solar mass (g) <<< gravitational mass, not baryonic
-const RSUN = 6.9598e10                   # solar radius (cm)
-const LSUN = 3.8418e33                   # solar luminosity (erg s^-1)
-const AGESUN = 4.57e9                    # solar age (years)
-const LY = 9.460528e17                   # light year (cm)
-const PC = 3.261633e0 * LY                 # parsec (cm)
-const DAYYEAR = 365.25e0                 # days per year
+"""
+    EV_TO_ERG = 1.602176634e-12
+
+Energy of ``1~\\mathrm{eV}`` in  ``\\mathrm{erg}``
+
+Source: [CODATA 2018](https://www.doi.org/10.1103/RevModPhys.93.025010)
+"""
+const EV_TO_ERG = 1.602176634e-12
+
+"""
+    MEV_TO_ERG = 1e6 * EV_TO_ERG = 1.602176634e-6
+
+Energy of ``1~\\mathrm{MeV}`` in  ``\\mathrm{erg}``
+"""
+const MEV_TO_ERGS = 1e6 * EV_TO_ERG
+
+"""
+    SIGMA_SB = (2*π^5*K_BOLTZ^4)/(15*CLIGHT^2*PLANCK_H^3) = 5.67037441918443e-5
+
+Stefan-Boltzmann constant in units of ``\\mathrm{erg}~\\mathrm{cm}^{-2}\\mathrm{K}^{-4}\\mathrm{s}^{-1}``
+"""
+const SIGMA_SB = (2*π^5*K_BOLTZ^4)/(15*CLIGHT^2*PLANCK_H^3)
+
+"""
+    CRAD = SIGMA_SB * 4 / CLIGHT = 7.565733250280006e-15
+
+Radiation density constant in units of ``\\mathrm{erg}~\\mathrm{cm}^{-3}\\mathrm{K}^{-4}``
+"""
+const CRAD = SIGMA_SB * 4 / CLIGHT
+
+"""
+    G_TIMES_MSUN = 1.3271244e26
+
+Product of the gravitational constant times the mass of the Sun. In units of ``\\mathrm{cm}^3~\\mathrm{s}^{-2}``.
+
+Taken from the ["IAU 2015 Resolution B3 on Recommended Nominal Conversion Constants for Selected Solar and Planetary Properties"](https://doi.org/10.48550/arXiv.1510.07674).
+"""
+const G_TIMES_MSUN = 1.3271244e26
+
+"""
+    G_TIMES_MEARTH = 3.986004e20
+
+Product of the gravitational constant times the mass of the Earth. In units of ``\\mathrm{cm}^3~\\mathrm{s}^{-2}``.
+
+Taken from the ["IAU 2015 Resolution B3 on Recommended Nominal Conversion Constants for Selected Solar and Planetary Properties"](https://doi.org/10.48550/arXiv.1510.07674).
+"""
+const G_TIMES_MEARTH = 3.986004e20
+
+"""
+    G_TIMES_MJUPITER = 1.2668653e23
+
+Product of the gravitational constant times the mass of Jupiter. In units of ``\\mathrm{cm}^3~\\mathrm{s}^{-2}``.
+
+Taken from the ["IAU 2015 Resolution B3 on Recommended Nominal Conversion Constants for Selected Solar and Planetary Properties"](https://doi.org/10.48550/arXiv.1510.07674).
+"""
+const G_TIMES_MJUPITER = 1.2668653e23
+
+"""
+    MSUN = G_TIMES_MSUN/CGRAV = 1.9884098706980504e33
+
+Mass of the Sun in ``\\mathrm{g}`` computed from the product GM.
+"""
+const MSUN = G_TIMES_MSUN/CGRAV
+
+"""
+    MEARTH = G_TIMES_MEARTH/CGRAV = 5.972167867791379e27
+
+Mass of the Earth in ``\\mathrm{g}`` computed from the product GM.
+"""
+const MEARTH = G_TIMES_MEARTH/CGRAV
+
+"""
+    MJUPITER = G_TIMES_MJUPITER/CGRAV = 1.89812459733605e30
+
+Mass of Jupiter in ``\\mathrm{g}`` computed from the product GM.
+"""
+const MJUPITER = G_TIMES_MJUPITER/CGRAV
+
+"""
+    RSUN = 6.957e10
+
+Solar radius in ``\\mathrm{cm}``.
+
+Taken from the ["IAU 2015 Resolution B3 on Recommended Nominal Conversion Constants for Selected Solar and Planetary Properties"](https://doi.org/10.48550/arXiv.1510.07674).
+"""
+const RSUN = 6.957e10
+
+"""
+    LSUN = 3.828e33 
+
+Solar luminosity in ``\\mathrm{erg}~\\mathrm{s}^{-1}``.
+
+Taken from the ["IAU 2015 Resolution B3 on Recommended Nominal Conversion Constants for Selected Solar and Planetary Properties"](https://doi.org/10.48550/arXiv.1510.07674).
+"""
+const LSUN = 3.828e33
+
+"""
+    DAYYEAR = 365.25e0
+
+Number of days in a year
+"""
+const DAYYEAR = 365.25e0
+
+"""
+    SECYEAR = DAYYEAR * 24 * 3600 = 3.15576e7
+
+Number of seconds in a year.
+"""
 const SECYEAR = DAYYEAR * 24 * 3600          # seconds per year
-const TEFFSOL = 5777.0e0
-const LOGGSOL = 4.4378893534131256e0     # With mesa's default msol, rsol and standard_cgrav
-const MBOLSUN = 4.746                    # Bolometric magnitude of the Sun
-const M_EARTH = 5.9764e27                # earth mass (g) = 3.004424e-6 Msun
-const R_EARTH = 6.37e8                   # earth radius (cm)
-const AU = 1.495978921e13                # astronomical unit (cm)
-const M_JUPITER = 1.8986e30              # jupiter mass (g) = 0.954454d-3 Msun
-const R_JUPITER = 6.9911e9               # jupiter mean radius (cm)
-const SEMIMAJOR_AXIS_JUPITER = 7.7857e13 # jupiter semimajor axis (cm)
 
-# mathematical constants
-const log10_e = log10(exp(1))
+"""
+    LY = CLIGHT*SECYEAR = 9.4607304725808e17
+
+Lightyear in units of ``\\mathrm{cm}``
+"""
+const LY = CLIGHT*SECYEAR
+const PC = 3.261633e0 * LY                 # parsec (cm)
+
+"""
+    AU = 1.49597870700e13
+
+Astronomical unit in ``\\mathrm{cm}``.
+
+From ["The IAU 2009 system of astronomical constants: the report of the IAU working group on numerical standards for Fundamental Astronomy"](https://doi.org/10.1007/s10569-011-9352-4).
+"""
+const AU = 1.49597870700e13
 
 
 end

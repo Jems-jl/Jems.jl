@@ -138,10 +138,10 @@ function setup_model_profile_functions(sm::StellarModel)
     add_profile_option("dm", "Msun", (sm, k) -> sm.props.dm[k] / MSUN)
 
     # thermodynamic properties
-    add_profile_option("log10_r", "log10(Rsun)", (sm, k) -> get_value(sm.props.lnr[k]) * log10_e - log10(RSUN))
-    add_profile_option("log10_P", "log10(dyne)", (sm, k) -> get_value(sm.props.eos_res[k].P) * log10_e)
-    add_profile_option("log10_T", "log10(K)", (sm, k) -> get_value(sm.props.lnT[k]) * log10_e)
-    add_profile_option("log10_ρ", "log10_(g*cm^-3)", (sm, k) -> get_value(sm.props.lnρ[k]) * log10_e)
+    add_profile_option("log10_r", "log10(Rsun)", (sm, k) -> get_value(sm.props.lnr[k]) * log10(ℯ) - log10(RSUN))
+    add_profile_option("log10_P", "log10(dyne)", (sm, k) -> get_value(sm.props.eos_res[k].P) * log10(ℯ))
+    add_profile_option("log10_T", "log10(K)", (sm, k) -> get_value(sm.props.lnT[k]) * log10(ℯ))
+    add_profile_option("log10_ρ", "log10_(g*cm^-3)", (sm, k) -> get_value(sm.props.lnρ[k]) * log10(ℯ))
     add_profile_option("luminosity", "Lsun", (sm, k) -> get_value(sm.props.L[k]) / LSUN)
 
     # abundances
@@ -330,18 +330,18 @@ function write_terminal_info(sm::StellarModel; now::Bool=false)
                       sm.props.model_number,
                       log10(sm.props.dt / SECYEAR),
                       log10(get_value(sm.props.L[sm.props.nz])),
-                      log10_e * get_value(sm.props.lnT[sm.props.nz]),
+                      log10(ℯ) * get_value(sm.props.lnT[sm.props.nz]),
                       log10(get_value(sm.props.eos_res[sm.props.nz].P)),
-                      log10_e * get_value(sm.props.lnρ[sm.props.nz]),
+                      log10(ℯ) * get_value(sm.props.lnρ[sm.props.nz]),
                       get_value(sm.props.xa[1, sm.network.xa_index[:H1]]),
                       sm.solver_data.newton_iters)
         Printf.format(stdout, terminal_header.linefmts[2],
                       sm.props.mstar / MSUN,
                       sm.props.time / SECYEAR,
-                      log10_e * get_value(sm.props.lnr[sm.props.nz]) - log10(RSUN),
-                      log10_e * get_value(sm.props.lnT[1]),
+                      log10(ℯ) * get_value(sm.props.lnr[sm.props.nz]) - log10(RSUN),
+                      log10(ℯ) * get_value(sm.props.lnT[1]),
                       log10(get_value(sm.props.eos_res[1].P)),
-                      log10_e * get_value(sm.props.lnρ[1]),
+                      log10(ℯ) * get_value(sm.props.lnρ[1]),
                       get_value(sm.props.xa[1, sm.network.xa_index[:He4]]),
                       sm.props.nz)
         println()

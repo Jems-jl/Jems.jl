@@ -82,7 +82,7 @@ function equationT(sm::StellarModel, k::Int)
     if k == sm.props.nz  # atmosphere boundary condition
         L₀ = get_00_dual(sm.props.L[k]) * LSUN
         r₀ = exp(get_00_dual(sm.props.lnr[k]))
-        return lnT₀ - log(L₀ / (BOLTZ_SIGMA * 4π * r₀^2)) / 4  # Eddington gray, ignoring radiation pressure term
+        return lnT₀ - log(L₀ / (SIGMA_SB * 4π * r₀^2)) / 4  # Eddington gray, ignoring radiation pressure term
     end
     r₀ = exp(get_00_dual(sm.props.lnr[k]))
     lnT₀ = get_00_dual(sm.props.lnT[k])

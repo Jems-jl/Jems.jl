@@ -1,3 +1,15 @@
+"""
+    struct KippReactionRate{TT<:Real}<:ReactionRates.AbstractReactionRate
+
+Struct for a Kippenhahn reaction rate, as defined in the Kippenhahn textbook. Results are evaluated by using the specific formula needed based on the `name` of the reaction.
+
+- `name`: `Symbol` giving the name of the reaction.
+- `iso_in`: vector that contains all reactants given as symbols (e.g. `[:H1, :H2]`)
+- `num_iso_in`: number of each of the elements in `iso_in` that are used in the reaction, given as a vector of integers. For example if `iso_in` is `[:He4]` and `num_iso_in` is `[3]` it means the reaction uses three ":He4".
+- `iso_out`: Same as `iso_in` but for the products of the reaction.
+- `num_iso_out`: Same as `num_iso_in` but for the products of the reaction.
+- `Qvalue`: Q-value of the reaction (in erg), simply given by the mass difference.
+"""
 struct KippReactionRate{TT<:Real} <: ReactionRates.AbstractReactionRate
     name::Symbol
     # num_iso_in of isotopes iso_in are converted into num_iso_out of isotopes iso_out
@@ -43,13 +55,13 @@ reaction_list[:kipp_rates] = Dict(
 
 Input:
 reaction: the reaction to evaluate for
-T: the temperature
-ρ: the density
-xa: element mass fractions
-xa_index: index of the elements
+- `T``: the temperature in K
+- `ρ``: the density g cm^-3
+- `xa``: element mass fractions
+- `xa_index`: Dictionary containing the index of each element within `xa`
 
 Output:
-ϵ_nuc / Qvalue, has units s^-1 g^-1
+- ϵ_nuc / Qvalue, has units s^-1 g^-1
 """
 function get_reaction_rate(reaction::KippReactionRate, T::T1, ρ::T2, xa::AbstractVector{TT},
                            xa_index::Dict{Symbol,Int})::TT where {TT,T1,T2}
