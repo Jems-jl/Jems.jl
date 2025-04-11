@@ -3,18 +3,20 @@
 
 Struct that holds the following information for a given reaction rate:
 
-- name: name of the reaction as a symbol
-- iso\\_in: vector that contains all elements on the LHS of the reaction
-- iso\\_out: vector that contains all elements on the RHS of the reaction
-- Qvalue: Q-value of the reaction (in erg)
-- coeff: different a\\_i values of the reaction. Contains a vector of 7 values
+- `name`: `Symbol` giving the name of the reaction.
+- `iso_in`: vector that contains all reactants given as symbols (e.g. `[:H1, :H2]`)
+- `num_iso_in`: number of each of the elements in `iso_in` that are used in the reaction, given as a vector of integers. For example if `iso_in` is `[:He4]` and `num_iso_in` is `[3]` it means the reaction uses three ":He4".
+- `iso_out`: Same as `iso_in` but for the products of the reaction.
+- `num_iso_out`: Same as `num_iso_in` but for the products of the reaction.
+- `Qvalue`: Q-value of the reaction (in erg), read from th JINA tables but its simply given by the mass difference.
+- coeff: different ``a\\_i`` values of the fit to the reaction. Contains a vector of 7 values.
 - set_label: Symbol containing set label of the reaction
 - res_rate: A 1 character flag symbol:
     - when blank or n it is a non-resonant rate
     - when r it is a resonant rate
     - when w it is a weak rate.
 - rev_rate: a 1 character flag symbol which is set to 'v' when it is a reverse rate.
-- chapter: chapter this reaction is in
+- chapter: chapter this reaction is in. Different chapters
 """
 struct JinaReactionRate{TT<:Real} <: ReactionRates.AbstractReactionRate
     name::Symbol

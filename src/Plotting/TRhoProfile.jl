@@ -4,8 +4,8 @@
 Creates relevant Tρ observables for this `plot` given the StellarModelProperties `props`
 """
 function create_T_ρ_observables!(plot::StellarModels.JemsPlot, props::StellarModelProperties)
-    rhos = get_value.(props.lnρ[1:(props.nz)]) .* log10_e
-    ts = get_value.(props.lnT[1:props.nz]) .* log10_e
+    rhos = get_value.(props.lnρ[1:(props.nz)]) .* log10(ℯ)
+    ts = get_value.(props.lnT[1:props.nz]) .* log10(ℯ)
     plot.x_obs[:log_ρ] = Observable{Vector{Float64}}(rhos)
     plot.y_obs[:log_T] = Observable{Vector{Float64}}(ts)
     plot.other_obs[:colors] = 
@@ -57,8 +57,8 @@ end
 updates the observables of this Tρ `plot` with relevant data of the stellar model properties `props`.
 """
 function update_T_ρ_plot!(plot::StellarModels.JemsPlot, props::StellarModelProperties)
-    plot.x_obs[:log_ρ].val = get_value.(props.lnρ[1:(props.nz)]) .* log10_e
-    plot.y_obs[:log_T].val = get_value.(props.lnT[1:(props.nz)]) .* log10_e
+    plot.x_obs[:log_ρ].val = get_value.(props.lnρ[1:(props.nz)]) .* log10(ℯ)
+    plot.y_obs[:log_T].val = get_value.(props.lnT[1:(props.nz)]) .* log10(ℯ)
     plot.other_obs[:colors].val = mixing_colors[get.(Ref(mixing_map), props.mixing_type[1:(props.nz)],
                                                            missing)]
 end
