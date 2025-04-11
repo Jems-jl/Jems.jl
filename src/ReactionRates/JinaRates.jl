@@ -3,6 +3,8 @@
 
 Struct that holds the following information for a given reaction rate:
 
+    TODO: explain all the different details that are read from the JINA data
+
 - `name`: `Symbol` giving the name of the reaction.
 - `iso_in`: vector that contains all reactants given as symbols (e.g. `[:H1, :H2]`)
 - `num_iso_in`: number of each of the elements in `iso_in` that are used in the reaction, given as a vector of integers. For example if `iso_in` is `[:He4]` and `num_iso_in` is `[3]` it means the reaction uses three ":He4".
@@ -404,8 +406,7 @@ end
     get_reaction_rate(reaction::JinaReactionRate, T::T1, ρ::T2, xa::AbstractVector{TT}, 
                       xa_index::Dict{Symbol,Int})
 
-Evaluates the reaction rate, in s^{-1}g^{-1}, given an equation of state result for the relevant cell, is abundances and
-index array, by computing Eqs. 1 and 2 from Cyburt+2010.
+Evaluates the reaction rate, in s^{-1}g^{-1}, by computing Eqs. 1 and 2 from Cyburt+2010.
 """
 function get_reaction_rate(reaction::JinaReactionRate, T::T1, ρ::T2, xa::AbstractVector{TT},
                            xa_index::Dict{Symbol,Int})::TT where {TT,T1,T2}

@@ -70,9 +70,14 @@ Jems.ReactionRates.get_reaction_rate(reaction::Jems.ReactionRates.KippReactionRa
 ```
 
 ## JINA rates
-TODO: Jina rates have a bunch of extra functionality to help access independent reactions from their large library, need to describe these and possibly clean up the code there a bit.
+TODO: Jina rates have a bunch of extra functionality to help access independent reactions from their large library, need to describe these and possibly clean up the code there a bit. Jina specific functions should probably be renamed to make that clear.
 ```@docs
 Jems.ReactionRates.JinaReactionRate
+Jems.ReactionRates.get_reaction_rate(reaction::Jems.ReactionRates.JinaReactionRate, T::T1, ρ::T2, xa::AbstractVector{TT},xa_index::Dict{Symbol,Int}) where{TT,T1,T2}
+Jems.ReactionRates.read_dataset
+Jems.ReactionRates.add_to_references
+Jems.ReactionRates.correct_names
+Jems.ReactionRates.sort_reaction
 ```
 
 ## Toy rates

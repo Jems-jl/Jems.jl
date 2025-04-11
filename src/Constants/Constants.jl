@@ -13,7 +13,7 @@ Source: [CODATA 2018](https://www.doi.org/10.1103/RevModPhys.93.025010)
 Has a relative uncertainty of ``2.2\\times10^{-5}``
 """
 const CGRAV = 6.67430e-8
-
+    
 """
     CLIGHT = 2.99792458e10
 
