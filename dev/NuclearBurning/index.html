@@ -37,25 +37,25 @@ end
 
 @benchmark begin
     Evolution.eval_jacobian_eqs!($sm)
-end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BenchmarkTools.Trial: 2130 samples with 1 evaluation per sample.
- Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1">1.917 ms</span></span> … <span class="sgr35">  5.985 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 0.00%
- Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">2.247 ms               </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
- Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">2.344 ms</span></span> ± <span class="sgr32">428.640 μs</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>0.00% ± 0.00%
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BenchmarkTools.Trial: 2339 samples with 1 evaluation per sample.
+ Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1">1.919 ms</span></span> … <span class="sgr35">  4.688 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 0.00%
+ Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">2.058 ms               </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
+ Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">2.134 ms</span></span> ± <span class="sgr32">227.621 μs</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>0.00% ± 0.00%
 
-     ▇▄▄▇<span class="sgr34">█</span>▅<span class="sgr32">▃</span>                                                   
-  ▃▄█████<span class="sgr34">█</span>█<span class="sgr32">█</span>█▅▆▄▃▃▃▃▂▃▂▃▃▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▁▂▂▂▁▁▂▁▂▂▂▂▁▂▁▂▂ ▃
-  1.92 ms<span class="sgr90">         Histogram: frequency by time</span>         4.6 ms <span class="sgr1">&lt;</span>
+   ▄▇█▅▂▃<span class="sgr34"> </span>   <span class="sgr32"> </span>                                                 
+  ▅██████<span class="sgr34">█</span>█▇▇<span class="sgr32">▇</span>▇▅▆▅▅▄▄▄▄▃▄▃▃▃▃▃▃▃▃▃▃▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▁▂▂▂ ▃
+  1.92 ms<span class="sgr90">         Histogram: frequency by time</span>        3.04 ms <span class="sgr1">&lt;</span>
 
  Memory estimate<span class="sgr90">: </span><span class="sgr33">592 bytes</span>, allocs estimate<span class="sgr90">: </span><span class="sgr33">7</span>.</code></pre><p>To get an idea of how much a complete iteration of the solver takes, we need to Perform the jacobian evaluation as a setup for the benchmark. This is because the solver destroys the Jacobian to perform in-place operations.</p><pre><code class="language-julia hljs">@benchmark begin
     Evolution.thomas_algorithm!($sm)
-end setup=(Evolution.eval_jacobian_eqs!($sm))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BenchmarkTools.Trial: 1251 samples with 1 evaluation per sample.
- Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1">1.696 ms</span></span> … <span class="sgr35"> 2.724 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 0.00%
- Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">1.753 ms              </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
- Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">1.765 ms</span></span> ± <span class="sgr32">91.845 μs</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>0.00% ± 0.00%
+end setup=(Evolution.eval_jacobian_eqs!($sm))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BenchmarkTools.Trial: 1203 samples with 1 evaluation per sample.
+ Range <span class="sgr90">(</span><span class="sgr36"><span class="sgr1">min</span></span> … <span class="sgr35">max</span><span class="sgr90">):  </span><span class="sgr36"><span class="sgr1">1.678 ms</span></span> … <span class="sgr35"> 2.596 ms</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>min … max<span class="sgr90">): </span>0.00% … 0.00%
+ Time  <span class="sgr90">(</span><span class="sgr34"><span class="sgr1">median</span></span><span class="sgr90">):     </span><span class="sgr34"><span class="sgr1">1.731 ms              </span></span><span class="sgr90">┊</span> GC <span class="sgr90">(</span>median<span class="sgr90">):    </span>0.00%
+ Time  <span class="sgr90">(</span><span class="sgr32"><span class="sgr1">mean</span></span> ± <span class="sgr32">σ</span><span class="sgr90">):   </span><span class="sgr32"><span class="sgr1">1.737 ms</span></span> ± <span class="sgr32">40.495 μs</span>  <span class="sgr90">┊</span> GC <span class="sgr90">(</span>mean ± σ<span class="sgr90">):  </span>0.00% ± 0.00%
 
-  ▁▂ ▂█<span class="sgr34">█</span><span class="sgr32">▅</span>▃▁▁                                                  
-  ██▇██<span class="sgr34">█</span><span class="sgr32">█</span>████▇▆▆▅▄▁▄▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▄▁▁▄ █
-  1.7 ms<span class="sgr90">       Histogram: <span class="sgr1">log(</span>frequency<span class="sgr1">)</span> by time</span>     2.34 ms <span class="sgr1">&lt;</span>
+                    ▃▇█<span class="sgr34">▃</span>▃<span class="sgr32">▁</span>                                    
+  ▂▂▂▂▃▃▃▃▂▂▂▂▂▂▄▅▆▇███<span class="sgr34">█</span>█<span class="sgr32">█</span>▇▅▅▄▄▄▃▃▃▃▃▂▂▂▃▂▃▂▂▂▂▂▂▂▂▂▁▁▁▂▂▁▂▂ ▃
+  1.68 ms<span class="sgr90">        Histogram: frequency by time</span>        1.82 ms <span class="sgr1">&lt;</span>
 
  Memory estimate<span class="sgr90">: </span><span class="sgr33">125.00 KiB</span>, allocs estimate<span class="sgr90">: </span><span class="sgr33">2000</span>.</code></pre><h2 id="Evolving-our-model"><a class="docs-heading-anchor" href="#Evolving-our-model">Evolving our model</a><a id="Evolving-our-model-1"></a><a class="docs-heading-anchor-permalink" href="#Evolving-our-model" title="Permalink"></a></h2><p>We can now evolve our star! We will initiate a <span>$1M_\odot$</span> star with a radius of <span>$100R_\odot$</span> using an n=1 polytrope (it would be much better to use n=3 or n=3/2 polytropes, for now I only use this because there is a simple analytical solution). The star is expected to contract until it ignites hydrogen. We set a few options for the simulation with a toml file, which we generate dynamically. These simulation should complete in about a thousand steps once it reaches the <code>max_center_T</code> limit.</p><p>Output is stored in HDF5 files, and easy to use functions are provided with the Evolution module to turn these HDF5 files into DataFrame objects. HDF5 output is compressed by default.</p><pre><code class="language-julia hljs">open(&quot;example_options.toml&quot;, &quot;w&quot;) do file
     write(file,
@@ -119,135 +119,133 @@ StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Che
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-        1     1.000     1.204     3.069    0.7506    -10.45    0.7154        23
-    1.000     10.00     1.988     5.080     9.096    -4.117    0.2704      1004
+        1     1.000     1.205     3.069    0.7508    -10.45    0.7154        23
+    1.000     10.00     1.988     5.080     9.096    -4.116    0.2704      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      100     2.616     1.102     3.243     1.549    -9.827    0.7154         4
-    1.000 2.359e+04     1.589     5.462     10.54    -3.049    0.2704      1004
+      100     2.617     1.103     3.243     1.549    -9.826    0.7154         4
+    1.000 2.361e+04     1.589     5.462     10.54    -3.049    0.2704      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      200     3.048     1.101     3.456     2.404    -9.184    0.7154         4
-    1.000 9.487e+04     1.161     5.892     12.26    -1.760    0.2704      1004
+      200     3.049     1.102     3.456     2.404    -9.184    0.7154         4
+    1.000 9.494e+04     1.161     5.892     12.26    -1.760    0.2704      1004
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      300     3.477     1.101     3.670     3.260    -8.543    0.7154         4
-    1.000 2.864e+05    0.7331     6.321     13.98   -0.4716    0.2704      1009
+      300     3.477     1.102     3.670     3.260    -8.542    0.7154         4
+    1.000 2.866e+05    0.7331     6.321     13.98   -0.4712    0.2704      1009
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      400     3.905     1.101     3.884     4.116    -7.901    0.7154         4
-    1.000 8.002e+05    0.3052     6.750     15.70    0.8148    0.2704      1019
+      400     3.906     1.102     3.884     4.116    -7.901    0.7154         4
+    1.000 8.008e+05    0.3052     6.750     15.70    0.8152    0.2704      1019
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      500     4.373     1.088     4.095     4.971    -7.256    0.7154         4
-    1.000 2.202e+06   -0.1223     7.181     17.38     2.063    0.2704      1031
+      500     4.374     1.089     4.095     4.971    -7.256    0.7154         4
+    1.000 2.204e+06   -0.1223     7.181     17.38     2.064    0.2704      1031
 
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (520, 50, 2.6673113502265938e12, 0.0002961310474865579, 297, 5, 297.16024069071995, 296, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (523, 50, 7.123618470945256e12, -0.00039544026225442374, 321, 6, 396.7175552214709, 321, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (524, 50, 7.32878701615148e12, -0.00040682940439526363, 324, 6, 408.1322197665994, 324, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (528, 50, 5.334549481495997e12, 0.0005922539660359046, 350, 5, 594.018857618045, 349, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (537, 50, 1.0624405333100943e13, 0.0011795459423758973, 359, 5, 1182.9758845167235, 359, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (542, 50, 4.275658172663472e13, 0.0047469341487177096, 356, 5, 4771.434356502356, 354, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (542, 50, 2.1338238389768965e13, 0.002369020356526193, 356, 5, 2375.957754638653, 356, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (544, 50, 4.8416549993453086e13, -0.0026876584287823294, 355, 6, 2695.5484182129894, 355, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (547, 50, 8.521300710388602e13, -0.004730272124214064, 353, 6, 4754.998111530924, 351, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (548, 50, 3.220393116100741e13, 0.0035753545858393976, 352, 5, 3585.927589920075, 352, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (550, 50, 7.424018577477281e13, -0.00412115817998009, 351, 6, 4142.890922600943, 349, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (551, 50, 2.8036592577802434e13, 0.0031126870611911032, 350, 5, 3121.9410904827196, 350, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (554, 50, 8.645344161133006e13, -0.0047991300717492615, 348, 6, 4824.751002525381, 346, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (555, 50, 3.2634874504746496e13, 0.0036231989080922062, 347, 5, 3634.0535294503156, 347, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (558, 50, 8.678284017315481e13, -0.004817415365130074, 345, 6, 4843.490936197813, 343, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (561, 50, 4.359349113971851e13, 0.0048398497587108244, 342, 5, 4866.383219759228, 340, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (562, 50, 3.28143984569924e13, 0.003643130070617717, 341, 5, 3654.2222142172723, 341, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (566, 50, 4.3881551990766625e13, 0.004871830937643498, 337, 5, 4886.804723044901, 337, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (571, 50, 8.81893763602211e13, -0.004895493808122547, 332, 6, 4910.747013417244, 332, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (572, 50, 6.621757293935295e13, -0.0036758137056032677, 332, 6, 3687.284690743989, 332, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (590, 50, 4.449296008016724e13, 0.004939710871472962, 315, 5, 4955.886224529028, 315, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (593, 50, 8.892922066259244e13, -0.004936563417079067, 313, 6, 4952.825465207181, 313, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (596, 50, 8.90370200972144e13, -0.004942547487797011, 311, 6, 4958.925468064781, 311, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (598, 50, 8.88439848857683e13, -0.004931831880981469, 310, 6, 4948.227611146424, 310, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (535, 50, 3.883769839288261e13, -0.0021559253489612856, 358, 6, 2162.206351543362, 358, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (537, 50, 4.438967367461355e13, -0.002464121888457657, 357, 6, 2471.3178172787666, 357, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (539, 50, 5.083198628338282e13, -0.0028217420779620872, 356, 6, 2830.003529559306, 356, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (542, 50, 4.301682902705433e13, 0.004775827403219949, 354, 5, 4800.695930114982, 352, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (544, 50, 4.311344142345696e13, 0.00478655353391499, 352, 5, 4811.677025679843, 350, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (545, 50, 6.509314411934924e13, -0.003613395367327257, 351, 6, 3624.108670579656, 351, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (547, 50, 7.503935883018642e13, -0.004165521196319101, 350, 6, 4187.57519650951, 348, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (548, 50, 5.6679028170934305e13, -0.003146318104437457, 349, 6, 3155.696463513475, 349, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (551, 50, 4.325624748508586e13, 0.004802408191682634, 347, 5, 4828.147660656283, 345, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (552, 50, 3.2654015695736395e13, 0.0036253240071877795, 346, 5, 3636.213135619884, 346, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (555, 50, 8.683039309248997e13, -0.004820055082426776, 344, 6, 4846.242638997615, 342, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (556, 50, 3.272916260304412e13, 0.0036336669898600206, 343, 5, 3644.670947823182, 343, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (559, 50, 4.350859041679295e13, 0.004830423884970897, 341, 5, 4857.006001094588, 339, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (560, 50, 6.559972285548941e13, -0.003641516136159673, 340, 6, 3652.6323089405687, 340, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (564, 50, 4.379473737063507e13, 0.004862192578629084, 337, 5, 4889.4272331449165, 335, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (565, 50, 6.5936149783107586e13, -0.003660191582216953, 336, 6, 3671.4877796567284, 336, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (571, 50, 8.83127793413039e13, -0.004902344049667823, 330, 6, 4917.704171149259, 330, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (572, 50, 3.3154855306772742e13, 0.0036809283739694656, 330, 5, 3692.479506698632, 330, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (585, 50, 8.881606428247361e13, -0.004930281976149509, 318, 6, 4946.287727960346, 318, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (589, 50, 8.898246974032345e13, -0.004939519334685919, 315, 6, 4955.696779215043, 315, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (592, 50, 8.892978783448883e13, -0.004936594901443982, 313, 6, 4952.859733638613, 313, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (595, 50, 8.903764994862914e13, -0.004942582451574148, 311, 6, 4958.963201202845, 311, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (598, 50, 8.914021192487538e13, -0.004948275784948129, 309, 6, 4964.7709519815135, 309, 5)
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      600     6.181     1.022     4.108     5.091    -7.150    0.4909         4
-    1.000 1.438e+08   -0.1824     7.309     17.57     2.205    0.4949      1033
+      600     6.174     1.025     4.108     5.088    -7.152    0.4857         4
+    1.000 1.461e+08   -0.1808     7.310     17.57     2.206    0.5001      1033
 
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (601, 50, 4.459836240581676e13, -0.004951412880351475, 308, 6, 4967.9688151212695, 308, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (603, 50, 8.900600553625066e13, 0.004940825833812982, 307, 5, 4957.399270792185, 307, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (605, 50, 4.452993193442188e13, -0.004943815571858621, 306, 6, 4960.451717852546, 306, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (608, 50, 8.939354641985236e13, 0.004962338674410891, 304, 5, 4979.130929259555, 304, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (610, 50, 8.920597048235177e13, 0.004951926118176951, 303, 5, 4968.7355697459825, 303, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (612, 50, 8.92537299221764e13, 0.004954577299663776, 302, 5, 4971.447967650505, 302, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (614, 50, 4.4651103672429836e13, -0.004957268337205649, 301, 6, 4974.200266607378, 301, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (616, 50, 4.467459736979909e13, -0.004959876661580941, 300, 6, 4976.869478141365, 300, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (618, 50, 4.469735733470084e13, -0.0049624035252883, 299, 6, 4979.456853735434, 299, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (620, 50, 4.471940347652285e13, -0.004964851138713794, 298, 6, 4981.964605228526, 298, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (622, 50, 8.948151010326686e13, 0.004967221639743772, 297, 5, 4984.394870897137, 297, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (624, 50, 8.952286113878612e13, 0.004969517083330051, 296, 5, 4986.749705039166, 296, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (625, 50, 3.367149360137959e13, -0.0037382867469770253, 296, 6, 3751.266893185115, 296, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (627, 50, 7.714034295183462e13, 0.004282149243630386, 295, 5, 4297.050522370507, 295, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (628, 50, 5.804052938046882e13, 0.003221896603981468, 295, 5, 3233.1199898121463, 295, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (633, 50, 5.716836203452707e12, -0.005077570544867089, 292, 1, 5015.64847281421, 292, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (635, 50, 5.7350756877268955e12, -0.005093770461185883, 291, 1, 4998.704531669989, 291, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (640, 50, 5.89089386222566e12, -0.005232164801172754, 288, 1, 5023.623195207656, 288, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (642, 50, 5.911828957320023e12, -0.0052507589008499375, 287, 1, 5007.211108772202, 287, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (644, 50, 5.954432916336723e12, -0.005288598817842358, 286, 1, 5008.734091137311, 286, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (645, 50, 4.484414407598475e12, -0.0039829601018212864, 286, 1, 3767.250670654145, 286, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (650, 50, 6.120823155277123e12, -0.005436383037317969, 283, 1, 5031.64356799626, 283, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (655, 50, 6.271903741427578e12, -0.005570569553572449, 280, 1, 5036.157097778743, 280, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (660, 50, 6.430386406915725e12, -0.005711330436955575, 277, 1, 5040.067363352283, 277, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (661, 50, 4.83512309241837e12, -0.0042944519872797305, 277, 1, 3784.785284694627, 277, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (665, 50, 6.548318759426623e12, -0.005816075407440223, 275, 1, 5039.936696484023, 275, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (667, 50, 6.585192283280943e12, -0.005848825675585928, 274, 1, 5028.962981257069, 274, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (683, 50, 7.262219915002755e12, -0.006450147007621925, 264, 1, 5053.373061556457, 264, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (685, 50, 7.308815745683012e12, -0.00649153241888013, 263, 1, 5040.899692528202, 263, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (689, 50, 7.482567400873379e12, -0.006645854889407391, 261, 1, 5054.802047173711, 261, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (693, 50, 7.644192840806035e12, -0.006789407117230115, 259, 1, 5055.767642918205, 259, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (695, 50, 7.698559737327302e12, -0.006837694621466374, 258, 1, 5044.002667701779, 258, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (696, 50, 5.796504219718757e12, -0.005148329957654913, 258, 1, 3793.264092498633, 258, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (600, 50, 4.4474319750939984e13, -0.004937641379203493, 308, 6, 4954.154103124135, 308, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (602, 50, 8.900425384178662e13, 0.004940728595236678, 307, 5, 4957.304426862038, 307, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (605, 50, 8.93434238738333e13, 0.004959556314178731, 305, 5, 4976.289410861738, 305, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (607, 50, 8.915512612034461e13, 0.0049491036891083145, 304, 5, 4965.854059362167, 304, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (609, 50, 8.92044587400021e13, 0.004951842199618755, 303, 5, 4968.6541612084675, 303, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (611, 50, 8.925450477686486e13, 0.004954620312739569, 302, 5, 4971.493912643433, 302, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (613, 50, 8.930301691077208e13, 0.004957313277141444, 301, 5, 4974.248137733503, 301, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (615, 50, 8.935001904477452e13, 0.004959922419710245, 300, 5, 4976.918163366888, 300, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (617, 50, 8.939555259874575e13, 0.004962450039710839, 299, 5, 4979.506291322965, 299, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (619, 50, 8.943965765824828e13, 0.004964898362338948, 298, 5, 4982.01474831688, 298, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (621, 50, 8.948237278836447e13, 0.00496726952838669, 297, 5, 4984.445675513768, 297, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (623, 50, 4.476186752934859e13, -0.004969565595630398, 296, 6, 4986.801129989137, 296, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (625, 50, 4.478189003470768e13, -0.004971788540276432, 295, 6, 4989.083086135971, 295, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (626, 50, 6.737271585341871e13, 0.003739937018599688, 295, 5, 3752.9636078934664, 295, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (628, 50, 4.832114954036136e12, -0.004291780223685158, 294, 1, 4298.663481037591, 294, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (629, 50, 3.6394456770131606e12, -0.0032324771099940014, 294, 1, 3234.267156531768, 294, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (634, 50, 5.756994555816382e12, -0.005113238326807218, 291, 1, 5017.454473722435, 291, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (636, 50, 5.775903677150523e12, -0.005130033000311694, 290, 1, 5000.674281640743, 290, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (637, 50, 4.350066099149867e12, -0.0038636348335340173, 290, 1, 3761.3479434608757, 290, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (642, 50, 5.934516903338314e12, -0.005270909844890705, 287, 1, 5025.216104717741, 287, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (644, 50, 5.956267008384105e12, -0.005290227818818587, 286, 1, 5009.0271073209715, 286, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (649, 50, 6.121455845551771e12, -0.005436944979166266, 283, 1, 5031.752801664377, 283, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (654, 50, 6.27250841346462e12, -0.005571106610226746, 280, 1, 5036.215212733044, 280, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (659, 50, 6.431027032018131e12, -0.00571189942634665, 277, 1, 5040.125739694274, 277, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (663, 50, 6.551786949357047e12, -0.005819155778891846, 275, 1, 5043.071373025258, 275, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (665, 50, 6.584576525139198e12, -0.005848278772492675, 274, 1, 5028.948761037793, 274, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (681, 50, 7.26153908449943e12, -0.006449542308661398, 264, 1, 5053.357105966197, 264, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (683, 50, 7.308133182239589e12, -0.006490926180759605, 263, 1, 5040.884617861525, 263, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (687, 50, 7.481872087072307e12, -0.006645237326694359, 261, 1, 5054.789022747512, 261, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (691, 50, 7.643487131553261e12, -0.006788780321501218, 259, 1, 5055.756791958109, 259, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (693, 50, 7.697853106097898e12, -0.006837067006857732, 258, 1, 5043.9926466139095, 258, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (694, 50, 5.79599609015837e12, -0.005147878647944966, 258, 1, 3793.2586333971585, 258, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (698, 50, 7.883795412449002e12, -0.007002216950668052, 256, 1, 5053.657808998066, 256, 6)
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      700     5.803     1.132     4.075     4.848    -7.360    0.1154         4
-    1.000 2.301e+08  -0.06071     7.367     17.53     2.297    0.8704      1033
+      700     5.672     1.135     4.074     4.844    -7.363    0.1092         4
+    1.000 2.311e+08  -0.05878     7.369     17.54     2.301    0.8766      1033
 
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (700, 50, 7.884511300089319e12, -0.0070028527866211115, 256, 1, 5053.665241444343, 256, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (704, 50, 8.063895160703833e12, -0.007162177660461418, 254, 1, 5055.587823120018, 253, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (711, 50, 8.415752036657938e12, -0.007474689344506958, 250, 1, 5050.661247362936, 249, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (713, 50, 8.477958995590155e12, -0.007529940222985725, 249, 1, 5038.136126601641, 248, 5)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (718, 50, 8.708540519305002e12, -0.007734737756330825, 246, 1, 5029.888553756234, 245, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (720, 50, 8.736398348960581e12, -0.007759480479450592, 245, 1, 5009.133044712533, 244, 6)
-(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (724, 50, 8.687782227438213e12, 0.007716300689464906, 241, 1, 0.004915333233901302, 241, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (702, 50, 8.063176505838143e12, -0.007161539366718499, 254, 1, 5055.583799338941, 253, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (709, 50, 8.4150807182658955e12, -0.007474093093998398, 250, 1, 5050.67314515272, 249, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (711, 50, 8.477321527582129e12, -0.007529374037657747, 249, 1, 5038.1547412477175, 248, 6)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (716, 50, 8.708237820839814e12, -0.007734468906086369, 246, 1, 5029.980224322171, 245, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (718, 50, 8.736383779588859e12, -0.00775946753924904, 245, 1, 5009.285089159549, 244, 5)
+(sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ) = (722, 50, 8.691829447502206e12, 0.007719895342985522, 241, 1, 0.004916445299819093, 241, 5)
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      800     4.929     1.317     3.980     4.281    -7.831 4.204e-164         4
-    1.000 3.016e+08    0.2225     7.703     20.22     4.727    0.9858      1033
+      800     4.907     1.319     3.975     4.264    -7.844 6.543e-175         4
+    1.000 3.021e+08    0.2314     7.712     20.25     4.749    0.9858      1033
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      900     4.293     1.359     3.769     3.396    -8.506 -1.151e-320         4
-    1.000 3.055e+08    0.6654     7.948     21.02     5.280    0.9858      1047
+      900     4.285     1.360     3.764     3.378    -8.519 -1.018e-321         4
+    1.000 3.059e+08    0.6742     7.950     21.03     5.285    0.9858      1047
 
     model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
      mass       age      logR     logTc     logPc     logρc   He_cntr     zones
 -------------------------------------------------------------------------------
-      964     4.038     1.375     3.632     2.832    -8.933 2.505e-321         4
-    1.000 3.064e+08    0.9473     8.000     21.20     5.402    0.9858      1061
+      962     4.040     1.376     3.632     2.832    -8.932 -2.520e-322         5
+    1.000 3.068e+08    0.9473     8.000     21.20     5.402    0.9858      1061
 
 Reached maximum central temperature
-619.082092 seconds (456.78 M allocations: 36.437 GiB, 1.05% gc time, 2.89% compilation time: 3% of which was recompilation)</code></pre><h2 id="Plotting-with-Makie"><a class="docs-heading-anchor" href="#Plotting-with-Makie">Plotting with Makie</a><a id="Plotting-with-Makie-1"></a><a class="docs-heading-anchor-permalink" href="#Plotting-with-Makie" title="Permalink"></a></h2><p>Now that our simulation is complete we can analyze the results. We make use of the Makie package for this. I&#39;m not a fan of the Makie defaults, so I adjust them. I normally also adjust the fonts to be consistent with \LaTeX, but I avoid that here so we don&#39;t need to distribute those fonts together with Jems.</p><pre><code class="language-julia hljs">using CairoMakie, LaTeXStrings, MathTeXEngine
+632.021013 seconds (455.19 M allocations: 36.282 GiB, 1.00% gc time, 2.87% compilation time: 3% of which was recompilation)</code></pre><h2 id="Plotting-with-Makie"><a class="docs-heading-anchor" href="#Plotting-with-Makie">Plotting with Makie</a><a id="Plotting-with-Makie-1"></a><a class="docs-heading-anchor-permalink" href="#Plotting-with-Makie" title="Permalink"></a></h2><p>Now that our simulation is complete we can analyze the results. We make use of the Makie package for this. I&#39;m not a fan of the Makie defaults, so I adjust them. I normally also adjust the fonts to be consistent with \LaTeX, but I avoid that here so we don&#39;t need to distribute those fonts together with Jems.</p><pre><code class="language-julia hljs">using CairoMakie, LaTeXStrings, MathTeXEngine
 basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
                            italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
                     fontsize=30, size=(1000, 750), linewidth=7,
@@ -311,6 +309,6 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 ax = Axis(f[1, 1]; xlabel=L&quot;\log_{10}(T_\mathrm{eff}/[K])&quot;, ylabel=L&quot;\log_{10}(L/L_\odot)&quot;, xreversed=true)
 history = StellarModels.get_history_dataframe_from_hdf5(&quot;history.hdf5&quot;)
 lines!(ax, log10.(history[!, &quot;T_surf&quot;]), log10.(history[!, &quot;L_surf&quot;]))
-f</code></pre><img src="9d61d932.png" alt="Example block output"/><h2 id="Perform-some-cleanup"><a class="docs-heading-anchor" href="#Perform-some-cleanup">Perform some cleanup</a><a id="Perform-some-cleanup-1"></a><a class="docs-heading-anchor-permalink" href="#Perform-some-cleanup" title="Permalink"></a></h2><p>Internally we want to prevent storing any of the hdf5 files into our git repos, so I remove them. You can also take advantage of <code>julia</code> as a scripting language to post-process your simulation output in a similar way.</p><pre><code class="language-julia hljs">rm(&quot;history.hdf5&quot;)
+f</code></pre><img src="5a172b9a.png" alt="Example block output"/><h2 id="Perform-some-cleanup"><a class="docs-heading-anchor" href="#Perform-some-cleanup">Perform some cleanup</a><a id="Perform-some-cleanup-1"></a><a class="docs-heading-anchor-permalink" href="#Perform-some-cleanup" title="Permalink"></a></h2><p>Internally we want to prevent storing any of the hdf5 files into our git repos, so I remove them. You can also take advantage of <code>julia</code> as a scripting language to post-process your simulation output in a similar way.</p><pre><code class="language-julia hljs">rm(&quot;history.hdf5&quot;)
 rm(&quot;profiles.hdf5&quot;)
-rm(&quot;example_options.toml&quot;)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../DualNumbers/">« DualSupport.jl</a><a class="docs-footer-nextpage" href="../Chem/">Chem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.1 on <span class="colophon-date" title="Wednesday 9 April 2025 13:04">Wednesday 9 April 2025</span>. Using Julia version 1.11.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+rm(&quot;example_options.toml&quot;)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../DualNumbers/">« DualSupport.jl</a><a class="docs-footer-nextpage" href="../Chem/">Chem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.1 on <span class="colophon-date" title="Friday 11 April 2025 14:18">Friday 11 April 2025</span>. Using Julia version 1.11.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
