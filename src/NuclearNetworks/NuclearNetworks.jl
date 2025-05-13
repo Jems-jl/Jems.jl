@@ -4,8 +4,24 @@ using ..ReactionRates, ..EOS
 
 export NuclearNetwork, set_rates_for_network!
 
+"""
+    abstract type AbstractNuclearNetwork
+
+Abstract type for nuclear networks.
+"""
 abstract type AbstractNuclearNetwork end
 
+"""
+    struct NuclearNetwork
+
+Structure containing basic info of an isotope:
+
+  - `nspecies`:
+  - `species_names`:
+  - `xa_index`:
+  - `species_reactions_in`:
+  - `species_reactions_out`:
+"""
 @kwdef struct NuclearNetwork{TT} <: AbstractNuclearNetwork
     nspecies::Int  # Just the number of species in the network
     species_names::Vector{Symbol}  # just the species names
@@ -15,6 +31,12 @@ abstract type AbstractNuclearNetwork end
     species_reactions_out::Vector{Vector{Tuple{Int,Int}}}
 end
 
+"""
+    NuclearNetwork(species_names, reaction_names)
+
+Constructs a NuclearNetwork given a vector of species names given by symbols consisted with the naming
+of the [`Chem`](@ref) module
+"""
 function NuclearNetwork(species_names, reaction_names::Vector{Tuple{Symbol, Symbol}})
     nspecies = length(species_names)
     xa_index = Dict{Symbol, Int}()
@@ -58,6 +80,10 @@ function NuclearNetwork(species_names, reaction_names::Vector{Tuple{Symbol, Symb
     )
 end
 
+"""
+    function set_rates_for_network!(rates::AbstractArray{TT}, net::NuclearNetwork, T::T1, ρ::T2,
+                                xa::AbstractArray{TT}) where {TT,T1,T2}
+"""
 function set_rates_for_network!(rates::AbstractArray{TT}, net::NuclearNetwork, T::T1, ρ::T2,
                                 xa::AbstractArray{TT}) where {TT,T1,T2}
     if length(rates) != length(net.reactions)

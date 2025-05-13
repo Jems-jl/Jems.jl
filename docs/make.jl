@@ -10,8 +10,8 @@ function ignore_code_blocks(content)
     content = replace(content, "###" => "##")  # make level 3 headers level 2
 end
 
-Literate.markdown(pkg_path * "/examples/NuclearBurning.jl", pkg_path * "/docs/src/", preprocess=ignore_code_blocks)
-Literate.markdown(pkg_path * "/examples/DualNumbers.jl", pkg_path * "/docs/src/", preprocess=ignore_code_blocks)
+#Literate.markdown(pkg_path * "/examples/NuclearBurning.jl", pkg_path * "/docs/src/", preprocess=ignore_code_blocks)
+#Literate.markdown(pkg_path * "/examples/DualNumbers.jl", pkg_path * "/docs/src/", preprocess=ignore_code_blocks)
 
 DocMeta.setdocmeta!(Jems, :DocTestSetup, :(using Jems); recursive=true)
 
