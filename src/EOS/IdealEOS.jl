@@ -34,7 +34,7 @@ of state `eos` and list of `species`. The results are stored in the EOSResults o
 """
 function set_EOS_resultsTρ!(eos::IdealEOS, r::EOSResults{TT}, lnT::TT, lnρ::TT,
                            xa::AbstractVector{TT}, species::Vector{Symbol}) where {TT<:Real}
-    # See section 13.2 of Kipp
+    # See section 13.2 of Kipp (hello)
     r.lnT = lnT
     r.lnρ = lnρ
     r.T = exp(lnT)
