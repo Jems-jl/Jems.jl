@@ -14,6 +14,7 @@ using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
+using CairoMakie
 
 ##
 #=
@@ -35,7 +36,7 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
-nz = 1000
+nz = 1000 
 nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
@@ -161,7 +162,8 @@ open("example_options.toml", "w") do file
           profile_interval = 50
           terminal_header_interval = 100
           terminal_info_interval = 100
-        
+          profile_values = ["zone", "mass", "dm", "log10_ρ", "log10_r", "log10_P", "log10_T", "luminosity",
+                                      "X", "Y", "D_face", "nabla_a_face", "nabla_r_face","nabla_face"]
           """)
 end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
@@ -283,6 +285,40 @@ history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
 lines!(ax, log10.(history[!, "T_surf"]), log10.(history[!, "L_surf"]))
 f
 
+##
+profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
+f= Figure(resolution = (1200, 1400))
+profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000900")
+# D_mix axis 
+ax1 = Axis(f[1,1];xlabel = L"Mass\;[M_\odot]", ylabel = L"D_{mix}\;[\mathrm{cm^2/s}]", title = "Mixing coefficient")
+ax2 = Axis(f[2, 1]; xlabel = L"m/M_\odot", ylabel = L"\nabla", title = "Temperature Gradient")
+ax3 = Axis(f[3, 1]; xlabel = L"m/M_\odot", ylabel = L"\nabla_r vs \nabla_a", title = "Convective instability check")
+lines!(ax1,
+    profile[!, "mass"],
+    log10.(profile[!, "D_face"] .+ 1.0);
+    label = L"D_\mathrm{mix}(\text{basicMLT})"
+)
+axislegend(ax1; position = :rt)
+lines!(ax2,
+    profile[!, "mass"],
+    profile[!, "nabla_face"];
+    label = L"\nabla_\mathrm{actual}"
+)
+lines!(ax3,
+    profile[!, "mass"],
+    profile[!, "nabla_r_face"];
+    label = L"\nabla_\mathrm{rad}"
+)
+lines!(ax3,
+    profile[!, "mass"],
+    profile[!, "nabla_a_face"];
+    label = L"\nabla_\mathrm{ad}"
+)
+
+axislegend(ax2; position = :rt)
+axislegend(ax3; position = :lt)
+f
+save("/home/ritavash/Documents/Resources/convection_results/basicmlt_10600.png", f)
 ##
 #=
 ### Perform some cleanup

@@ -150,7 +150,7 @@ function setup_model_profile_functions(sm::StellarModel)
 
     # temperature gradients
     add_profile_option("nabla_a_face", "unitless", (sm, k) -> get_value(sm.props.∇ₐ_face[k]))
-    add_profile_option("nabla_r_face", "unitless", (sm, k) -> get_value(sm.props.∇ᵣ_face[k]))
+    add_profile_option("nabla_r_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇ᵣ))
     add_profile_option("nabla_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇))
     add_profile_option("D_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].D_turb))
 end
