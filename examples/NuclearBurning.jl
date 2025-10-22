@@ -150,7 +150,7 @@ open("example_options.toml", "w") do file
           profile_xaxis = 'mass'
           profile_yaxes = ['log10_T']
           profile_alt_yaxes = ['X','Y']
-
+        
           history_xaxis = 'age'
           history_yaxes = ['R_surf']
           history_alt_yaxes = ['T_center']
