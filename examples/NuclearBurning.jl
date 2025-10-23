@@ -35,7 +35,7 @@ function equationGammaTurb(sm::StellarModel, k::Int)
     Λ = 1/(1/Hₚ + 1/r₀)
     τᵣ = cₚ * κ * ρ₀^2 * Λ^2 / (4 * K_BOLTZ * T₀^3)
 
-    α₁ = ∇ₐ * T₀ * Λ * 0.5*sqrt(2/3) * cₚ/ Λ^2
+    α₁ = ∇ₐ * T₀ * Λ * 0.5*sqrt(2/3) * cₚ/ Hₚ^2
     C_d = 8/3 * sqrt(2/3)
     α₂ = ρ₀*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
     SA = (∇ᵣ - ∇ₐ)*(1 + α₂)^(-1)
@@ -44,7 +44,7 @@ function equationGammaTurb(sm::StellarModel, k::Int)
         @show SA ,sqrt(ω), C_d *ω^(3/2)/Hₚ, ω/τᵣ
     end
   
-    return  SA * sqrt(ω) - C_d *ω^(3/2)/Hₚ - ω/τᵣ
+    return  α₁* SA * sqrt(ω) - C_d *ω^(3/2)/Hₚ - ω/τᵣ
 end
 
 
