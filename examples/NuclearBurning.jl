@@ -14,6 +14,39 @@ using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
+using Jems.DualSupport
+##
+#Turbulannce equation for time dependent convection (Braun & Dewitt 2024; Kuhfuss 1986))
+function equationGammaTurb(sm::StellarModel, k::Int)
+
+    γ = get_00_dual(sm.props.gamma_turb[k])
+    ω = exp(γ)
+    ∇ₐ = get_00_dual(sm.props.eos_res[k].∇ₐ)
+    ∇ = get_00_dual(sm.props.turb_res[k].∇)
+    ∇ᵣ = get_00_dual(sm.props.turb_res[k].∇ᵣ)
+    cₚ = get_00_dual(sm.props.eos_res[k].cₚ)
+    κ = get_00_dual(sm.props.κ[k])
+    ρ₀ = get_00_dual(sm.props.eos_res[k].ρ)
+    P₀ = get_00_dual(sm.props.eos_res[k].P)
+    r₀ = exp(get_00_dual(sm.props.lnr[k]))
+    m₀ = sm.props.m[k]
+    Hₚ = P₀ / (ρ₀ * CGRAV * m₀ / r₀^2)
+    T₀ = get_00_dual(sm.props.eos_res[k].T)
+    Λ = 1/(1/Hₚ + 1/r₀)
+    τᵣ = cₚ * κ * ρ₀^2 * Λ^2 / (4 * K_BOLTZ * T₀^3)
+
+    α₁ = ∇ₐ * T₀ * Λ * 0.5*sqrt(2/3) * cₚ/ Λ^2
+    C_d = 8/3 * sqrt(2/3)
+    α₂ = ρ₀*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
+    SA = (∇ᵣ - ∇ₐ)*(1 + α₂)^(-1)
+
+    if (k==2)
+        @show SA ,sqrt(ω), C_d *ω^(3/2)/Hₚ, ω/τᵣ
+    end
+  
+    return  SA * sqrt(ω) - C_d *ω^(3/2)/Hₚ - ω/τᵣ
+end
+
 
 ##
 #=
@@ -28,14 +61,15 @@ simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple 
 to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
 
-varnames = [:lnρ, :lnT, :lnr, :lum]
-varscaling = [:log, :log, :log, :maxval]
+varnames = [:lnρ, :lnT, :lnr, :lum, :gamma_turb] 
+varscaling = [:log, :log, :log, :maxval, :unity]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
-                       Evolution.equationContinuity, Evolution.equationLuminosity]
+                       Evolution.equationContinuity, Evolution.equationLuminosity,
+                       equationGammaTurb]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
-nz = 1000
+nz = 1000 
 nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
@@ -89,6 +123,8 @@ end
 end
 
 ##
+StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+Evolution.eval_jacobian_eqs!(sm)
 #=
 
 To get an idea of how much a complete iteration of the solver takes, we need to Perform
