@@ -287,8 +287,8 @@ f
 
 ##
 profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
-f= Figure(resolution = (1200, 1400))
-profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000900")
+f= Figure(resolution = (1200, 1400));
+profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000600")
 # D_mix axis 
 ax1 = Axis(f[1,1];xlabel = L"Mass\;[M_\odot]", ylabel = L"D_{mix}\;[\mathrm{cm^2/s}]", title = "Mixing coefficient")
 ax2 = Axis(f[2, 1]; xlabel = L"m/M_\odot", ylabel = L"\nabla", title = "Temperature Gradient")
@@ -319,6 +319,31 @@ axislegend(ax2; position = :rt)
 axislegend(ax3; position = :lt)
 f
 save("/home/ritavash/Documents/Resources/convection_results/basicmlt_10600.png", f)
+##
+
+#Plot for temperature gradient comparison at the core of the star
+f= Figure(resolution = (1200, 800));
+profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000600")
+core_profile = profile[profile[!, "mass"] .<= 0.4, :]
+ax1 = Axis(f[1,1];xlabel = L"Mass\;[M_\odot]", ylabel = "Gradients", title = "Temperature Gradient Comparison at the core of the star")
+lines!(ax1,
+    core_profile[!, "mass"],
+    core_profile[!, "nabla_face"];
+    label = L"\nabla_\mathrm{actual}", color = :blue, linewidth = 3
+)
+lines!(ax1,
+    core_profile[!, "mass"],
+    core_profile[!, "nabla_r_face"];
+    label = L"\nabla_\mathrm{rad}", color = :red, linewidth = 3, linestyle = :dash
+)
+lines!(ax1,
+    core_profile[!, "mass"],
+    core_profile[!, "nabla_a_face"];
+    label = L"\nabla_\mathrm{ad}", color = :green, linewidth = 3, linestyle = :dot
+)           
+axislegend(ax1; position = :rt)
+f
+save("/home/ritavash/Documents/Resources/convection_results/temp_gradients_at_stellar_core.png", f)
 ##
 #=
 ### Perform some cleanup
