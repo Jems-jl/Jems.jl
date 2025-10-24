@@ -86,7 +86,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
     for k in 1:(nz+nextra)
         for i in 1:nspecies
             xa[k,i] = CellDualData(nvars, TN;
-                        is_ind_var=true, ind_var_i=4+i) # 4 in here is the number of non-composition variables being solved
+                        is_ind_var=true, ind_var_i=nvars-nspecies+i) # 4 in here is the number of non-composition variables being solved
         end
     end
 

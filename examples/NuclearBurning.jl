@@ -17,35 +17,6 @@ using Jems.ReactionRates
 using Jems.DualSupport
 ##
 #Turbulannce equation for time dependent convection (Braun & Dewitt 2024; Kuhfuss 1986))
-function equationGammaTurb(sm::StellarModel, k::Int)
-
-    γ = get_00_dual(sm.props.gamma_turb[k])
-    ω = exp(γ)
-    ∇ₐ = get_00_dual(sm.props.eos_res[k].∇ₐ)
-    ∇ = get_00_dual(sm.props.turb_res[k].∇)
-    ∇ᵣ = get_00_dual(sm.props.turb_res[k].∇ᵣ)
-    cₚ = get_00_dual(sm.props.eos_res[k].cₚ)
-    κ = get_00_dual(sm.props.κ[k])
-    ρ₀ = get_00_dual(sm.props.eos_res[k].ρ)
-    P₀ = get_00_dual(sm.props.eos_res[k].P)
-    r₀ = exp(get_00_dual(sm.props.lnr[k]))
-    m₀ = sm.props.m[k]
-    Hₚ = P₀ / (ρ₀ * CGRAV * m₀ / r₀^2)
-    T₀ = get_00_dual(sm.props.eos_res[k].T)
-    Λ = 1/(1/Hₚ + 1/r₀)
-    τᵣ = cₚ * κ * ρ₀^2 * Λ^2 / (4 * K_BOLTZ * T₀^3)
-
-    α₁ = ∇ₐ * T₀ * Λ * 0.5*sqrt(2/3) * cₚ/ Hₚ^2
-    C_d = 8/3 * sqrt(2/3)
-    α₂ = ρ₀*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
-    SA = (∇ᵣ - ∇ₐ)*(1 + α₂)^(-1)
-
-    if (k==2)
-        @show SA ,sqrt(ω), C_d *ω^(3/2)/Hₚ, ω/τᵣ
-    end
-  
-    return  α₁* SA * sqrt(ω) - C_d *ω^(3/2)/Hₚ - ω/τᵣ
-end
 
 
 ##
@@ -65,7 +36,7 @@ varnames = [:lnρ, :lnT, :lnr, :lum, :gamma_turb]
 varscaling = [:log, :log, :log, :maxval, :unity]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity,
-                       equationGammaTurb]
+                       Evolution.gammaTurb]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
@@ -156,10 +127,11 @@ open("example_options.toml", "w") do file
           do_remesh = true
 
           [solver]
-          newton_max_iter_first_step = 1000
+          newton_max_iter_first_step = 10000  
           initial_model_scale_max_correction = 0.2
           newton_max_iter = 50
           scale_max_correction = 0.1
+          solver_progress_iter = 1
 
           [timestep]
           dt_max_increase = 1.5
