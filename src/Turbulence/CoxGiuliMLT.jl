@@ -34,13 +34,13 @@ function set_turb_results!(turb::cgMLT, res::TurbResults, κ::T1, L::T1, ρ::T1,
         return
     end  
 
-    B = (A^2 * (res.∇ᵣ - ∇ₐ) / a₀)^(1/3) 
+    B = (A^2 * (res.∇ᵣ - ∇ₐ) / turb.a₀)^(1/3) 
 
     # coefficients for the cubic
-    a = a₀ * B^2
+    a = turb.a₀ * B^2
     b = B
     c = 1
-    d = - a₀ * B^2
+    d = - turb.a₀ * B^2
 
     Δ₀ = b^2 - 3*a*c
     Δ₁ = 2*b^3 - 9*a*b*c + 27*a^2*d

@@ -4,7 +4,7 @@
 This notebook provides a simple example of a star with simplified microphysics undergoing nuclear burning.
 Import all necessary Jems modules. We will also do some benchmarks, so we import BenchmarkTools as well.
 =#
-using BenchmarkTools
+# using BenchmarkTools
 using Jems.Chem
 using Jems.Constants
 using Jems.EOS
@@ -15,9 +15,13 @@ using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
 using Jems.DualSupport
-##
-#Turbulannce equation for time dependent convection (Braun & Dewitt 2024; Kuhfuss 1986))
+using CairoMakie
 
+function split_omega(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
+    # use same omega in both cells to preserve energy
+     varnew_low[sm.vari[:gamma_turb]] = var_00[sm.vari[:gamma_turb]]
+     varnew_up[sm.vari[:gamma_turb]] = var_00[sm.vari[:gamma_turb]]
+end
 
 ##
 #=
@@ -33,12 +37,12 @@ to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
 
 varnames = [:lnρ, :lnT, :lnr, :lum, :gamma_turb] 
-varscaling = [:log, :log, :log, :maxval, :unity]
+varscaling = [:log, :log, :log, :maxval, :log]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity,
                        Evolution.gammaTurb]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
-                          StellarModels.split_lnT, StellarModels.split_xa]
+                          StellarModels.split_lnT, StellarModels.split_xa, split_omega]
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 nz = 1000 
 nextra = 100
@@ -127,11 +131,12 @@ open("example_options.toml", "w") do file
           do_remesh = true
 
           [solver]
-          newton_max_iter_first_step = 10000  
+          newton_max_iter_first_step = 1000 
           initial_model_scale_max_correction = 0.2
-          newton_max_iter = 50
-          scale_max_correction = 0.1
+          newton_max_iter = 200
+          scale_max_correction = 1.0
           solver_progress_iter = 1
+          relative_correction_tolerance = 1e10
 
           [timestep]
           dt_max_increase = 1.5
@@ -169,6 +174,8 @@ open("example_options.toml", "w") do file
           profile_interval = 50
           terminal_header_interval = 100
           terminal_info_interval = 100
+          profile_values = ["zone", "mass", "dm", "log10_ρ", "log10_r", "log10_P", "log10_T", "luminosity",
+                                      "X", "Y", "velocity_turb"]
         
           """)
 end
@@ -176,9 +183,12 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 
+add_profile_option("velocity_turb", "unitless", (sm, k) -> sqrt(exp(get_value(sm.props.gamma_turb[k]))))
+
+
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+                                            1 * MSUN, 30 * RSUN; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
 
 ##
@@ -290,14 +300,66 @@ ax = Axis(f[1, 1]; xlabel=L"\log_{10}(T_\mathrm{eff}/[K])", ylabel=L"\log_{10}(L
 history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
 lines!(ax, log10.(history[!, "T_surf"]), log10.(history[!, "L_surf"]))
 f
+##
+# Output directory
+outdir = "/home/ritavash/Desktop/Resources/convection_results/"
+
+# Loop over models 100 to 900 in steps of 50
+for model_number in 100:50:500
+    # Zero-padded model name
+    model_str = lpad(model_number, 10, '0')
+
+    # Load profile
+    profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", model_str)
+
+    # Select core region (mass ≤ 1 M_sun)
+    core_profile = profile[profile[!, "mass"] .<= 1, :]
+
+    # Create figure
+    f = Figure(resolution = (1200, 600))
+    ax = Axis(f[1, 1];
+        xlabel = L"Mass\,[M_\odot]",
+        ylabel = L"v_\mathrm{turb}",
+        title = "Turbulent velocity — Model $(model_number)"
+    )
+
+    # Plot turbulent velocity
+    lines!(ax,
+        core_profile[!, "mass"],
+        core_profile[!, "velocity_turb"];
+        color = :blue,
+        linewidth = 3
+    )
+
+    # Output filename
+    outfile = outdir * "kuhfuss_tdd_" * string(model_number) * ".png"
+
+    # Save figure
+    save(outfile, f)
+    println("Saved: $outfile")
+end
+##
+#plotting v_turb profile
+f= Figure();
+profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000500")
+core_profile = profile[profile[!, "mass"] .<= 1, :]
+ax1 = Axis(f[1,1];xlabel = L"Mass\;[M_\odot]", ylabel = "v_turb", title = "Turbulent velocity variation in the star")
+lines!(ax1,
+    core_profile[!, "mass"],
+    core_profile[!, "velocity_turb"];
+    label = L"\nabla_\mathrm{actual}", color = :blue, linewidth = 3
+)
+f
 
 ##
-#=
 ### Perform some cleanup
-
+#=
 Internally we want to prevent storing any of the hdf5 files into our git repos, so I remove them. You can also take
 advantage of `julia` as a scripting language to post-process your simulation output in a similar way.
 =#
 rm("history.hdf5")
 rm("profiles.hdf5")
 rm("example_options.toml")
+
+
+

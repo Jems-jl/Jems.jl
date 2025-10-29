@@ -300,10 +300,43 @@ Since ω = exp(γ) -> dω/dt = ω * dγ/dt, we can rewrite the equation in terms
 
 """
 
-function gammaTurb(sm::StellarModel, k::Int)
+# function gammaTurb(sm::StellarModel, k::Int)
+
+#     γ₀ = get_00_dual(sm.props.gamma_turb[k])
+#     # ω₀ = exp(γ₀)  
+#     ∇ₐ = get_00_dual(sm.props.eos_res[k].∇ₐ)
+#     ∇ = get_00_dual(sm.props.turb_res[k].∇)
+#     ∇ᵣ = get_00_dual(sm.props.turb_res[k].∇ᵣ)
+#     cₚ = get_00_dual(sm.props.eos_res[k].cₚ)
+#     κ = get_00_dual(sm.props.κ[k])
+#     ρ₀ = get_00_dual(sm.props.eos_res[k].ρ)
+#     P₀ = get_00_dual(sm.props.eos_res[k].P)
+#     r₀ = exp(get_00_dual(sm.props.lnr[k]))
+#     m₀ = sm.props.m[k]
+#     Hₚ = P₀ / (ρ₀ * CGRAV * m₀ / r₀^2)
+#     T₀ = get_00_dual(sm.props.eos_res[k].T)
+#     Λ = 1/(1/Hₚ + 1/r₀)
+#     τᵣ = cₚ * κ * ρ₀^2 * Λ^2 / (4 * K_BOLTZ * T₀^3)
+
+#     α₁ = ∇ₐ * T₀ * Λ * 0.5*sqrt(2/3) * cₚ/ Hₚ^2
+#     C_d = 8/3 * sqrt(2/3)
+#     α₂ = ρ₀*cₚ*0.5*sqrt(2/3)*Λ*sqrt(exp(γ₀))
+#     SA = (∇ᵣ - ∇ₐ)*(1 + α₂)^(-1)
+
+
+    
+#     dgammadt = (γ₀ - get_value(sm.start_step_props.gamma_turb[k])) / sm.props.dt 
+
+#     # if (k==2)
+#     #     @show SA ,sqrt(ω), C_d *ω^(3/2)/Hₚ, ω/τᵣ
+#     # end
+  
+#     return  (dgammadt - α₁* SA/ sqrt(exp(γ₀)) + C_d *sqrt(exp(γ₀))/Λ + 1/τᵣ)/ (exp(γ₀)/sm.props.dt) 
+# end
+ function gammaTurb(sm::StellarModel, k::Int)
 
     γ₀ = get_00_dual(sm.props.gamma_turb[k])
-    # ω₀ = exp(γ₀)  
+    ω = exp(γ₀)
     ∇ₐ = get_00_dual(sm.props.eos_res[k].∇ₐ)
     ∇ = get_00_dual(sm.props.turb_res[k].∇)
     ∇ᵣ = get_00_dual(sm.props.turb_res[k].∇ᵣ)
@@ -317,19 +350,15 @@ function gammaTurb(sm::StellarModel, k::Int)
     T₀ = get_00_dual(sm.props.eos_res[k].T)
     Λ = 1/(1/Hₚ + 1/r₀)
     τᵣ = cₚ * κ * ρ₀^2 * Λ^2 / (4 * K_BOLTZ * T₀^3)
+    c_s  = sqrt(P₀/ρ₀)
 
     α₁ = ∇ₐ * T₀ * Λ * 0.5*sqrt(2/3) * cₚ/ Hₚ^2
     C_d = 8/3 * sqrt(2/3)
-    α₂ = ρ₀*cₚ*0.5*sqrt(2/3)*Λ*sqrt(exp(γ₀))
+    α₂ = ρ₀*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
     SA = (∇ᵣ - ∇ₐ)*(1 + α₂)^(-1)
-
-
-    
-    dgammadt = (γ₀ - get_value(sm.start_step_props.gamma_turb[k])) / sm.props.dt 
-
-    # if (k==2)
-    #     @show SA ,sqrt(ω), C_d *ω^(3/2)/Hₚ, ω/τᵣ
-    # end
-  
-    return  (dgammadt - α₁* SA/ sqrt(exp(γ₀)) + C_d *sqrt(exp(γ₀))/Λ + 1/τᵣ)/ (exp(γ₀)/sm.props.dt) 
+    dgammadt = (γ₀ - get_value(sm.start_step_props.gamma_turb[k])) / sm.props.dt
+    if (k==2)
+        @show (α₁* SA * sqrt(ω)).value, (ω*dgammadt).value, (C_d *ω^(3/2)/Hₚ).value, (ω/τᵣ).value,  (C_d*(c_s*1e-10)^3/Hₚ).value
+     end
+    return ω*dgammadt - α₁* SA * sqrt(ω) + C_d *ω^(3/2)/Hₚ + ω/τᵣ - C_d*(c_s*1e-10)^3/Hₚ
 end
