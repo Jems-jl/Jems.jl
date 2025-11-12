@@ -262,7 +262,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfra
 
     #set initial values for gamma_turb
     for i= 1:nz
-        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:gamma_turb]] = -100
+        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:gamma_turb]] = 10
     end
 
     # modify special cases, just copy values at edges

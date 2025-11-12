@@ -48,7 +48,7 @@ nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
-turbulence = Turbulence.BasicMLT(1.0)
+turbulence = Turbulence.cgMLT(1.0, 9/4)
 sm = StellarModel(varnames, varscaling, structure_equations, Evolution.equation_composition,
                     nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
 
@@ -68,7 +68,7 @@ stored at `sm.esi` (_end step info_). After initializing our polytrope we can mi
 At last we are in position to evaluate the equations and compute the Jacobian.
 =#
 n = 3
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], MSUN,
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 10*MSUN,
                                              100 * RSUN; initial_dt=10 * SECYEAR)
 StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
 StellarModels.cycle_props!(sm);
@@ -136,12 +136,12 @@ open("example_options.toml", "w") do file
           newton_max_iter = 200
           scale_max_correction = 1.0
           solver_progress_iter = 1
-          relative_correction_tolerance = 1e10
+          relative_correction_tolerance = 1e12
 
           [timestep]
           dt_max_increase = 1.5
           delta_R_limit = 0.01
-          delta_Tc_limit = 0.01
+          delta_Tc_limit = 0.01     
           delta_Xc_limit = 0.005
 
           [termination]
@@ -175,7 +175,7 @@ open("example_options.toml", "w") do file
           terminal_header_interval = 100
           terminal_info_interval = 100
           profile_values = ["zone", "mass", "dm", "log10_ρ", "log10_r", "log10_P", "log10_T", "luminosity",
-                                      "X", "Y", "velocity_turb"]
+                                      "X", "Y", "velocity_turb", "omega_e","v_face","D_face", "D_face_kuhfuss", "nabla_a_face", "nabla_r_face","nabla_face"]
         
           """)
 end
@@ -183,8 +183,9 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 
-add_profile_option("velocity_turb", "unitless", (sm, k) -> sqrt(exp(get_value(sm.props.gamma_turb[k]))))
-
+add_profile_option("velocity_turb", "unitless", (sm, k) -> sqrt(2*exp(get_value(sm.props.gamma_turb[k]))))
+add_profile_option("omega_e", "unitless", (sm, k) -> sqrt(get_value(sm.props.eos_res[k].P)*1e-14/get_value(sm.props.eos_res[k].ρ)))
+add_profile_option("v_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].v_turb))
 
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
@@ -340,16 +341,161 @@ for model_number in 100:50:500
 end
 ##
 #plotting v_turb profile
-f= Figure();
+f= Figure(resolution = (1200, 800));
 profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000500")
-core_profile = profile[profile[!, "mass"] .<= 1, :]
-ax1 = Axis(f[1,1];xlabel = L"Mass\;[M_\odot]", ylabel = "v_turb", title = "Turbulent velocity variation in the star")
+core_profile = profile[profile[!, "mass"] .<= 0.4, :]
+ax1 = Axis(f[1,1];xlabel = L"Mass\;[M_\odot]", ylabel = "values", title = "D_mixing at the core of the star")
+
 lines!(ax1,
     core_profile[!, "mass"],
-    core_profile[!, "velocity_turb"];
+   (core_profile[!, "D_face_kuhfuss"]) ;
+    label = L"log(D_{\mathrm{turb,\,Kuhfuss}})", color = :red, linewidth = 3
+)
+lines!(ax1,
+    core_profile[!, "mass"],
+    core_profile[!, "nabla_r_face"];
+    label = L"\nabla_\mathrm{rad}", color = :blue, linewidth = 3, linestyle = :dash
+)
+lines!(ax1,
+    core_profile[!, "mass"],
+    core_profile[!, "nabla_a_face"];
+    label = L"\nabla_\mathrm{ad}", color = :green, linewidth = 3, linestyle = :dot
+)           
+# lines!(ax1,
+#     core_profile[!, "mass"],
+#     core_profile[!, "D_face"];
+#     label = L"D_{\mathrm{turb,\,MLT}}", color = :blue, linewidth = 3, linestyle = :dash
+# )
+
+axislegend(ax1, position = :rt) 
+f
+#  save("/home/ritavash/Desktop/Resources/convection_results/D_kuhfuss_vs_D_mlt500.png", f)
+
+##
+# Plotting v_turb_kuhfuss vs v_steady
+
+f= Figure(resolution = (1200, 800));
+profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000001200")
+core_profile = profile[profile[!, "mass"] .<= 1, :]
+ax1 = Axis(f[1,1];xlabel = L"Mass\;[M_\odot]", ylabel = "velocity (log scale)", title = "Turbulent velocity (td kuhfuss) (model 500)", yscale = log10)
+
+lines!(ax1,
+    core_profile[!, "mass"],
+    core_profile[!, ("velocity_turb")] ;
+    label = L"v_{\mathrm{turb,\,Kuhfuss}}", color = :red, linewidth = 3
+)
+
+lines!(ax1,
+    core_profile[!, "mass"],
+    core_profile[!, "omega_e"] ;
+    label = L"v_s", color = :green, linewidth = 3
+)
+
+
+
+axislegend(ax1, position = :rt) 
+f
+save("/home/ritavash/Desktop/Resources/convection_results/v_kuhfuss_vs_v_s.png", f)
+##
+f= Figure(resolution = (1200, 800));
+profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000500")
+core_profile = profile[profile[!, "mass"] .<= 0.4, :]
+ax1 = Axis(f[1,1];xlabel = L"Mass\;[M_\odot]", ylabel = "Gradients", title = "D_mixing at the core of the star")
+lines!(ax1,
+    core_profile[!, "mass"],
+    core_profile[!, "D_face"];
+    label = L"D_\mathrm{turb}", color = :blue, linewidth = 3
+)
+##
+f= Figure(resolution = (1200, 800));
+profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000500")
+core_profile = profile[0.2 .<= profile[!, "mass"] .<= 0.4, :]
+ax1 = Axis(f[1,1];xlabel = L"Mass\;[M_\odot]", ylabel = "Gradients", title = "Temperature Gradient Comparison at the core of the star")
+lines!(ax1,
+    core_profile[!, "mass"],
+    core_profile[!, "nabla_face"];
     label = L"\nabla_\mathrm{actual}", color = :blue, linewidth = 3
 )
+lines!(ax1,
+    core_profile[!, "mass"],
+    core_profile[!, "nabla_r_face"];
+    label = L"\nabla_\mathrm{rad}", color = :red, linewidth = 3, linestyle = :dash
+)
+lines!(ax1,
+    core_profile[!, "mass"],
+    core_profile[!, "nabla_a_face"];
+    label = L"\nabla_\mathrm{ad}", color = :green, linewidth = 3, linestyle = :dot
+)           
+axislegend(ax1; position = :rt)
 f
+##
+
+# 1. Setup and Data Filtering
+f = Figure(resolution = (1400, 800));
+profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000500")
+core_profile = profile[profile[!, "mass"] .<= 0.3, :]
+
+# 2. Find the Convective Boundary
+nabla_rad = core_profile[!, "nabla_r_face"]
+nabla_ad = core_profile[!, "nabla_a_face"]
+
+# Find the first mass point (starting from the center) where the convection condition (nabla_rad > nabla_ad) fails.
+boundary_indices = findall(nabla_ad .>= nabla_rad)
+
+boundary_mass = nothing
+if !isempty(boundary_indices)
+    # Use the mass coordinate at the boundary index
+    boundary_index = boundary_indices[1]
+    boundary_mass = core_profile[boundary_index, "mass"]
+end
+
+# 3. Plotting
+ax1 = Axis(f[1,1];
+    xlabel = L"Mass\;[M_\odot]",
+    ylabel = "values",
+    title = "D_mixing and Gradients at the Core of the Star"
+)
+
+# Plot D_mixing (on a log scale)
+lines!(ax1,
+    core_profile[!, "mass"],
+    log10.(core_profile[!, "D_face_kuhfuss"]) ;
+    label = L"log_{10}(D_{\mathrm{turb,\,Kuhfuss}})", color = :red, linewidth = 3
+)
+
+# Plot Radiative Gradient
+lines!(ax1,
+    core_profile[!, "mass"],
+    nabla_rad;
+    label = L"\nabla_\mathrm{rad}", color = :blue, linewidth = 3, linestyle = :dash
+)
+
+# Plot Adiabatic Gradient
+lines!(ax1,
+    core_profile[!, "mass"],
+    nabla_ad;
+    label = L"\nabla_\mathrm{ad}", color = :green, linewidth = 3, linestyle = :dot
+)
+
+# 4. Add the Vertical Line
+if boundary_mass !== nothing
+    vlines!(ax1, [boundary_mass];
+        color = :black,
+        linestyle = :dash,
+        linewidth = 0.5,
+        label = "Convective Boundary"
+    )
+end
+
+axislegend(ax1, position = :rt)
+f
+save("/home/ritavash/Desktop/Resources/convection_results/D_turb_kuhfuss.png", f)
+
+
+
+
+
+
 
 ##
 ### Perform some cleanup

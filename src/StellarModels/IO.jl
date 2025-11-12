@@ -153,6 +153,7 @@ function setup_model_profile_functions(sm::StellarModel)
     add_profile_option("nabla_r_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇ᵣ))
     add_profile_option("nabla_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇))
     add_profile_option("D_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].D_turb))
+    add_profile_option("D_face_kuhfuss", "unitless", (sm, k) -> get_value(sm.props.D_turb[k]))
 end
 
 function init_IO(m::AbstractModel)

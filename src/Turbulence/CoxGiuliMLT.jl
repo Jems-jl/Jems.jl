@@ -63,7 +63,7 @@ function set_turb_results!(turb::cgMLT, res::TurbResults, κ::T1, L::T1, ρ::T1,
     res.Γ = B * ξ
 
     # Turbulent velocity and diffusion
-    res.v_turb = (1/2*sqrt(2)) * turb.α_MLT * (P*δ/ρ)^(1/2) * res.Γ* (1/A)
+    res.v_turb = 1/(2*sqrt(2)) * turb.α_MLT * (P*δ/ρ)^(1/2) * res.Γ* (1/A)
     res.D_turb = (1/3) * res.v_turb * (turb.α_MLT * res.Hₚ)
 
 end

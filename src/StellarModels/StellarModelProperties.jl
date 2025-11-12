@@ -45,6 +45,9 @@ using Jems.Turbulence
     δ_face::Vector{TFaceDualData}   # dim-less
     cₚ_face::Vector{TFaceDualData}   # erg K^-1 g^-1
 
+    #D_turb 
+    D_turb::Vector{TFaceDualData}  # cm^2 s^-1
+    gamma_turb_face::Vector{TFaceDualData}
     # turbulence (i.e. convection, face valued)
     turb_res_dual::Vector{TurbResults{TDualFace}}
     turb_res::Vector{TurbResults{TFaceDualData}}
@@ -108,8 +111,10 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
     δ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     cₚ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     κ = Vector{CDDTYPE}(undef, nz+nextra)  # zeros(CDDTYPE, nz+nextra)
+    D_turb = Vector{FDDTYPE}(undef, nz+nextra) #zeros(FDDTYPE, nz+nextra)
     flux_term = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     mixing_type::Vector{Symbol} = repeat([:no_mixing], nz+nextra)
+    gamma_turb_face = Vector{FDDTYPE}(undef, nz+nextra)
     for k in 1:(nz+nextra)
         lnP_face[k] = FaceDualData(nvars, TN)
         lnρ_face[k] = FaceDualData(nvars, TN)
@@ -120,7 +125,9 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
         δ_face[k] = FaceDualData(nvars, TN)
         cₚ_face[k] = FaceDualData(nvars, TN)
         κ[k] = CellDualData(nvars, TN)
+        D_turb[k] = FaceDualData(nvars, TN)
         flux_term[k] = FaceDualData(nvars, TN)
+        gamma_turb_face[k] = FaceDualData(nvars, TN)
     end
 
     rates_dual = zeros(TD, nz + nextra, nrates)
@@ -154,7 +161,9 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
                                   ∇ᵣ_face=∇ᵣ_face,
                                   δ_face=δ_face,
                                   cₚ_face=cₚ_face,
+                                  D_turb=D_turb,
                                   κ=κ,
+                                  gamma_turb_face=gamma_turb_face,
                                   rates=rates,
                                   ϵ_nuc=zeros(nz + nextra),
                                   rates_dual=rates_dual,
@@ -255,7 +264,9 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         eval_face_property!(props.eos_res[i].∇ₐ, props.eos_res[i+1].∇ₐ, props.dm[i], props.dm[i+1], props.∇ₐ_face[i])
         eval_face_property!(props.eos_res[i].δ, props.eos_res[i+1].δ, props.dm[i], props.dm[i+1], props.δ_face[i])
         eval_face_property!(props.eos_res[i].cₚ, props.eos_res[i+1].cₚ, props.dm[i], props.dm[i+1], props.cₚ_face[i])
-
+        eval_face_property!(props.gamma_turb[i], props.gamma_turb[i+1], props.dm[i], props.dm[i+1], props.gamma_turb_face[i])
+        gamma_turb_dual = get_face_dual(props.gamma_turb_face[i])
+        
         κ_face_dual = get_face_dual(props.κ_face[i])
         ρ_face_dual = exp(get_face_dual(props.lnρ_face[i]))
         T_face_dual = exp(get_face_dual(props.lnT_face[i]))
@@ -263,16 +274,17 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
         ∇ₐ_face_dual = get_face_dual(props.∇ₐ_face[i])
         δ_face_dual = get_face_dual(props.δ_face[i])
         cₚ_face_dual = get_face_dual(props.cₚ_face[i])
-
+        
         L₀_dual = get_face_00_dual(props.L[i]) * LSUN
         r_dual = exp(get_face_00_dual(props.lnr[i]))
-
         set_turb_results!(sm.turbulence, props.turb_res_dual[i],
                     κ_face_dual, L₀_dual, ρ_face_dual, P_face_dual, T_face_dual, r_dual,
                     δ_face_dual, cₚ_face_dual, ∇ₐ_face_dual, props.m[i])
         update_struct_face_dual_data(props.turb_res[i], props.turb_res_dual[i])
 
-        flux_term_dual = (4π*r_dual^2*ρ_face_dual)^2*props.turb_res_dual[i].D_turb/
+        D_turb_dual = (1/3) * sqrt(2 * exp(gamma_turb_dual)) *  1 / (1/(P_face_dual / (ρ_face_dual * CGRAV * sm.props.m[i]/ r_dual^2)) + 1/r_dual)
+        update_face_dual_data!(props.D_turb[i], D_turb_dual)
+        flux_term_dual = (4π*r_dual^2*ρ_face_dual)^2*D_turb_dual/
                             (0.5*(sm.props.dm[i]+sm.props.dm[i+1]))
         update_face_dual_data!(props.flux_term[i], flux_term_dual)
 

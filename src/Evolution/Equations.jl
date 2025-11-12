@@ -90,8 +90,39 @@ function equationT(sm::StellarModel, k::Int)
 
     Pface = exp(get_00_dual(sm.props.lnP_face[k]))
 
-    ∇ = get_00_dual(sm.props.turb_res[k].∇)
+    #∇ = get_00_dual(sm.props.turb_res[k].∇)
+
+   # Calculating ∇
+    L = get_00_dual(sm.props.L[k]) * LSUN
+    γ₀ = get_00_dual(sm.props.gamma_turb[k])
+    ω = exp(γ₀)
+    ρ_face = exp(get_00_dual(sm.props.lnρ_face[k]))
+    P_face = exp(get_00_dual(sm.props.lnP_face[k]))
+    r₀ = exp(get_00_dual(sm.props.lnr[k]))
+    T_face = exp(get_00_dual(sm.props.lnT_face[k]))
+    ∇ₐ = get_00_dual(sm.props.∇ₐ_face[k])
+    ∇ᵣ = get_00_dual(sm.props.∇ᵣ_face[k])
+    cₚ =  get_00_dual(sm.props.cₚ_face[k])
+    κ = get_00_dual(sm.props.κ_face[k])
+    m₀ = sm.props.m[k]
+    Hₚ = P_face / (ρ_face * CGRAV * m₀ / r₀^2) #defined at face 
+    Λ = 1/(1/Hₚ + 1/r₀) 
+    k_rad = 16 * SIGMA_SB * T_face^3 / (3 * κ * ρ_face)
+    α₂ = ρ_face*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
+    ∇ᵣ = 3 * κ * L * P_face / (16π * CRAD * CLIGHT * CGRAV * m₀ * T_face^4)
+    SA = (∇ᵣ - ∇ₐ)*(1 + α₂/k_rad)^(-1)
+    ∇ = ∇ₐ + SA 
+    
+#     open("SA_values.txt", "w") do io
+#     for k in 1:sm.props.nz
+#         println(io, "k=$k, SA=$(SA.value), ∇ = $(∇.value)")
+#     end
+# end
+
+    
+    
     dm = 0.5*(sm.props.dm[k + 1] + sm.props.dm[k])
+    
     return ((lnT₊ - lnT₀) / dm + CGRAV * sm.props.m[k] / (4π * r₀^4 * Pface) * ∇) /
         (CGRAV * sm.props.m[k] / (4π * r₀^4 * Pface))
 
@@ -333,32 +364,362 @@ Since ω = exp(γ) -> dω/dt = ω * dγ/dt, we can rewrite the equation in terms
   
 #     return  (dgammadt - α₁* SA/ sqrt(exp(γ₀)) + C_d *sqrt(exp(γ₀))/Λ + 1/τᵣ)/ (exp(γ₀)/sm.props.dt) 
 # end
- function gammaTurb(sm::StellarModel, k::Int)
 
-    γ₀ = get_00_dual(sm.props.gamma_turb[k])
-    ω = exp(γ₀)
-    ∇ₐ = get_00_dual(sm.props.eos_res[k].∇ₐ)
-    ∇ = get_00_dual(sm.props.turb_res[k].∇)
-    ∇ᵣ = get_00_dual(sm.props.turb_res[k].∇ᵣ)
-    cₚ = get_00_dual(sm.props.eos_res[k].cₚ)
-    κ = get_00_dual(sm.props.κ[k])
-    ρ₀ = get_00_dual(sm.props.eos_res[k].ρ)
-    P₀ = get_00_dual(sm.props.eos_res[k].P)
-    r₀ = exp(get_00_dual(sm.props.lnr[k]))
-    m₀ = sm.props.m[k]
-    Hₚ = P₀ / (ρ₀ * CGRAV * m₀ / r₀^2)
-    T₀ = get_00_dual(sm.props.eos_res[k].T)
-    Λ = 1/(1/Hₚ + 1/r₀)
-    τᵣ = cₚ * κ * ρ₀^2 * Λ^2 / (4 * K_BOLTZ * T₀^3)
-    c_s  = sqrt(P₀/ρ₀)
+#  function gammaTurb(sm::StellarModel, k::Int)
+      
+#     γ₀ = get_00_dual(sm.props.gamma_turb[k]) # γ₀ = log(ω) defined at face 
+#     ω = exp(γ₀)  # ω defined at face 
+#     ω_c = exp(0.5*(get_00_dual(sm.props.gamma_turb[k]) + get_00_dual(sm.props.gamma_turb[k+1]))) # ω defined at cell center
+#     r₀ = exp(get_00_dual(sm.props.lnr[k])) # radius of cell face k
+#     m₀ = sm.props.m[k] # mass enclosed at cell face k
+#     r_c = 0.5 * (exp(get_00_dual(sm.props.lnr[k]))+ exp(get_00_dual(sm.props.lnr[k+1]))) # radius at cell center between k and k+1
+#     m_c = 0.5 * (sm.props.m[k] + sm.props.m[k+1]) # mass enclosed at cell center between k and k+1
+#     ∇ₐ = get_00_dual(sm.props.∇ₐ_face[k]) #defined at face 
+#     ∇ₐ_c = get_00_dual(sm.props.eos_res[k].∇ₐ) # defined at cell center
+#     cₚ =  get_00_dual(sm.props.cₚ_face[k]) #defined at face
+#     cₚ_c = get_00_dual(sm.props.eos_res[k].cₚ) # defined at cell center
+#     κ = get_00_dual(sm.props.κ_face[k]) #defined at face
+#     κ_c = get_00_dual(sm.props.κ[k])   # defined at cell center
+#     L = get_00_dual(sm.props.L[k]) * LSUN # defined at face
+#     L_c = 0.5 * (get_00_dual(sm.props.L[k]) + get_00_dual(sm.props.L[k+1])) * LSUN # defined at cell center
 
-    α₁ = ∇ₐ * T₀ * Λ * 0.5*sqrt(2/3) * cₚ/ Hₚ^2
-    C_d = 8/3 * sqrt(2/3)
-    α₂ = ρ₀*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
-    SA = (∇ᵣ - ∇ₐ)*(1 + α₂)^(-1)
+#     ρ₀ = get_00_dual(sm.props.eos_res[k].ρ) # defined at cell center
+#     ρ_face = exp(get_00_dual(sm.props.lnρ_face[k])) # defined at face
+#     P₀ = get_00_dual(sm.props.eos_res[k].P) # defined at cell center
+#     P_face = exp(get_00_dual(sm.props.lnP_face[k])) # defined at face
+#     T₀ = get_00_dual(sm.props.eos_res[k].T) # defined at cell center
+#     T_face = exp(get_00_dual(sm.props.lnT_face[k])) # defined at face
+
+#     Hₚ = P_face / (ρ_face * CGRAV * m₀ / r₀^2) #defined at face 
+#     Hₚ_C = P₀ / (ρ₀ * CGRAV * m_c / r_c^2) # defined at cell center
+#     Λ = 1/(1/Hₚ + 1/r₀) #defined at face
+#     Λ_c = 1/(1/Hₚ_c + 1/r_c)  # defined at cell center
+#     τᵣ = cₚ * κ * ρ_face^2 * Λ^2 / (48 * SIGMA_SB * T_face^3 ) # defined at face
+#     τᵣ_c = cₚ_c * κ_c * ρ₀^2 * Λ_c^2 / (48 * SIGMA_SB * T₀^3 ) # defined at cell center
+#     c_s  = sqrt(P_face/ρ_face) # defined at face
+#     c_s_c  = sqrt(P₀/ρ₀) # defined at cell center
+#     k_rad = 16 * SIGMA_SB * T_face^3 / (3 * κ * ρ_face) # defined at face
+#     k_rad_c = 16 * SIGMA_SB * T₀^3 / (3 * κ_c * ρ₀) # defined at cell center
+#     α₁ = ∇ₐ * T_face * Λ * 0.5*sqrt(2/3) * cₚ/ Hₚ^2 # defined at face
+#     α₁_c = ∇ₐ_c * T₀ * Λ_c * 0.5*sqrt(2/3) * cₚ_c/ Hₚ_c^2 # defined at cell center
+#     C_d = 8/3 * sqrt(2/3)
+#     α₂ = ρ_face*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω) # defined at face
+#     α₂_c = ρ₀*cₚ_c*0.5*sqrt(2/3)*Λ_c*sqrt(ω) # defined at cell center
+#     ∇ᵣ = 3 * κ * L * P_face / (16π * CRAD * CLIGHT * CGRAV * m₀ * T_face^4) # defined at face
+#     ∇ᵣ_c = 3 * κ_c * L_c * P₀ / (16π * CRAD * CLIGHT * CGRAV * m_c * T₀^4) # defined at cell center
+#     SA = (∇ᵣ - ∇ₐ)*(1 + α₂/k_rad)^(-1) # defined at face
+#     SA_c = (∇ᵣ_c - ∇ₐ_c)*(1 + α₂_c/k_rad_c)^(-1) # defined at cell center
+#     ∇ = ∇ₐ + SA  # defined at face
+#     ∇_c = ∇ₐ_c + SA_c # defined at cell center
+
+#     #Diffusion term calculation (Done at cell centres)
+    
+#     A_i_0 = 4π * α_w * r_c^2 * ρ₀* Λ_c * sqrt(ω_c)
+#     A_i_1 
+
+
+
+
+
+
+
+#      if k == sm.props.nz
+
+        
+        
+#         dgammadt = (γ₀ - get_value(sm.start_step_props.gamma_turb[k])) / sm.props.dt
+#         # @show  cₚ.value, ∇ₐ.value, ∇ᵣ.value,τᵣ.value
+#         return ω*dgammadt - α₁_c* SA_c * sqrt(ω) + C_d *ω^(3/2)/Λ + ω/τᵣ - C_d*(c_s*1e-7)^3/Λ
+#     end
+
+#     # for k != nz 
+#     Hₚ = P_face / (ρ_face * CGRAV * m₀ / r₀^2) #defined at face 
+#     Λ = 1/(1/Hₚ + 1/r₀) 
+#     τᵣ = cₚ * κ * ρ_face^2 * Λ^2 / (48 * SIGMA_SB * T_face^3 )
+#     c_s  = sqrt(P_face/ρ_face)
+#     k_rad = 16 * SIGMA_SB * T_face^3 / (3 * κ * ρ_face)
+#     α₁ = ∇ₐ * T_face * Λ * 0.5*sqrt(2/3) * cₚ/ Hₚ^2
+#     C_d = 8/3 * sqrt(2/3)
+#     α₂ = ρ_face*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
+#     ∇ᵣ = 3 * κ * L * P_face / (16π * CRAD * CLIGHT * CGRAV * m₀ * T_face^4)
+#     SA = (∇ᵣ - ∇ₐ)*(1 + α₂/k_rad)^(-1)
+#     ∇ = ∇ₐ + SA
+
+#     #mixing term 
+#     ρ₀ = get_00_dual(sm.props.eos_res[k].ρ)
+#     ρ₁ = get_00_dual(sm.props.eos_res[k+1].ρ)
+#     P₀ = get_00_dual(sm.props.eos_res[k].P)
+#     P₁ = get_00_dual(sm.props.eos_res[k+1].P)
+#     r₀ = exp(get_00_dual(sm.props.lnr[k]))
+#     r₁ = exp(get_m1_dual(sm.props.lnr[k+1]))
+#     # ∇ₐ_c = get_00_dual(sm.props.eos_res[k].∇ₐ)
+#     # ∇ᵣ = get_00_dual(sm.props.turb_res[k].∇ᵣ)
+#     # cₚ_c = get_00_dual(sm.props.eos_res[k].cₚ)
+#     # κ_c = get_00_dual(sm.props.κ[k])
+#     Hₚ_c = P₀ / (ρ₀ * CGRAV * (0.5*(sm.props.dm[k] + sm.props.dm[k+1])) / r₀^2)
+#     Hₚ_c_1 = P₁ / (ρ₁ * CGRAV * (0.5*(sm.props.dm[k-1] + sm.props.dm[k])) / r₁^2)
+#     T₀ = get_00_dual(sm.props.eos_res[k].T)
+#     Λ_c= 1/(1/Hₚ_c + 1/r₀)
+#     Λ_c_1 = 1/(1/Hₚ_c_1 + 1/r₁) 
+#     ω_c_0 = 0.5* (exp(get_00_dual(sm.props.gamma_turb[k])) + exp(get_00_dual(sm.props.gamma_turb[k+1])))
+#     ω_c_p = 0.5* (exp(get_00_dual(sm.props.gamma_turb[k-1])) + exp(get_00_dual(sm.props.gamma_turb[k])))
+#     ω_c_n = 0.5* (exp(get_00_dual(sm.props.gamma_turb[k+1])) + exp(get_00_dual(sm.props.gamma_turb[k+2])))
+#     A_i = (4π * r₀^2 * ρ₀* Λ_c * sqrt(ω_c_0) * ( ω_c_0 - ω_c_p ))/ 0.5*(sm.props.dm[k] + sm.props.dm[k+1])
+#     A_i_1 = (4π * r₁^2 * ρ₀* Λ_c_1 * sqrt(ω_c_n) * ( ω_c_n - ω_c_0 ))/ 0.5*(sm.props.dm[k+1] + sm.props.dm[k+2])
+
+#     D_mix = 4π * r₀^2 * (A_i_1 - A_i) / sm.props.dm[k]
+
+#     #∇ = get_00_dual(sm.props.turb_res[k].∇)
+#     dgammadt = (γ₀ - get_value(sm.start_step_props.gamma_turb[k])) / sm.props.dt
+#     # if (k== 1)
+#     #     @show (α₁* SA * sqrt(ω)), (ω*dgammadt), (C_d *ω^(3/2)/Hₚ), (ω/τᵣ),  (C_d*(c_s*1e-10)^3/Hₚ)
+#     #     @show (ω).value, γ₀.value, ρ_face.value, P_face.value, T_face.value
+#     #  end
+# #     open("SA_values.txt", "w") do io
+# #     for k in 1:sm.props.nz
+# #         println(io, "k=$k, SA=$(SA.value), ∇ = $(∇.value), ∇ᵣ=$(∇ᵣ.value), ∇ₐ=$(∇ₐ.value)")
+# #     end
+# # end
+
+   
+#     return  ω*dgammadt - α₁* SA * sqrt(ω) + C_d *ω^(3/2)/Λ + ω/τᵣ - C_d*(c_s*1e-7)^3/Λ + D_mix
+# end
+
+
+"""
+function calculate_gamma_turbulance_variables(P, ρ, T, κ, L, r, m_enclosed, ∇ₐ, cₚ, ω)
+
+    C_d = 8 / 3 * sqrt(2 / 3)    
+# Pressure Scale Height (Hₚ) and Mixing Length (Λ)
+    Hₚ = P / (ρ * CGRAV * m_enclosed / r^2) 
+    Λ = 1 / (1 / Hₚ + 1 / r) 
+    
+    # Radiative Gradient (∇ᵣ)
+    ∇ᵣ = (3 * κ * L * P) / (16π * CRAD * CLIGHT * CGRAV * m_enclosed * T^4)
+    
+    # Radiative Cooling Time Scale (τᵣ)
+    τᵣ = (cₚ * κ * ρ^2 * Λ^2) / (48 * SIGMA_SB * T^3)
+    
+    # Sound Speed (c_s)
+    c_s = sqrt(P / ρ)
+    
+    # Radiative Diffusivity (k_rad)
+    k_rad = (16 * SIGMA_SB * T^3) / (3 * κ * ρ)
+    
+    # MLT Coefficients
+    α₂ = ρ * cₚ * 0.5 * sqrt(2 / 3) * Λ * sqrt(ω)
+    α₁ = ∇ₐ * T * Λ * 0.5 * sqrt(2 / 3) * cₚ / Hₚ^2
+    
+    # Super-Adiabatic Excess (SA)
+    SA = (∇ᵣ - ∇ₐ) * (1 + α₂ / k_rad)^(-1)
+    
+    return (; Hₚ, Λ, ∇ᵣ, τᵣ, c_s, k_rad, α₁, α₂, SA, C_d)
+
+end 
+
+function calculate_flux_F(sm::StellarModel, i::Int)
+
+    if i == sm.props.nz + 1 || i == 1
+        return 0.0
+    end
+
+    P_c_i = get_00_dual(sm.props.eos_res[i].P)
+    ρ_c_i = get_00_dual(sm.props.eos_res[i].ρ)
+    T_c_i = get_00_dual(sm.props.eos_res[i].T)
+    κ_c_i = get_00_dual(sm.props.κ[i])
+    ∇ₐ_c_i = get_00_dual(sm.props.eos_res[i].∇ₐ)
+    cₚ_c_i = get_00_dual(sm.props.eos_res[i].cₚ)
+    L_c_i = 0.5 * (get_00_dual(sm.props.L[i]) + get_00_dual(sm.props.L[i+1])) * LSUN # Avg L
+    r_c_i = 0.5 * (exp(get_00_dual(sm.props.lnr[i])) + exp(get_00_dual(sm.props.lnr[i+1]))) # Cell center radius
+    # m_c_i = 0.5 * (sm.props.m[i] + sm.props.m[i+1]) # Cell center enclosed mass
+    ω_i = exp(get_00_dual(sm.props.gamma_turb[i]))
+    ω_i_minus1 = exp(get_00_dual(sm.props.gamma_turb[i-1]))
+    # ω_i_plus1 = exp(get_00_dual(sm.props.gamma_turb[i+1]))
+    ω_i_center = 0.5 * (ω_i + ω_i_minus1)
+    MLT_Set = calculate_gamma_turbulance_variables(P_c_i, ρ_c_i, T_c_i, κ_c_i, L_c_i, r_c_i, m_c_i, ∇ₐ_c_i, cₚ_c_i, ω_i)
+    A_i = 4π * α_w * r_c_i^2 * ρ_c_i * MLT_Set.Λ * sqrt(ω_i_center)
+
+    return A_i * (ω_i - ω_i_minus1)/ (0.5 * (sm.props.dm[i] + sm.props.dm[i-1]))
+    
+end 
+
+function gammaTurb(sm::StellarModel, k::Int)
+    
+    #FACE TERMS 
+    γ₀ = get_00_dual(sm.props.gamma_turb[k]) # gamma at face k
+    ω = exp(γ₀)                              # omega at face k
+    m_enclosed = sm.props.m[k]               # mass enclosed at face k
+    r_face = exp(get_00_dual(sm.props.lnr[k])) # radius at face k
+    P_f = exp(get_00_dual(sm.props.lnP_face[k]))
+    ρ_f = exp(get_00_dual(sm.props.lnρ_face[k]))
+    T_f = exp(get_00_dual(sm.props.lnT_face[k]))
+    κ_f = get_00_dual(sm.props.κ_face[k])
+    ∇ₐ_f = get_00_dual(sm.props.∇ₐ_face[k])
+    cₚ_f = get_00_dual(sm.props.cₚ_face[k])
+    L_f = get_00_dual(sm.props.L[k]) * LSUN
+
+    #CENTRE TERMS
+    γ_c = 0.5*(get_00_dual(sm.props.gamma_turb[k]) + get_00_dual(sm.props.gamma_turb[k-1])) # gamma at center between k and k-1
+    ω_c = exp(γ_c)
+    m_c = 0.5 * (sm.props.m[k] + sm.props.m[k-1])
+    r_c = 0.5 * (exp(get_00_dual(sm.props.lnr[k])) + exp(get_00_dual(sm.props.lnr[k-1])))
+    P_c = get_00_dual(sm.props.eos_res[k].P)
+    ρ_c = get_00_dual(sm.props.eos_res[k].ρ)
+    T_c = get_00_dual(sm.props.eos_res[k].T)
+    κ_c = get_00_dual(sm.props.κ[k])
+    ∇ₐ_c = get_00_dual(sm.props.eos_res[k].∇ₐ)
+    cₚ_c = get_00_dual(sm.props.eos_res[k].cₚ)
+    L_c = 0.5 * (get_00_dual(sm.props.L[k]) + get_00_dual(sm.props.L[k-1])) * LSUN
+
+    
+
+
+    Face_k_MLT = calculate_gamma_turbulance_variables(P_f, ρ_f, T_f, κ_f, L_f, r_face, m_enclosed, ∇ₐ_f, cₚ_f, ω)
+    Centre_k_MLT = calculate_gamma_turbulance_variables(P_c, ρ_c, T_c, κ_c, L_c, r_c, m_c, ∇ₐ_c, cₚ_c, ω_c)
+
+
+    if k == 1
+        
+        mixing_term = calculate_flux_F(sm, 2)/(sm.props.dm[1])
+
+        dgammadt = (γ₀ - get_value(sm.start_step_props.gamma_turb[k])) / sm.props.dt
+
+        return ω * dgammadt - Face_k_MLT.α₁ * Face_k_MLT.SA * sqrt(ω) + Face_k_MLT.C_d * ω^(3/2) / Face_k_MLT.Λ + ω / Face_k_MLT.τᵣ - Face_k_MLT.C_d * (Face_k_MLT.c_s * 1e-7)^3 / Face_k_MLT.Λ + mixing_term
+    end
+
+    if k == sm.props.nz
+        mixing_term = -calculate_flux_F(sm, sm.props.nz)/(sm.props.dm[sm.props.nz])
+
+        dgammadt = (γ_c - 0.5*(get_value(sm.start_step_props.gamma_turb[k]) + get_value(sm.start_step_props.gamma_turb[k-1]))) / sm.props.dt
+
+        return ω_c * dgammadt - Centre_k_MLT.α₁ * Centre_k_MLT.SA * sqrt(ω_c) + Centre_k_MLT.C_d * ω_c^(3/2) / Centre_k_MLT.Λ + ω_c / Centre_k_MLT.τᵣ - Centre_k_MLT.C_d * (Centre_k_MLT.c_s * 1e-7)^3 / Centre_k_MLT.Λ + mixing_term
+    end
+
+    mixing_term = (calculate_flux_F(sm, k + 1) - calculate_flux_F(sm, k)) / (sm.props.dm[k])
     dgammadt = (γ₀ - get_value(sm.start_step_props.gamma_turb[k])) / sm.props.dt
-    if (k==2)
-        @show (α₁* SA * sqrt(ω)).value, (ω*dgammadt).value, (C_d *ω^(3/2)/Hₚ).value, (ω/τᵣ).value,  (C_d*(c_s*1e-10)^3/Hₚ).value
-     end
-    return ω*dgammadt - α₁* SA * sqrt(ω) + C_d *ω^(3/2)/Hₚ + ω/τᵣ - C_d*(c_s*1e-10)^3/Hₚ
+
+    return ω * dgammadt - Face_k_MLT.α₁ * Face_k_MLT.SA * sqrt(ω) + Face_k_MLT.C_d * ω^(3/2) / Face_k_MLT.Λ + ω / Face_k_MLT.τᵣ - Face_k_MLT.C_d * (Face_k_MLT.c_s * 1e-7)^3 / Face_k_MLT.Λ + mixing_term
+end
+"""
+
+# NOTE: Assume α_w is a globally defined constant.
+# NOTE: The physical terms Hₚ_C, m_c, r_c, etc., are usually defined between cell k and k-1.
+
+# --- Helper function remains the same ---
+function calculate_gamma_turbulance_variables(P, ρ, T, κ, L, r, m_enclosed, ∇ₐ, cₚ, ω)
+    C_d = 8 / 3 * sqrt(2 / 3)    
+    Hₚ = P / (ρ * CGRAV * m_enclosed / r^2) 
+    Λ = 1 / (1 / Hₚ + 1 / r) 
+    ∇ᵣ = (3 * κ * L * P) / (16π * CRAD * CLIGHT * CGRAV * m_enclosed * T^4)
+    τᵣ = (cₚ * κ * ρ^2 * Λ^2) / (48 * SIGMA_SB * T^3)
+    c_s = sqrt(P / ρ)
+    k_rad = (16 * SIGMA_SB * T^3) / (3 * κ * ρ)
+    α₂ = ρ * cₚ * 0.5 * sqrt(2 / 3) * Λ * sqrt(ω)
+    α₁ = ∇ₐ * T * Λ * 0.5 * sqrt(2 / 3) * cₚ / Hₚ^2
+    SA = (∇ᵣ - ∇ₐ) * (1 + α₂ / k_rad)^(-1)
+    return (; Hₚ, Λ, ∇ᵣ, τᵣ, c_s, k_rad, α₁, α₂, SA, C_d)
+end 
+
+
+function calculate_flux_F(sm::StellarModel, i::Int)
+
+    if i == sm.props.nz + 1 || i == 1
+        return 0.0
+    end
+    α_w = 0.25
+    P_c_i = get_00_dual(sm.props.eos_res[i].P)
+    ρ_c_i = get_00_dual(sm.props.eos_res[i].ρ)
+    T_c_i = get_00_dual(sm.props.eos_res[i].T)
+    κ_c_i = get_00_dual(sm.props.κ[i])
+    ∇ₐ_c_i = get_00_dual(sm.props.eos_res[i].∇ₐ)
+    cₚ_c_i = get_00_dual(sm.props.eos_res[i].cₚ)
+    L_c_i = 0.5 * (get_00_dual(sm.props.L[i]) + get_m1_dual(sm.props.L[i-1])) * LSUN # Center L using i and i-1
+    r_c_i = 0.5 * (exp(get_00_dual(sm.props.lnr[i])) + exp(get_m1_dual(sm.props.lnr[i-1]))) # Center radius using i and i-1
+    m_c_i = 0.5 * (sm.props.m[i] + sm.props.m[i-1]) # Center enclosed mass
+    
+    # Omega variables
+    ω_i = exp(get_00_dual(sm.props.gamma_turb[i]))
+    ω_i_minus1 = exp(get_m1_dual(sm.props.gamma_turb[i-1]))
+    ω_i_center = 0.5 * (ω_i + ω_i_minus1) # Center omega based on cell average
+
+    MLT_Set = calculate_gamma_turbulance_variables(P_c_i, ρ_c_i, T_c_i, κ_c_i, L_c_i, r_c_i, m_c_i, ∇ₐ_c_i, cₚ_c_i, ω_i_center)
+    A_i = 4π * α_w * r_c_i^2 * ρ_c_i * MLT_Set.Λ * sqrt(ω_i_center)
+
+    
+    return A_i * (ω_i - ω_i_minus1) / (0.5 * (sm.props.dm[i] + sm.props.dm[i-1]))
+    
+end 
+
+
+function gammaTurb(sm::StellarModel, k::Int)
+    
+    # --- A. FACE TERMS (Used for fluid residual in k=1 and k=interior) ---
+    γ₀ = get_00_dual(sm.props.gamma_turb[k]) # gamma at face k
+    ω = exp(γ₀)                              # omega at face k
+    m_enclosed = sm.props.m[k]               # mass enclosed at face k (m₀)
+    r_face = exp(get_00_dual(sm.props.lnr[k])) # radius at face k (r₀)
+    P_f = exp(get_00_dual(sm.props.lnP_face[k]))
+    ρ_f = exp(get_00_dual(sm.props.lnρ_face[k]))
+    T_f = exp(get_00_dual(sm.props.lnT_face[k]))
+    κ_f = get_00_dual(sm.props.κ_face[k])
+    ∇ₐ_f = get_00_dual(sm.props.∇ₐ_face[k])
+    cₚ_f = get_00_dual(sm.props.cₚ_face[k])
+    L_f = get_00_dual(sm.props.L[k]) * LSUN
+    
+    Face_k_MLT = calculate_gamma_turbulance_variables(P_f, ρ_f, T_f, κ_f, L_f, r_face, m_enclosed, ∇ₐ_f, cₚ_f, ω)
+
+
+    if k == 1
+        # Mixing term: Flux at k+1 (outer face) divided by cell mass dm[1]. Flux at k=1 is zero.
+        mixing_term = calculate_flux_F(sm, 2) / (sm.props.dm[1])
+        dgammadt = (γ₀ - get_value(sm.start_step_props.gamma_turb[k])) / sm.props.dt
+        
+        residual = (ω * dgammadt - Face_k_MLT.α₁ * Face_k_MLT.SA * sqrt(ω) + 
+                          Face_k_MLT.C_d * ω^(3/2) / Face_k_MLT.Λ + ω / Face_k_MLT.τᵣ - 
+                          Face_k_MLT.C_d * (Face_k_MLT.c_s * 1e-7)^3 / Face_k_MLT.Λ)
+        
+        return residual + mixing_term
+    end
+
+
+
+    if k == sm.props.nz
+       
+        γ_c = 0.5*(get_00_dual(sm.props.gamma_turb[k]) + get_m1_dual(sm.props.gamma_turb[k-1])) 
+        ω_c = exp(γ_c)
+        m_c = 0.5 * (sm.props.m[k] + sm.props.m[k-1])
+        r_c = 0.5 * (exp(get_00_dual(sm.props.lnr[k])) + exp(get_m1_dual(sm.props.lnr[k-1])))
+        P_c = get_00_dual(sm.props.eos_res[k].P)
+        ρ_c = get_00_dual(sm.props.eos_res[k].ρ)
+        T_c = get_00_dual(sm.props.eos_res[k].T)
+        κ_c = get_00_dual(sm.props.κ[k])
+        ∇ₐ_c = get_00_dual(sm.props.eos_res[k].∇ₐ)
+        cₚ_c = get_00_dual(sm.props.eos_res[k].cₚ)
+        L_c = 0.5 * (get_00_dual(sm.props.L[k]) + get_m1_dual(sm.props.L[k-1])) * LSUN
+        
+        Centre_k_MLT = calculate_gamma_turbulance_variables(P_c, ρ_c, T_c, κ_c, L_c, r_c, m_c, ∇ₐ_c, cₚ_c, ω_c)
+        
+        
+        mixing_term = -calculate_flux_F(sm, sm.props.nz) / (sm.props.dm[sm.props.nz]) 
+        
+        
+        dgammadt = (γ_c - 0.5*(get_value(sm.start_step_props.gamma_turb[k]) + get_value(sm.start_step_props.gamma_turb[k-1]))) / sm.props.dt
+        
+        residual = (ω_c * dgammadt - Centre_k_MLT.α₁ * Centre_k_MLT.SA * sqrt(ω_c) + 
+                          Centre_k_MLT.C_d * ω_c^(3/2) / Centre_k_MLT.Λ + ω_c / Centre_k_MLT.τᵣ - 
+                          Centre_k_MLT.C_d * (Centre_k_MLT.c_s * 1e-7)^3 / Centre_k_MLT.Λ)
+                          
+        return residual + mixing_term
+    end
+
+    # INTERIOR CELLS (1 < k < nz)
+
+    mixing_term = (calculate_flux_F(sm, k + 1) - calculate_flux_F(sm, k)) / (sm.props.dm[k])
+    dgammadt = (γ₀ - get_value(sm.start_step_props.gamma_turb[k])) / sm.props.dt
+    
+    residual = (ω * dgammadt - Face_k_MLT.α₁ * Face_k_MLT.SA * sqrt(ω) + 
+                      Face_k_MLT.C_d * ω^(3/2) / Face_k_MLT.Λ + ω / Face_k_MLT.τᵣ - 
+                      Face_k_MLT.C_d * (Face_k_MLT.c_s * 1e-7)^3 / Face_k_MLT.Λ)
+                      
+    return residual + mixing_term
 end
