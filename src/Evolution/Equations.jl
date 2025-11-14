@@ -779,7 +779,7 @@ if k == 1
     ### face Values required for calculating all the other terms except mixing term ###
     γ_face_00 = get_00_dual(sm.props.gamma_turb[k])
     ω_face_00 = exp(γ_face_00)
-    m_face_enclosed_00 = sm.props.m[k] 
+    m_face_enclosed_00 = sm.props.dm[k] 
     r_face_00 = exp(get_00_dual(sm.props.lnr[k]))
     P_face_00 = exp(get_00_dual(sm.props.lnP_face[k]))
     ρ_face_00 = exp(get_00_dual(sm.props.lnρ_face[k]))
@@ -806,17 +806,17 @@ if k == 1
     """
 
     ### p1 terms needed as F_1 = 0 and F_2 = 0 is the next cell so everything is wrt to i+1 so the p1 cell, also mixing term calcualted at cell centre ###
-    P_cc_p1 = get_00_dual(sm.props.eos_res[k+1].P)
-    ρ_cc_p1 = get_00_dual(sm.props.eos_res[k+1].ρ)
-    T_cc_p1 = get_00_dual(sm.props.eos_res[k+1].T)
-    m_cc_enclosed_p1 = sm.props.dm[k+1] ##
+    P_cc_p1 = get_p1_dual(sm.props.eos_res[k+1].P)
+    ρ_cc_p1 = get_p1_dual(sm.props.eos_res[k+1].ρ)
+    T_cc_p1 = get_p1_dual(sm.props.eos_res[k+1].T)
+    m_cc_enclosed_p1 = 0.5*(sm.props.dm[k] + sm.props.dm[k+1])##
     L_cc_p1 = 0.5*(get_p1_dual(sm.props.L[k+1]) + get_00_dual(sm.props.L[k])) * LSUN
     r_cc_p1 = 0.5*(exp(get_p1_dual(sm.props.lnr[k+1])) + exp(get_00_dual(sm.props.lnr[k])))
     Hₚ_cc_p1 = P_cc_p1 / (ρ_cc_p1 * m_cc_enclosed_p1 * CGRAV / r_cc_p1^2)
     ω_cc_p1 = exp(0.5*(get_p1_dual(sm.props.gamma_turb[k+1]) + get_00_dual(sm.props.gamma_turb[k])))
 
     Λ_cc_p1 = 1 / (1 / Hₚ_cc_p1 + 1 / r_cc_p1)
-    A_p1 = (4π * r_cc_p1^2)^2 * ρ_cc_p1 * Λ_cc_p1 * α_w * sqrt(ω_cc_p1)
+    A_p1 = (4π  *ρ_cc_p1* r_cc_p1^2)^2 * Λ_cc_p1 * α_w * sqrt(ω_cc_p1)
 
     F_p1 = (A_p1 / m_cc_enclosed_p1) * (exp(get_p1_dual(sm.props.gamma_turb[k+1])) - exp(get_00_dual(sm.props.gamma_turb[k]))) 
 
@@ -840,7 +840,7 @@ if k == sm.props.nz
 
     γ_cc_00 = 0.5*(get_00_dual(sm.props.gamma_turb[k]) + get_m1_dual(sm.props.gamma_turb[k-1])) 
     ω_cc_00 = exp(γ_cc_00)
-    m_cc_enclosed_00 = sm.props.dm[k] 
+    m_cc_enclosed_00 = 0.5*(sm.props.dm[k] + sm.props.dm[k-1])
     r_cc_00 = 0.5*(exp(get_00_dual(sm.props.lnr[k])) + exp(get_m1_dual(sm.props.lnr[k-1])))
     P_cc_00 = get_00_dual(sm.props.eos_res[k].P)
     ρ_cc_00 = get_00_dual(sm.props.eos_res[k].ρ)
@@ -862,7 +862,7 @@ if k == sm.props.nz
     dgammadt_cc_00 = (γ_cc_00- 0.5*(get_value(sm.start_step_props.gamma_turb[k]) + get_value(sm.start_step_props.gamma_turb[k-1]))) / sm.props.dt
 
     ### Since the F_nz+1 = 0, and only F_nz is present which uses the 00 cell ###
-    A_00 = (4π * r_cc_00^2)^2 * ρ_cc_00 * Λ_cc_00 * α_w * sqrt(ω_cc_00)
+    A_00 = (4π * ρ_cc_00 * r_cc_00^2)^2 * Λ_cc_00 * α_w * sqrt(ω_cc_00)
     F_00 = (A_00 / m_cc_enclosed_00) * (exp(get_00_dual(sm.props.gamma_turb[k])) - exp(get_m1_dual(sm.props.gamma_turb[k-1])))
 
     ## Different terms for residual at k = nz 
@@ -886,7 +886,7 @@ begin
     ### face Values are required for all other terms except the mixing term ###
     γ_face_00 = get_00_dual(sm.props.gamma_turb[k])
     ω_face_00 = exp(γ_face_00)
-    m_face_enclosed_00 = sm.props.m[k] 
+    m_face_enclosed_00 = sm.props.dm[k] 
     r_face_00 = exp(get_00_dual(sm.props.lnr[k]))
     P_face_00 = exp(get_00_dual(sm.props.lnP_face[k]))
     ρ_face_00 = exp(get_00_dual(sm.props.lnρ_face[k]))
@@ -915,27 +915,27 @@ begin
     ## 00 values ##
     γ_cc_00 = 0.5*(get_00_dual(sm.props.gamma_turb[k]) + get_m1_dual(sm.props.gamma_turb[k-1])) 
     ω_cc_00 = exp(γ_cc_00)
-    m_cc_enclosed_00 = sm.props.dm[k] ##
+    m_cc_enclosed_00 = 0.5*(sm.props.dm[k] + sm.props.dm[k-1]) ##
     r_cc_00 = 0.5*(exp(get_00_dual(sm.props.lnr[k])) + exp(get_m1_dual(sm.props.lnr[k-1])))
     P_cc_00 = get_00_dual(sm.props.eos_res[k].P)
     ρ_cc_00 = get_00_dual(sm.props.eos_res[k].ρ)
     L_cc_00 = 0.5*(get_00_dual(sm.props.L[k]) + get_m1_dual(sm.props.L[k-1])) * LSUN
     Hₚ_cc_00 = P_cc_00 / (ρ_cc_00 * m_cc_enclosed_00 * CGRAV / r_cc_00^2)
     Λ_cc_00 = 1 / (1 / Hₚ_cc_00 + 1 / r_cc_00)
-    A_00 = (4π * r_cc_00^2)^2 * ρ_cc_00 * Λ_cc_00 * α_w * sqrt(ω_cc_00)
+    A_00 = (4π  *ρ_cc_00 * r_cc_00^2)^2 * Λ_cc_00 * α_w * sqrt(ω_cc_00)
     F_00 = (A_00 / m_cc_enclosed_00) * (exp(get_00_dual(sm.props.gamma_turb[k])) - exp(get_m1_dual(sm.props.gamma_turb[k-1])))
 
     ## P1 values ##
-    P_cc_p1 = get_00_dual(sm.props.eos_res[k+1].P)
-    ρ_cc_p1 = get_00_dual(sm.props.eos_res[k+1].ρ)
-    T_cc_p1 = get_00_dual(sm.props.eos_res[k+1].T)
-    m_cc_enclosed_p1 = sm.props.dm[k+1] ##
+    P_cc_p1 = get_p1_dual(sm.props.eos_res[k+1].P)
+    ρ_cc_p1 = get_p1_dual(sm.props.eos_res[k+1].ρ)
+    T_cc_p1 = get_p1_dual(sm.props.eos_res[k+1].T)
+    m_cc_enclosed_p1 = 0.5*(sm.props.dm[k] + sm.props.dm[k+1])  ##
     L_cc_p1 = 0.5*(get_p1_dual(sm.props.L[k+1]) + get_00_dual(sm.props.L[k])) * LSUN
     r_cc_p1 = 0.5*(exp(get_p1_dual(sm.props.lnr[k+1])) + exp(get_00_dual(sm.props.lnr[k])))
     Hₚ_cc_p1 = P_cc_p1 / (ρ_cc_p1 * m_cc_enclosed_p1 * CGRAV / r_cc_p1^2)
     Λ_cc_p1 = 1 / (1 / Hₚ_cc_p1 + 1 / r_cc_p1)
     ω_cc_p1 = exp(0.5*(get_p1_dual(sm.props.gamma_turb[k+1]) + get_00_dual(sm.props.gamma_turb[k])))
-    A_p1 = (4π * r_cc_p1^2)^2 * ρ_cc_p1 * Λ_cc_p1 * α_w * sqrt(ω_cc_p1)
+    A_p1 = (4π *ρ_cc_p1* r_cc_p1^2)^2 * Λ_cc_p1 * α_w * sqrt(ω_cc_p1)
     F_p1 = (A_p1 / m_cc_enclosed_p1) * (exp(get_p1_dual(sm.props.gamma_turb[k+1])) - exp(get_00_dual(sm.props.gamma_turb[k])))
 
     # Calculation of all terms for residual 

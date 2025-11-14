@@ -131,7 +131,7 @@ open("example_options.toml", "w") do file
           do_remesh = true
 
           [solver]
-          newton_max_iter_first_step = 1000 
+          newton_max_iter_first_step = 1000
           initial_model_scale_max_correction = 0.2
           newton_max_iter = 200
           scale_max_correction = 1.0
@@ -342,13 +342,13 @@ end
 ##
 #plotting v_turb profile
 f= Figure(resolution = (1200, 800));
-profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000500")
+profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000600")
 core_profile = profile[profile[!, "mass"] .<= 0.4, :]
 ax1 = Axis(f[1,1];xlabel = L"Mass\;[M_\odot]", ylabel = "values", title = "D_mixing at the core of the star")
 
 lines!(ax1,
     core_profile[!, "mass"],
-   (core_profile[!, "D_face_kuhfuss"]) ;
+   log.(core_profile[!, "D_face_kuhfuss"]) ;
     label = L"log(D_{\mathrm{turb,\,Kuhfuss}})", color = :red, linewidth = 3
 )
 lines!(ax1,
@@ -407,9 +407,9 @@ lines!(ax1,
     label = L"D_\mathrm{turb}", color = :blue, linewidth = 3
 )
 ##
-f= Figure(resolution = (1200, 800));
+f= Figure(resolution = (1400, 1000));
 profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000500")
-core_profile = profile[0.2 .<= profile[!, "mass"] .<= 0.4, :]
+core_profile = profile[0.207 .<=profile[!, "mass"] .<= 0.211, :]
 ax1 = Axis(f[1,1];xlabel = L"Mass\;[M_\odot]", ylabel = "Gradients", title = "Temperature Gradient Comparison at the core of the star")
 lines!(ax1,
     core_profile[!, "mass"],
@@ -428,12 +428,13 @@ lines!(ax1,
 )           
 axislegend(ax1; position = :rt)
 f
+# save("/home/ritavash/Desktop/Resources/convection_results/Temperature_gradient_kuhfuss.png", f)
 ##
 
 # 1. Setup and Data Filtering
-f = Figure(resolution = (1400, 800));
+f = Figure(resolution = (1400, 15000));
 profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000500")
-core_profile = profile[profile[!, "mass"] .<= 0.3, :]
+core_profile = profile[0.2 .<=profile[!, "mass"] .<= 0.22, :]
 
 # 2. Find the Convective Boundary
 nabla_rad = core_profile[!, "nabla_r_face"]
@@ -452,10 +453,14 @@ end
 # 3. Plotting
 ax1 = Axis(f[1,1];
     xlabel = L"Mass\;[M_\odot]",
-    ylabel = "values",
-    title = "D_mixing and Gradients at the Core of the Star"
+    ylabel = " log D_mixing",
+    title = "D_mixing at the Core of the Star"
 )
-
+ax2 = Axis(f[2,1];
+    xlabel = L"Mass\;[M_\odot]",
+    ylabel = "Gradients",
+    title = "Gradients at the Core of the Star"
+)
 # Plot D_mixing (on a log scale)
 lines!(ax1,
     core_profile[!, "mass"],
@@ -464,19 +469,23 @@ lines!(ax1,
 )
 
 # Plot Radiative Gradient
-lines!(ax1,
+lines!(ax2,
     core_profile[!, "mass"],
     nabla_rad;
     label = L"\nabla_\mathrm{rad}", color = :blue, linewidth = 3, linestyle = :dash
 )
 
 # Plot Adiabatic Gradient
-lines!(ax1,
+lines!(ax2,
     core_profile[!, "mass"],
     nabla_ad;
     label = L"\nabla_\mathrm{ad}", color = :green, linewidth = 3, linestyle = :dot
 )
-
+lines!(ax2,
+    core_profile[!, "mass"],
+    core_profile[!, "nabla_face"];
+    label = L"\nabla_\mathrm{actual}", color = :red, linewidth = 3
+)
 # 4. Add the Vertical Line
 if boundary_mass !== nothing
     vlines!(ax1, [boundary_mass];
@@ -486,8 +495,17 @@ if boundary_mass !== nothing
         label = "Convective Boundary"
     )
 end
+if boundary_mass !== nothing
+    vlines!(ax2, [boundary_mass];
+        color = :black,
+        linestyle = :dash,
+        linewidth = 0.5,
+        label = "Convective Boundary"
+    )
+end
 
 axislegend(ax1, position = :rt)
+axislegend(ax2, position = :rt)
 f
 save("/home/ritavash/Desktop/Resources/convection_results/D_turb_kuhfuss.png", f)
 
