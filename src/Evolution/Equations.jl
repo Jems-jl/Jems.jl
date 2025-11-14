@@ -821,7 +821,7 @@ if k == 1
     F_p1 = (A_p1 / m_cc_enclosed_p1) * (exp(get_p1_dual(sm.props.gamma_turb[k+1])) - exp(get_00_dual(sm.props.gamma_turb[k]))) 
 
     # Different terms for residual at k = 1
-    mixing_term =  4π * r_face_00^2 * (F_p1/ m_face_enclosed_00)
+    mixing_term =  (F_p1/ m_face_enclosed_00)
     omega_var_term = ω_face_00 * dgammadt_face_00
     source_term = α₁_face_00 * SA_face_00 - sqrt(ω_face_00)
     turb_dissipation_term = C_d * (ω_face_00)^(3/2) / Λ_face_00
@@ -866,7 +866,7 @@ if k == sm.props.nz
     F_00 = (A_00 / m_cc_enclosed_00) * (exp(get_00_dual(sm.props.gamma_turb[k])) - exp(get_m1_dual(sm.props.gamma_turb[k-1])))
 
     ## Different terms for residual at k = nz 
-    mixing_term =  -4π * r_cc_00^2 * (F_00/ m_cc_enclosed_00)
+    mixing_term =  -(F_00/ m_cc_enclosed_00)
     omega_var_term = ω_cc_00* dgammadt_cc_00
     source_term = α₁_cc_00 * SA_cc_00 - sqrt(ω_cc_00)
     turb_dissipation_term = C_d * (ω_cc_00)^(3/2) / Λ_cc_00
@@ -939,7 +939,7 @@ begin
     F_p1 = (A_p1 / m_cc_enclosed_p1) * (exp(get_p1_dual(sm.props.gamma_turb[k+1])) - exp(get_00_dual(sm.props.gamma_turb[k])))
 
     # Calculation of all terms for residual 
-    mixing_term = 4π * r_face_00^2 * (F_p1 - F_00) / m_face_enclosed_00
+    mixing_term = (F_p1 - F_00) / m_face_enclosed_00
     omega_var_term = ω_face_00 * dgammadt_face_00
     source_term = α₁_face_00 * SA_face_00 - sqrt(ω_face_00)
     turb_dissipation_term = C_d * (ω_face_00)^(3/2) / Λ_face_00
