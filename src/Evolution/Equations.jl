@@ -101,7 +101,7 @@ function equationT(sm::StellarModel, k::Int)
     r₀ = exp(get_00_dual(sm.props.lnr[k]))
     T_face = exp(get_00_dual(sm.props.lnT_face[k]))
     ∇ₐ = get_00_dual(sm.props.∇ₐ_face[k])
-    ∇ᵣ = get_00_dual(sm.props.∇ᵣ_face[k])
+    # ∇ᵣ = get_00_dual(sm.props.∇ᵣ_face[k])
     cₚ =  get_00_dual(sm.props.cₚ_face[k])
     κ = get_00_dual(sm.props.κ_face[k])
     m₀ = sm.props.m[k]
@@ -777,8 +777,8 @@ A(1) = A(nz+1)= 0
 ## Outer boundary condition (k = 1)
 if k == 1
     ### face Values required for calculating all the other terms except mixing term ###
-    γ_face_00 = get_00_dual(sm.props.gamma_turb[k])
-    ω_face_00 = exp(γ_face_00)
+    γ_face_00 = max(get_00_dual(sm.props.gamma_turb[k]))
+    ω_face_00 = exp(γ_face_00)  ###
     dm_cell_00 = sm.props.dm[k] 
     m_cell_00 = sm.props.m[k]
     r_face_00 = exp(get_00_dual(sm.props.lnr[k]))
@@ -824,13 +824,13 @@ if k == 1
 
     # Different terms for residual at k = 1
     mixing_term =  (F_p1/ dm_cell_00)
-    omega_var_term = ω_face_00 * dgammadt_face_00
+    omega_var_term = ω_face_00 * dgammadt_face_00  #ω_face_00 *
     source_term = α₁_face_00 * SA_face_00 - sqrt(ω_face_00)
     turb_dissipation_term = C_d * (ω_face_00)^(3/2) / Λ_face_00
     rad_dissipation_term = ω_face_00 / τᵣ_face_00
     excess_term = C_d * (c_s_face_00 * 1e-7)^3 / Λ_face_00
 
-    return omega_var_term - source_term + turb_dissipation_term + rad_dissipation_term - excess_term + mixing_term
+    return omega_var_term - source_term + turb_dissipation_term + rad_dissipation_term - excess_term - mixing_term
 end
 
 
@@ -841,7 +841,7 @@ if k == sm.props.nz
 ### At the centre, all values are calculated at the cell centre instead of face ###
 
     γ_cc_00 = 0.5*(get_00_dual(sm.props.gamma_turb[k]) + get_m1_dual(sm.props.gamma_turb[k-1])) 
-    ω_cc_00 = exp(γ_cc_00)
+    ω_cc_00 = exp(γ_cc_00) ###
     dm_face_00 = 0.5*(sm.props.dm[k] + sm.props.dm[k-1])
     m_face_00 = 0.5*(sm.props.m[k] + sm.props.m[k-1])
     r_cc_00 = 0.5*(exp(get_00_dual(sm.props.lnr[k])) + exp(get_m1_dual(sm.props.lnr[k-1])))
@@ -870,13 +870,19 @@ if k == sm.props.nz
 
     ## Different terms for residual at k = nz 
     mixing_term =  -(F_00/ dm_face_00)
-    omega_var_term = ω_cc_00* dgammadt_cc_00
+    omega_var_term = ω_cc_00* dgammadt_cc_00 #ω_cc_00*
     source_term = α₁_cc_00 * SA_cc_00 - sqrt(ω_cc_00)
     turb_dissipation_term = C_d * (ω_cc_00)^(3/2) / Λ_cc_00
     rad_dissipation_term = ω_cc_00 / τᵣ_cc_00
     excess_term = C_d * (c_s_cc_00 * 1e-7)^3 / Λ_cc_00   
-
-    return omega_var_term - source_term + turb_dissipation_term + rad_dissipation_term - excess_term + mixing_term
+    @show k
+    @show (γ_cc_00).value, (ω_cc_00).value
+    @show (dm_face_00), (m_face_00), (r_cc_00).value
+    @show (Hₚ_cc_00).value, (Λ_cc_00).value
+    @show (dgammadt_cc_00).value
+    @show (mixing_term).value, (omega_var_term).value, (source_term).value,
+        (turb_dissipation_term).value, (rad_dissipation_term).value, (excess_term).value
+    return omega_var_term - source_term + turb_dissipation_term + rad_dissipation_term - excess_term - mixing_term
 
 
 end 
@@ -888,7 +894,7 @@ begin
 
     ### face Values are required for all other terms except the mixing term ###
     γ_face_00 = get_00_dual(sm.props.gamma_turb[k])
-    ω_face_00 = exp(γ_face_00)
+    ω_face_00 = exp(γ_face_00) ###
     dm_cell_00 = sm.props.dm[k] 
     m_cell_00 = sm.props.m[k]
     r_face_00 = exp(get_00_dual(sm.props.lnr[k]))
@@ -918,7 +924,7 @@ begin
 
     ## 00 values ##
     γ_cc_00 = 0.5*(get_00_dual(sm.props.gamma_turb[k]) + get_m1_dual(sm.props.gamma_turb[k-1])) 
-    ω_cc_00 = exp(γ_cc_00)
+    ω_cc_00 = exp(γ_cc_00) ###
     dm_face_00 = 0.5*(sm.props.dm[k] + sm.props.dm[k-1]) ##
     m_face_00 = 0.5*(sm.props.m[k] + sm.props.m[k-1])
     r_cc_00 = 0.5*(exp(get_00_dual(sm.props.lnr[k])) + exp(get_m1_dual(sm.props.lnr[k-1])))
@@ -946,13 +952,13 @@ begin
 
     # Calculation of all terms for residual 
     mixing_term = (F_p1 - F_00) / dm_cell_00
-    omega_var_term = ω_face_00 * dgammadt_face_00
+    omega_var_term = ω_face_00 * dgammadt_face_00 #ω_face_00 *
     source_term = α₁_face_00 * SA_face_00 - sqrt(ω_face_00)
     turb_dissipation_term = C_d * (ω_face_00)^(3/2) / Λ_face_00
     rad_dissipation_term = ω_face_00 / τᵣ_face_00
     excess_term = C_d * (c_s_face_00 * 1e-7)^3 / Λ_face_00  
 
-    return omega_var_term - source_term + turb_dissipation_term + rad_dissipation_term - excess_term + mixing_term
+    return omega_var_term - source_term + turb_dissipation_term + rad_dissipation_term - excess_term - mixing_term
 end 
 
 end
