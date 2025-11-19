@@ -42,6 +42,7 @@ using Jems.Turbulence
     κ_face::Vector{TFaceDualData}    # cm^2 g^-1
     ∇ₐ_face::Vector{TFaceDualData}   # dim-less
     ∇ᵣ_face::Vector{TFaceDualData}   # dim-less
+    ∇_face::Vector{TFaceDualData}  
     δ_face::Vector{TFaceDualData}   # dim-less
     cₚ_face::Vector{TFaceDualData}   # erg K^-1 g^-1
 
@@ -108,6 +109,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
     κ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     ∇ₐ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     ∇ᵣ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
+    ∇_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     δ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     cₚ_face = Vector{FDDTYPE}(undef, nz+nextra)#zeros(FDDTYPE, nz+nextra)
     κ = Vector{CDDTYPE}(undef, nz+nextra)  # zeros(CDDTYPE, nz+nextra)
@@ -122,6 +124,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
         κ_face[k] = FaceDualData(nvars, TN)
         ∇ₐ_face[k] = FaceDualData(nvars, TN)
         ∇ᵣ_face[k] = FaceDualData(nvars, TN)
+        ∇_face[k] = FaceDualData(nvars, TN)
         δ_face[k] = FaceDualData(nvars, TN)
         cₚ_face[k] = FaceDualData(nvars, TN)
         κ[k] = CellDualData(nvars, TN)
@@ -159,6 +162,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
                                   κ_face=κ_face,
                                   ∇ₐ_face=∇ₐ_face,
                                   ∇ᵣ_face=∇ᵣ_face,
+                                  ∇_face=∇_face,
                                   δ_face=δ_face,
                                   cₚ_face=cₚ_face,
                                   D_turb=D_turb,

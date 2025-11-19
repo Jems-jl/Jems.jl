@@ -93,6 +93,7 @@ function equationT(sm::StellarModel, k::Int)
     #∇ = get_00_dual(sm.props.turb_res[k].∇)
 
    # Calculating ∇
+    ∇ = get_00_dual(sm.props.∇_face[k])
     L = get_00_dual(sm.props.L[k]) * LSUN
     γ₀ = get_00_dual(sm.props.gamma_turb[k])
     ω = exp(γ₀)
@@ -777,7 +778,7 @@ A(1) = A(nz+1)= 0
 ## Outer boundary condition (k = 1)
 if k == 1
     ### face Values required for calculating all the other terms except mixing term ###
-    γ_face_00 = max(get_00_dual(sm.props.gamma_turb[k]))
+    γ_face_00 = get_00_dual(sm.props.gamma_turb[k])
     ω_face_00 = exp(γ_face_00)  ###
     dm_cell_00 = sm.props.dm[k] 
     m_cell_00 = sm.props.m[k]
@@ -785,7 +786,7 @@ if k == 1
     P_face_00 = exp(get_00_dual(sm.props.lnP_face[k]))
     ρ_face_00 = exp(get_00_dual(sm.props.lnρ_face[k]))
     T_face_00 = exp(get_00_dual(sm.props.lnT_face[k]))
-    κ_face_00 = exp(get_00_dual(sm.props.κ_face[k]))
+    κ_face_00 = get_00_dual(sm.props.κ_face[k])
     ∇ₐ_face_00 = get_00_dual(sm.props.∇ₐ_face[k])
     cₚ_face_00 = get_00_dual(sm.props.cₚ_face[k])
     L_face_00 = get_00_dual(sm.props.L[k]) * LSUN
@@ -811,6 +812,7 @@ if k == 1
     ρ_cc_p1 = get_p1_dual(sm.props.eos_res[k+1].ρ)
     T_cc_p1 = get_p1_dual(sm.props.eos_res[k+1].T)
     dm_face_p1 = 0.5*(sm.props.dm[k] + sm.props.dm[k+1])##
+    dm_cell_p1 = sm.props.dm[k+1] 
     m_face_p1 = 0.5*(sm.props.m[k] + sm.props.m[k+1])
     L_cc_p1 = 0.5*(get_p1_dual(sm.props.L[k+1]) + get_00_dual(sm.props.L[k])) * LSUN
     r_cc_p1 = 0.5*(exp(get_p1_dual(sm.props.lnr[k+1])) + exp(get_00_dual(sm.props.lnr[k])))
@@ -820,12 +822,12 @@ if k == 1
     Λ_cc_p1 = 1 / (1 / Hₚ_cc_p1 + 1 / r_cc_p1)
     A_p1 = (4π  *ρ_cc_p1* r_cc_p1^2)^2 * Λ_cc_p1 * α_w * sqrt(ω_cc_p1)
 
-    F_p1 = (A_p1 / dm_face_p1) * (exp(get_p1_dual(sm.props.gamma_turb[k+1])) - exp(get_00_dual(sm.props.gamma_turb[k]))) 
+    F_p1 = (A_p1 / dm_cell_p1) * (exp(get_p1_dual(sm.props.gamma_turb[k+1])) - exp(get_00_dual(sm.props.gamma_turb[k]))) 
 
     # Different terms for residual at k = 1
-    mixing_term =  (F_p1/ dm_cell_00)
+    mixing_term =  (F_p1/  dm_face_p1)  
     omega_var_term = ω_face_00 * dgammadt_face_00  #ω_face_00 *
-    source_term = α₁_face_00 * SA_face_00 - sqrt(ω_face_00)
+    source_term = α₁_face_00 * SA_face_00 *sqrt(ω_face_00)
     turb_dissipation_term = C_d * (ω_face_00)^(3/2) / Λ_face_00
     rad_dissipation_term = ω_face_00 / τᵣ_face_00
     excess_term = C_d * (c_s_face_00 * 1e-7)^3 / Λ_face_00
@@ -840,18 +842,18 @@ if k == sm.props.nz
 
 ### At the centre, all values are calculated at the cell centre instead of face ###
 
-    γ_cc_00 = 0.5*(get_00_dual(sm.props.gamma_turb[k]) + get_m1_dual(sm.props.gamma_turb[k-1])) 
+    γ_cc_00 = get_00_dual(sm.props.gamma_turb[k]) 
     ω_cc_00 = exp(γ_cc_00) ###
     dm_face_00 = 0.5*(sm.props.dm[k] + sm.props.dm[k-1])
     m_face_00 = 0.5*(sm.props.m[k] + sm.props.m[k-1])
-    r_cc_00 = 0.5*(exp(get_00_dual(sm.props.lnr[k])) + exp(get_m1_dual(sm.props.lnr[k-1])))
+    r_cc_00 = exp(get_00_dual(sm.props.lnr[k]))
     P_cc_00 = get_00_dual(sm.props.eos_res[k].P)
     ρ_cc_00 = get_00_dual(sm.props.eos_res[k].ρ)
     T_cc_00 = get_00_dual(sm.props.eos_res[k].T)
     κ_cc_00 = get_00_dual(sm.props.κ[k])
     ∇ₐ_cc_00 = get_00_dual(sm.props.eos_res[k].∇ₐ)
     cₚ_cc_00 = get_00_dual(sm.props.eos_res[k].cₚ)
-    L_cc_00 = 0.5*(get_00_dual(sm.props.L[k]) + get_m1_dual(sm.props.L[k-1])) * LSUN
+    L_cc_00 = get_00_dual(sm.props.L[k])* LSUN
 
     Hₚ_cc_00 = P_cc_00 / (ρ_cc_00 * m_face_00 * CGRAV / r_cc_00^2)
     Λ_cc_00 = 1 / (1 / Hₚ_cc_00 + 1 / r_cc_00)
@@ -862,26 +864,26 @@ if k == sm.props.nz
     α₂_cc_00 = ρ_cc_00 * cₚ_cc_00 * 0.5 * sqrt(2 / 3) * Λ_cc_00 * sqrt(ω_cc_00)
     α₁_cc_00 = ∇ₐ_cc_00 * T_cc_00 * Λ_cc_00 * 0.5 * sqrt(2 / 3) * cₚ_cc_00 / Hₚ_cc_00^2
     SA_cc_00 = (∇ᵣ_cc_00 - ∇ₐ_cc_00) * (1 + α₂_cc_00 / k_rad_cc_00)^(-1)    
-    dgammadt_cc_00 = (γ_cc_00- 0.5*(get_value(sm.start_step_props.gamma_turb[k]) + get_value(sm.start_step_props.gamma_turb[k-1]))) / sm.props.dt
+    dgammadt_cc_00 = (γ_cc_00- (get_value(sm.start_step_props.gamma_turb[k]) )) / sm.props.dt
 
     ### Since the F_nz+1 = 0, and only F_nz is present which uses the 00 cell ###
     A_00 = (4π * ρ_cc_00 * r_cc_00^2)^2 * Λ_cc_00 * α_w * sqrt(ω_cc_00)
-    F_00 = (A_00 / dm_face_00) * (exp(get_00_dual(sm.props.gamma_turb[k])) - exp(get_m1_dual(sm.props.gamma_turb[k-1])))
+    F_00 = (A_00 / sm.props.dm[k]) * (exp(get_00_dual(sm.props.gamma_turb[k])) - exp(get_m1_dual(sm.props.gamma_turb[k-1])))
 
     ## Different terms for residual at k = nz 
-    mixing_term =  -(F_00/ dm_face_00)
+    mixing_term =  -(F_00/ sm.props.dm[k])
     omega_var_term = ω_cc_00* dgammadt_cc_00 #ω_cc_00*
-    source_term = α₁_cc_00 * SA_cc_00 - sqrt(ω_cc_00)
+    source_term = α₁_cc_00 * SA_cc_00 * sqrt(ω_cc_00)
     turb_dissipation_term = C_d * (ω_cc_00)^(3/2) / Λ_cc_00
     rad_dissipation_term = ω_cc_00 / τᵣ_cc_00
     excess_term = C_d * (c_s_cc_00 * 1e-7)^3 / Λ_cc_00   
-    @show k
-    @show (γ_cc_00).value, (ω_cc_00).value
-    @show (dm_face_00), (m_face_00), (r_cc_00).value
-    @show (Hₚ_cc_00).value, (Λ_cc_00).value
-    @show (dgammadt_cc_00).value
-    @show (mixing_term).value, (omega_var_term).value, (source_term).value,
-        (turb_dissipation_term).value, (rad_dissipation_term).value, (excess_term).value
+    # @show k
+    # @show (γ_cc_00).value, (ω_cc_00).value
+    # @show (dm_face_00), (m_face_00), (r_cc_00).value
+    # @show (Hₚ_cc_00).value, (Λ_cc_00).value
+    # @show (dgammadt_cc_00).value
+    # @show (mixing_term).value, (omega_var_term).value, (source_term).value,
+    #     (turb_dissipation_term).value, (rad_dissipation_term).value, (excess_term).value
     return omega_var_term - source_term + turb_dissipation_term + rad_dissipation_term - excess_term - mixing_term
 
 
@@ -901,7 +903,7 @@ begin
     P_face_00 = exp(get_00_dual(sm.props.lnP_face[k]))
     ρ_face_00 = exp(get_00_dual(sm.props.lnρ_face[k]))
     T_face_00 = exp(get_00_dual(sm.props.lnT_face[k]))
-    κ_face_00 = exp(get_00_dual(sm.props.κ_face[k]))
+    κ_face_00 = get_00_dual(sm.props.κ_face[k])
     ∇ₐ_face_00 = get_00_dual(sm.props.∇ₐ_face[k])
     cₚ_face_00 = get_00_dual(sm.props.cₚ_face[k])
     L_face_00 = get_00_dual(sm.props.L[k]) * LSUN
@@ -934,7 +936,7 @@ begin
     Hₚ_cc_00 = P_cc_00 / (ρ_cc_00 * m_face_00 * CGRAV / r_cc_00^2)
     Λ_cc_00 = 1 / (1 / Hₚ_cc_00 + 1 / r_cc_00)
     A_00 = (4π  *ρ_cc_00 * r_cc_00^2)^2 * Λ_cc_00 * α_w * sqrt(ω_cc_00)
-    F_00 = (A_00 / dm_face_00) * (exp(get_00_dual(sm.props.gamma_turb[k])) - exp(get_m1_dual(sm.props.gamma_turb[k-1])))
+    F_00 = (A_00 / sm.props.dm[k]) * (exp(get_00_dual(sm.props.gamma_turb[k])) - exp(get_m1_dual(sm.props.gamma_turb[k-1])))
 
     ## P1 values ##
     P_cc_p1 = get_p1_dual(sm.props.eos_res[k+1].P)
@@ -948,17 +950,199 @@ begin
     Λ_cc_p1 = 1 / (1 / Hₚ_cc_p1 + 1 / r_cc_p1)
     ω_cc_p1 = exp(0.5*(get_p1_dual(sm.props.gamma_turb[k+1]) + get_00_dual(sm.props.gamma_turb[k])))
     A_p1 = (4π *ρ_cc_p1* r_cc_p1^2)^2 * Λ_cc_p1 * α_w * sqrt(ω_cc_p1)
-    F_p1 = (A_p1 / dm_face_p1) * (exp(get_p1_dual(sm.props.gamma_turb[k+1])) - exp(get_00_dual(sm.props.gamma_turb[k])))
+    F_p1 = (A_p1 / sm.props.dm[k+1]) * (exp(get_p1_dual(sm.props.gamma_turb[k+1])) - exp(get_00_dual(sm.props.gamma_turb[k])))
 
     # Calculation of all terms for residual 
-    mixing_term = (F_p1 - F_00) / dm_cell_00
+    mixing_term = (F_p1 - F_00) / dm_face_p1
     omega_var_term = ω_face_00 * dgammadt_face_00 #ω_face_00 *
-    source_term = α₁_face_00 * SA_face_00 - sqrt(ω_face_00)
+    source_term = α₁_face_00 * SA_face_00 * sqrt(ω_face_00)
     turb_dissipation_term = C_d * (ω_face_00)^(3/2) / Λ_face_00
     rad_dissipation_term = ω_face_00 / τᵣ_face_00
     excess_term = C_d * (c_s_face_00 * 1e-7)^3 / Λ_face_00  
 
     return omega_var_term - source_term + turb_dissipation_term + rad_dissipation_term - excess_term - mixing_term
 end 
-
 end
+
+
+# function gammaTurb(sm::StellarModel, k::Int)
+
+# ###Constants###
+# C_d = 8/3 * sqrt(2/3)
+# α_w = 0.25 
+#   ###
+# if k == 1
+#     γ_face_00 = get_00_dual(sm.props.gamma_turb[k])
+#     ω_face_00 = exp(γ_face_00)
+#     #dm_cell_00 = sm.props.dm[k] 
+#     m_cell_00 = sm.props.m[k]
+#     r_face_00 = exp(get_00_dual(sm.props.lnr[k]))
+#     P_face_00 = exp(get_00_dual(sm.props.lnP_face[k]))
+#     ρ_face_00 = exp(get_00_dual(sm.props.lnρ_face[k]))
+#     T_face_00 = exp(get_00_dual(sm.props.lnT_face[k]))
+#     κ_face_00 = get_00_dual(sm.props.κ_face[k])
+#     ∇ₐ_face_00 = get_00_dual(sm.props.∇ₐ_face[k])
+#     cₚ_face_00 = get_00_dual(sm.props.cₚ_face[k])
+#     L_face_00 = get_00_dual(sm.props.L[k]) * LSUN
+
+#     Hₚ_face_00 = P_face_00 / (ρ_face_00 * m_cell_00 * CGRAV / r_face_00^2)
+#     Λ_face_00 = 1 / (1 / Hₚ_face_00 + 1 / r_face_00)
+#     ∇ᵣ_face_00 = (3 * κ_face_00 * L_face_00 * P_face_00) / (16π * CRAD * CLIGHT * CGRAV * m_cell_00 * T_face_00^4)
+#     τᵣ_face_00 = (cₚ_face_00 * κ_face_00 * ρ_face_00^2 * Λ_face_00^2) / (48 * SIGMA_SB * T_face_00^3)
+#     c_s_face_00 = sqrt(P_face_00 / ρ_face_00)
+#     k_rad_face_00 = (16 * SIGMA_SB * T_face_00^3) / (3 * κ_face_00 * ρ_face_00)  ##
+#     α₂_face_00 = ρ_face_00 * cₚ_face_00 * 0.5 * sqrt(2 / 3) * Λ_face_00 * sqrt(ω_face_00)
+#     α₁_face_00 = ∇ₐ_face_00 * T_face_00 * Λ_face_00 * 0.5 * sqrt(2 / 3) * cₚ_face_00 / Hₚ_face_00^2
+#     SA_face_00 = (∇ᵣ_face_00 - ∇ₐ_face_00) * (1 + α₂_face_00 / k_rad_face_00)^(-1)
+#     dgammadt_face_00 = (γ_face_00- get_value(sm.start_step_props.gamma_turb[k])) / sm.props.dt
+#     # Different terms for residual at k = 1
+
+#     # mixing_term =  (F_p1/ dm_cell_00)
+#     omega_var_term = ω_face_00 * dgammadt_face_00  #ω_face_00 *
+#     source_term = α₁_face_00 * SA_face_00 * sqrt(ω_face_00)
+#     turb_dissipation_term = C_d * (ω_face_00)^(3/2) / Λ_face_00
+#     rad_dissipation_term = ω_face_00 / τᵣ_face_00
+#     excess_term = C_d * (c_s_face_00 * 1e-7)^3 / Λ_face_00
+
+#     return omega_var_term - source_term + turb_dissipation_term + rad_dissipation_term - excess_term #- mixing_term
+# end
+
+# if k == sm.props.nz
+
+#     γ_cc_00 = get_00_dual(sm.props.gamma_turb[k]) 
+#     ω_cc_00 = exp(γ_cc_00) ###
+#     #dm_face_00 = 0.5*(sm.props.dm[k] + sm.props.dm[k-1])
+#     m_face_00 = sm.props.m[k]
+#     r_cc_00 = exp(get_00_dual(sm.props.lnr[k]))
+#     P_cc_00 = get_00_dual(sm.props.eos_res[k].P)
+#     ρ_cc_00 = get_00_dual(sm.props.eos_res[k].ρ)
+#     T_cc_00 = get_00_dual(sm.props.eos_res[k].T)
+#     κ_cc_00 = get_00_dual(sm.props.κ[k])
+#     ∇ₐ_cc_00 = get_00_dual(sm.props.eos_res[k].∇ₐ)
+#     cₚ_cc_00 = get_00_dual(sm.props.eos_res[k].cₚ)
+#     L_cc_00 = get_00_dual(sm.props.L[k])* LSUN
+
+#     Hₚ_cc_00 = P_cc_00 / (ρ_cc_00 * m_face_00 * CGRAV / r_cc_00^2)
+#     Λ_cc_00 = 1 / (1 / Hₚ_cc_00 + 1 / r_cc_00)
+#     ∇ᵣ_cc_00 = get_00_dual(sm.props.turb_res[k].∇ᵣ)
+#     τᵣ_cc_00 = (cₚ_cc_00 * κ_cc_00 * ρ_cc_00^2 * Λ_cc_00^2) / (48 * SIGMA_SB * T_cc_00^3)
+#     c_s_cc_00 = sqrt(P_cc_00 / ρ_cc_00)
+#     k_rad_cc_00 = (16 * SIGMA_SB * T_cc_00^3) / (3 * κ_cc_00 * ρ_cc_00)  ##
+#     α₂_cc_00 = ρ_cc_00 * cₚ_cc_00 * 0.5 * sqrt(2 / 3) * Λ_cc_00 * sqrt(ω_cc_00)
+#     α₁_cc_00 = ∇ₐ_cc_00 * T_cc_00 * Λ_cc_00 * 0.5 * sqrt(2 / 3) * cₚ_cc_00 / Hₚ_cc_00^2
+#     SA_cc_00 = (∇ᵣ_cc_00 - ∇ₐ_cc_00) * (1 + α₂_cc_00 / k_rad_cc_00)^(-1)    
+#     dgammadt_cc_00 = (γ_cc_00- (get_value(sm.start_step_props.gamma_turb[k]) )) / sm.props.dt
+
+
+#     omega_var_term = ω_cc_00* dgammadt_cc_00 #ω_cc_00*
+#     source_term = α₁_cc_00 * SA_cc_00 * sqrt(ω_cc_00)
+#     turb_dissipation_term = C_d * (ω_cc_00)^(3/2) / Λ_cc_00
+#     rad_dissipation_term = ω_cc_00 / τᵣ_cc_00
+#     excess_term = C_d * (c_s_cc_00 * 1e-7)^3 / Λ_cc_00   
+#     return omega_var_term - source_term + turb_dissipation_term + rad_dissipation_term - excess_term  #- mixing_term
+
+
+# end 
+
+# begin
+#     γ_face_00 = get_00_dual(sm.props.gamma_turb[k])
+#     ω_face_00 = exp(γ_face_00)  ###
+#     #dm_cell_00 = sm.props.dm[k] 
+#     m_cell_00 = sm.props.m[k]
+#     r_face_00 = exp(get_00_dual(sm.props.lnr[k]))
+#     P_face_00 = exp(get_00_dual(sm.props.lnP_face[k]))
+#     ρ_face_00 = exp(get_00_dual(sm.props.lnρ_face[k]))
+#     T_face_00 = exp(get_00_dual(sm.props.lnT_face[k]))
+#     κ_face_00 = (get_00_dual(sm.props.κ_face[k]))
+#     ∇ₐ_face_00 = get_00_dual(sm.props.∇ₐ_face[k])
+#     cₚ_face_00 = get_00_dual(sm.props.cₚ_face[k])
+#     L_face_00 = get_00_dual(sm.props.L[k]) * LSUN
+
+#     Hₚ_face_00 = P_face_00 / (ρ_face_00 * m_cell_00 * CGRAV / r_face_00^2)
+#     Λ_face_00 = 1 / (1 / Hₚ_face_00 + 1 / r_face_00)
+#     ∇ᵣ_face_00 = (3 * κ_face_00 * L_face_00 * P_face_00) / (16π * CRAD * CLIGHT * CGRAV * m_cell_00 * T_face_00^4)
+#     τᵣ_face_00 = (cₚ_face_00 * κ_face_00 * ρ_face_00^2 * Λ_face_00^2) / (48 * SIGMA_SB * T_face_00^3)
+#     c_s_face_00 = sqrt(P_face_00 / ρ_face_00)
+#     k_rad_face_00 = (16 * SIGMA_SB * T_face_00^3) / (3 * κ_face_00 * ρ_face_00)  ##
+#     α₂_face_00 = ρ_face_00 * cₚ_face_00 * 0.5 * sqrt(2 / 3) * Λ_face_00 * sqrt(ω_face_00)
+#     α₁_face_00 = ∇ₐ_face_00 * T_face_00 * Λ_face_00 * 0.5 * sqrt(2 / 3) * cₚ_face_00 / Hₚ_face_00^2
+#     SA_face_00 = (∇ᵣ_face_00 - ∇ₐ_face_00) * (1 + α₂_face_00 / k_rad_face_00)^(-1)
+#     dgammadt_face_00 = (γ_face_00- get_value(sm.start_step_props.gamma_turb[k])) / sm.props.dt
+#     # Different terms for residual at k = 1
+
+#     # mixing_term =  (F_p1/ dm_cell_00)
+#     omega_var_term = ω_face_00 * dgammadt_face_00  #ω_face_00 *
+#     source_term = α₁_face_00 * SA_face_00 * sqrt(ω_face_00)
+#     turb_dissipation_term = C_d * (ω_face_00)^(3/2) / Λ_face_00
+#     rad_dissipation_term = ω_face_00 / τᵣ_face_00
+#     excess_term = C_d * (c_s_face_00 * 1e-7)^3 / Λ_face_00
+
+#     return omega_var_term - source_term + turb_dissipation_term + rad_dissipation_term - excess_term #- mixing_term
+# end
+
+# end
+
+
+#  function gammaTurb(sm::StellarModel, k::Int)
+    
+    
+    
+#     γ₀ = get_00_dual(sm.props.gamma_turb[k])
+#     ω = exp(γ₀)
+#     r₀ = exp(get_00_dual(sm.props.lnr[k]))
+#     m₀ = sm.props.m[k]
+#     ∇ₐ = get_00_dual(sm.props.∇ₐ_face[k])
+#     cₚ =  get_00_dual(sm.props.cₚ_face[k])
+#     κ = get_00_dual(sm.props.κ_face[k])
+
+#     ρ_face = exp(get_00_dual(sm.props.lnρ_face[k]))
+#     P_face = exp(get_00_dual(sm.props.lnP_face[k]))
+#     T_face = exp(get_00_dual(sm.props.lnT_face[k]))
+
+
+
+#      if k == sm.props.nz
+#         ρ₀ = get_00_dual(sm.props.eos_res[k].ρ)
+#         P₀ = get_00_dual(sm.props.eos_res[k].P)
+#         r₀ = exp(get_00_dual(sm.props.lnr[k]))
+#         ∇ₐ = get_00_dual(sm.props.eos_res[k].∇ₐ)
+#         ∇ᵣ = get_00_dual(sm.props.turb_res[k].∇ᵣ)
+#         cₚ = get_00_dual(sm.props.eos_res[k].cₚ)
+#         κ = get_00_dual(sm.props.κ[k])
+#         Hₚ = P₀ / (ρ₀ * CGRAV * m₀ / r₀^2)
+#         T₀ = get_00_dual(sm.props.eos_res[k].T)
+#         Λ = 1/(1/Hₚ + 1/r₀) 
+#         τᵣ = cₚ * κ * ρ₀^2 * Λ^2 / (48 * SIGMA_SB * T₀^3 )
+#         c_s  = sqrt(P₀/ρ₀)
+#         k_rad = 16 * SIGMA_SB * T₀^3 / (3 * κ * ρ₀)
+#         α₁ = ∇ₐ * T₀ * Λ * 0.5*sqrt(2/3) * cₚ/ Hₚ^2
+#         C_d = 8/3 * sqrt(2/3)
+#         α₂ = ρ₀*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
+#         SA = (∇ᵣ - ∇ₐ)*(1 + α₂/k_rad)^(-1)
+#         ∇ = ∇ₐ + SA
+#         dgammadt = (γ₀ - get_value(sm.start_step_props.gamma_turb[k])) / sm.props.dt
+#         @show  cₚ.value, ∇ₐ.value, ∇ᵣ.value,τᵣ.value
+#         return ω*dgammadt - α₁* SA * sqrt(ω) + C_d *ω^(3/2)/Λ + ω/τᵣ - C_d*(c_s*1e-7)^3/Λ
+#     end
+
+#     # for k != nz 
+#     L = get_00_dual(sm.props.L[k]) * LSUN
+#     Hₚ = P_face / (ρ_face * CGRAV * m₀ / r₀^2) #defined at face 
+#     Λ = 1/(1/Hₚ + 1/r₀) 
+#     τᵣ = cₚ * κ * ρ_face^2 * Λ^2 / (48 * SIGMA_SB * T_face^3 )
+#     c_s  = sqrt(P_face/ρ_face)
+#     k_rad = 16 * SIGMA_SB * T_face^3 / (3 * κ * ρ_face)
+#     α₁ = ∇ₐ * T_face * Λ * 0.5*sqrt(2/3) * cₚ/ Hₚ^2
+#     C_d = 8/3 * sqrt(2/3)
+#     α₂ = ρ_face*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
+#     ∇ᵣ = 3 * κ * L * P_face / (16π * CRAD * CLIGHT * CGRAV * m₀ * T_face^4)
+#     SA = (∇ᵣ - ∇ₐ)*(1 + α₂/k_rad)^(-1)
+#     ∇ = ∇ₐ + SA
+    
+#     dgammadt = (γ₀ - get_value(sm.start_step_props.gamma_turb[k])) / sm.props.dt
+#     # if (k== 1)
+#     #     @show (α₁* SA * sqrt(ω)), (ω*dgammadt), (C_d *ω^(3/2)/Hₚ), (ω/τᵣ),  (C_d*(c_s*1e-10)^3/Hₚ)
+#     #     @show (ω).value, γ₀.value, ρ_face.value, P_face.value, T_face.value
+#     #  end
+#     return  ω*dgammadt - α₁* SA * sqrt(ω) + C_d *ω^(3/2)/Λ + ω/τᵣ - C_d*(c_s*1e-7)^3/Λ
+# end
