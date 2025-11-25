@@ -139,7 +139,7 @@ function setup_model_profile_functions(sm::StellarModel)
 
     # thermodynamic properties
     add_profile_option("log10_r", "log10(Rsun)", (sm, k) -> get_value(sm.props.lnr[k]) * log10(ℯ) - log10(RSUN))
-    add_profile_option("log10_P", "log10(dyne)", (sm, k) -> get_value(sm.props.eos_res[k].P) * log10(ℯ))
+    add_profile_option("log10_P", "log10(dyne)", (sm, k) -> ln(get_value(sm.props.eos_res[k].P))* log10(ℯ))
     add_profile_option("log10_T", "log10(K)", (sm, k) -> get_value(sm.props.lnT[k]) * log10(ℯ))
     add_profile_option("log10_ρ", "log10_(g*cm^-3)", (sm, k) -> get_value(sm.props.lnρ[k]) * log10(ℯ))
     add_profile_option("luminosity", "Lsun", (sm, k) -> get_value(sm.props.L[k]) / LSUN)
