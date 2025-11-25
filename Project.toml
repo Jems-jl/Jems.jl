@@ -1,7 +1,7 @@
 name = "Jems"
 uuid = "80e28b2b-5ac7-4db2-b78d-9e35bb8cec21"
-authors = ["Pablo Marchant <pablo.marchant@kuleuven.be>", "Matthias Fabry <matthias.fabry@kuleuven.be>", "Eva Kuipers <evakuipers2612@gmail.com>", "Digonto Rahman  <digontorahman@hotmail.com>"]
 version = "0.1.0"
+authors = ["Pablo Marchant <pablo.marchant@kuleuven.be>", "Matthias Fabry <matthias.fabry@kuleuven.be>", "Eva Kuipers <evakuipers2612@gmail.com>", "Digonto Rahman  <digontorahman@hotmail.com>"]
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
@@ -22,7 +22,7 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 DataFrames = "1"
 ForwardDiff = "0.10"
 FunctionWrappers = "1"
-GLMakie = "0.9, 0.10"
+GLMakie = "0.9, 0.10, 0.13"
 HDF5 = "0.17"
 Interpolations = "0.15"
 LaTeXStrings = "1"
