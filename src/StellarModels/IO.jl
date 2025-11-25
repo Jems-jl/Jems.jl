@@ -85,6 +85,8 @@ function add_history_option(name, unit, func)
     history_output_functions[name] = func
 end
 
+
+
 function setup_model_history_functions(sm::StellarModel)
     # general properties
     add_history_option("age", "year", sm -> sm.props.time / SECYEAR)

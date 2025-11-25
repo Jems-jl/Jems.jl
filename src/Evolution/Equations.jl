@@ -93,7 +93,6 @@ function equationT(sm::StellarModel, k::Int)
     #∇ = get_00_dual(sm.props.turb_res[k].∇)
 
    # Calculating ∇
-    ∇ = get_00_dual(sm.props.∇_face[k])
     L = get_00_dual(sm.props.L[k]) * LSUN
     γ₀ = get_00_dual(sm.props.gamma_turb[k])
     ω = exp(γ₀)
@@ -817,7 +816,7 @@ if k == 1
     L_cc_p1 = 0.5*(get_p1_dual(sm.props.L[k+1]) + get_00_dual(sm.props.L[k])) * LSUN
     r_cc_p1 = 0.5*(exp(get_p1_dual(sm.props.lnr[k+1])) + exp(get_00_dual(sm.props.lnr[k])))
     Hₚ_cc_p1 = P_cc_p1 / (ρ_cc_p1 * m_face_p1 * CGRAV / r_cc_p1^2)
-    ω_cc_p1 = exp(0.5*(get_p1_dual(sm.props.gamma_turb[k+1]) + get_00_dual(sm.props.gamma_turb[k])))
+    ω_cc_p1 = 0.5*(exp(get_p1_dual(sm.props.gamma_turb[k+1])) + exp(get_00_dual(sm.props.gamma_turb[k])))
 
     Λ_cc_p1 = 1 / (1 / Hₚ_cc_p1 + 1 / r_cc_p1)
     A_p1 = (4π  *ρ_cc_p1* r_cc_p1^2)^2 * Λ_cc_p1 * α_w * sqrt(ω_cc_p1)
@@ -925,8 +924,9 @@ begin
     ## Both 00 and p1 terms are needed for F_i and F_i+1
 
     ## 00 values ##
-    γ_cc_00 = 0.5*(get_00_dual(sm.props.gamma_turb[k]) + get_m1_dual(sm.props.gamma_turb[k-1])) 
-    ω_cc_00 = exp(γ_cc_00) ###
+    # γ_cc_00 = 0.5*(get_00_dual(sm.props.gamma_turb[k]) + get_m1_dual(sm.props.gamma_turb[k-1])) 
+    # ω_cc_00 = exp(γ_cc_00) ###
+    ω_cc_00 = 0.5*(exp(get_00_dual(sm.props.gamma_turb[k])) + exp(get_m1_dual(sm.props.gamma_turb[k-1])))#exp(γ_cc_00) ###
     dm_face_00 = 0.5*(sm.props.dm[k] + sm.props.dm[k-1]) ##
     m_face_00 = 0.5*(sm.props.m[k] + sm.props.m[k-1])
     r_cc_00 = 0.5*(exp(get_00_dual(sm.props.lnr[k])) + exp(get_m1_dual(sm.props.lnr[k-1])))
@@ -948,7 +948,7 @@ begin
     r_cc_p1 = 0.5*(exp(get_p1_dual(sm.props.lnr[k+1])) + exp(get_00_dual(sm.props.lnr[k])))
     Hₚ_cc_p1 = P_cc_p1 / (ρ_cc_p1 * m_face_p1 * CGRAV / r_cc_p1^2)
     Λ_cc_p1 = 1 / (1 / Hₚ_cc_p1 + 1 / r_cc_p1)
-    ω_cc_p1 = exp(0.5*(get_p1_dual(sm.props.gamma_turb[k+1]) + get_00_dual(sm.props.gamma_turb[k])))
+    ω_cc_p1 = 0.5*(exp(get_p1_dual(sm.props.gamma_turb[k+1])) + exp(get_00_dual(sm.props.gamma_turb[k])))
     A_p1 = (4π *ρ_cc_p1* r_cc_p1^2)^2 * Λ_cc_p1 * α_w * sqrt(ω_cc_p1)
     F_p1 = (A_p1 / sm.props.dm[k+1]) * (exp(get_p1_dual(sm.props.gamma_turb[k+1])) - exp(get_00_dual(sm.props.gamma_turb[k])))
 

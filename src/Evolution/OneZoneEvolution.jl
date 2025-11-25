@@ -76,7 +76,7 @@ function do_one_zone_burn!(oz::OneZone)
                 if oz.opt.solver.report_solver_progress &&
                    i % oz.opt.solver.solver_progress_iter == 0
                     @show oz.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz,
-                          res_equ, oz.props.dt
+                          res_equ, oz.props.dt/SECYEAR
                 end
                 #check if tolerances are satisfied
                 if rel_corr < oz.opt.solver.relative_correction_tolerance &&
