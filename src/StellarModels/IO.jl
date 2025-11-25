@@ -139,7 +139,7 @@ function setup_model_profile_functions(sm::StellarModel)
 
     # thermodynamic properties
     add_profile_option("log10_r", "log10(Rsun)", (sm, k) -> get_value(sm.props.lnr[k]) * log10(ℯ) - log10(RSUN))
-    add_profile_option("log10_P", "log10(dyne)", (sm, k) -> get_value(sm.props.eos_res[k].P) * log10(ℯ))
+    add_profile_option("log10_P", "log10(dyne)", (sm, k) -> log10(get_value(sm.props.eos_res[k].P)))
     add_profile_option("log10_T", "log10(K)", (sm, k) -> get_value(sm.props.lnT[k]) * log10(ℯ))
     add_profile_option("log10_ρ", "log10_(g*cm^-3)", (sm, k) -> get_value(sm.props.lnρ[k]) * log10(ℯ))
     add_profile_option("luminosity", "Lsun", (sm, k) -> get_value(sm.props.L[k]) / LSUN)
@@ -150,7 +150,7 @@ function setup_model_profile_functions(sm::StellarModel)
 
     # temperature gradients
     add_profile_option("nabla_a_face", "unitless", (sm, k) -> get_value(sm.props.∇ₐ_face[k]))
-    add_profile_option("nabla_r_face", "unitless", (sm, k) -> get_value(sm.props.∇ᵣ_face[k]))
+    add_profile_option("nabla_r_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇ᵣ))
     add_profile_option("nabla_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇))
     add_profile_option("D_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].D_turb))
 end
