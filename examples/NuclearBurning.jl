@@ -211,10 +211,8 @@ ax = Axis(f[1, 1]; xlabel=L"\log_{10}(\rho/\mathrm{[g\;cm^{-3}]})", ylabel=L"\lo
 pname = Observable(profile_names[1])
 
 profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
-#To see why this is done this way, see https://docs.makie.org/stable/explanations/nodes/index.html#problems_with_synchronous_updates
-#the main issue is that remeshing changes the size of the arrays
 log10_ρ = @lift($profile[!, "log10_ρ"])
-log10_P = Observable(rand(length(log10_ρ.val)))
+log10_P = @lift($profile[!, "log10_P"])
 
 profile_line = lines!(ax, log10_ρ, log10_P; label="real profile")
 xvals = LinRange(-13, 4, 100)
@@ -228,7 +226,6 @@ profile_text = text!(ax, -10, 20; text=model_number_str)
 
 record(f, "rho_P_evolution.gif", profile_names[1:end]; framerate=2) do profile_name
     profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", profile_name)
-    log10_P.val = profile[!, "log10_P"]
     pname[] = profile_name
 end
 
@@ -246,25 +243,24 @@ the [IO](Evolution.md##Io.jl) options (and probably adjust the framerate).
 profile_names = StellarModels.get_profile_names_from_hdf5("profiles.hdf5")
 
 f = Figure();
-ax = Axis(f[1, 1]; xlabel=L"\mathrm{Mass}\;[M_\odot]", ylabel=L"Abundance")
+ax = Axis(f[1, 1]; xlabel=L"\mathrm{Mass}\;[M_\odot]", ylabel="Abundance")
 
 pname = Observable(profile_names[1])
 
 profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
 mass = @lift($profile[!, "mass"])
-X = Observable(rand(length(mass.val)))
-Y = Observable(rand(length(mass.val)))
+X = @lift($profile[!, "X"])
+Y = @lift($profile[!, "Y"])
 model_number_str = @lift("model number=$(parse(Int,$pname))")
 
 profile_line = lines!(ax, mass, X; label="X")
 profile_line = lines!(ax, mass, Y; label="Y")
-profile_text = text!(ax, 0.7, 0.0; text=model_number_str)
+profile_text = text!(ax, 0.7, 0.9; text=model_number_str)
 axislegend(ax; position=:rb)
+ylims!(ax,0,1)
 
 record(f, "X_evolution.gif", profile_names[1:end]; framerate=2) do profile_name
     profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", profile_name)
-    X.val = profile[!, "X"]
-    Y.val = profile[!, "Y"]
     pname[] = profile_name
 end
 

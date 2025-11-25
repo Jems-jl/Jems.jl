@@ -108,7 +108,7 @@ Options relating to the live plotting of the simulation
     data_interval::Int = 1
 
     window_specs::Vector{String} = []
-    window_layout::Vector{Vector{Int}} = [[]]
+    window_layout = [[]] # TODO: REMOVED TYPE Vector{Vector{Int}} as it was causing issues with the TOML reader in julia 1.12, should be fixed
     yaxes_log::Vector{Bool} = []
     alt_yaxes_log::Vector{Bool} = []
 
