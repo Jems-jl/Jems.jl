@@ -1,6 +1,6 @@
 module Plotting
 
-using GLMakie, LaTeXStrings, MathTeXEngine, Jems.DualSupport, Jems.Constants
+using Makie, LaTeXStrings, MathTeXEngine, Jems.DualSupport, Jems.Constants
 
 include("Plotter.jl")
 include("HRPlot.jl")
