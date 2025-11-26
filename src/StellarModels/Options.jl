@@ -108,7 +108,8 @@ Options relating to the live plotting of the simulation
     data_interval::Int = 1
 
     window_specs::Vector{String} = []
-    window_layout::Vector{Vector{Int}} = [[]]
+    #window_layout::Vector{Vector{Int}} = [[]]
+    window_layout = [[]]
     yaxes_log::Vector{Bool} = []
     alt_yaxes_log::Vector{Bool} = []
 

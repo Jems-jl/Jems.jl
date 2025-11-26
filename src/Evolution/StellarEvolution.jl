@@ -36,7 +36,7 @@ end
 Performs the main evolutionary loop of the input StellarModel `sm`. It continues taking steps until one of the
 termination criteria is reached (defined in `sm.opt.termination`).
 """
-function do_evolution_loop!(sm::StellarModel)
+function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullPlotter()) where{TPLOTTER<:AbstractPlotter}
     # before loop actions
     StellarModels.create_output_files!(sm)
     StellarModels.evaluate_stellar_model_properties!(sm, sm.props)  # set the initial condition as the result of a previous phantom step
@@ -182,11 +182,17 @@ function do_evolution_loop!(sm::StellarModel)
         StellarModels.write_data(sm)
         StellarModels.write_terminal_info(sm)
 
-        if sm.opt.plotting.do_plotting && sm.props.model_number == 1
-            Plotting.init_plots!(sm)
-        elseif sm.opt.plotting.do_plotting && sm.props.model_number % sm.opt.plotting.plotting_interval == 0
-            Plotting.update_plotting!(sm)
+        if sm.props.model_number % sm.opt.plotting.plotting_interval == 0
+            update_plotter!(plotter, sm, true)
+        else
+            update_plotter!(plotter, sm, false)
         end
+
+        #if sm.opt.plotting.do_plotting && sm.props.model_number == 1
+        #    Plotting.init_plots!(sm)
+        #elseif sm.opt.plotting.do_plotting && sm.props.model_number % sm.opt.plotting.plotting_interval == 0
+        #    Plotting.update_plotting!(sm)
+        #end
 
         # check termination conditions
         if (sm.props.model_number > sm.opt.termination.max_model_number)
@@ -203,8 +209,10 @@ function do_evolution_loop!(sm::StellarModel)
         # get dt for coming step
         sm.props.dt_next = get_dt_next(sm)
     end
-    if sm.opt.plotting.do_plotting
-        Plotting.end_of_evolution(sm)
-    end
+    #if sm.opt.plotting.do_plotting
+    #    Plotting.end_of_evolution(sm)
+    #end
     StellarModels.shut_down_IO!(sm)
+
+    return
 end

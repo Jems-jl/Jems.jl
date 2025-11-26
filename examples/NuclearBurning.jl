@@ -14,6 +14,7 @@ using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
+using Jems.Plotting
 
 ##
 #=
@@ -27,6 +28,8 @@ The Evolution module has pre-defined equations corresponding to these variables,
 simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple simple electron scattering opacity equal
 to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
+
+##
 
 varnames = [:lnρ, :lnT, :lnr, :lum]
 varscaling = [:log, :log, :log, :maxval]
@@ -132,20 +135,20 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 2000
+          max_model_number = 200
           max_center_T = 1e8
 
           [plotting]
           do_plotting = true
           wait_at_termination = false
-          plotting_interval = 1
+          plotting_interval = 10
 
           window_specs = ["HR", "Kippenhahn", "profile", "TRhoProfile"]
-          window_layout = [[1, 1],  # arrangement of plots
-                            [1, 2],
-                            [2, 1],
-                            [2, 2]
-                            ]
+          #window_layout = [[1, 1],  # arrangement of plots
+          #                  [1, 2],
+          #                  [2, 1],
+          #                  [2, 2]
+          #                  ]
 
           profile_xaxis = 'mass'
           profile_yaxes = ['log10_T']
@@ -168,10 +171,16 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 
+using GLMakie
+f = Figure()
+plots = [Plotting.HRPlot(f[1,1]), Plotting.TRhoProfile(f[1,2])]
+plotter = Plotting.Plotter(fig=f,plots=plots,max_fps=1000)
+
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-@time Evolution.do_evolution_loop!(sm);
+@time Evolution.do_evolution_loop!(sm, plotter=plotter);
+#@time Evolution.do_evolution_loop!(sm);
 
 ##
 #=

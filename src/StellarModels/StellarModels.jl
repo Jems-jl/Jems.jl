@@ -2,13 +2,12 @@ module StellarModels
 
 export AbstractModel, AbstractModelProperties, OneZone, OneZoneProperties, StellarModel, StellarModelProperties
 
-using Jems.Constants, Jems.Chem, Jems.EOS, Jems.Opacity, Jems.NuclearNetworks
+using Jems.Constants, Jems.Chem, Jems.EOS, Jems.Opacity, Jems.NuclearNetworks, Jems.Plotting
 
 abstract type AbstractModel end
 abstract type AbstractModelProperties end
 
 include("Options.jl")
-include("PlotterInterface.jl")
 include("StellarModelProperties.jl")
 include("SolverData.jl")
 include("EquationSupport.jl")

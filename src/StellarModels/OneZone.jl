@@ -33,9 +33,6 @@ Structure definition of a model having one internal zone.
     # Space for used defined options, defaults are in Options.jl
     opt::StellarModels.Options
 
-    # object holding plotting things, ie figures, data to plot.
-    plt::StellarModels.Plotter
-
     # Output files
     history_file::HDF5.File
 end
@@ -69,7 +66,6 @@ function OneZone(compostion_equation::Function, network::NuclearNetwork, use_sta
                                                                 typeof(dual_sample)}(compostion_equation)
 
     opt = StellarModels.Options()  # create options object
-    plt = StellarModels.Plotter()
 
     # create the stellar model
     oz = OneZone(; nvars=nvars,
@@ -77,7 +73,7 @@ function OneZone(compostion_equation::Function, network::NuclearNetwork, use_sta
                  solver_data=solver_data,
                  composition_equation=tpe_stbl_func, network=network,
                  prv_step_props=prv_step_props, props=props,
-                 opt=opt, plt=plt,
+                 opt=opt,
                  history_file=HDF5.File(-1, ""))
     return oz
 end
