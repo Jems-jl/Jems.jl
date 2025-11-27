@@ -1,10 +1,11 @@
 using HDF5
 using DataFrames
 using Printf
+using LaTeXStrings
 
 export add_history_option, add_profile_option,
-       history_output_units, history_output_functions,
-       profile_output_units, profile_output_functions
+       history_output_units, history_output_functions, history_output_labels,
+       profile_output_units, profile_output_functions, profile_output_labels
 
 ioinit = false
 
@@ -74,15 +75,22 @@ end
 
 const history_output_units::Dict{String,String} = Dict()
 const history_output_functions::Dict{String,Function} = Dict()
+const history_output_labels::Dict{String,LaTeXStrings.LaTeXString} = Dict()
 const profile_output_units::Dict{String,String} = Dict()
 const profile_output_functions::Dict{String,Function} = Dict()
+const profile_output_labels::Dict{String,Union{LaTeXStrings.LaTeXString, String}} = Dict()
 
-function add_history_option(name, unit, func)
+function add_history_option(name, unit, func; label::Union{LaTeXStrings.LaTeXString, String}="")
     if haskey(history_output_units, name)
         throw(ArgumentError("Key $name is already part of the history output options"))
     end
     history_output_units[name] = unit
     history_output_functions[name] = func
+    if label == ""
+        history_output_labels[name] = name
+    else
+        history_output_labels[name] = label
+    end
 end
 
 function setup_model_history_functions(sm::StellarModel)
@@ -111,7 +119,7 @@ end
 
 function setup_model_history_functions(oz::OneZone)
     # general properties
-    add_history_option("age", "year", oz -> oz.props.time / SECYEAR)
+    add_history_option("age", "year", oz -> oz.props.time / SECYEAR)/add_his
     add_history_option("dt", "year", oz -> oz.props.dt / SECYEAR)
     add_history_option("model_number", "unitless", oz -> oz.props.model_number)
 
@@ -123,12 +131,17 @@ function setup_model_history_functions(oz::OneZone)
     end
 end
 
-function add_profile_option(name, unit, func)
+function add_profile_option(name, unit, func; label::Union{LaTeXStrings.LaTeXString, String}="")
     if haskey(profile_output_units, name)
         throw(ArgumentError("Key $name is already part of the history output options"))
     end
     profile_output_units[name] = unit
     profile_output_functions[name] = func
+    if label == ""
+        profile_output_labels[name] = name
+    else
+        profile_output_labels[name] = label
+    end
 end
 
 function setup_model_profile_functions(sm::StellarModel)

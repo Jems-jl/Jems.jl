@@ -7,10 +7,8 @@ end
 
 function HRPlot(grid_pos)
     axis = Axis(grid_pos, xlabel="logTeff", ylabel="logL", xreversed=true)
-    logTeff_start::Vector{Float64} = []
-    logL_start::Vector{Float64} = []
-    logTeff = Observable(logTeff_start)
-    logL = Observable(logL_start)
+    logTeff = Observable(zeros(Float64,0))
+    logL = Observable(zeros(Float64,0))
     lines!(axis, logTeff, logL)
 
     current_position = Observable(Point(0.0,0.0))

@@ -135,7 +135,7 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 200
+          max_model_number = 2000
           max_center_T = 1e8
 
           [io]
@@ -150,8 +150,12 @@ rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 
 using GLMakie
+GLMakie.set_theme!(Plotting.basic_theme)
 f = Figure()
-plots = [Plotting.HRPlot(f[2,1]), Plotting.TRhoProfile(f[1,1:2]), Plotting.KippenLine(f[2,2])]
+plots = [Plotting.HRPlot(f[1,1]),
+         Plotting.TRhoProfile(f[1,2]),
+         Plotting.KippenLine(f[2,1]),
+         Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3)]
 plotter = Plotting.Plotter(fig=f,plots=plots,max_fps=1000, update_interval=1)
 
 n = 3

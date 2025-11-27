@@ -31,10 +31,8 @@ function TRhoProfile(grid_pos)
     pgas_T = log10(3.2e7) .+ (pgas_ρ .- log10(0.7e0))./3.0
     lines!(axis, pgas_ρ, pgas_T, color=:gray, linestyle=:dash, linewidth=2)
 
-    logRho_start::Vector{Float64} = []
-    logT_start::Vector{Float64} = []
-    logRho = Observable(logRho_start)
-    logT = Observable(logT_start)
+    logRho = Observable(zeros(Float64,0))
+    logT = Observable(zeros(Float64,0))
     lines!(axis, logRho, logT)
     return TRhoProfile(logRho, logT, axis)
 end

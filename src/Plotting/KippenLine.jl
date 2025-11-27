@@ -21,10 +21,8 @@ function KippenLine(grid_pos; min_log_eps=0.0, max_log_eps=5.0, xaxis=:model_num
         ylabel="Radius"
     end
     axis = Axis(grid_pos, xlabel=xlabel, ylabel=ylabel, ygridvisible=false, xgridvisible=false)
-    xvals_start::Vector{Float64} = []
-    yvals_start::Vector{Float64} = []
-    xvals = Observable(xvals_start)
-    yvals = Observable(yvals_start)
+    xvals = Observable(zeros(Float64,0))
+    yvals = Observable(zeros(Float64,0))
     lines!(axis, xvals, yvals, color=:black)
     return KippenLine(xvals, yvals, xaxis, yaxis, xaxis_scale, min_log_eps, max_log_eps, axis)
 end
@@ -49,12 +47,6 @@ function burning_map(log_eps_nuc; min_log_eps=0.0, max_log_eps=15.0)  # map log 
         return log_eps_nuc / (max_log_eps - min_log_eps)
     end
 end
-
-kipp_mixing_colors = [RGBAf(0.5, 0.5, 0.5), RGBAf(0, 0, 1)]
-kipp_mixing_colors[1] = RGBAf(1, 1, 1)  # make no_mixing white in KippenLine diagram to avoid clutter
-burning_colors = cgrad(:linear_wyor_100_45_c55_n256)
-const mixing_map = Dict(:no_mixing => 1,
-                        :convection => 2)
 function update_plot!(p::KippenLine, m)
     if p.xaxis == :model_number
         p.xvals[] = push!(p.xvals[], m.props.model_number)
