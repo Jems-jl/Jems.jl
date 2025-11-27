@@ -5,6 +5,7 @@ using Makie, LaTeXStrings, MathTeXEngine, Jems.DualSupport, Jems.Constants
 include("Plotter.jl")
 include("HRPlot.jl")
 include("TRhoProfile.jl")
+include("KippenLine.jl")
 
 # using GLMakie, LaTeXStrings, MathTeXEngine, Jems.StellarModels, Jems.DualSupport, Jems.Constants
 # 

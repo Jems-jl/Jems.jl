@@ -15,7 +15,7 @@ function HRPlot(grid_pos)
 end
 
 function update_plot!(p::HRPlot, m)
-    new_logTeff = exp(get_value(m.props.lnT[m.props.nz]))
+    new_logTeff = get_value(m.props.lnT[m.props.nz])*log10(ℯ)
     new_logL = log10(get_value(m.props.L[m.props.nz]))
     p.logTeff[] = push!(p.logTeff[], new_logTeff)
     p.logL[] = push!(p.logL[], new_logL)

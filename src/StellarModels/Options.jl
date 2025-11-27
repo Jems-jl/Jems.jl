@@ -97,35 +97,6 @@ Substructure of Options containing controls relating to input/output of data
 end
 
 """
-    mutable struct PlottingOptions
-
-Options relating to the live plotting of the simulation
-"""
-@kwdef mutable struct PlottingOptions
-    do_plotting::Bool = false
-    wait_at_termination::Bool = false
-    plotting_interval::Int = 10
-    data_interval::Int = 1
-
-    window_specs::Vector{String} = []
-    #window_layout::Vector{Vector{Int}} = [[]]
-    window_layout = [[]]
-    yaxes_log::Vector{Bool} = []
-    alt_yaxes_log::Vector{Bool} = []
-
-    profile_xaxis::String = ""
-    profile_yaxes::Vector{String} = []
-    profile_alt_yaxes::Vector{String} = []
-
-    history_xaxis::String = ""
-    history_yaxes::Vector{String} = []
-    history_alt_yaxes::Vector{String} = []
-
-    min_log_eps::Float64 = 0.0
-    max_log_eps::Float64 = 9.0
-end
-
-"""
     mutable struct PhysicsOptions
 
 Options that affect the physics of the computed model
@@ -144,14 +115,12 @@ mutable struct Options
     solver::SolverOptions
     timestep::TimestepOptions
     termination::TerminationOptions
-    plotting::PlottingOptions
     io::IOOptions
     physics::PhysicsOptions
 
     function Options()
         new(RemeshOptions(), SolverOptions(), TimestepOptions(),
-            TerminationOptions(), PlottingOptions(), IOOptions(),
-            PhysicsOptions())
+            TerminationOptions(), IOOptions(), PhysicsOptions())
     end
 end
 

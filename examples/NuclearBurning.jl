@@ -138,28 +138,6 @@ open("example_options.toml", "w") do file
           max_model_number = 200
           max_center_T = 1e8
 
-          [plotting]
-          do_plotting = true
-          wait_at_termination = false
-          plotting_interval = 10
-
-          window_specs = ["HR", "Kippenhahn", "profile", "TRhoProfile"]
-          #window_layout = [[1, 1],  # arrangement of plots
-          #                  [1, 2],
-          #                  [2, 1],
-          #                  [2, 2]
-          #                  ]
-
-          profile_xaxis = 'mass'
-          profile_yaxes = ['log10_T']
-          profile_alt_yaxes = ['X','Y']
-
-          history_xaxis = 'age'
-          history_yaxes = ['R_surf']
-          history_alt_yaxes = ['T_center']
-
-          max_log_eps = 5.0
-
           [io]
           profile_interval = 50
           terminal_header_interval = 100
@@ -173,8 +151,8 @@ rm(sm.opt.io.hdf5_profile_filename; force=true)
 
 using GLMakie
 f = Figure()
-plots = [Plotting.HRPlot(f[1,1]), Plotting.TRhoProfile(f[1,2])]
-plotter = Plotting.Plotter(fig=f,plots=plots,max_fps=1000)
+plots = [Plotting.HRPlot(f[2,1]), Plotting.TRhoProfile(f[1,1:2]), Plotting.KippenLine(f[2,2])]
+plotter = Plotting.Plotter(fig=f,plots=plots,max_fps=1000, update_interval=1)
 
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 

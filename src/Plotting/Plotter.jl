@@ -6,13 +6,14 @@ abstract type AbstractPlotter end
     fig::TFIG
     plots::TPLOTS
     max_fps::Int
+    update_interval::Int
 end
 
-function update_plotter!(plotter::Plotter, m, refresh)
+function update_plotter!(plotter::Plotter, m)
     for plot in plotter.plots
         update_plot!(plot, m)
     end
-    if refresh
+    if m.props.model_number % plotter.update_interval == 0
         display(plotter.fig)
         sleep(1/plotter.max_fps)
     end
