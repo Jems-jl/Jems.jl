@@ -2,7 +2,7 @@ module NuclearNetworks
 
 using ..ReactionRates, ..EOS
 
-export NuclearNetwork, set_rates_for_network!
+export NuclearNetwork, set_rates_for_network!, merge_nuclear_networks
 
 abstract type AbstractNuclearNetwork end
 
@@ -15,36 +15,37 @@ abstract type AbstractNuclearNetwork end
     species_reactions_out::Vector{Vector{Tuple{Int,Int}}}
 end
 
-function NuclearNetwork(species_names, reaction_names::Vector{Tuple{Symbol, Symbol}})
+function NuclearNetwork(species_names:: Vector{Symbol}, reactions::Vector{<: Any})
     nspecies = length(species_names)
+
     xa_index = Dict{Symbol, Int}()
-    for i in eachindex(species_names)
-        xa_index[species_names[i]] = i
+    for (i,name) in enumerate(species_names)
+        xa_index[name] = i
     end
 
-    reactions = []
-    species_reactions_in::Vector{Vector{Tuple{Int,Int}}} = [[] for i in eachindex(species_names)]
-    species_reactions_out::Vector{Vector{Tuple{Int,Int}}} = [[] for i in eachindex(species_names)]
-    for i in eachindex(reaction_names)
-        reaction_name = reaction_names[i]
-        reaction = ReactionRates.reaction_list[reaction_name[1]][reaction_name[2]]
-        push!(reactions, reaction)
+    species_reactions_in = [Vector{Tuple{Int,Int}}() for _ in 1:nspecies]
+    species_reactions_out = [Vector{Tuple{Int,Int}}() for _ in 1:nspecies]
+
+    for (i, reaction) in enumerate(reactions)
         for j in eachindex(reaction.iso_in)
-            if ! (reaction.iso_in[j] ∈ species_names)
-                throw(ArgumentError("Reaction $(reaction.name) requires isotope $(reaction.iso_in[j]), but it is not part of species_names"))
+            iso_name = reaction.iso_in[j]
+            if !haskey(xa_index, iso_name)
+                error("Reaction uses $iso_name, but it is missing from species list.")
             end
-            push!(species_reactions_in[xa_index[reaction.iso_in[j]]], (i,reaction.num_iso_in[j]))
+            new_idx = xa_index[iso_name]
+            stoich = reaction.num_iso_in[j]
+            push!(species_reactions_in[new_idx], (i, stoich))
         end
         for j in eachindex(reaction.iso_out)
-            if ! (reaction.iso_out[j] ∈ species_names)
-                throw(ArgumentError("Reaction $(reaction.name) requires isotope $(reaction.iso_out[j]), but it is not part of species_names"))
+            iso_name = reaction.iso_out[j]
+            if !haskey(xa_index, iso_name)
+                error("Reaction uses $iso_name, but it is missing from species list.")
             end
-            push!(species_reactions_out[xa_index[reaction.iso_out[j]]], (i,reaction.num_iso_out[j]))
+            new_idx = xa_index[iso_name]
+            stoich = reaction.num_iso_out[j]
+            push!(species_reactions_out[new_idx], (i, stoich))
         end
     end
-
-    # At this point reactions is a Vector{Any}. For type stability we want to turn it into a vector with type
-    # Union{...}, where the Union contains all types of reactions
 
     reactions_typed::Vector{Union{typeof.(reactions)...}} = [reactions...]
 
@@ -56,7 +57,34 @@ function NuclearNetwork(species_names, reaction_names::Vector{Tuple{Symbol, Symb
         species_reactions_in = species_reactions_in,
         species_reactions_out = species_reactions_out,
     )
+
+end 
+
+function NuclearNetwork(species_names::Vector{Symbol}, reaction_names::Vector{Tuple{Symbol, Symbol}})
+    reactions = []
+    
+
+    for i in eachindex(reaction_names)
+        reaction_name = reaction_names[i]
+        reaction_obj = ReactionRates.reaction_list[reaction_name[1]][reaction_name[2]]
+        push!(reactions, reaction_obj)
+    end
+    return NuclearNetwork(species_names, reactions)
 end
+
+function merge_nuclear_networks(nets::Vector{<:NuclearNetwork}) # merge_nuclear_networks([net1, net2, net3])
+    all_species_list = Symbol[]
+    all_reactions = []
+    for net in nets
+        append!(all_species_list, net.species_names)
+        append!(all_reactions, net.reactions)
+    end
+    unique_species_names = unique(all_species_list)
+    unique_reactions = unique(all_reactions)
+
+    return NuclearNetwork(unique_species_names, unique_reactions)
+    end 
+
 
 function set_rates_for_network!(rates::AbstractArray{TT}, net::NuclearNetwork, T::T1, ρ::T2,
                                 xa::AbstractArray{TT}) where {TT,T1,T2}
