@@ -193,7 +193,9 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.gammaTurb]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa, split_omega]
-net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+net1 = NuclearNetwork([:H1, :He4], [(:kipp_rates, :kipp_pp)])
+net2 = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_cno)])
+net = merge_nuclear_networks([net1, net2])
 nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(true)
@@ -344,7 +346,7 @@ add_history_option("alpha_overshoot", "H_p", get_overshoot)
 # add_history_option("i_ov", "index", get_i_ov)
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            16 * MSUN, 30 * RSUN; initial_dt=10 * SECYEAR)
+                                            1 * MSUN, 30 * RSUN; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm);
 
 ##
@@ -628,7 +630,7 @@ if !isempty(radiative_zone_indices)
 
 end
 alpha_overshoot = overshooting_length / scale_height
-core_profile = profile[0.1 .<=profile[!, "mass"] .<= 15, :]
+core_profile = profile[0.1 .<=profile[!, "mass"] .<= 0.5, :]
 
 # 2. Find the Convective Boundary
 nabla_rad = core_profile[!, "nabla_r_face"]
@@ -648,17 +650,17 @@ end
 ax1 = Axis(f[1,1];
     xlabel = L"Mass\;[M_\odot]",
     ylabel = " log v_turb",
-    title = "v_turb at the Core of the Star (16M☉)"
+    title = "v_turb at the Core of the Star (1M☉)"
 )
 ax3 = Axis(f[2,1];
     xlabel = L"Mass\;[M_\odot]",
     ylabel = " log D_mixing",
-    title = "D_mixing at the Core of the Star (16M☉)",
+    title = "D_mixing at the Core of the Star (1M☉)",
 )
 ax2 = Axis(f[3,1];
     xlabel = L"Mass\;[M_\odot]",
     ylabel = "Gradients",
-    title = "Gradients at the Core of the Star (16M☉)"
+    title = "Gradients at the Core of the Star (1M☉)"
 )
 # ylims!(ax2,0.3993542, 0.3995)
 # xlims!(ax2,0.23, 0.37)
@@ -743,7 +745,7 @@ axislegend(ax1, position = :rt)
 axislegend(ax2, position = :lt,labelsize=18)
 
 f
-save("/home/ritavash/Desktop/Resources/convection_results/turb_plots_kuhfuss_overshoot_length_16M.png", f)
+save("/home/ritavash/Desktop/Resources/convection_results/turb_plots_kuhfuss_overshoot_length_1M.png", f)
 
 
 
@@ -874,7 +876,7 @@ if !isempty(radiative_zone_indices)
 
 end
 alpha_overshoot = overshooting_length / scale_height
-core_profile = profile[0 .<=profile[!, "mass"] .<= 15, :]
+core_profile = profile[0 .<=profile[!, "mass"] .<= 0.5, :]
 
 # 2. Find the Convective Boundary
 nabla_rad = core_profile[!, "nabla_r_face"]
@@ -884,11 +886,11 @@ nabla_ad = core_profile[!, "nabla_a_face"]
 ax3 = Axis(f[1,1];
     xlabel = L"r(m) - r_{\mathrm{sch}}/H_{P,sch}",
     ylabel = "D_mix",
-    title = "D mixing at the Core of the Star: M500 (16M☉)",
+    title = "D mixing at the Core of the Star: M500 (1M☉)",
 )
 
 lines!(ax3,
-    scale_height_arr[0 .<=profile[!, "mass"] .<= 15],
+    scale_height_arr[0 .<=profile[!, "mass"] .<= 0.5],
     log10.(core_profile[!, "D_face_kuhfuss"]) ;
     label = L"log_{10}(D_{\mathrm{turb,\,Kuhfuss}})", color = :blue, linewidth = 3
 )
@@ -919,7 +921,7 @@ if !isnan(alpha_overshoot)
     )
 end
 f
-save("/home/ritavash/Desktop/Resources/convection_results/D_mix_visualization_16M.png", f)
+save("/home/ritavash/Desktop/Resources/convection_results/D_mix_visualization_1M.png", f)
 ##
 """
 Plot for Visualizing the temperature gradients 
@@ -973,7 +975,7 @@ if !isempty(boundary_indices)
     scaled_radius = r_boundary / RSUN 
 end   
 
-core_profile = profile[0.5.<=profile[!, "mass"] .<= 15, :]
+core_profile = profile[0.1.<=profile[!, "mass"] .<= 0.5, :]
 nabla_diff = core_profile[!, "nabla_tdc"] - core_profile[!, "nabla_a_face"]
 ax1 = Axis(f[1,1];xlabel = L"Mass\;[M_\odot]", ylabel = "Gradients", title = "Temperature Gradient Comparison at the core of the star")
 ylims!(ax1,-0.2, 0.2)
@@ -992,7 +994,7 @@ if boundary_mass !== nothing
 end
 axislegend(ax1; position = :rt)
 f
-save("/home/ritavash/Desktop/Resources/convection_results/temperature_gradient_difference_16.png", f)
+save("/home/ritavash/Desktop/Resources/convection_results/temperature_gradient_difference_1.png", f)
 
 
 
@@ -1004,7 +1006,7 @@ f = Figure(resolution = (1400, 1000));
 ax = Axis(f[1, 1]; 
           xlabel=L"\mathrm{Age}\;[\mathrm{yr}]", 
           ylabel=L"\alpha_{\mathrm{ov}}/\mathrm{H_p}", 
-          title=L"\text{Convective Overshoot Parameter History (16} M_\odot)"
+          title=L"\text{Convective Overshoot Parameter History (1} M_\odot)"
 )
 # lines!(ax, 
 #     history[!, "age"], 
@@ -1023,9 +1025,9 @@ scatter!(ax,
     color = :firebrick, 
     label = L"\alpha_{\mathrm{ov}}"
 )
- ylims!(ax, 0, 4)
+ ylims!(ax, 0, 0.3)
 f
-save("/home/ritavash/Desktop/Resources/convection_results/alpha_overshoot/16_history.png", f)
+save("/home/ritavash/Desktop/Resources/convection_results/alpha_overshoot/1_history.png", f)
 ##
 history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
  history[!, "alpha_overshoot"][500]
