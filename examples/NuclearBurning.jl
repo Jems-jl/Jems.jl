@@ -150,13 +150,13 @@ rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 
 using GLMakie
-GLMakie.set_theme!(Plotting.basic_theme)
+set_theme!(Plotting.basic_theme())
 f = Figure()
 plots = [Plotting.HRPlot(f[1,1]),
          Plotting.TRhoProfile(f[1,2]),
          Plotting.KippenLine(f[2,1]),
          Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3)]
-plotter = Plotting.Plotter(fig=f,plots=plots,max_fps=1000, update_interval=1)
+plotter = Plotting.Plotter(fig=f,plots=plots,max_fps=1000, update_interval=10)
 
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
@@ -169,20 +169,10 @@ StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Che
 ### Plotting with Makie
 
 Now that our simulation is complete we can analyze the results. We make use of the Makie package for this. I'm not a fan
-of the Makie defaults, so I adjust them. I normally also adjust the fonts to be consistent with \LaTeX, but I avoid that
-here so we don't need to distribute those fonts together with Jems.
+of the Makie defaults, so I adjust them.
 =#
-using CairoMakie, LaTeXStrings, MathTeXEngine
-basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
-                           italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
-                    fontsize=30, size=(1000, 750), linewidth=7,
-                    Axis=(xlabelsize=40, ylabelsize=40, titlesize=40, xgridvisible=false, ygridvisible=false,
-                          spinewidth=2.5, xminorticksvisible=true, yminorticksvisible=true, xtickalign=1, ytickalign=1,
-                          xminortickalign=1, yminortickalign=1, xticksize=14, xtickwidth=2.5, yticksize=14,
-                          ytickwidth=2.5, xminorticksize=7, xminortickwidth=2.5, yminorticksize=7, yminortickwidth=2.5,
-                          xticklabelsize=35, yticklabelsize=35, xticksmirrored=true, yticksmirrored=true),
-                    Legend=(patchsize=(70, 10), framevisible=false, patchlabelgap=20, rowgap=10))
-set_theme!(basic_theme)
+using CairoMakie, LaTeXStrings
+set_theme!(Plotting.basic_theme())
 
 ##
 #=

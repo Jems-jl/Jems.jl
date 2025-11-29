@@ -2,7 +2,7 @@ module StellarModels
 
 export AbstractModel, AbstractModelProperties, OneZone, OneZoneProperties, StellarModel, StellarModelProperties
 
-using Jems.Constants, Jems.Chem, Jems.EOS, Jems.Opacity, Jems.NuclearNetworks, Jems.Plotting
+using Jems.Constants, Jems.Chem, Jems.EOS, Jems.Opacity, Jems.NuclearNetworks
 
 abstract type AbstractModel end
 abstract type AbstractModelProperties end
