@@ -119,7 +119,7 @@ function setup_model_history_functions!(sm::StellarModel)
 end
 
 
-function setup_model_history_functions(oz::OneZone)
+function setup_model_history_functions!(oz::OneZone)
     # general properties
     add_history_option!(oz, "age", "year", oz -> oz.props.time / SECYEAR, label=L"\text{Age}\,[\text{yr}]")
     add_history_option!(oz, "dt", "year", oz -> oz.props.dt / SECYEAR, label=L"\Delta t\,[\text{yr}]")

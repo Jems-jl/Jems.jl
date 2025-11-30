@@ -80,7 +80,11 @@ function OneZone(compostion_equation::Function, network::NuclearNetwork, use_sta
                  composition_equation=tpe_stbl_func, network=network,
                  prv_step_props=prv_step_props, props=props,
                  opt=opt,
-                 history_file=HDF5.File(-1, ""))
+                 history_file=HDF5.File(-1, ""),
+                 history_output_units = Dict{String,String}(),
+                 history_output_functions = Dict{String,Function}(),
+                 history_output_labels = Dict{String,LaTeXStrings.LaTeXString}(),
+                 )
     init_IO(oz)
     return oz
 end

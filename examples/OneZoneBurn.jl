@@ -10,6 +10,7 @@ using Jems.Evolution
 using Jems.Constants
 using Jems.DualSupport
 using Jems.Chem
+using Jems.Plotting
 using BenchmarkTools
 
 ##
@@ -168,30 +169,25 @@ open("example_options.toml", "w") do file
           [termination]
           max_model_number = 200
 
-          [plotting]
-          do_plotting = false
-          wait_at_termination = false
-
-          plotting_interval = 1
-
-          window_specs = ["history"]
-          window_layout = [[1, 1]]
-          yaxes_log = [true]
-          
-          history_xaxis = "age"
-          history_yaxes = ["H1", "D2", "He3", "He4"]
-
           [io]
           profile_interval = 50
           terminal_header_interval = 100
           terminal_info_interval = 100
-          history_values = ["age", "dt", "model_number", "T", "ρ",
+          history_values = ["age", "dt", "model_number", "T", "rho",
                             "H1", "D2", "He3", "He4", "Li7", "Be7", "C12", "N14", "O16"]
 
           """)
 end
 StellarModels.set_options!(oz.opt, "./example_options.toml")
-Evolution.do_one_zone_burn!(oz)
+rm(oz.opt.io.hdf5_history_filename; force=true)
+
+using GLMakie
+set_theme!(Plotting.basic_theme())
+f = Figure(size=(1400,750))
+plots = [Plotting.HistoryPlot(f[1,1], oz, x_name="age", y_name="H1", othery_name="He4", link_yaxes=true)]
+plotter = Plotting.Plotter(fig=f,plots=plots)
+
+Evolution.do_one_zone_burn!(oz, plotter=plotter)
 
 ##
 using CairoMakie, LaTeXStrings, MathTeXEngine
@@ -223,6 +219,7 @@ lines!(ax, history[!, "age"], log10.(history[!, "O16"]), label=L"^{16}O")
 axislegend(position=:lt)
 ylims!(ax, -5,0.1)
 xlims!(ax, 1, 1e7)
+save("abundance_evolution.png", f)
 f
 
 ##
@@ -233,5 +230,4 @@ Internally we want to prevent storing any of the hdf5 files into our git repos, 
 advantage of `julia` as a scripting language to post-process your simulation output in a similar way.
 =#
 rm("history.hdf5")
-rm("profiles.hdf5")
 rm("example_options.toml")

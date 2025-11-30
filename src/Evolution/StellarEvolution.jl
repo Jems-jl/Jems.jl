@@ -217,9 +217,6 @@ function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullP
         # get dt for coming step
         sm.props.dt_next = get_dt_next(sm)
     end
-    #if sm.opt.plotting.do_plotting
-    #    Plotting.end_of_evolution(sm)
-    #end
     StellarModels.shut_down_IO!(sm)
 
     return
