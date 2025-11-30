@@ -6,7 +6,7 @@ mutable struct HRPlot{TOBS, TOBS2, TAXIS}
 end
 
 function HRPlot(grid_pos)
-    axis = Axis(grid_pos, xlabel=L"\log_{10}\left(T_\mathrm{eff}/[\mathrm{K}]\right)", ylabel=L"\log_{10}L/L_\odot", xreversed=true)
+    axis = Axis(grid_pos, xlabel=L"\log_{10}\left(T_\mathrm{eff}/[\mathrm{K}]\right)", ylabel=L"\log_{10}(L/L_\odot)", xreversed=true)
     logTeff = Observable(zeros(Float64,0))
     logL = Observable(zeros(Float64,0))
     lines!(axis, logTeff, logL)
