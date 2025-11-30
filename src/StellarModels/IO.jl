@@ -112,9 +112,9 @@ function setup_model_history_functions!(sm::StellarModel)
     for j in eachindex(sm.network.species_names)
         species = sm.network.species_names[j]
         add_history_option!(sm, String(species)*"_center", "unitless",
-            sm -> get_value(sm.props.xa[1,sm.network.xa_index[species]]))
+            sm -> get_value(sm.props.xa[1,sm.network.xa_index[species]]), label="$(String(species))_\\text{c}")
         add_history_option!(sm, String(species)*"_surf", "unitless",
-            sm -> get_value(sm.props.xa[sm.props.nz,sm.network.xa_index[species]]))
+            sm -> get_value(sm.props.xa[sm.props.nz,sm.network.xa_index[species]]), label="$(String(species))_\\text{s}")
     end
 end
 
