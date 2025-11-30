@@ -1,7 +1,6 @@
 using HDF5
 using DataFrames
 using Printf
-using LaTeXStrings
 
 export add_history_option, add_profile_option,
        history_output_units, history_output_functions, history_output_labels,
@@ -73,121 +72,116 @@ function setup_header(oz::OneZone)
     """
 end
 
-const history_output_units::Dict{String,String} = Dict()
-const history_output_functions::Dict{String,Function} = Dict()
-const history_output_labels::Dict{String,LaTeXStrings.LaTeXString} = Dict()
-const profile_output_units::Dict{String,String} = Dict()
-const profile_output_functions::Dict{String,Function} = Dict()
-const profile_output_labels::Dict{String,Union{LaTeXStrings.LaTeXString, String}} = Dict()
-
-function add_history_option(name, unit, func; label::Union{LaTeXStrings.LaTeXString, String}="")
-    if haskey(history_output_units, name)
+function add_history_option!(m, name, unit, func; label::Union{LaTeXStrings.LaTeXString, String}="")
+    if haskey(m.history_output_units, name)
         throw(ArgumentError("Key $name is already part of the history output options"))
     end
-    history_output_units[name] = unit
-    history_output_functions[name] = func
+    m.history_output_units[name] = unit
+    m.history_output_functions[name] = func
     if label == ""
-        history_output_labels[name] = name
+        m.history_output_labels[name] = name
     else
-        history_output_labels[name] = label
+        m.history_output_labels[name] = label
     end
 end
 
-function setup_model_history_functions(sm::StellarModel)
+function setup_model_history_functions!(sm::StellarModel)
     # general properties
-    add_history_option("age", "year", sm -> sm.props.time / SECYEAR, label=L"\text{age}\,[\text{yr}]")
-    add_history_option("dt", "year", sm -> sm.props.dt / SECYEAR, label=L"\Delta t\,[\text{yr}]")
-    add_history_option("model_number", "unitless", sm -> sm.props.model_number, label=L"\text{Model Number}")
-    add_history_option("star_mass", "Msun", sm -> sm.props.mstar / MSUN, label=L"\text{Mass}\,[M_\odot]")
+    add_history_option!(sm, "age", "year", sm -> sm.props.time / SECYEAR, label=L"\text{age}\,[\text{yr}]")
+    add_history_option!(sm, "dt", "year", sm -> sm.props.dt / SECYEAR, label=L"\Delta t\,[\text{yr}]")
+    add_history_option!(sm, "model_number", "unitless", sm -> sm.props.model_number, label=L"\text{Model Number}")
+    add_history_option!(sm, "star_mass", "Msun", sm -> sm.props.mstar / MSUN, label=L"\text{Mass}\,[M_\odot]")
 
     # surface properties
-    add_history_option("R_surf", "Rsun", sm -> exp(get_value(sm.props.lnr[sm.props.nz])) / RSUN, label=L"R_\text{surf}\,[R_\odot]")
-    add_history_option("L_surf", "Lsun", sm -> get_value(sm.props.L[sm.props.nz]), label=L"\text{surf}\,[L_\odot]")
-    add_history_option("T_surf", "K", sm -> exp(get_value(sm.props.lnT[sm.props.nz])), label=L"T_\text{surf}\,[\text{K}]")
-    add_history_option("rho_surf", "g*cm^-3", sm -> exp(get_value(sm.props.lnρ[sm.props.nz])), label=L"\rho_\text{surf}\,[\text{g\,cm^{-3}}]")
-    add_history_option("P_surf", "dyne", sm -> exp(get_value(sm.props.eos_res[sm.props.nz].P)), label=L"P_\text{surf}\,[\text{dyne}]")
-    add_history_option("X_surf", "unitless", sm -> get_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:H1]]), label=L"X_\text{surf}")
-    add_history_option("Y_surf", "unitless", sm -> get_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:He4]]), label=L"Y_\text{surf}")
+    add_history_option!(sm, "R_surf", "Rsun", sm -> exp(get_value(sm.props.lnr[sm.props.nz])) / RSUN, label=L"R_\text{surf}\,[R_\odot]")
+    add_history_option!(sm, "L_surf", "Lsun", sm -> get_value(sm.props.L[sm.props.nz]), label=L"\text{surf}\,[L_\odot]")
+    add_history_option!(sm, "T_surf", "K", sm -> exp(get_value(sm.props.lnT[sm.props.nz])), label=L"T_\text{surf}\,[\text{K}]")
+    add_history_option!(sm, "rho_surf", "g*cm^-3", sm -> exp(get_value(sm.props.lnρ[sm.props.nz])), label=L"\rho_\text{surf}\,[\text{g\,cm^{-3}}]")
+    add_history_option!(sm, "P_surf", "dyne", sm -> exp(get_value(sm.props.eos_res[sm.props.nz].P)), label=L"P_\text{surf}\,[\text{dyne}]")
+    add_history_option!(sm, "X_surf", "unitless", sm -> get_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:H1]]), label=L"X_\text{surf}")
+    add_history_option!(sm, "Y_surf", "unitless", sm -> get_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:He4]]), label=L"Y_\text{surf}")
 
     # central properties
-    add_history_option("T_center", "K", sm -> exp(get_value(sm.props.lnT[1])), label=L"T_\text{c}\,[\text{K}]")
-    add_history_option("rho_center", "g*cm^-3", sm -> exp(get_value(sm.props.lnρ[1])), label=L"\rho_\text{c}\,[\text{g\,cm^{-3}}]")
-    add_history_option("P_center", "dyne", sm -> get_value(sm.props.eos_res[1].P), label=L"P_\text{c}\,[\text{dyne}]")
-    add_history_option("X_center", "unitless", sm -> get_value(sm.props.xa[1, sm.network.xa_index[:H1]]), label=L"X_\text{c}")
-    add_history_option("Y_center", "unitless", sm -> get_value(sm.props.xa[1, sm.network.xa_index[:He4]]), label=L"Y_\text{c}")
+    add_history_option!(sm, "T_center", "K", sm -> exp(get_value(sm.props.lnT[1])), label=L"T_\text{c}\,[\text{K}]")
+    add_history_option!(sm, "rho_center", "g*cm^-3", sm -> exp(get_value(sm.props.lnρ[1])), label=L"\rho_\text{c}\,[\text{g\,cm^{-3}}]")
+    add_history_option!(sm, "P_center", "dyne", sm -> get_value(sm.props.eos_res[1].P), label=L"P_\text{c}\,[\text{dyne}]")
+    add_history_option!(sm, "X_center", "unitless", sm -> get_value(sm.props.xa[1, sm.network.xa_index[:H1]]), label=L"X_\text{c}")
+    add_history_option!(sm, "Y_center", "unitless", sm -> get_value(sm.props.xa[1, sm.network.xa_index[:He4]]), label=L"Y_\text{c}")
+
+    # add species
+    for j in eachindex(sm.network.species_names)
+        species = sm.network.species_names[j]
+        add_history_option!(sm, String(species)*"_center", "unitless",
+            sm -> get_value(sm.props.xa[1,sm.network.xa_index[species]]))
+        add_history_option!(sm, String(species)*"_surf", "unitless",
+            sm -> get_value(sm.props.xa[sm.props.nz,sm.network.xa_index[species]]))
+    end
 end
+
 
 function setup_model_history_functions(oz::OneZone)
     # general properties
-    add_history_option("age", "year", oz -> oz.props.time / SECYEAR, label=L"\text{Age}\,[\text{yr}]")
-    add_history_option("dt", "year", oz -> oz.props.dt / SECYEAR, label=L"\Delta t\,[\text{yr}]")
-    add_history_option("model_number", "unitless", oz -> oz.props.model_number, label="\text{Model Number}")
+    add_history_option!(oz, "age", "year", oz -> oz.props.time / SECYEAR, label=L"\text{Age}\,[\text{yr}]")
+    add_history_option!(oz, "dt", "year", oz -> oz.props.dt / SECYEAR, label=L"\Delta t\,[\text{yr}]")
+    add_history_option!(oz, "model_number", "unitless", oz -> oz.props.model_number, label="\text{Model Number}")
 
-    add_history_option("T", "K", oz -> oz.props.T, label=L"T\,[\text{K}]")
-    add_history_option("rho", "g*cm^-3", oz -> oz.props.ρ, label=L"\rho\,[\text{g\,cm^{-3}}]")
+    add_history_option!(oz, "T", "K", oz -> oz.props.T, label=L"T\,[\text{K}]")
+    add_history_option!(oz, "rho", "g*cm^-3", oz -> oz.props.ρ, label=L"\rho\,[\text{g\,cm^{-3}}]")
     for j in eachindex(oz.network.species_names)
         species = oz.network.species_names[j]
-        add_history_option(String(species), "unitless", oz -> get_value(oz.props.xa[oz.network.xa_index[species]]))
+        add_history_option!(oz, String(species), "unitless", oz -> get_value(oz.props.xa[oz.network.xa_index[species]]))
     end
 end
 
-function add_profile_option(name, unit, func; label::Union{LaTeXStrings.LaTeXString, String}="")
-    if haskey(profile_output_units, name)
+function add_profile_option!(m, name, unit, func; label::Union{LaTeXStrings.LaTeXString, String}="")
+    if haskey(m.profile_output_units, name)
         throw(ArgumentError("Key $name is already part of the history output options"))
     end
-    profile_output_units[name] = unit
-    profile_output_functions[name] = func
+    m.profile_output_units[name] = unit
+    m.profile_output_functions[name] = func
     if label == ""
-        profile_output_labels[name] = name
+        m.profile_output_labels[name] = name
     else
-        profile_output_labels[name] = label
+        m.profile_output_labels[name] = label
     end
 end
 
-function setup_model_profile_functions(sm::StellarModel)
+function setup_model_profile_functions!(sm::StellarModel)
     # general properties
-    add_profile_option("zone", "unitless", (sm, k) -> k, label=L"\text{Zone}")
-    add_profile_option("mass", "Msun", (sm, k) -> sm.props.m[k] / MSUN, label=L"\text{Mass}\,[M_\odot]")
-    add_profile_option("dm", "Msun", (sm, k) -> sm.props.dm[k] / MSUN, label=L"\Delta m\,[M_\odot]")
+    add_profile_option!(sm, "zone", "unitless", (sm, k) -> k, label=L"\text{Zone}")
+    add_profile_option!(sm, "mass", "Msun", (sm, k) -> sm.props.m[k] / MSUN, label=L"\text{Mass}\,[M_\odot]")
+    add_profile_option!(sm, "dm", "Msun", (sm, k) -> sm.props.dm[k] / MSUN, label=L"\Delta m\,[M_\odot]")
 
     # thermodynamic properties
-    add_profile_option("log10_r", "log10(Rsun)", (sm, k) -> get_value(sm.props.lnr[k]) * log10(ℯ) - log10(RSUN), label=L"\log_{10}(r/R_\odot)")
-    add_profile_option("log10_P", "log10(dyne)", (sm, k) -> log10(get_value(sm.props.eos_res[k].P)), label=L"\log_{10}(P/[\text{dyne}])")
-    add_profile_option("log10_T", "log10(K)", (sm, k) -> get_value(sm.props.lnT[k]) * log10(ℯ), label=L"\log_{10}(T/[\text{K}])")
-    add_profile_option("log10_rho", "log10_(g*cm^-3)", (sm, k) -> get_value(sm.props.lnρ[k]) * log10(ℯ), label=L"\log_{10}(\rho/[\text{g\,cm^{-3}}])")
-    add_profile_option("luminosity", "Lsun", (sm, k) -> get_value(sm.props.L[k]) / LSUN, label=L"L/L_\odot")
+    add_profile_option!(sm, "log10_r", "log10(Rsun)", (sm, k) -> get_value(sm.props.lnr[k]) * log10(ℯ) - log10(RSUN), label=L"\log_{10}(r/R_\odot)")
+    add_profile_option!(sm, "log10_P", "log10(dyne)", (sm, k) -> log10(get_value(sm.props.eos_res[k].P)), label=L"\log_{10}(P/[\text{dyne}])")
+    add_profile_option!(sm, "log10_T", "log10(K)", (sm, k) -> get_value(sm.props.lnT[k]) * log10(ℯ), label=L"\log_{10}(T/[\text{K}])")
+    add_profile_option!(sm, "log10_rho", "log10_(g*cm^-3)", (sm, k) -> get_value(sm.props.lnρ[k]) * log10(ℯ), label=L"\log_{10}(\rho/[\text{g\,cm^{-3}}])")
+    add_profile_option!(sm, "luminosity", "Lsun", (sm, k) -> get_value(sm.props.L[k]) / LSUN, label=L"L/L_\odot")
 
     # abundances
-    add_profile_option("X", "unitless", (sm, k) -> get_value(sm.props.xa[k, sm.network.xa_index[:H1]]), label=L"X")
-    add_profile_option("Y", "unitless", (sm, k) -> get_value(sm.props.xa[k, sm.network.xa_index[:He4]]), label=L"Y")
+    add_profile_option!(sm, "X", "unitless", (sm, k) -> get_value(sm.props.xa[k, sm.network.xa_index[:H1]]), label=L"X")
+    add_profile_option!(sm, "Y", "unitless", (sm, k) -> get_value(sm.props.xa[k, sm.network.xa_index[:He4]]), label=L"Y")
 
     # temperature gradients
-    add_profile_option("nabla_a_face", "unitless", (sm, k) -> get_value(sm.props.∇ₐ_face[k]), label=L"\nabla_\text{a,face}")
-    add_profile_option("nabla_r_face", "unitless", (sm, k) -> get_value(sm.props.∇ᵣ_face[k]), label=L"\nabla_\text{r,face}")
-    add_profile_option("nabla_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇), label=L"\nabla_\text{face}")
-    add_profile_option("D_face", "cm^2*s^{-1}", (sm, k) -> get_value(sm.props.turb_res[k].D_turb), label=L"D_\text{face}\,[\text{cm^2\,s^{-1}}]")
+    add_profile_option!(sm, "nabla_a_face", "unitless", (sm, k) -> get_value(sm.props.∇ₐ_face[k]), label=L"\nabla_\text{a,face}")
+    add_profile_option!(sm, "nabla_r_face", "unitless", (sm, k) -> get_value(sm.props.∇ᵣ_face[k]), label=L"\nabla_\text{r,face}")
+    add_profile_option!(sm, "nabla_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇), label=L"\nabla_\text{face}")
+    add_profile_option!(sm, "D_face", "cm^2*s^{-1}", (sm, k) -> get_value(sm.props.turb_res[k].D_turb), label=L"D_\text{face}\,[\text{cm^2\,s^{-1}}]")
 end
 
 function init_IO(m::AbstractModel)
     setup_header(m)
-    setup_model_history_functions(m)
+    setup_model_history_functions!(m)
     if isa(m, OneZone)
         global ioinit = true
         return
     end
-    setup_model_profile_functions(m)
+    setup_model_profile_functions!(m)
     global ioinit = true
 end
 
 function clear_IO()
-    for i in eachindex(history_output_functions)
-        delete!(history_output_functions, i)
-        delete!(history_output_units, i)
-    end
-    for i in eachindex(profile_output_functions)
-        delete!(profile_output_functions, i)
-        delete!(profile_output_units, i)
-    end
     terminal_header.header = ""
     terminal_header.linefmts = []
     global ioinit = false
@@ -199,10 +193,6 @@ end
 Creates output files for history and profile data
 """
 function create_output_files!(m::AbstractModel)
-    if !ioinit
-        init_IO(m)
-    end
-
     # Create history file
     m.history_file = h5open(m.opt.io.hdf5_history_filename, "w")
     data_cols = m.opt.io.history_values
@@ -210,7 +200,7 @@ function create_output_files!(m::AbstractModel)
 
     # verify validity of column names
     for i in eachindex(data_cols)
-        if data_cols[i] ∉ keys(history_output_functions)
+        if data_cols[i] ∉ keys(m.history_output_functions)
             throw(ArgumentError("Invalid name for history data column, :$(data_cols[i])"))
         end
     end
@@ -227,7 +217,7 @@ function create_output_files!(m::AbstractModel)
                              compress=m.opt.io.hdf5_history_compression_level)
 
     # next up, include the units for all quantities. No need to recheck columns.
-    attrs(history)["column_units"] = [history_output_units[data_cols[i]] for i in eachindex(data_cols)]
+    attrs(history)["column_units"] = [m.history_output_units[data_cols[i]] for i in eachindex(data_cols)]
     # Finally, place column names
     attrs(history)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
     if (!m.opt.io.hdf5_history_keep_open)
@@ -243,7 +233,7 @@ function create_output_files!(m::AbstractModel)
     data_cols = m.opt.io.profile_values
     # verify validity of column names
     for i in eachindex(data_cols)
-        if data_cols[i] ∉ keys(profile_output_functions)
+        if data_cols[i] ∉ keys(m.profile_output_functions)
             throw(ArgumentError("Invalid name for profile data column, :$(data_cols[i])"))
         end
     end
@@ -287,7 +277,7 @@ function write_data(m::AbstractModel)
             history = m.history_file["history"]
             HDF5.set_extent_dims(history, (size(history)[1] + 1, ncols))
             for i in eachindex(data_cols)
-                history[end, i] = history_output_functions[data_cols[i]](m)
+                history[end, i] = m.history_output_functions[data_cols[i]](m)
             end
             if (!m.opt.io.hdf5_history_keep_open)
                 close(m.history_file)
@@ -319,13 +309,13 @@ function write_data(m::AbstractModel)
                                      compress=m.opt.io.hdf5_profile_compression_level)
 
             # next up, include the units for all quantities. No need to recheck columns.
-            attrs(profile)["column_units"] = [profile_output_units[data_cols[i]] for i in eachindex(data_cols)]
+            attrs(profile)["column_units"] = [m.profile_output_units[data_cols[i]] for i in eachindex(data_cols)]
             # Place column names
             attrs(profile)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
 
             # store data
             for i in eachindex(data_cols), k = 1:(m.props.nz)
-                profile[k, i] = profile_output_functions[data_cols[i]](m, k)
+                profile[k, i] = m.profile_output_functions[data_cols[i]](m, k)
             end
             if (!m.opt.io.hdf5_profile_keep_open)
                 close(m.profiles_file)

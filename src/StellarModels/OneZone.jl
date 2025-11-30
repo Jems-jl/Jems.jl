@@ -1,4 +1,5 @@
 using ForwardDiff
+using LaTeXStrings
 
 """
     mutable struct OneZone{TNUMBER<:Real,TDUALFULL<:ForwardDiff.Dual,
@@ -35,6 +36,11 @@ Structure definition of a model having one internal zone.
 
     # Output files
     history_file::HDF5.File
+
+    # Output options
+    history_output_units::Dict{String,String} = Dict()
+    history_output_functions::Dict{String,Function} = Dict()
+    history_output_labels::Dict{String,LaTeXStrings.LaTeXString} = Dict()
 end
 
 """

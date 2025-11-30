@@ -148,8 +148,8 @@ plots = [Plotting.HRPlot(f[1,1]),
          Plotting.TRhoProfile(f[1,2]),
          Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
          Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3),
-         Plotting.HistoryPlot(f[1,3], x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
-         Plotting.ProfilePlot(f[2,3], x_name="mass", y_name="log10_rho", othery_name="log10_T")]
+         Plotting.HistoryPlot(f[1,3], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
+         Plotting.ProfilePlot(f[2,3], sm, x_name="mass", y_name="log10_rho", othery_name="log10_T")]
 plotter = Plotting.Plotter(fig=f,plots=plots)
 
 #set initial condition and run model
@@ -186,8 +186,6 @@ ax = Axis(f[1, 1]; xlabel=L"\log_{10}(\rho/\text{[g\;cm^{-3}]})", ylabel=L"\log_
 pname = Observable(profile_names[1])
 
 profile = @lift(StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", $pname))
-#To see why this is done this way, see https://docs.makie.org/stable/explanations/nodes/index.html#problems_with_synchronous_updates
-#the main issue is that remeshing changes the size of the arrays
 log10_ρ = @lift($profile[!, "log10_rho"])
 log10_P = @lift($profile[!, "log10_P"])
 

@@ -11,7 +11,7 @@ mutable struct ProfilePlot{TOBS, TAXIS, TAXIS2}
     other_axis::TAXIS2
 end
 
-function ProfilePlot(grid_pos; x_name="", y_name="", othery_name="", link_yaxes=false, ycolor=nothing, othery_color=nothing)
+function ProfilePlot(grid_pos, sm; x_name="", y_name="", othery_name="", link_yaxes=false, ycolor=nothing, othery_color=nothing)
     if isnothing(ycolor)
         ycolor = Makie.wong_colors()[1]
     end
@@ -26,12 +26,12 @@ function ProfilePlot(grid_pos; x_name="", y_name="", othery_name="", link_yaxes=
         yticksmirrored = true
         ylabelcolor = :black
     end
-    xlabel = profile_output_labels[x_name]
-    ylabel = profile_output_labels[y_name]
+    xlabel = sm.profile_output_labels[x_name]
+    ylabel = sm.profile_output_labels[y_name]
     axis = Axis(grid_pos, xlabel=xlabel, ylabel=ylabel, xgridvisible=false, ygridvisible=false, ylabelcolor=ylabelcolor,
                     yticksmirrored=yticksmirrored)
     if othery_name != ""
-        othery_label = profile_output_labels[othery_name]
+        othery_label = sm.profile_output_labels[othery_name]
         other_axis = Axis(grid_pos, yaxisposition = :right, ylabel=othery_label, ylabelcolor = othery_color,
                             xgridvisible=false, ygridvisible=false, yticksmirrored=yticksmirrored)
         hidespines!(other_axis)
@@ -50,10 +50,10 @@ function ProfilePlot(grid_pos; x_name="", y_name="", othery_name="", link_yaxes=
     if othery_name != ""
         lines!(other_axis, xvals, other_yvals, color=othery_color)
     end
-    function_x = profile_output_functions[x_name]
-    function_y = profile_output_functions[y_name]
+    function_x = sm.profile_output_functions[x_name]
+    function_y = sm.profile_output_functions[y_name]
     if othery_name != ""
-        function_othery = profile_output_functions[othery_name]
+        function_othery = sm.profile_output_functions[othery_name]
     else
         function_othery = nothing
     end

@@ -11,7 +11,7 @@ mutable struct HistoryPlot{TOBS, TAXIS, TAXIS2}
     other_axis::TAXIS2
 end
 
-function HistoryPlot(grid_pos; x_name="", y_name="", othery_name="", link_yaxes=false, ycolor=nothing, othery_color=nothing)
+function HistoryPlot(grid_pos, sm::StellarModel; x_name="", y_name="", othery_name="", link_yaxes=false, ycolor=nothing, othery_color=nothing)
     if isnothing(ycolor)
         ycolor = Makie.wong_colors()[1]
     end
@@ -26,12 +26,12 @@ function HistoryPlot(grid_pos; x_name="", y_name="", othery_name="", link_yaxes=
         yticksmirrored = true
         ylabelcolor = :black
     end
-    xlabel = history_output_labels[x_name]
-    ylabel = history_output_labels[y_name]
+    xlabel = sm.history_output_labels[x_name]
+    ylabel = sm.history_output_labels[y_name]
     axis = Axis(grid_pos, xlabel=xlabel, ylabel=ylabel, xgridvisible=false, ygridvisible=false, ylabelcolor=ylabelcolor,
                     yticksmirrored=yticksmirrored)
     if othery_name != ""
-        othery_label = history_output_labels[othery_name]
+        othery_label = sm.history_output_labels[othery_name]
         other_axis = Axis(grid_pos, yaxisposition = :right, ylabel=othery_label, ylabelcolor = othery_color,
                             xgridvisible=false, ygridvisible=false, yticksmirrored=yticksmirrored)
         hidespines!(other_axis)
@@ -50,10 +50,10 @@ function HistoryPlot(grid_pos; x_name="", y_name="", othery_name="", link_yaxes=
     if othery_name != ""
         lines!(other_axis, xvals, other_yvals, color=othery_color)
     end
-    function_x = history_output_functions[x_name]
-    function_y = history_output_functions[y_name]
+    function_x = sm.history_output_functions[x_name]
+    function_y = sm.history_output_functions[y_name]
     if othery_name != ""
-        function_othery = history_output_functions[othery_name]
+        function_othery = sm.history_output_functions[othery_name]
     else
         function_othery = nothing
     end

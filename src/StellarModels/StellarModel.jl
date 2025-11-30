@@ -2,6 +2,7 @@ using ForwardDiff
 using LinearAlgebra
 using HDF5
 using Jems.DualSupport
+using LaTeXStrings
 
 """
     mutable struct StellarModel{TN<:Real,TD<:Real,TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity}
@@ -55,6 +56,14 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     # Output files
     history_file::HDF5.File
     profiles_file::HDF5.File
+
+    # Output options
+    history_output_units::Dict{String,String} = Dict()
+    history_output_functions::Dict{String,Function} = Dict()
+    history_output_labels::Dict{String,LaTeXStrings.LaTeXString} = Dict()
+    profile_output_units::Dict{String,String} = Dict()
+    profile_output_functions::Dict{String,Function} = Dict()
+    profile_output_labels::Dict{String,Union{LaTeXStrings.LaTeXString, String}} = Dict()
 end
 
 """
@@ -125,7 +134,13 @@ function StellarModel(var_names::Vector{Symbol}, var_scaling::Vector{Symbol},
                       start_step_props=start_step_props, prv_step_props=prv_step_props, props=props,
                       opt=opt,
                       history_file=HDF5.File(-1, ""),
-                      profiles_file=HDF5.File(-1, ""))
+                      profiles_file=HDF5.File(-1, ""),
+                      history_output_units = Dict{String,String}(),
+                      history_output_functions = Dict{String,Function}(),
+                      history_output_labels = Dict{String,LaTeXStrings.LaTeXString}(),
+                      profile_output_units = Dict{String,String}(),
+                      profile_output_functions = Dict{String,Function}(),
+                      profile_output_labels = Dict{String,Union{LaTeXStrings.LaTeXString, String}}())
     init_IO(sm) # initializes output options
     return sm
 end

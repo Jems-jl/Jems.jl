@@ -31,5 +31,5 @@ end
 
 struct NullPlotter <: AbstractPlotter end
 
-function update_plotter!(plotter::NullPlotter, m, refresh)
+function update_plotter!(plotter::NullPlotter, m)
 end
