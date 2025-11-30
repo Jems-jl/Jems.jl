@@ -13,9 +13,9 @@ function AbundancePlot(grid_pos, network::TNET;
             log_yscale=false, ymin=0.0, ymax=1.1, colors=Makie.wong_colors(),
             label_fontsize=20) where{TNET<:AbstractNuclearNetwork}
     if !log_yscale
-        axis = Axis(grid_pos, xlabel="Mass", ylabel="abundance")
+        axis = Axis(grid_pos, xlabel=L"\text{Mass}\;[M_\odot]", ylabel="Abundance")
     else
-        axis = Axis(grid_pos, xlabel="Mass", ylabel="abundance", yscale=log10, yminorticks=IntervalsBetween(9))
+        axis = Axis(grid_pos, xlabel=L"\text{Mass}\;[M_\odot]", ylabel="Abundance", yscale=log10, yminorticks=IntervalsBetween(9))
     end
 
     mass = Observable(zeros(Float64,0))

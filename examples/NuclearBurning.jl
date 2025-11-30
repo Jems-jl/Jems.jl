@@ -137,15 +137,17 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 
+# Configure live plots. To turn of one can use `plotter = Plotting.NullPlotter()`
 using GLMakie
 set_theme!(Plotting.basic_theme())
 f = Figure()
 plots = [Plotting.HRPlot(f[1,1]),
          Plotting.TRhoProfile(f[1,2]),
-         Plotting.KippenLine(f[2,1]),
+         Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
          Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3)]
 plotter = Plotting.Plotter(fig=f,plots=plots,max_fps=1000, update_interval=10)
 
+# set initial condition and run model
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
