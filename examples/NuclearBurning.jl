@@ -53,24 +53,13 @@ sm = StellarModel(varnames, varscaling, structure_equations, Evolution.equation_
 We do not have a working initial condition yet. We require pressure, temperature profiles. One simple available initial
 condition is that of an n=1 polytrope. This sets the pressure and density and computes the temperature from the EOS. The
 luminosity is initialized by assuming pure radiative transport for the temperature gradient produced by the polytrope.
-
-The normal evolution loop will store the information at the end of the step into an attribute of type `StellarStepInfo`,
-stored at `sm.esi` (_end step info_). After initializing our polytrope we can mimic that behavior by calling 
-`set_end_step_info!(sm)`. We then 'cycle' this info into the information of a hypothetical previous step with
-`cycle_step_info`, so now `sm.psi` contains our initial condition. Finally we call `set_start_step_info` to use `sm.psi`
-(_previous step info_) to populate the information needed before the Newton solver in `sm.ssi` (_start step info_).
-At last we are in position to evaluate the equations and compute the Jacobian.
+Information of the model at its present and following step are required at the beginning, the function
+`compute_starting_model_properties!` takes care of setting this up.
 =#
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], MSUN,
                                              100 * RSUN; initial_dt=10 * SECYEAR)
-StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
-StellarModels.cycle_props!(sm);
-StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
-StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props)  # or do StellarModels.remesher!(sm);
-StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
-StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
-StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
+Evolution.compute_starting_model_properties!(sm)
 
 ##
 #=
@@ -107,13 +96,12 @@ end setup=(Evolution.eval_jacobian_eqs!($sm))
 #=
 ### Evolving our model
 
-We can now evolve our star! We will initiate a $1M_\odot$ star with a radius of $100R_\odot$ using an n=1 polytrope (it
-would be much better to use n=3 or n=3/2 polytropes, for now I only use this because there is a simple analytical
-solution). The star is expected to contract until it ignites hydrogen. We set a few options for the simulation with a
+We can now evolve our star! We will initiate a $1M_\odot$ star with a radius of $100R_\odot$ using an n=3 polytrope.
+The star is expected to contract until it ignites hydrogen. We set a few options for the simulation with a
 toml file, which we generate dynamically. These simulation should complete in about a thousand steps once it reaches the
 `max_center_T` limit.
 
-Output is stored in HDF5 files, and easy to use functions are provided with the Evolution module to turn these HDF5
+Output is stored in HDF5 files, and easy to use functions are provided with the `StellarModels` module to turn these HDF5
 files into DataFrame objects. HDF5 output is compressed by default.
 =#
 open("example_options.toml", "w") do file
@@ -162,7 +150,6 @@ n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm, plotter=plotter);
-#@time Evolution.do_evolution_loop!(sm);
 
 ##
 #=

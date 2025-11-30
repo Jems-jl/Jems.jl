@@ -31,6 +31,23 @@ function get_dt_next(sm::StellarModel)
 end
 
 """
+    compute_starting_model_properties(sm::StellarModel)
+
+Computes all stellar model properties based on the current state of the star.
+This sets the model up to start the evolution loop, or test the evaluation of
+the equations and the linear solver.
+"""
+function compute_starting_model_properties!(sm::StellarModel)
+    StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+    StellarModels.cycle_props!(sm);
+    StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
+    StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props)
+    StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
+    StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
+    StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
+end
+
+"""
     do_evolution_loop(sm::StellarModel)
 
 Performs the main evolutionary loop of the input StellarModel `sm`. It continues taking steps until one of the
@@ -39,7 +56,7 @@ termination criteria is reached (defined in `sm.opt.termination`).
 function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullPlotter()) where{TPLOTTER<:AbstractPlotter}
     # before loop actions
     StellarModels.create_output_files!(sm)
-    StellarModels.evaluate_stellar_model_properties!(sm, sm.props)  # set the initial condition as the result of a previous phantom step
+    compute_starting_model_properties!(sm)
     retry_count = 0
 
     # evolution loop, be sure to have sensible termination conditions or this will go on forever!
