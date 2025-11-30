@@ -6,7 +6,7 @@ abstract type AbstractPlotter end
     fig::TFIG
     plots::TPLOTS
     max_fps::Int = 1000
-    update_interval::Int = 1
+    display_interval::Int = 1
     save_interval::Int = 0
     save_name::String = "plots_"
     save_folder::String = "png"
@@ -17,7 +17,7 @@ function update_plotter!(plotter::Plotter, m)
     for plot in plotter.plots
         update_plot!(plot, m)
     end
-    if m.props.model_number % plotter.update_interval == 0
+    if m.props.model_number % plotter.display_interval == 0
         display(plotter.fig)
         sleep(1/plotter.max_fps)
     end
