@@ -21,6 +21,12 @@ function update_plotter!(plotter::Plotter, m)
         display(plotter.fig)
         sleep(1/plotter.max_fps)
     end
+    if plotter.save_interval > 0 &&  m.props.model_number % plotter.save_interval == 0
+        if !isdir(plotter.save_folder)
+            mkdir(plotter.save_folder)
+        end
+        save("$(plotter.save_folder)/$(plotter.save_name)$(string(m.props.model_number, pad=plotter.model_number_pad)).png", plotter.fig)
+    end
 end
 
 struct NullPlotter <: AbstractPlotter end

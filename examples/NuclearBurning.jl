@@ -144,7 +144,7 @@ plots = [Plotting.HRPlot(f[1,1]),
          Plotting.TRhoProfile(f[1,2]),
          Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
          Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3)]
-plotter = Plotting.Plotter(fig=f,plots=plots)
+plotter = Plotting.Plotter(fig=f,plots=plots,save_interval=20)
 
 # set initial condition and run model
 n = 3
