@@ -19,7 +19,7 @@ function _read_trho_data(file)
 end
 
 function TRhoProfile(grid_pos)
-    axis = Axis(grid_pos, xlabel="logT", ylabel="logRho")
+    axis = Axis(grid_pos, xlabel=L"\log_{10}(T/[\text{K}])", ylabel=L"\log_{10}(\rho/[\text{g\,cm^{-3}}])")
 
     h_burn_ρ, h_burn_T = _read_trho_data(pkgdir(Plotting, "data/PlotData", "hydrogen_burn.data"))
     lines!(axis, h_burn_ρ, h_burn_T, color=:gray, linestyle=:dash, linewidth=2)
