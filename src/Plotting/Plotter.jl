@@ -7,6 +7,10 @@ abstract type AbstractPlotter end
     plots::TPLOTS
     max_fps::Int = 1000
     update_interval::Int = 1
+    save_interval::Int = 0
+    save_name::String = "plots_"
+    save_folder::String = "png"
+    model_number_pad::Int = 9
 end
 
 function update_plotter!(plotter::Plotter, m)
