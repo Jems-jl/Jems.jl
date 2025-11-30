@@ -53,7 +53,8 @@ end
 Performs the main evolutionary loop of the input StellarModel `sm`. It continues taking steps until one of the
 termination criteria is reached (defined in `sm.opt.termination`).
 """
-function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullPlotter()) where{TPLOTTER<:AbstractPlotter}
+function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullPlotter();
+                                max_retries_in_a_row = 10) where{TPLOTTER<:AbstractPlotter}
     # before loop actions
     StellarModels.create_output_files!(sm)
     compute_starting_model_properties!(sm)
@@ -163,7 +164,7 @@ function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullP
             end
             #if not, determine if we give up or retry
             if i == max_steps
-                if retry_count > 10
+                if retry_count > max_retries_in_a_row
                     exit_evolution = true
                     println("Too many retries, ending simulation")
                 else

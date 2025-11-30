@@ -1,6 +1,7 @@
 mutable struct KippenLine{TOBS, TAXIS}
     xvals::TOBS
     yvals::TOBS
+    zvals::TOBS # this is just so surface line is plotted on top
     xaxis::Symbol
     yaxis::Symbol
     xscale::Float64
@@ -42,8 +43,9 @@ function KippenLine(grid_pos; min_log_eps=0.0, max_log_eps=5.0, xaxis=:model_num
     axis = Axis(grid_pos, xlabel=xlabel, ylabel=ylabel, ygridvisible=false, xgridvisible=false)
     xvals = Observable(zeros(Float64,0))
     yvals = Observable(zeros(Float64,0))
-    lines!(axis, xvals, yvals, color=:black)
-    return KippenLine(xvals, yvals, xaxis, yaxis, xscale, min_log_eps, max_log_eps, axis)
+    zvals = Observable(zeros(Float64,0))
+    lines!(axis, xvals, yvals, zvals, color=:gray20, linewidth=3)
+    return KippenLine(xvals, yvals, zvals, xaxis, yaxis, xscale, min_log_eps, max_log_eps, axis)
 end
 
 """
@@ -76,12 +78,15 @@ function update_plot!(p::KippenLine, m)
     p.xvals[] = push!(p.xvals[], xcoord)
 
     if p.yaxis == :mass
-        p.yvals[] = push!(p.yvals[], m.props.mstar/MSUN)
+        ycoord = m.props.mstar/MSUN
         ycoords = (@view m.props.m[1:m.props.nz]) / MSUN
     elseif p.yaxis == :radius
-        p.yvals[] = push!(p.yvals[], exp(get_value(m.props.lnr[m.props.nz]))/RSUN)
+        ycoords = exp(get_value(m.props.lnr[m.props.nz]))/RSUN
         ycoords = [exp(get_value(m.props.lnr[k]))/RSUN for k in 1:m.props.nz]
     end
+    p.yvals[] = push!(p.yvals[], ycoord)
+
+    p.zvals[] = push!(p.zvals[], 2.0)
 
     #draw the fun part
     draw_Kipp_lines!(p, xcoord, ycoords,

@@ -5,8 +5,8 @@ abstract type AbstractPlotter end
 @kwdef struct Plotter{TFIG, TPLOTS} <: AbstractPlotter
     fig::TFIG
     plots::TPLOTS
-    max_fps::Int
-    update_interval::Int
+    max_fps::Int = 1000
+    update_interval::Int = 1
 end
 
 function update_plotter!(plotter::Plotter, m)
