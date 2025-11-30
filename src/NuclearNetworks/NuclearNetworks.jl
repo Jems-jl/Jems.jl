@@ -2,7 +2,7 @@ module NuclearNetworks
 
 using ..ReactionRates, ..EOS
 
-export NuclearNetwork, set_rates_for_network!
+export NuclearNetwork, AbstractNuclearNetwork, set_rates_for_network!
 
 abstract type AbstractNuclearNetwork end
 
