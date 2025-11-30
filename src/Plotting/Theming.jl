@@ -1,5 +1,6 @@
 
 # TODO: Probably good idea to make these hardcoded options more flexible in the future
+mixing_colors = [RGBAf(0.5, 0.5, 0.5), RGBAf(0, 0, 1)]
 kipp_mixing_colors = [RGBAf(0.5, 0.5, 0.5), RGBAf(0, 0, 1)]
 kipp_mixing_colors[1] = RGBAf(1, 1, 1)  # make no_mixing white in KippenLine diagram to avoid clutter
 burning_colors = cgrad(:linear_wyor_100_45_c55_n256)
