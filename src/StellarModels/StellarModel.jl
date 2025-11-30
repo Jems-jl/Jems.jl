@@ -126,6 +126,7 @@ function StellarModel(var_names::Vector{Symbol}, var_scaling::Vector{Symbol},
                       opt=opt,
                       history_file=HDF5.File(-1, ""),
                       profiles_file=HDF5.File(-1, ""))
+    init_IO(sm) # initializes output options
     return sm
 end
 

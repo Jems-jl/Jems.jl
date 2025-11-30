@@ -75,6 +75,7 @@ function OneZone(compostion_equation::Function, network::NuclearNetwork, use_sta
                  prv_step_props=prv_step_props, props=props,
                  opt=opt,
                  history_file=HDF5.File(-1, ""))
+    init_IO(oz)
     return oz
 end
 

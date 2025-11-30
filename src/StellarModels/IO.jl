@@ -95,36 +95,36 @@ end
 
 function setup_model_history_functions(sm::StellarModel)
     # general properties
-    add_history_option("age", "year", sm -> sm.props.time / SECYEAR)
-    add_history_option("dt", "year", sm -> sm.props.dt / SECYEAR)
-    add_history_option("model_number", "unitless", sm -> sm.props.model_number)
-    add_history_option("star_mass", "Msun", sm -> sm.props.mstar / MSUN)
+    add_history_option("age", "year", sm -> sm.props.time / SECYEAR, label=L"\text{age}\,[\text{yr}]")
+    add_history_option("dt", "year", sm -> sm.props.dt / SECYEAR, label=L"\Delta t\,[\text{yr}]")
+    add_history_option("model_number", "unitless", sm -> sm.props.model_number, label=L"\text{Model Number}")
+    add_history_option("star_mass", "Msun", sm -> sm.props.mstar / MSUN, label=L"\text{Mass}\,[M_\odot]")
 
     # surface properties
-    add_history_option("R_surf", "Rsun", sm -> exp(get_value(sm.props.lnr[sm.props.nz])) / RSUN)
-    add_history_option("L_surf", "Lsun", sm -> get_value(sm.props.L[sm.props.nz]))
-    add_history_option("T_surf", "K", sm -> exp(get_value(sm.props.lnT[sm.props.nz])))
-    add_history_option("ρ_surf", "g*cm^-3", sm -> exp(get_value(sm.props.lnρ[sm.props.nz])))
-    add_history_option("P_surf", "dyne", sm -> exp(get_value(sm.props.eos_res[sm.props.nz].P)))
-    add_history_option("X_surf", "unitless", sm -> get_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:H1]]))
-    add_history_option("Y_surf", "unitless", sm -> get_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:He4]]))
+    add_history_option("R_surf", "Rsun", sm -> exp(get_value(sm.props.lnr[sm.props.nz])) / RSUN, label=L"R_\text{surf}\,[R_\odot]")
+    add_history_option("L_surf", "Lsun", sm -> get_value(sm.props.L[sm.props.nz]), label=L"\text{surf}\,[L_\odot]")
+    add_history_option("T_surf", "K", sm -> exp(get_value(sm.props.lnT[sm.props.nz])), label=L"T_\text{surf}\,[\text{K}]")
+    add_history_option("rho_surf", "g*cm^-3", sm -> exp(get_value(sm.props.lnρ[sm.props.nz])), label=L"\rho_\text{surf}\,[\text{g\,cm^{-3}}]")
+    add_history_option("P_surf", "dyne", sm -> exp(get_value(sm.props.eos_res[sm.props.nz].P)), label=L"P_\text{surf}\,[\text{dyne}]")
+    add_history_option("X_surf", "unitless", sm -> get_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:H1]]), label=L"X_\text{surf}")
+    add_history_option("Y_surf", "unitless", sm -> get_value(sm.props.xa[sm.props.nz, sm.network.xa_index[:He4]]), label=L"Y_\text{surf}")
 
     # central properties
-    add_history_option("T_center", "K", sm -> exp(get_value(sm.props.lnT[1])))
-    add_history_option("ρ_center", "g*cm^-3", sm -> exp(get_value(sm.props.lnρ[1])))
-    add_history_option("P_center", "dyne", sm -> exp(get_value(sm.props.eos_res[1].P)))
-    add_history_option("X_center", "unitless", sm -> get_value(sm.props.xa[1, sm.network.xa_index[:H1]]))
-    add_history_option("Y_center", "unitless", sm -> get_value(sm.props.xa[1, sm.network.xa_index[:He4]]))
+    add_history_option("T_center", "K", sm -> exp(get_value(sm.props.lnT[1])), label=L"T_\text{c}\,[\text{K}]")
+    add_history_option("rho_center", "g*cm^-3", sm -> exp(get_value(sm.props.lnρ[1])), label=L"\rho_\text{c}\,[\text{g\,cm^{-3}}]")
+    add_history_option("P_center", "dyne", sm -> get_value(sm.props.eos_res[1].P), label=L"P_\text{c}\,[\text{dyne}]")
+    add_history_option("X_center", "unitless", sm -> get_value(sm.props.xa[1, sm.network.xa_index[:H1]]), label=L"X_\text{c}")
+    add_history_option("Y_center", "unitless", sm -> get_value(sm.props.xa[1, sm.network.xa_index[:He4]]), label=L"Y_\text{c}")
 end
 
 function setup_model_history_functions(oz::OneZone)
     # general properties
-    add_history_option("age", "year", oz -> oz.props.time / SECYEAR)/add_his
-    add_history_option("dt", "year", oz -> oz.props.dt / SECYEAR)
-    add_history_option("model_number", "unitless", oz -> oz.props.model_number)
+    add_history_option("age", "year", oz -> oz.props.time / SECYEAR, label=L"\text{Age}\,[\text{yr}]")
+    add_history_option("dt", "year", oz -> oz.props.dt / SECYEAR, label=L"\Delta t\,[\text{yr}]")
+    add_history_option("model_number", "unitless", oz -> oz.props.model_number, label="\text{Model Number}")
 
-    add_history_option("T", "K", oz -> oz.props.T)
-    add_history_option("ρ", "g*cm^-3", oz -> oz.props.ρ)
+    add_history_option("T", "K", oz -> oz.props.T, label=L"T\,[\text{K}]")
+    add_history_option("rho", "g*cm^-3", oz -> oz.props.ρ, label=L"\rho\,[\text{g\,cm^{-3}}]")
     for j in eachindex(oz.network.species_names)
         species = oz.network.species_names[j]
         add_history_option(String(species), "unitless", oz -> get_value(oz.props.xa[oz.network.xa_index[species]]))
@@ -146,26 +146,26 @@ end
 
 function setup_model_profile_functions(sm::StellarModel)
     # general properties
-    add_profile_option("zone", "unitless", (sm, k) -> k)
-    add_profile_option("mass", "Msun", (sm, k) -> sm.props.m[k] / MSUN)
-    add_profile_option("dm", "Msun", (sm, k) -> sm.props.dm[k] / MSUN)
+    add_profile_option("zone", "unitless", (sm, k) -> k, label=L"\text{Zone}")
+    add_profile_option("mass", "Msun", (sm, k) -> sm.props.m[k] / MSUN, label=L"\text{Mass}\,[M_\odot]")
+    add_profile_option("dm", "Msun", (sm, k) -> sm.props.dm[k] / MSUN, label=L"\Delta m\,[M_\odot]")
 
     # thermodynamic properties
-    add_profile_option("log10_r", "log10(Rsun)", (sm, k) -> get_value(sm.props.lnr[k]) * log10(ℯ) - log10(RSUN))
-    add_profile_option("log10_P", "log10(dyne)", (sm, k) -> log10(get_value(sm.props.eos_res[k].P)))
-    add_profile_option("log10_T", "log10(K)", (sm, k) -> get_value(sm.props.lnT[k]) * log10(ℯ))
-    add_profile_option("log10_ρ", "log10_(g*cm^-3)", (sm, k) -> get_value(sm.props.lnρ[k]) * log10(ℯ))
-    add_profile_option("luminosity", "Lsun", (sm, k) -> get_value(sm.props.L[k]) / LSUN)
+    add_profile_option("log10_r", "log10(Rsun)", (sm, k) -> get_value(sm.props.lnr[k]) * log10(ℯ) - log10(RSUN), label=L"\log_{10}(r/R_\odot)")
+    add_profile_option("log10_P", "log10(dyne)", (sm, k) -> log10(get_value(sm.props.eos_res[k].P)), label=L"\log_{10}(P/[\text{dyne}])")
+    add_profile_option("log10_T", "log10(K)", (sm, k) -> get_value(sm.props.lnT[k]) * log10(ℯ), label=L"\log_{10}(T/[\text{K}])")
+    add_profile_option("log10_rho", "log10_(g*cm^-3)", (sm, k) -> get_value(sm.props.lnρ[k]) * log10(ℯ), label=L"\log_{10}(\rho/[\text{g\,cm^{-3}}])")
+    add_profile_option("luminosity", "Lsun", (sm, k) -> get_value(sm.props.L[k]) / LSUN, label=L"L/L_\odot")
 
     # abundances
-    add_profile_option("X", "unitless", (sm, k) -> get_value(sm.props.xa[k, sm.network.xa_index[:H1]]))
-    add_profile_option("Y", "unitless", (sm, k) -> get_value(sm.props.xa[k, sm.network.xa_index[:He4]]))
+    add_profile_option("X", "unitless", (sm, k) -> get_value(sm.props.xa[k, sm.network.xa_index[:H1]]), label=L"X")
+    add_profile_option("Y", "unitless", (sm, k) -> get_value(sm.props.xa[k, sm.network.xa_index[:He4]]), label=L"Y")
 
     # temperature gradients
-    add_profile_option("nabla_a_face", "unitless", (sm, k) -> get_value(sm.props.∇ₐ_face[k]))
-    add_profile_option("nabla_r_face", "unitless", (sm, k) -> get_value(sm.props.∇ᵣ_face[k]))
-    add_profile_option("nabla_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇))
-    add_profile_option("D_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].D_turb))
+    add_profile_option("nabla_a_face", "unitless", (sm, k) -> get_value(sm.props.∇ₐ_face[k]), label=L"\nabla_\text{a,face}")
+    add_profile_option("nabla_r_face", "unitless", (sm, k) -> get_value(sm.props.∇ᵣ_face[k]), label=L"\nabla_\text{r,face}")
+    add_profile_option("nabla_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇), label=L"\nabla_\text{face}")
+    add_profile_option("D_face", "cm^2*s^{-1}", (sm, k) -> get_value(sm.props.turb_res[k].D_turb), label=L"D_\text{face}\,[\text{cm^2\,s^{-1}}]")
 end
 
 function init_IO(m::AbstractModel)

@@ -8,7 +8,7 @@ include("HRPlot.jl")
 include("TRhoProfile.jl")
 include("KippenLine.jl")
 include("Abundances.jl")
-include("History.jl") #TODO
-include("Profile.jl") #TODO
+include("HistoryPlot.jl")
+include("ProfilePlot.jl")
 
 end  # end module Plotting
