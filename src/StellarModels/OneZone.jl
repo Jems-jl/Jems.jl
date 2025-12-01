@@ -1,4 +1,5 @@
 using ForwardDiff
+using LaTeXStrings
 
 """
     mutable struct OneZone{TNUMBER<:Real,TDUALFULL<:ForwardDiff.Dual,
@@ -33,11 +34,13 @@ Structure definition of a model having one internal zone.
     # Space for used defined options, defaults are in Options.jl
     opt::StellarModels.Options
 
-    # object holding plotting things, ie figures, data to plot.
-    plt::StellarModels.Plotter
-
     # Output files
     history_file::HDF5.File
+
+    # Output options
+    history_output_units::Dict{String,String} = Dict()
+    history_output_functions::Dict{String,Function} = Dict()
+    history_output_labels::Dict{String,LaTeXStrings.LaTeXString} = Dict()
 end
 
 """
@@ -69,7 +72,6 @@ function OneZone(compostion_equation::Function, network::NuclearNetwork, use_sta
                                                                 typeof(dual_sample)}(compostion_equation)
 
     opt = StellarModels.Options()  # create options object
-    plt = StellarModels.Plotter()
 
     # create the stellar model
     oz = OneZone(; nvars=nvars,
@@ -77,8 +79,13 @@ function OneZone(compostion_equation::Function, network::NuclearNetwork, use_sta
                  solver_data=solver_data,
                  composition_equation=tpe_stbl_func, network=network,
                  prv_step_props=prv_step_props, props=props,
-                 opt=opt, plt=plt,
-                 history_file=HDF5.File(-1, ""))
+                 opt=opt,
+                 history_file=HDF5.File(-1, ""),
+                 history_output_units = Dict{String,String}(),
+                 history_output_functions = Dict{String,Function}(),
+                 history_output_labels = Dict{String,LaTeXStrings.LaTeXString}(),
+                 )
+    init_IO(oz)
     return oz
 end
 

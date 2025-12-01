@@ -89,39 +89,11 @@ Substructure of Options containing controls relating to input/output of data
     profile_interval::Int = 10
 
     history_values::Vector{String} = ["age", "dt", "model_number", "star_mass", "R_surf", "L_surf", "T_surf",
-                                      "P_surf", "ρ_surf", "X_surf", "Y_surf", "T_center", "P_center", "ρ_center",
+                                      "P_surf", "rho_surf", "X_surf", "Y_surf", "T_center", "P_center", "rho_center",
                                       "X_center", "Y_center"]
 
-    profile_values::Vector{String} = ["zone", "mass", "dm", "log10_ρ", "log10_r", "log10_P", "log10_T", "luminosity",
+    profile_values::Vector{String} = ["zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity",
                                       "X", "Y"]
-end
-
-"""
-    mutable struct PlottingOptions
-
-Options relating to the live plotting of the simulation
-"""
-@kwdef mutable struct PlottingOptions
-    do_plotting::Bool = false
-    wait_at_termination::Bool = false
-    plotting_interval::Int = 10
-    data_interval::Int = 1
-
-    window_specs::Vector{String} = []
-    window_layout::Vector{Vector{Int}} = [[]]
-    yaxes_log::Vector{Bool} = []
-    alt_yaxes_log::Vector{Bool} = []
-
-    profile_xaxis::String = ""
-    profile_yaxes::Vector{String} = []
-    profile_alt_yaxes::Vector{String} = []
-
-    history_xaxis::String = ""
-    history_yaxes::Vector{String} = []
-    history_alt_yaxes::Vector{String} = []
-
-    min_log_eps::Float64 = 0.0
-    max_log_eps::Float64 = 9.0
 end
 
 """
@@ -143,14 +115,12 @@ mutable struct Options
     solver::SolverOptions
     timestep::TimestepOptions
     termination::TerminationOptions
-    plotting::PlottingOptions
     io::IOOptions
     physics::PhysicsOptions
 
     function Options()
         new(RemeshOptions(), SolverOptions(), TimestepOptions(),
-            TerminationOptions(), PlottingOptions(), IOOptions(),
-            PhysicsOptions())
+            TerminationOptions(), IOOptions(), PhysicsOptions())
     end
 end
 

@@ -13,7 +13,7 @@ function get_dt_next(oz::OneZone)
     return dt_next
 end
 
-function do_one_zone_burn!(oz::OneZone)
+function do_one_zone_burn!(oz::OneZone; plotter::TPLOTTER = Plotting.NullPlotter()) where{TPLOTTER<:AbstractPlotter}
     # before loop actions
     StellarModels.create_output_files!(oz)
     StellarModels.evaluate_one_zone_properties!(oz, oz.props)  # set the initial condition as the result of a previous phantom step
@@ -130,11 +130,7 @@ function do_one_zone_burn!(oz::OneZone)
         StellarModels.write_data(oz)
         StellarModels.write_terminal_info(oz)
 
-        if oz.opt.plotting.do_plotting && oz.props.model_number == 1
-            Plotting.init_plots!(oz)
-        elseif oz.opt.plotting.do_plotting && oz.props.model_number % oz.opt.plotting.plotting_interval == 0
-            Plotting.update_plotting!(oz)
-        end
+        update_plotter!(plotter, oz)
 
         # check termination conditions
         if (oz.props.model_number > oz.opt.termination.max_model_number)
@@ -146,8 +142,6 @@ function do_one_zone_burn!(oz::OneZone)
         # get dt for coming step
         oz.props.dt_next = get_dt_next(oz)
     end
-    if oz.opt.plotting.do_plotting
-        Plotting.end_of_evolution(oz)
-    end
     StellarModels.shut_down_IO!(oz)
+    return
 end
