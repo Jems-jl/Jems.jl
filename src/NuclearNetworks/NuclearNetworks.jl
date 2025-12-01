@@ -96,4 +96,6 @@ function set_rates_for_network!(rates::AbstractArray{TT}, net::NuclearNetwork, T
     end
 end
 
+include("PrebuiltNets.jl")
+
 end
