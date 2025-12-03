@@ -16,7 +16,7 @@ using Jems.Evolution
 using Jems.Plotting
 using Jems.ReactionRates
 using Jems.DualSupport
-using CairoMakie
+
 
 function split_omega(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
     # use same omega in both cells to preserve energy
@@ -24,155 +24,6 @@ function split_omega(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_
      varnew_up[sm.vari[:gamma_turb]] = var_00[sm.vari[:gamma_turb]]
 end
 
-
-function calculate_nabla_tdc(sm:: StellarModel, k :: Int)
-    L = get_00_dual(sm.props.L[k]) * LSUN
-    γ₀ = get_00_dual(sm.props.gamma_turb[k])
-    ω = exp(γ₀)
-    m₀ = sm.props.m[k]
-    r₀ = exp(get_00_dual(sm.props.lnr[k]))
-    if k == sm.props.nz
-        P = get_00_dual(sm.props.eos_res[k].P)
-        ρ = get_00_dual(sm.props.eos_res[k].ρ)
-        T = get_00_dual(sm.props.eos_res[k].T)
-        κ = get_00_dual(sm.props.κ[k])
-        cₚ = get_00_dual(sm.props.eos_res[k].cₚ)
-        Hₚ = P / (ρ * CGRAV * m₀ / r₀^2)
-        Λ = 1/(1/Hₚ + 1/r₀)
-        k_rad = 16 * SIGMA_SB * T^3 / (3 * κ * ρ)
-        α₂ = ρ*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
-        ∇ᵣ = 3 * κ * L * P / (16π * CRAD * CLIGHT * CGRAV * m₀ * T^4)
-        ∇ₐ = get_00_dual(sm.props.eos_res[k].∇ₐ)
-        SA = (∇ᵣ - ∇ₐ)*(1 + α₂/k_rad)^(-1)        
-        ∇ = ∇ₐ + SA
-        return ∇
-    end 
-
-    P_face = exp(get_00_dual(sm.props.lnP_face[k]))
-    ρ_face = exp(get_00_dual(sm.props.lnρ_face[k]))
-    T_face = exp(get_00_dual(sm.props.lnT_face[k]))
-    cₚ =  get_00_dual(sm.props.cₚ_face[k])
-    κ = get_00_dual(sm.props.κ_face[k])
-    Hₚ = P_face / (ρ_face * CGRAV * m₀ / r₀^2) 
-    Λ = 1/(1/Hₚ + 1/r₀)
-    m₀ = sm.props.m[k]
-    k_rad = 16 * SIGMA_SB * T_face^3 / (3 * κ * ρ_face)
-    α₂ = ρ_face*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
-    ∇ᵣ = 3 * κ * L * P_face / (16π * CRAD * CLIGHT * CGRAV * m₀ * T_face^4)
-    ∇ₐ = get_00_dual(sm.props.∇ₐ_face[k])
-    SA = (∇ᵣ - ∇ₐ)*(1 + α₂/k_rad)^(-1)
-    ∇ = ∇ₐ + SA 
-    return ∇
-end 
-function get_nabla_tdc(sm, k)
-    # Calls the calculation function and extracts the pure numerical value.
-    return calculate_nabla_tdc(sm, k).value
-end
-
-
-function interpolate_schwarzschild_boundary_live(sm::StellarModel, i_rad::Int)
-    i_conv = i_rad - 1
-    
-    #Radius 
-    logr_rad  = get_value(sm.props.lnr[i_rad])
-    logr_conv = get_value(sm.props.lnr[i_conv])
-    #Pressure
-    logP_rad  = get_value(sm.props.eos_res[i_rad].P)
-    logP_conv = get_value(sm.props.eos_res[i_conv].P)
-    #density 
-    logρ_rad  = get_value(sm.props.lnρ[i_rad])
-    logρ_conv = get_value(sm.props.lnρ[i_conv])
-    #mass
-    m_rad  = sm.props.m[i_rad] 
-    m_conv = sm.props.m[i_conv]
-
-    # Delta-Nabla (Δ∇ = ∇_rad - ∇_ad)
-    dnabla_rad  = get_value(sm.props.turb_res[i_rad].∇ᵣ) - get_value(sm.props.∇ₐ_face[i_rad])
-    dnabla_conv = get_value(sm.props.turb_res[i_conv].∇ᵣ) - get_value(sm.props.∇ₐ_face[i_conv])
-    
-    # 2. Linear Interpolation Calculation
-    dnabla_total = dnabla_rad - dnabla_conv
-    
-    if abs(dnabla_total) < 1e-12 
-        # Avoid division by zero: return the midpoint if profiles are flat
-        logr_sch = (logr_rad + logr_conv) / 2.0
-        logP_sch = (logP_rad + logP_conv) / 2.0
-        logρ_sch = (logρ_rad + logρ_conv) / 2.0
-        m_sch = (m_rad + m_conv) / 2.0
-    else
-        # Interpolation: logr_sch = logr_conv - Δ∇_conv * (Δlogr / Δ(Δ∇))
-        logr_sch = logr_conv - dnabla_conv * (logr_rad - logr_conv) / dnabla_total
-        logP_sch = logP_conv - dnabla_conv * (logP_rad - logP_conv) / dnabla_total
-        logρ_sch = logρ_conv - dnabla_conv * (logρ_rad - logρ_conv) / dnabla_total
-        m_sch = m_conv - dnabla_conv * (m_rad - m_conv) / dnabla_total
-    end
-    
-    # Return the interpolated natural log radius (ln r_sch)
-    return logr_sch, logP_sch, logρ_sch, m_sch
-end
-
-function calculate_overshoot_length(sm:: StellarModel) 
-    
-
-    OVERSHOOT_THRESHOLD = 1e-1 
-    
-    nz_interior  = sm.props.nz - 1 
-    i_Sch = nothing
-    
-    # 1. Find Schwarzschild Boundary Index (i_Sch: first point where ∇_ad > ∇_rad)
-    for k in 2:nz_interior
-        nabla_ad = get_value(sm.props.∇ₐ_face[k])
-        nabla_rad = get_value(sm.props.turb_res[k].∇ᵣ)
-
-        if nabla_ad > nabla_rad
-            i_Sch = k
-            break
-        end   
-    end 
-    
-    if isnothing(i_Sch)
-         return 0.0
-    end
-    
-    # 2. Calculate HP_Sch (using properties at the boundary index)
-        # Interpolate to find boundary properties
-        logr_sch, logP_sch, logρ_sch, m_sch = interpolate_schwarzschild_boundary_live(sm, i_Sch)
-    P_boundary = logP_sch
-    ρ_boundary = exp(logρ_sch)
-    r_boundary = exp(logr_sch) # Radius in cm
-    m_boundary = m_sch
-    
-    HP_Sch = P_boundary / (ρ_boundary * CGRAV * m_boundary / r_boundary^2)
-
-    # 3. Find Overshoot Edge (i_ov: first point where D_turb is negligible)
-    i_ov = nothing
-
-    for k = i_Sch + 1:nz_interior
-        D_turb = get_value(sm.props.D_turb[k])
-        if D_turb < OVERSHOOT_THRESHOLD
-            i_ov = k
-            break
-        end
-    end
-    
-    if isnothing(i_ov)
-        # If mixing doesn't fall below threshold before the surface
-        return 0.0 
-    end
-    
-    # 4. Calculate Alpha_ov
-    r_overshoot = exp(get_value(sm.props.lnr[i_ov])) # Radius in cm
-    
-    overshooting_distance_cm = abs(r_overshoot - r_boundary)
-    alpha_ov = overshooting_distance_cm / HP_Sch
-    
-    return alpha_ov 
-end
-
-function get_overshoot(sm)
-    # Calls the calculation function and extracts the pure numerical value.
-    return calculate_overshoot_length(sm)
-end
 
 ##
 #=
@@ -196,9 +47,9 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.gammaTurb]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa, split_omega]
-net1 = NuclearNetwork([:H1, :He4], [(:kipp_rates, :kipp_pp)])
-net2 = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_cno)])
-net = merge_nuclear_networks([net1, net2])
+net = NuclearNetwork([:H1, :He4], [(:kipp_rates, :kipp_pp)])
+# net2 = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_cno)])
+# net = merge_nuclear_networks([net1, net2])
 nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(true)
@@ -280,8 +131,6 @@ open("example_options.toml", "w") do file
           [solver]
           newton_max_iter_first_step = 1000
           initial_model_scale_max_correction = 0.2
-          newton_max_iter = 10
-          scale_max_correction = 0.1
           newton_max_iter = 200
           scale_max_correction = 1.0
           solver_progress_iter = 1
@@ -296,35 +145,15 @@ open("example_options.toml", "w") do file
           [termination]
           max_model_number = 100000
           max_center_T = 1e8
+          
 
-          [plotting]
-          do_plotting = true
-          wait_at_termination = false
-          plotting_interval = 1
-
-          window_specs = ["HR", "Kippenhahn", "profile", "TRhoProfile"]
-          window_layout = [[1, 1],  # arrangement of plots
-                            [1, 2],
-                            [2, 1],
-                            [2, 2]
-                            ]
-
-          profile_xaxis = 'mass'
-          profile_yaxes = ['log10_T']
-          profile_alt_yaxes = ['X','Y']
-        
-          history_xaxis = 'age'
-          history_yaxes = ['R_surf']
-          history_alt_yaxes = ['T_center']
-
-          max_log_eps = 5.0
-
+          
           [io]
           profile_interval = 50
           terminal_header_interval = 100
           terminal_info_interval = 100
-          profile_values = ["zone", "mass", "dm", "log10_ρ", "log10_r", "log10_P", "log10_T", "luminosity",
-                                      "X", "Y", "velocity_turb", "omega_e","v_face","D_face", "D_face_kuhfuss", "nabla_a_face", "nabla_r_face","nabla_face", "nabla_tdc"]
+          profile_values = ["zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity",
+                                      "X", "Y","D_face", "nabla_a_face", "nabla_r_face","nabla_face", "nabla_tdc","velocity_turb","turb_energy", "D_face_kuhfuss"]
             history_values = ["age", "dt", "star_mass", "alpha_overshoot"] 
           """)
 end
@@ -336,30 +165,23 @@ rm(sm.opt.io.hdf5_profile_filename; force=true)
 using GLMakie
 set_theme!(Plotting.basic_theme())
 f = Figure(size=(1400,750))
+hist_plot = Plotting.HistoryPlot(f[1,3], sm, x_name="age", y_name="alpha_overshoot", link_yaxes=true)
+ylims!(hist_plot.axis, 0, 0.5)
 plots = [Plotting.HRPlot(f[1,1]),
          Plotting.TRhoProfile(f[1,2]),
          Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
          Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3),
-         Plotting.HistoryPlot(f[1,3], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
+         Plotting.HistoryPlot(f[3,1], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
+         hist_plot,
          Plotting.ProfilePlot(f[2,3], sm, x_name="mass", y_name="log10_rho", othery_name="log10_T")]
 plotter = Plotting.Plotter(fig=f,plots=plots)
 
 #set initial condition and run model
-add_profile_option("velocity_turb", "unitless", (sm, k) -> sqrt(2*exp(get_value(sm.props.gamma_turb[k]))))
-add_profile_option("omega_e", "unitless", (sm, k) -> sqrt(get_value(sm.props.eos_res[k].P)*1e-14/get_value(sm.props.eos_res[k].ρ)))
-add_profile_option("v_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].v_turb))
-add_profile_option("vel", "unitless", (sm, k) -> sqrt(2*exp(get_value(sm.props.gamma_turb[k]))))
-# add_profile_option("nabla_kuf", "unitless", (sm, k) -> get_value(sm.props.∇_face[k]))
-add_profile_option("nabla_tdc", "unitless", get_nabla_tdc)
-add_history_option("alpha_overshoot", "H_p", get_overshoot)
-# add_history_option("i_Sch", "index", get_i_Sch)
-# add_history_option("i_ov", "index", get_i_ov)
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm, plotter=plotter);
-                                            1 * MSUN, 30 * RSUN; initial_dt=10 * SECYEAR)
-@time Evolution.do_evolution_loop!(sm);
+                                           
 
 ##
 #=
@@ -455,11 +277,7 @@ history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
 lines!(ax, log10.(history[!, "T_surf"]), log10.(history[!, "L_surf"]))
 f
 
-##
-#=
-#### Perform some cleanup
 
-##
 # Output directory
 outdir = "/home/ritavash/Desktop/Resources/convection_results/"
 
@@ -566,14 +384,14 @@ f
 
 # 1. Setup and Data Filtering
 f = Figure(resolution = (1400, 1500));
-profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000500")
+profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000600")
 
 """
 Calculating the overshooting length 
 """
 m_profile = profile[!, "mass"]
 P_profile = profile[!, "log10_P"]
-ρ_profile = profile[!, "log10_ρ"]
+ρ_profile = profile[!, "log10_rho"]
 r_profile = profile[!, "log10_r"]
 nabla_rad = profile[!, "nabla_r_face"]
 nabla_ad = profile[!, "nabla_a_face"]
@@ -583,7 +401,7 @@ boundary_indices = findall(nabla_ad .> nabla_rad)
 function interpolate_sch_radius(profile, boundary_index)
 
     i_rad = boundary_index
-    i_conv = boundary_index - 1
+    i_conv = boundary_index 
 
     X_rad = profile[i_rad, "log10_r"]
     X_conv = profile[i_conv, "log10_r"]
@@ -606,7 +424,7 @@ end
 if !isempty(boundary_indices)
     boundary_index  = boundary_indices[1]
     m_boundary = m_profile[boundary_index]*MSUN
-    P_boundary = P_profile[boundary_index]/log10(ℯ)
+    P_boundary = 10^(P_profile[boundary_index])
     ρ_boundary = exp(ρ_profile[boundary_index]/log10(ℯ))
     r = interpolate_sch_radius(profile, boundary_index) # r is the interpolated sch boundary 
     r_boundary = exp(( r + log10(RSUN))/log10(ℯ))
@@ -620,7 +438,7 @@ for i in eachindex(m_profile)
     push!(scale_height_arr, scaled_measure)
 end
 
-radiative_zone_indices = findall((profile[!, "D_face_kuhfuss"]) .< 1e-1)
+radiative_zone_indices = findall((profile[!, "D_face_kuhfuss"]) .< 1e5)
 
 if !isempty(radiative_zone_indices)
     radiative_zone_index = radiative_zone_indices[1]
@@ -631,7 +449,7 @@ if !isempty(radiative_zone_indices)
 
 end
 alpha_overshoot = overshooting_length / scale_height
-core_profile = profile[0.1 .<=profile[!, "mass"] .<= 0.5, :]
+core_profile = profile[0 .<=profile[!, "mass"] .<= 0.5, :]
 
 # 2. Find the Convective Boundary
 nabla_rad = core_profile[!, "nabla_r_face"]
@@ -746,7 +564,7 @@ axislegend(ax1, position = :rt)
 axislegend(ax2, position = :lt,labelsize=18)
 
 f
-save("/home/ritavash/Desktop/Resources/convection_results/turb_plots_kuhfuss_overshoot_length_1M.png", f)
+# save("/home/ritavash/Desktop/Resources/convection_results/turb_plots_kuhfuss_overshoot_length_1M.png", f)
 
 
 
@@ -811,14 +629,14 @@ Visualizing the overshooting length in a different way
 """
 
 f = Figure(resolution = (1400, 900));
-profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000500")
+profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000600")
 
 """
 Calculating the overshooting length 
 """
 m_profile = profile[!, "mass"]
 P_profile = profile[!, "log10_P"]
-ρ_profile = profile[!, "log10_ρ"]
+ρ_profile = profile[!, "log10_rho"]
 r_profile = profile[!, "log10_r"]
 nabla_rad = profile[!, "nabla_r_face"]
 nabla_ad = profile[!, "nabla_a_face"]
@@ -828,7 +646,7 @@ boundary_indices = findall(nabla_ad .> nabla_rad)
 function interpolate_sch_radius(profile, boundary_index)
 
     i_rad = boundary_index
-    i_conv = boundary_index - 1
+    i_conv = boundary_index 
 
     X_rad = profile[i_rad, "log10_r"]
     X_conv = profile[i_conv, "log10_r"]
@@ -851,7 +669,7 @@ end
 if !isempty(boundary_indices)
     boundary_index  = boundary_indices[1]
     m_boundary = m_profile[boundary_index]*MSUN
-    P_boundary = P_profile[boundary_index]/log10(ℯ)
+    P_boundary = 10^(P_profile[boundary_index])
     ρ_boundary = exp(ρ_profile[boundary_index]/log10(ℯ))
     r = interpolate_sch_radius(profile, boundary_index) # r is the interpolated sch boundary 
     r_boundary = exp(( r + log10(RSUN))/log10(ℯ))
@@ -866,7 +684,7 @@ for i in eachindex(m_profile)
 end
 
 
-radiative_zone_indices = findall((profile[!, "D_face_kuhfuss"]) .< 1e-1)
+radiative_zone_indices = findall((profile[!, "D_face_kuhfuss"]) .< 1e5)
 
 if !isempty(radiative_zone_indices)
     radiative_zone_index = radiative_zone_indices[1]
@@ -922,7 +740,7 @@ if !isnan(alpha_overshoot)
     )
 end
 f
-save("/home/ritavash/Desktop/Resources/convection_results/D_mix_visualization_1M.png", f)
+# save("/home/ritavash/Desktop/Resources/convection_results/D_mix_visualization_1M.png", f)
 ##
 """
 Plot for Visualizing the temperature gradients 
@@ -1018,43 +836,41 @@ ax = Axis(f[1, 1];
 #     label = L"\alpha_{\mathrm{ov}}"
 # )
 # 3. Plot the history (Age vs. Alpha_Overshoot)
-scatter!(ax, 
-    history[!, "age"], 
-    history[!, "alpha_overshoot"], 
-    # Scatter-specific parameters:
-    markersize = 8, 
-    color = :firebrick, 
-    label = L"\alpha_{\mathrm{ov}}"
-)
- ylims!(ax, 0, 0.3)
+# scatter!(ax, 
+#     history[!, "age"], 
+#     history[!, "alpha_overshoot"], 
+#     # Scatter-specific parameters:
+#     markersize = 8, 
+#     color = :firebrick, 
+#     label = L"\alpha_{\mathrm{ov}}"
+# )
+scatterlines!(ax, history[!, "age"], 
+    history[!, "alpha_overshoot"],
+    linewidth = 0.5)
+ ylims!(ax, 0, 0.2)
 f
 save("/home/ritavash/Desktop/Resources/convection_results/alpha_overshoot/1_history.png", f)
 ##
-history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
- history[!, "alpha_overshoot"][500]
-#  history[!,"i_ov"][500]
+f= Figure(resolution = (1200, 800));
+profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000600")
+core_profile = profile[profile[!, "mass"] .<= 1, :]
+ax1 = Axis(f[1,1];xlabel = L"Mass\;[M_\odot]", ylabel = "Turbulent energy", title = "profiles")
+
+scatterlines!(ax1,
+    core_profile[!, "mass"],
+    core_profile[!, "turb_energy"];
+    label = L"E_{\mathrm{turb,\,Kuhfuss}}", color = :red, linewidth = 0.5
+)
+
+
+
+axislegend(ax1, position = :rt) 
+f
+# save("/home/ritavash/Desktop/Resources/convection_results/velocity_gradients.png", f)
+
+
 ##
-using HDF5
-using DataFrames# Assuming history is a Julia DataFrame
-
-# Define the file name
-filename = "history_32M.hdf5"
-
-# Open the file in write mode ('w' will overwrite if it exists)
-# Use the 'do' block to ensure the file is closed automatically
-h5open(filename, "w") do file
-    
-    # Optional: Create a top-level group (e.g., "History") for organization
-    group = create_group(file, "History")
-    
-    # Loop over all columns in the DataFrame
-    for colname in names(history)
-        # Write the column data to a dataset within the group
-        group[colname] = history[!, colname]
-    end
-end
-
-println("Successfully saved 'history' DataFrame to disk as $filename.")
+#  history[!,"i_ov"][500]
 ##
 ### Perform some cleanup
 #=

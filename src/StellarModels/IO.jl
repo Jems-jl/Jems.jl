@@ -85,13 +85,188 @@ function add_history_option!(m, name, unit, func; label::Union{LaTeXStrings.LaTe
     end
 end
 
+"""
+Beginning of function for setting up alpha_overshoot history functions
+"""
+
+function interpolate_boundary_live(sm::StellarModel, i_rad::Int)
+    i_conv = i_rad - 1
+    
+    #Radius 
+    logr_rad  = get_value(sm.props.lnr[i_rad])
+    logr_conv = get_value(sm.props.lnr[i_conv])
+    #Pressure
+    logP_rad  = get_value(sm.props.eos_res[i_rad].P)
+    logP_conv = get_value(sm.props.eos_res[i_conv].P)
+    #density 
+    logρ_rad  = get_value(sm.props.lnρ[i_rad])
+    logρ_conv = get_value(sm.props.lnρ[i_conv])
+    #mass
+    m_rad  = sm.props.m[i_rad] 
+    m_conv = sm.props.m[i_conv]
+
+    # Delta-Nabla (Δ∇ = ∇_rad - ∇_ad)
+    dnabla_rad  = get_value(sm.props.turb_res[i_rad].∇ᵣ) - get_value(sm.props.∇ₐ_face[i_rad])
+    dnabla_conv = get_value(sm.props.turb_res[i_conv].∇ᵣ) - get_value(sm.props.∇ₐ_face[i_conv])
+    
+    # 2. Linear Interpolation Calculation
+    dnabla_total = dnabla_rad - dnabla_conv
+    
+    if abs(dnabla_total) < 1e-12 
+        # Avoid division by zero: return the midpoint if profiles are flat
+        logr_sch = (logr_rad + logr_conv) / 2.0
+        logP_sch = (logP_rad + logP_conv) / 2.0
+        logρ_sch = (logρ_rad + logρ_conv) / 2.0
+        m_sch = (m_rad + m_conv) / 2.0
+    else
+        # Interpolation: logr_sch = logr_conv - Δ∇_conv * (Δlogr / Δ(Δ∇))
+        logr_sch = logr_conv - dnabla_conv * (logr_rad - logr_conv) / dnabla_total
+        logP_sch = logP_conv - dnabla_conv * (logP_rad - logP_conv) / dnabla_total
+        logρ_sch = logρ_conv - dnabla_conv * (logρ_rad - logρ_conv) / dnabla_total
+        m_sch = m_conv - dnabla_conv * (m_rad - m_conv) / dnabla_total
+    end
+    
+    # Return the interpolated natural log radius (ln r_sch)
+    return logr_sch, logP_sch, logρ_sch, m_sch
+end
+
+function interpolate_ov_boundary(sm::StellarModel, i_ov:: Int)
+    i_d = i_ov - 1 
+    logr_d  = get_value(sm.props.lnr[i_d])
+    logr_ov = get_value(sm.props.lnr[i_ov])
+
+    D_ov = get_value(sm.props.D_turb[i_ov])
+    D_d = get_value(sm.props.D_turb[i_d])
+
+    diff_D = D_ov - D_d
+    diff_r = logr_ov - logr_d
+    slope = diff_D / diff_r
+
+    logr_boundary = logr_d + (1e5 - D_d) / slope
+    return logr_boundary
+end
+function calculate_overshoot_length(sm:: StellarModel) 
+    
+
+    OVERSHOOT_THRESHOLD = 1e5
+    
+    nz_interior  = sm.props.nz - 1 
+    i_Sch = nothing
+    
+   
+    for k in 2:nz_interior
+        nabla_ad = get_value(sm.props.∇ₐ_face[k])
+        nabla_rad = get_value(sm.props.turb_res[k].∇ᵣ)
+
+        if nabla_ad > nabla_rad
+            i_Sch = k
+            break
+        end   
+    end 
+    
+    if isnothing(i_Sch)
+         return 0.0
+    end
+    
+    # Interpolate to find boundary properties
+    logr_sch, logP_sch, logρ_sch, m_sch = interpolate_boundary_live(sm, i_Sch)
+    P_boundary = logP_sch
+    ρ_boundary = exp(logρ_sch)
+    r_boundary = exp(logr_sch) # Radius in cm
+    m_boundary = m_sch
+    
+    HP_Sch = P_boundary / (ρ_boundary * CGRAV * m_boundary / r_boundary^2)
+
+    
+    i_ov = nothing
+
+    #todo : calculate overshoot length using interpolation 
+    for k = i_Sch + 1:nz_interior
+        D_turb = get_value(sm.props.D_turb[k])
+        if D_turb < OVERSHOOT_THRESHOLD
+            i_ov = k
+            break
+        end
+    end
+    
+    if isnothing(i_ov)
+        # If mixing doesn't fall below threshold before the surface
+        return 0.0 
+    end
+    logr_ov = interpolate_ov_boundary(sm, i_ov) #Redundant calculations 
+    r_overshoot = exp(logr_ov) # Radius in cm 
+   
+    overshooting_distance_cm = abs(r_overshoot - r_boundary)
+    alpha_ov = overshooting_distance_cm / HP_Sch
+    
+    return alpha_ov 
+end
+
+function get_overshoot(sm)
+    # Calls the calculation function and extracts the pure numerical value.
+    return calculate_overshoot_length(sm)
+end
+"""
+End of function 
+"""
+
+"""
+Function for calculating nabla_tdc for profile output
+"""
+
+function calculate_nabla_tdc(sm:: StellarModel, k :: Int)
+    L = get_00_dual(sm.props.L[k]) * LSUN
+    γ₀ = get_00_dual(sm.props.gamma_turb[k])
+    ω = exp(γ₀)
+    m₀ = sm.props.m[k]
+    r₀ = exp(get_00_dual(sm.props.lnr[k]))
+    if k == sm.props.nz
+        P = get_00_dual(sm.props.eos_res[k].P)
+        ρ = get_00_dual(sm.props.eos_res[k].ρ)
+        T = get_00_dual(sm.props.eos_res[k].T)
+        κ = get_00_dual(sm.props.κ[k])
+        cₚ = get_00_dual(sm.props.eos_res[k].cₚ)
+        Hₚ = P / (ρ * CGRAV * m₀ / r₀^2)
+        Λ = 1/(1/Hₚ + 1/r₀)
+        k_rad = 16 * SIGMA_SB * T^3 / (3 * κ * ρ)
+        α₂ = ρ*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
+        ∇ᵣ = 3 * κ * L * P / (16π * CRAD * CLIGHT * CGRAV * m₀ * T^4)
+        ∇ₐ = get_00_dual(sm.props.eos_res[k].∇ₐ)
+        SA = (∇ᵣ - ∇ₐ)*(1 + α₂/k_rad)^(-1)        
+        ∇ = ∇ₐ + SA
+        return ∇
+    end 
+
+    P_face = exp(get_00_dual(sm.props.lnP_face[k]))
+    ρ_face = exp(get_00_dual(sm.props.lnρ_face[k]))
+    T_face = exp(get_00_dual(sm.props.lnT_face[k]))
+    cₚ =  get_00_dual(sm.props.cₚ_face[k])
+    κ = get_00_dual(sm.props.κ_face[k])
+    Hₚ = P_face / (ρ_face * CGRAV * m₀ / r₀^2) 
+    Λ = 1/(1/Hₚ + 1/r₀)
+    m₀ = sm.props.m[k]
+    k_rad = 16 * SIGMA_SB * T_face^3 / (3 * κ * ρ_face)
+    α₂ = ρ_face*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
+    ∇ᵣ = 3 * κ * L * P_face / (16π * CRAD * CLIGHT * CGRAV * m₀ * T_face^4)
+    ∇ₐ = get_00_dual(sm.props.∇ₐ_face[k])
+    SA = (∇ᵣ - ∇ₐ)*(1 + α₂/k_rad)^(-1)
+    ∇ = ∇ₐ + SA 
+    return ∇
+end 
+function get_nabla_tdc(sm, k)
+    # Calls the calculation function and extracts the pure numerical value.
+    return calculate_nabla_tdc(sm, k).value
+end
+"""
+End of function
+"""
 function setup_model_history_functions!(sm::StellarModel)
     # general properties
     add_history_option!(sm, "age", "year", sm -> sm.props.time / SECYEAR, label=L"\text{age}\,[\text{yr}]")
     add_history_option!(sm, "dt", "year", sm -> sm.props.dt / SECYEAR, label=L"\Delta t\,[\text{yr}]")
     add_history_option!(sm, "model_number", "unitless", sm -> sm.props.model_number, label=L"\text{Model Number}")
     add_history_option!(sm, "star_mass", "Msun", sm -> sm.props.mstar / MSUN, label=L"\text{Mass}\,[M_\odot]")
-
+    add_history_option!(sm, "alpha_overshoot", "H_p", get_overshoot, label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
     # surface properties
     add_history_option!(sm, "R_surf", "Rsun", sm -> exp(get_value(sm.props.lnr[sm.props.nz])) / RSUN, label=L"R_\text{surf}\,[R_\odot]")
     add_history_option!(sm, "L_surf", "Lsun", sm -> get_value(sm.props.L[sm.props.nz]), label=L"\text{surf}\,[L_\odot]")
@@ -165,9 +340,15 @@ function setup_model_profile_functions!(sm::StellarModel)
 
     # temperature gradients
     add_profile_option!(sm, "nabla_a_face", "unitless", (sm, k) -> get_value(sm.props.∇ₐ_face[k]), label=L"\nabla_\text{a,face}")
-    add_profile_option!(sm, "nabla_r_face", "unitless", (sm, k) -> get_value(sm.props.∇ᵣ_face[k]), label=L"\nabla_\text{r,face}")
+    add_profile_option!(sm, "nabla_r_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇ᵣ),  label=L"\nabla_\text{r,face}")
     add_profile_option!(sm, "nabla_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇), label=L"\nabla_\text{face}")
     add_profile_option!(sm, "D_face", "cm^2*s^{-1}", (sm, k) -> get_value(sm.props.turb_res[k].D_turb), label=L"D_\text{face}\,[\text{cm^2\,s^{-1}}]")
+
+    #extras 
+    add_profile_option!(sm, "velocity_turb", "unitless", (sm, k) -> sqrt(2*exp(get_value(sm.props.gamma_turb[k]))))
+    add_profile_option!(sm, "turb_energy", "unitless", (sm, k) -> (exp(get_value(sm.props.gamma_turb[k]))))
+    add_profile_option!(sm, "nabla_tdc", "unitless", get_nabla_tdc)
+    add_profile_option!(sm, "D_face_kuhfuss", "unitless", (sm, k) -> get_value(sm.props.D_turb[k]))
 end
 
 function init_IO(m::AbstractModel)
