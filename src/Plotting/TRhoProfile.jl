@@ -33,8 +33,8 @@ function TRhoProfile(grid_pos)
     lines!(axis, pgas_ρ, pgas_T, color=:gray, linestyle=:dash, linewidth=2)
 
     mixing = Observable(mixing_colors[get.(Ref(mixing_map), [:convection], RGBAf(0.1, 0.1, 0.1))])
-    logRho = Observable(zeros(Float64,0))
-    logT = Observable(zeros(Float64,0))
+    logRho = Observable(zeros(Float64,1))
+    logT = Observable(zeros(Float64,1))
     lines!(axis, logRho, logT, color=mixing)
 
     nom = LineElement(color=mixing_colors[mixing_map[:no_mixing]])

@@ -140,8 +140,10 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 
+##
 #Configure live plots. To turn off one can use `plotter = Plotting.NullPlotter()`
 using GLMakie
+GLMakie.activate!()
 set_theme!(Plotting.basic_theme())
 f = Figure(size=(1400,750))
 plots = [Plotting.HRPlot(f[1,1]),
@@ -152,6 +154,7 @@ plots = [Plotting.HRPlot(f[1,1]),
          Plotting.ProfilePlot(f[2,3], sm, x_name="mass", y_name="log10_rho", othery_name="log10_T")]
 plotter = Plotting.Plotter(fig=f,plots=plots)
 
+##
 #set initial condition and run model
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
