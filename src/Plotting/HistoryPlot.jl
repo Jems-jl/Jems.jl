@@ -12,7 +12,7 @@ mutable struct HistoryPlot{TOBS, TAXIS, TAXIS2}
 end
 
 function HistoryPlot(grid_pos, sm::TMODEL; x_name="", y_name="", othery_name="",
-                        link_yaxes=false, ycolor=nothing, othery_color=nothing) where{TMODEL<:AbstractModel}
+                        link_yaxes=false, ycolor=nothing, othery_color=nothing) where {TMODEL<:AbstractModel}
     if isnothing(ycolor)
         ycolor = Makie.wong_colors()[1]
     end

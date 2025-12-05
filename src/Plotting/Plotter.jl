@@ -21,7 +21,7 @@ function update_plotter!(plotter::Plotter, m)
         display(plotter.fig)
         sleep(1/plotter.max_fps)
     end
-    if plotter.save_interval > 0 &&  m.props.model_number % plotter.save_interval == 0
+    if plotter.save_interval > 0 && m.props.model_number % plotter.save_interval == 0
         if !isdir(plotter.save_folder)
             mkdir(plotter.save_folder)
         end
