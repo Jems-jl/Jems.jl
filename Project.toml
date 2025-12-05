@@ -1,7 +1,10 @@
 name = "Jems"
 uuid = "80e28b2b-5ac7-4db2-b78d-9e35bb8cec21"
 version = "0.1.0"
-authors = ["Pablo Marchant <pablo.marchant@kuleuven.be>", "Matthias Fabry <matthias.fabry@kuleuven.be>", "Eva Kuipers <evakuipers2612@gmail.com>", "Digonto Rahman  <digontorahman@hotmail.com>"]
+authors = ["Pablo Marchant <pablo.marchant@kuleuven.be>", 
+            "Matthias Fabry <matthias.fabry@villanova.edu>", 
+            "Eva Kuipers <evakuipers2612@gmail.com>", 
+            "Digonto Rahman  <digontorahman@hotmail.com>"]
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"

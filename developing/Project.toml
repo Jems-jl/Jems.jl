@@ -13,3 +13,6 @@ PProf = "e4faabce-9ead-11e9-39d9-4379958e3056"
 PreallocationTools = "d236fae5-4411-538c-8e31-a6e3d9e00b46"
 Profile = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+
+[sources]
+Jems = {path = ".."}
