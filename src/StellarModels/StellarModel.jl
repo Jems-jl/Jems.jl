@@ -2,6 +2,7 @@ using ForwardDiff
 using LinearAlgebra
 using HDF5
 using Jems.DualSupport
+using LaTeXStrings
 
 """
     mutable struct StellarModel{TN<:Real,TD<:Real,TEOS<:EOS.AbstractEOS,TKAP<:Opacity.AbstractOpacity}
@@ -52,12 +53,17 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     # Space for used defined options, defaults are in Options.jl
     opt::Options
 
-    # object holding plotting things, ie figures, data to plot.
-    plt::Plotter
-
     # Output files
     history_file::HDF5.File
     profiles_file::HDF5.File
+
+    # Output options
+    history_output_units::Dict{String,String} = Dict()
+    history_output_functions::Dict{String,Function} = Dict()
+    history_output_labels::Dict{String,LaTeXStrings.LaTeXString} = Dict()
+    profile_output_units::Dict{String,String} = Dict()
+    profile_output_functions::Dict{String,Function} = Dict()
+    profile_output_labels::Dict{String,Union{LaTeXStrings.LaTeXString, String}} = Dict()
 end
 
 """
@@ -113,7 +119,6 @@ function StellarModel(var_names::Vector{Symbol}, var_scaling::Vector{Symbol},
                                                               typeof(dual_sample)}(composition_equation)
 
     opt = Options()  # create options object
-    plt = Plotter()
 
     # create the stellar model
     sm = StellarModel(;nvars=nvars,
@@ -127,9 +132,16 @@ function StellarModel(var_names::Vector{Symbol}, var_scaling::Vector{Symbol},
                       remesh_split_functions=remesh_split_functions,
                       eos=eos, opacity=opacity, network=network, turbulence=turbulence,
                       start_step_props=start_step_props, prv_step_props=prv_step_props, props=props,
-                      opt=opt, plt=plt,
+                      opt=opt,
                       history_file=HDF5.File(-1, ""),
-                      profiles_file=HDF5.File(-1, ""))
+                      profiles_file=HDF5.File(-1, ""),
+                      history_output_units = Dict{String,String}(),
+                      history_output_functions = Dict{String,Function}(),
+                      history_output_labels = Dict{String,LaTeXStrings.LaTeXString}(),
+                      profile_output_units = Dict{String,String}(),
+                      profile_output_functions = Dict{String,Function}(),
+                      profile_output_labels = Dict{String,Union{LaTeXStrings.LaTeXString, String}}())
+    init_IO(sm) # initializes output options
     return sm
 end
 
@@ -198,7 +210,6 @@ function adjusted_stellar_model_data(sm, new_nz::Int, new_nextra::Int)
     new_sm.dt = sm.dt
     new_sm.model_number = sm.model_number
     new_sm.mstar = sm.mstar
-    new_sm.plt = sm.plt
 
     new_sm.history_file = sm.history_file
     new_sm.profiles_file = sm.profiles_file

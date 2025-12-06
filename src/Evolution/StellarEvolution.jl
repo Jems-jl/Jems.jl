@@ -31,15 +31,33 @@ function get_dt_next(sm::StellarModel)
 end
 
 """
+    compute_starting_model_properties(sm::StellarModel)
+
+Computes all stellar model properties based on the current state of the star.
+This sets the model up to start the evolution loop, or test the evaluation of
+the equations and the linear solver.
+"""
+function compute_starting_model_properties!(sm::StellarModel)
+    StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+    StellarModels.cycle_props!(sm);
+    StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
+    StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props)
+    StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
+    StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
+    StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
+end
+
+"""
     do_evolution_loop(sm::StellarModel)
 
 Performs the main evolutionary loop of the input StellarModel `sm`. It continues taking steps until one of the
 termination criteria is reached (defined in `sm.opt.termination`).
 """
-function do_evolution_loop!(sm::StellarModel)
+function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullPlotter(),
+                                max_retries_in_a_row = 10) where{TPLOTTER<:AbstractPlotter}
     # before loop actions
     StellarModels.create_output_files!(sm)
-    StellarModels.evaluate_stellar_model_properties!(sm, sm.props)  # set the initial condition as the result of a previous phantom step
+    compute_starting_model_properties!(sm)
     retry_count = 0
 
     # evolution loop, be sure to have sensible termination conditions or this will go on forever!
@@ -146,7 +164,7 @@ function do_evolution_loop!(sm::StellarModel)
             end
             #if not, determine if we give up or retry
             if i == max_steps
-                if retry_count > 10
+                if retry_count > max_retries_in_a_row
                     exit_evolution = true
                     println("Too many retries, ending simulation")
                 else
@@ -182,11 +200,7 @@ function do_evolution_loop!(sm::StellarModel)
         StellarModels.write_data(sm)
         StellarModels.write_terminal_info(sm)
 
-        if sm.opt.plotting.do_plotting && sm.props.model_number == 1
-            Plotting.init_plots!(sm)
-        elseif sm.opt.plotting.do_plotting && sm.props.model_number % sm.opt.plotting.plotting_interval == 0
-            Plotting.update_plotting!(sm)
-        end
+        update_plotter!(plotter, sm)
 
         # check termination conditions
         if (sm.props.model_number > sm.opt.termination.max_model_number)
@@ -203,8 +217,7 @@ function do_evolution_loop!(sm::StellarModel)
         # get dt for coming step
         sm.props.dt_next = get_dt_next(sm)
     end
-    if sm.opt.plotting.do_plotting
-        Plotting.end_of_evolution(sm)
-    end
     StellarModels.shut_down_IO!(sm)
+
+    return
 end
