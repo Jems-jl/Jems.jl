@@ -8,7 +8,6 @@ abstract type AbstractModel end
 abstract type AbstractModelProperties end
 
 include("Options.jl")
-include("PlotterInterface.jl")
 include("StellarModelProperties.jl")
 include("SolverData.jl")
 include("EquationSupport.jl")
