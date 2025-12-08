@@ -314,7 +314,7 @@ A(i) = (4πr^2(c,i))^2 * ρ(i,c) * Λ(i,c)^2 * √ω(i,c) { X(i,c) = 0.5(X(i,f) 
 A(1) = A(nz+1)= 0
 """
 
-## Outer boundary condition (k = 1)
+## Inner boundary condition (k = 1)
 if k == 1
     ### face Values required for calculating all the other terms except mixing term ###
     γ_face_00 = get_00_dual(sm.props.gamma_turb[k])
@@ -376,7 +376,7 @@ end
 
 
 
-## Inner boundary condition (k = sm.props.nz)
+## Outer boundary condition (k = sm.props.nz)
 if k == sm.props.nz
 
 ### At the centre, all values are calculated at the cell centre instead of face ###
@@ -503,5 +503,4 @@ begin
     return omega_var_term - source_term + turb_dissipation_term + rad_dissipation_term - excess_term - mixing_term
 end 
 end
-
 

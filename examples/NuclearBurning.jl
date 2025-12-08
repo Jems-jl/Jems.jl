@@ -162,19 +162,20 @@ rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 
 #Configure live plots. To turn off one can use `plotter = Plotting.NullPlotter()`
-using GLMakie
-set_theme!(Plotting.basic_theme())
-f = Figure(size=(1400,750))
-hist_plot = Plotting.HistoryPlot(f[1,3], sm, x_name="age", y_name="alpha_overshoot", link_yaxes=true)
-ylims!(hist_plot.axis, 0, 0.5)
-plots = [Plotting.HRPlot(f[1,1]),
-         Plotting.TRhoProfile(f[1,2]),
-         Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
-         Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3),
-         Plotting.HistoryPlot(f[3,1], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
-         hist_plot,
-         Plotting.ProfilePlot(f[2,3], sm, x_name="mass", y_name="log10_rho", othery_name="log10_T")]
-plotter = Plotting.Plotter(fig=f,plots=plots)
+# using GLMakie
+# set_theme!(Plotting.basic_theme())
+# f = Figure(size=(1400,750))
+# hist_plot = Plotting.HistoryPlot(f[1,3], sm, x_name="age", y_name="alpha_overshoot", link_yaxes=true)
+# ylims!(hist_plot.axis, 0, 0.5)
+# plots = [Plotting.HRPlot(f[1,1]),
+#          Plotting.TRhoProfile(f[1,2]),
+#          Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
+#          Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3),
+#          Plotting.HistoryPlot(f[3,1], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
+#          hist_plot,
+#          Plotting.ProfilePlot(f[2,3], sm, x_name="mass", y_name="log10_rho", othery_name="log10_T")]
+# plotter = Plotting.Plotter(fig=f,plots=plots)
+plotter = Plotting.NullPlotter()
 
 #set initial condition and run model
 n = 3
