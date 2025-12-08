@@ -130,6 +130,18 @@ function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullP
 
             # apply correction!
             sm.props.ind_vars[1:sm.nvars*sm.props.nz] .+= corr[1:sm.nvars*sm.props.nz]
+
+            ### ====== Setting floor for omega ======== ###
+            omega_floor = 1e-20 
+            gamma_idx = sm.vari[:gamma_turb]
+            
+            for i in 1:sm.props.nz 
+                idx = gamma_idx + (i-1)*sm.nvars
+                
+                if sm.props.ind_vars[idx] < omega_floor
+                    sm.props.ind_vars[idx] = omega_floor
+                end
+            end
             sm.solver_data.newton_iters = i
 
             # evaluate the equations after correction and get residuals
@@ -213,6 +225,7 @@ function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullP
             println("Reached maximum central temperature")
             break
         end
+        
 
         # get dt for coming step
         sm.props.dt_next = get_dt_next(sm)

@@ -282,7 +282,7 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties{TN
                     δ_face_dual, cₚ_face_dual, ∇ₐ_face_dual, props.m[i])
         update_struct_face_dual_data(props.turb_res[i], props.turb_res_dual[i])
 
-        D_turb_dual = (1/3) * sqrt(2 * exp(gamma_turb_dual)) *  1 / (1/(P_face_dual / (ρ_face_dual * CGRAV * sm.props.m[i]/ r_dual^2)) + 1/r_dual)
+        D_turb_dual = (1/3) * sqrt(2 * gamma_turb_dual) *  1 / (1/(P_face_dual / (ρ_face_dual * CGRAV * sm.props.m[i]/ r_dual^2)) + 1/r_dual)
         update_face_dual_data!(props.D_turb[i], D_turb_dual)
         flux_term_dual = (4π*r_dual^2*ρ_face_dual)^2*D_turb_dual/
                             (0.5*(sm.props.dm[i]+sm.props.dm[i+1]))

@@ -216,8 +216,7 @@ Function for calculating nabla_tdc for profile output
 
 function calculate_nabla_tdc(sm:: StellarModel, k :: Int)
     L = get_00_dual(sm.props.L[k]) * LSUN
-    γ₀ = get_00_dual(sm.props.gamma_turb[k])
-    ω = exp(γ₀)
+    ω = get_00_dual(sm.props.gamma_turb[k])
     m₀ = sm.props.m[k]
     r₀ = exp(get_00_dual(sm.props.lnr[k]))
     if k == sm.props.nz
@@ -346,7 +345,7 @@ function setup_model_profile_functions!(sm::StellarModel)
 
     #extras 
     add_profile_option!(sm, "velocity_turb", "unitless", (sm, k) -> sqrt(2*exp(get_value(sm.props.gamma_turb[k]))))
-    add_profile_option!(sm, "turb_energy", "unitless", (sm, k) -> (exp(get_value(sm.props.gamma_turb[k]))))
+    add_profile_option!(sm, "turb_energy", "unitless", (sm, k) -> (get_value(sm.props.gamma_turb[k])))
     add_profile_option!(sm, "nabla_tdc", "unitless", get_nabla_tdc)
     add_profile_option!(sm, "D_face_kuhfuss", "unitless", (sm, k) -> get_value(sm.props.D_turb[k]))
 end

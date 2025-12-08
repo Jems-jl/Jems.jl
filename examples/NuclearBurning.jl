@@ -41,7 +41,7 @@ to $\kappa=0.2(1+X)\;[\text{cm^2\;g^{-1}}]$ is available.
 ##
 
 varnames = [:lnρ, :lnT, :lnr, :lum, :gamma_turb] 
-varscaling = [:log, :log, :log, :maxval, :log]
+varscaling = [:log, :log, :log, :maxval, :lin]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.equationContinuity, Evolution.equationLuminosity,
                        Evolution.gammaTurb]
@@ -131,10 +131,8 @@ open("example_options.toml", "w") do file
           [solver]
           newton_max_iter_first_step = 1000
           initial_model_scale_max_correction = 0.2
-          newton_max_iter = 200
-          scale_max_correction = 1.0
           solver_progress_iter = 1
-          relative_correction_tolerance = 1e12
+          relative_correction_tolerance = 1e9
 
           [timestep]
           dt_max_increase = 1.5
@@ -162,20 +160,20 @@ rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 
 #Configure live plots. To turn off one can use `plotter = Plotting.NullPlotter()`
-# using GLMakie
-# set_theme!(Plotting.basic_theme())
-# f = Figure(size=(1400,750))
-# hist_plot = Plotting.HistoryPlot(f[1,3], sm, x_name="age", y_name="alpha_overshoot", link_yaxes=true)
-# ylims!(hist_plot.axis, 0, 0.5)
-# plots = [Plotting.HRPlot(f[1,1]),
-#          Plotting.TRhoProfile(f[1,2]),
-#          Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
-#          Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3),
-#          Plotting.HistoryPlot(f[3,1], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
-#          hist_plot,
-#          Plotting.ProfilePlot(f[2,3], sm, x_name="mass", y_name="log10_rho", othery_name="log10_T")]
-# plotter = Plotting.Plotter(fig=f,plots=plots)
-plotter = Plotting.NullPlotter()
+using GLMakie
+set_theme!(Plotting.basic_theme())
+f = Figure(size=(1400,750))
+hist_plot = Plotting.HistoryPlot(f[1,3], sm, x_name="age", y_name="alpha_overshoot", link_yaxes=true)
+ylims!(hist_plot.axis, 0, 0.5)
+plots = [Plotting.HRPlot(f[1,1]),
+         Plotting.TRhoProfile(f[1,2]),
+         Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
+         Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3),
+         Plotting.HistoryPlot(f[3,1], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
+         hist_plot,
+         Plotting.ProfilePlot(f[2,3], sm, x_name="mass", y_name="log10_rho", othery_name="log10_T")]
+plotter = Plotting.Plotter(fig=f,plots=plots)
+# plotter = Plotting.NullPlotter()
 
 #set initial condition and run model
 n = 3
@@ -853,7 +851,7 @@ f
 save("/home/ritavash/Desktop/Resources/convection_results/alpha_overshoot/1_history.png", f)
 ##
 f= Figure(resolution = (1200, 800));
-profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000600")
+profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000500")
 core_profile = profile[profile[!, "mass"] .<= 1, :]
 ax1 = Axis(f[1,1];xlabel = L"Mass\;[M_\odot]", ylabel = "Turbulent energy", title = "profiles")
 
