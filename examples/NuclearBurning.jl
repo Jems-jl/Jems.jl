@@ -134,8 +134,8 @@ open("example_options.toml", "w") do file
           newton_max_iter = 200
           scale_max_correction = 1.0
           solver_progress_iter = 1
-          relative_correction_tolerance = 1e12
-
+          relative_correction_tolerance = 1e10
+          maximum_residual_tolerance = 1e-4
           [timestep]
           dt_max_increase = 1.5
           delta_R_limit = 0.01
@@ -150,32 +150,33 @@ open("example_options.toml", "w") do file
           
           [io]
           profile_interval = 50
+
           terminal_header_interval = 100
           terminal_info_interval = 100
           profile_values = ["zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity",
                                       "X", "Y","D_face", "nabla_a_face", "nabla_r_face","nabla_face", "nabla_tdc","velocity_turb","turb_energy", "D_face_kuhfuss"]
-            history_values = ["age", "dt", "star_mass", "alpha_overshoot"] 
+            history_values = ["age", "dt", "star_mass", "alpha_overshoot" , "budget_source","budget_mixing","budget_omega_var", "budget_diss_turb", "budget_diss_rad", "budget_diss_excess", "budget_abs_error", "budget_rel_error", "budget_norm_mix"] 
           """)
 end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
-
+#, "budget_source","budget_mixing","budget_omega_var", "budget_diss_turb", "budget_diss_rad", "budget_diss_excess"
 #Configure live plots. To turn off one can use `plotter = Plotting.NullPlotter()`
-# using GLMakie
-# set_theme!(Plotting.basic_theme())
-# f = Figure(size=(1400,750))
-# hist_plot = Plotting.HistoryPlot(f[1,3], sm, x_name="age", y_name="alpha_overshoot", link_yaxes=true)
-# ylims!(hist_plot.axis, 0, 0.5)
-# plots = [Plotting.HRPlot(f[1,1]),
-#          Plotting.TRhoProfile(f[1,2]),
-#          Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
-#          Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3),
-#          Plotting.HistoryPlot(f[3,1], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
-#          hist_plot,
-#          Plotting.ProfilePlot(f[2,3], sm, x_name="mass", y_name="log10_rho", othery_name="log10_T")]
-# plotter = Plotting.Plotter(fig=f,plots=plots)
-plotter = Plotting.NullPlotter()
+using GLMakie
+set_theme!(Plotting.basic_theme())
+f = Figure(size=(1400,750))
+hist_plot = Plotting.HistoryPlot(f[1,3], sm, x_name="age", y_name="alpha_overshoot", link_yaxes=true)
+ylims!(hist_plot.axis, 0, 0.5)
+plots = [Plotting.HRPlot(f[1,1]),
+         Plotting.TRhoProfile(f[1,2]),
+         Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
+         Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3),
+         Plotting.HistoryPlot(f[3,1], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
+         hist_plot,
+         Plotting.ProfilePlot(f[2,3], sm, x_name="mass", y_name="log10_rho", othery_name="log10_T")]
+plotter = Plotting.Plotter(fig=f,plots=plots)
+# plotter = Plotting.NullPlotter()
 
 #set initial condition and run model
 n = 3
@@ -817,47 +818,46 @@ f
 save("/home/ritavash/Desktop/Resources/convection_results/temperature_gradient_difference_1.png", f)
 
 
-
 ##
+using CairoMakie
 history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
+age = history[!, "age"]
+lhs = history[!, "budget_omega_var"]
 
-# 2. Create the figure and axis
-f = Figure(resolution = (1400, 1000));
+
+sources = history[!, "budget_source"] .+ history[!, "budget_diss_excess"]
+sinks   = history[!, "budget_diss_turb"] .+ history[!, "budget_diss_rad"] 
+mixing  = history[!, "budget_norm_mix"] 
+error = abs.(history[!,"budget_rel_error"])
+
+residual = (lhs .- (sources .- sinks .+ mixing))
+
+f = Figure(resolution = (1000, 600))
 ax = Axis(f[1, 1]; 
-          xlabel=L"\mathrm{Age}\;[\mathrm{yr}]", 
-          ylabel=L"\alpha_{\mathrm{ov}}/\mathrm{H_p}", 
-          title=L"\text{Convective Overshoot Parameter History (1} M_\odot)"
+    xlabel = L"\mathrm{Age}\;[\mathrm{yr}]", 
+    ylabel = L"\text{normalized_mixing}",  
+    title  = "Normalized mixing term"
+     
 )
-# lines!(ax, 
-#     history[!, "age"], 
-#     history[!, "alpha_overshoot"], 
-#     # Line-specific parameters:
-#     linewidth = 3, 
-#     color = :navy, 
-#     label = L"\alpha_{\mathrm{ov}}"
-# )
-# 3. Plot the history (Age vs. Alpha_Overshoot)
-# scatter!(ax, 
-#     history[!, "age"], 
-#     history[!, "alpha_overshoot"], 
-#     # Scatter-specific parameters:
-#     markersize = 8, 
-#     color = :firebrick, 
-#     label = L"\alpha_{\mathrm{ov}}"
-# )
-scatterlines!(ax, history[!, "age"], 
-    history[!, "alpha_overshoot"],
-    linewidth = 0.5)
- ylims!(ax, 0, 0.2)
+
+
+scatterlines!(ax, age, error,
+    markersize = 5,linewidth = 1,
+    label = L"Mixing term / (E_{turb}/dt)"
+)
+# log10.(abs.(residual) .+ 10^-30)
+
+
+axislegend(ax)
 f
-save("/home/ritavash/Desktop/Resources/convection_results/alpha_overshoot/1_history.png", f)
+# save("/home/ritavash/Desktop/Resources/convection_results/normalized mixing.png", f)
 ##
 f= Figure(resolution = (1200, 800));
 profile = StellarModels.get_profile_dataframe_from_hdf5("profiles.hdf5", "0000000600")
 core_profile = profile[profile[!, "mass"] .<= 1, :]
 ax1 = Axis(f[1,1];xlabel = L"Mass\;[M_\odot]", ylabel = "Turbulent energy", title = "profiles")
 
-scatterlines!(ax1,
+scatter!(ax1,
     core_profile[!, "mass"],
     core_profile[!, "turb_energy"];
     label = L"E_{\mathrm{turb,\,Kuhfuss}}", color = :red, linewidth = 0.5
