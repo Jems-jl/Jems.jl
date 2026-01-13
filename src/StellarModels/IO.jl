@@ -92,7 +92,7 @@ function Energy_cal(sm::StellarModel)
 ###Constants###
 C_d = 8/3 * sqrt(2/3)
 α_w = 0.25 
-
+a_rad = 7.5657e-15
 
 ###Intiating summation terms###
 total_omega_var_term = 0.0 
@@ -102,27 +102,39 @@ total_turb_dissipation_term = 0.0
 total_rad_dissipation_term = 0.0
 total_excess_term = 0.0 
 total_normalized_mixing = 0.0
-
+total_u = 0.0
 total_E_turb_new = 0.0
 total_E_turb_old = 0.0
 for k in 1:sm.props.nz
    
 ## Inner boundary condition (k = 1)
 if k == 1
-    ### face Values required for calculating all the other terms except mixing term ###
-    γ_face_00 = get_00_dual(sm.props.gamma_turb[k])
-    ω_face_00 = exp(γ_face_00)  ###
-    dm_cell_00 = sm.props.dm[k] 
+    γ_face_00 = get_00_dual(sm.props.gamma_turb[k]) #defined at the outer face 
+    ω_face_00 = exp(γ_face_00)   #defined at the outer face 
+    dm_cell_00 = sm.props.dm[k]  
     m_cell_00 = sm.props.m[k]
-    r_face_00 = exp(get_00_dual(sm.props.lnr[k]))
-    P_face_00 = get_00_dual(sm.props.eos_res[k].P)
-    ρ_face_00 = get_00_dual(sm.props.eos_res[k].ρ)
-    T_face_00 = get_00_dual(sm.props.eos_res[k].T)
-    κ_face_00  = get_00_dual(sm.props.κ[k]) 
-    ∇ₐ_face_00 = get_00_dual(sm.props.eos_res[k].∇ₐ)
-    cₚ_face_00 = get_00_dual(sm.props.eos_res[k].cₚ)
-    L_face_00  = get_00_dual(sm.props.L[k]) * LSUN
+    r_face_00 = exp(get_00_dual(sm.props.lnr[k])) #defined at the outer face 
+    κ_face_00  = get_00_dual(sm.props.κ[k])  #defined at outer face 
+    L_face_00  = get_00_dual(sm.props.L[k]) * LSUN #defined at outer face 
 
+    P_inner_face_00 = get_00_dual(sm.props.eos_res[k].P) #defined at the inner face 
+    P_cc_p1 = get_p1_dual(sm.props.eos_res[k+1].P)
+    ρ_inner_face_00 = get_00_dual(sm.props.eos_res[k].ρ) #defined at the inner face 
+    ρ_cc_p1 = get_p1_dual(sm.props.eos_res[k+1].ρ)
+    T_inner_face_00 = get_00_dual(sm.props.eos_res[k].T) #defined at the inner face 
+    T_cc_p1 = get_p1_dual(sm.props.eos_res[k+1].T) 
+    ∇ₐ_inner_face_00 = get_00_dual(sm.props.eos_res[k].∇ₐ) #defined at the inner face 
+    ∇ₐ_cc_p1 = get_p1_dual(sm.props.eos_res[k+1].∇ₐ)
+    cₚ_inner_face_00 = get_00_dual(sm.props.eos_res[k].cₚ) #defined at the inner face 
+    cₚ_cc_p1 = get_p1_dual(sm.props.eos_res[k+1].cₚ)
+
+    ## Interpolating the values to get the outer face values ##
+    P_face_00 = P_inner_face_00 + (P_cc_p1 - P_inner_face_00)*(m_cell_00/(sm.props.m[k] + 0.5* sm.props.m[k+1]))
+    ρ_face_00 = ρ_inner_face_00 + (ρ_cc_p1 - ρ_inner_face_00)*(m_cell_00/(sm.props.m[k] + 0.5* sm.props.m[k+1]))
+    T_face_00 = T_inner_face_00 + (T_cc_p1 - T_inner_face_00)*(m_cell_00/(sm.props.m[k] + 0.5* sm.props.m[k+1]))
+    cₚ_face_00 = cₚ_inner_face_00 + (cₚ_cc_p1 - cₚ_inner_face_00)*(m_cell_00/(sm.props.m[k] + 0.5* sm.props.m[k+1]))
+    ∇ₐ_face_00 = ∇ₐ_inner_face_00 + (∇ₐ_cc_p1 - ∇ₐ_inner_face_00)*(m_cell_00/(sm.props.m[k] + 0.5* sm.props.m[k+1]))
+    
     Hₚ_face_00 = P_face_00 / (ρ_face_00 * m_cell_00 * CGRAV / r_face_00^2)
     Λ_face_00 = 1 / (1 / Hₚ_face_00 + 1 / r_face_00)
     ∇ᵣ_face_00 = (3 * κ_face_00 * L_face_00 * P_face_00) / (16π * CRAD * CLIGHT * CGRAV * m_cell_00 * T_face_00^4)
@@ -164,20 +176,22 @@ if k == 1
     rad_dissipation_term = ω_face_00 / τᵣ_face_00
     excess_term = C_d * (c_s_face_00 * 1e-7)^3 / Λ_face_00
     normalized_mixing = mixing_term/ (abs(source_term) + abs(excess_term) + abs(turb_dissipation_term) + abs(rad_dissipation_term))
-    
-
-
+    factor = sqrt(r_face_00^3/(CGRAV * m_cell_00))* (ρ_face_00/P_face_00)
+    scaled_source_term = (source_term + excess_term) * factor
+    scaled_dissipation_term = ( turb_dissipation_term + rad_dissipation_term ) * factor 
+    s_term = (source_term + excess_term)
+    dissipation_term = ( turb_dissipation_term + rad_dissipation_term )
+    u = 3/2 * P_face_00/ρ_face_00 + a_rad * T_face_00^4/ρ_face_00
 ## Outer boundary condition (k = sm.props.nz)
 elseif k == sm.props.nz
 
-    # ==============================================================================
+   # ==============================================================================
     # 1. THERMODYNAMICS & GEOMETRY (From EOS Results = Face Values)
     # ==============================================================================
     # As per instruction: EOS results here are defined at the face
     γ_face_00 = get_00_dual(sm.props.gamma_turb[k])
     ω_face_00 = exp(γ_face_00)
     ω_cc_00 = 0.5*(exp(get_00_dual(sm.props.gamma_turb[k])) + exp(get_m1_dual(sm.props.gamma_turb[k-1])))
-    # Geometry
     dm_cell_00 = sm.props.dm[k]
     m_face_00  = sm.props.m[k] # Mass at the outer boundary
     m_cc_00 = 0.5*(sm.props.m[k] + sm.props.m[k-1])
@@ -196,8 +210,8 @@ elseif k == sm.props.nz
     ∇ₐ_face_00 = get_00_dual(sm.props.eos_res[k].∇ₐ)
     cₚ_face_00 = get_00_dual(sm.props.eos_res[k].cₚ)
 
-    Hₚ_face_00 = P_face_00 / (ρ_face_00 * m_cc_00 * CGRAV / r_cc_00^2)
-    Λ_face_00  = 1 / (1 / Hₚ_face_00 + 1 / r_cc_00)
+    Hₚ_face_00 = P_face_00 / (ρ_face_00 * m_face_00 * CGRAV / r_face_00^2)
+    Λ_face_00  = 1 / (1 / Hₚ_face_00 + 1 / r_face_00)
     
     ∇ᵣ_face_00 = (3 * κ_face_00 * L_face_00 * P_face_00) / (16π * CRAD * CLIGHT * CGRAV * m_face_00 * T_face_00^4)
     τᵣ_face_00 = (cₚ_face_00 * κ_face_00 * ρ_face_00^2 * Λ_face_00^2) / (48 * SIGMA_SB * T_face_00^3)
@@ -209,15 +223,18 @@ elseif k == sm.props.nz
     SA_face_00 = (∇ᵣ_face_00 - ∇ₐ_face_00) * (1 + α₂_face_00 / k_rad_face_00)^(-1)
     
     dgammadt_face_00 = (ω_face_00 - exp(get_value(sm.start_step_props.gamma_turb[k]))) / sm.props.dt
-    
+
     # ==============================================================================
     # 3. FLUX CALCULATION (A_00)
     # ==============================================================================
     # We use the same Face values for A_00 as they are the definitive properties at k
-    A_00 = (4π * ρ_face_00 * r_cc_00^2)^2 * Λ_face_00 * α_w * sqrt(ω_cc_00)
+    Hₚ_cc_00 = P_face_00 / (ρ_face_00 * m_cc_00 * CGRAV / r_cc_00^2)
+    Λ_cc_00  = 1 / (1 / Hₚ_cc_00 + 1 / r_cc_00)
+    A_00 = (4π * ρ_face_00 * r_cc_00^2)^2 * Λ_cc_00 * α_w * sqrt(ω_cc_00 )
     
     # Flux entering from k-1
     F_00 = (A_00 / sm.props.dm[k]) * (exp(get_00_dual(sm.props.gamma_turb[k])) - exp(get_m1_dual(sm.props.gamma_turb[k-1])))
+    
 
     # ==============================================================================
     # 4. RESIDUAL
@@ -230,8 +247,12 @@ elseif k == sm.props.nz
     rad_dissipation_term = ω_face_00 / τᵣ_face_00
     excess_term = C_d * (c_s_face_00 * 1e-7)^3 / Λ_face_00
     normalized_mixing = mixing_term/ (abs(source_term) + abs(excess_term) + abs(turb_dissipation_term) + abs(rad_dissipation_term))
-
-
+    factor = sqrt(r_face_00^3/(CGRAV * m_cc_00))* (ρ_face_00/P_face_00)
+    scaled_source_term = (source_term + excess_term) * factor
+    scaled_dissipation_term = ( turb_dissipation_term + rad_dissipation_term ) * factor 
+    s_term = (source_term + excess_term)
+    dissipation_term = ( turb_dissipation_term + rad_dissipation_term )
+    u = 3/2 * P_face_00/ρ_face_00 + a_rad * T_face_00^4/ρ_face_00
 ### Other Calculations : 1 < k < nz ###
 else
 
@@ -277,7 +298,7 @@ else
     L_cc_00 = 0.5*(get_00_dual(sm.props.L[k]) + get_m1_dual(sm.props.L[k-1])) * LSUN
     Hₚ_cc_00 = P_cc_00 / (ρ_cc_00 * m_face_00 * CGRAV / r_cc_00^2)
     Λ_cc_00 = 1 / (1 / Hₚ_cc_00 + 1 / r_cc_00)
-    A_00 = (4π  *ρ_cc_00 * r_cc_00^2)^2 * Λ_cc_00 * α_w * sqrt(ω_cc_00)
+    A_00 = (4π  *ρ_cc_00 * r_cc_00^2)^2 * Λ_cc_00 * α_w * sqrt(ω_cc_00 )
     F_00 = (A_00 / sm.props.dm[k]) * (exp(get_00_dual(sm.props.gamma_turb[k])) - exp(get_m1_dual(sm.props.gamma_turb[k-1])))
 
     ## P1 values ##
@@ -291,7 +312,7 @@ else
     Hₚ_cc_p1 = P_cc_p1 / (ρ_cc_p1 * m_face_p1 * CGRAV / r_cc_p1^2)
     Λ_cc_p1 = 1 / (1 / Hₚ_cc_p1 + 1 / r_cc_p1)
     ω_cc_p1 = 0.5*(exp(get_p1_dual(sm.props.gamma_turb[k+1])) + exp(get_00_dual(sm.props.gamma_turb[k])))
-    A_p1 = (4π *ρ_cc_p1* r_cc_p1^2)^2 * Λ_cc_p1 * α_w * sqrt(ω_cc_p1)
+    A_p1 = (4π *ρ_cc_p1* r_cc_p1^2)^2 * Λ_cc_p1 * α_w * sqrt(ω_cc_p1 )
     F_p1 = (A_p1 / sm.props.dm[k+1]) * (exp(get_p1_dual(sm.props.gamma_turb[k+1])) - exp(get_00_dual(sm.props.gamma_turb[k])))
 
     # Calculation of all terms for residual 
@@ -302,7 +323,14 @@ else
     rad_dissipation_term = ω_face_00 / τᵣ_face_00
     excess_term = C_d * (c_s_face_00 * 1e-7)^3 / Λ_face_00  
     normalized_mixing = mixing_term/ (abs(source_term) + abs(excess_term) + abs(turb_dissipation_term) + abs(rad_dissipation_term))
+    factor = sqrt(r_face_00^3/(CGRAV * m_cell_00))* (ρ_face_00/P_face_00)
+    scaled_source_term = (source_term + excess_term) * factor
+    scaled_dissipation_term = ( turb_dissipation_term + rad_dissipation_term ) * factor 
+    s_term = (source_term + excess_term)
+    dissipation_term = ( turb_dissipation_term + rad_dissipation_term )
+    u = 3/2 * P_face_00/ρ_face_00 + a_rad * T_face_00^4/ρ_face_00
     end 
+
 integration_dm = 0.0
         if k == sm.props.nz
             integration_dm = sm.props.dm[k]
@@ -320,20 +348,21 @@ total_excess_term += excess_term * integration_dm
 
 ω_new = ω_face_00 
 ω_old = exp(get_value(sm.start_step_props.gamma_turb[k]))
-        
+total_u += u * integration_dm     
 total_E_turb_new += ω_new * integration_dm
 total_E_turb_old += ω_old * integration_dm
 end 
 
 delta_E_actual = total_E_turb_new - total_E_turb_old
-delta_E_actual = total_omega_var_term * sm.props.dt
-total_physics_rate = total_source_term - total_turb_dissipation_term - total_rad_dissipation_term + total_excess_term + total_mixing_term
+#delta_E_actual = total_omega_var_term * sm.props.dt
+total_physics_rate = total_source_term - total_turb_dissipation_term - total_rad_dissipation_term + total_excess_term - total_mixing_term
 delta_E_expected = total_physics_rate * sm.props.dt
 
-abs_error = delta_E_actual - delta_E_expected
-relative_error = abs_error / (total_E_turb_new + 1e-50)
+abs_error = delta_E_actual - delta_E_expected # not actually absolute 
+turb_energy_frac = total_E_turb_new/total_u
+relative_error = abs_error / (total_u)
 total_normalized_mixing = total_mixing_term * sm.props.dt/total_E_turb_new
-    return return (
+    return (
     ForwardDiff.value(total_source_term),
     ForwardDiff.value(total_mixing_term),
     ForwardDiff.value(total_omega_var_term),
@@ -342,10 +371,413 @@ total_normalized_mixing = total_mixing_term * sm.props.dt/total_E_turb_new
     ForwardDiff.value(total_excess_term),
     ForwardDiff.value(total_normalized_mixing), 
     ForwardDiff.value(abs_error),
-    ForwardDiff.value(relative_error)
+    ForwardDiff.value(relative_error),
+    ForwardDiff.value(total_E_turb_new),
+    ForwardDiff.value(turb_energy_frac)
 )
 end 
 
+function get_D_turb(sm::StellarModel, k:: Int)
+    α_w   = 0.25
+    r = exp(get_00_dual(sm.props.lnr[k]))
+    P = exp(get_00_dual(sm.props.lnP_face[k]))
+    ρ = exp(get_00_dual(sm.props.lnρ_face[k]))
+    
+    γ_face_00 = get_00_dual(sm.props.gamma_turb[k])
+    ω = exp(γ_face_00)
+    m = sm.props.m[k]
+
+    g = CGRAV * m / (r^2)
+    Hp = P / ( ρ * g)
+    Λ = 1/(1/Hp + 1/r)
+    v = sqrt(2 * ω)
+    D = α_w * Λ * sqrt(2 * ω)
+
+    return ForwardDiff.value(D)
+
+end 
+
+function get_lambda_turb(sm::StellarModel, k:: Int)
+    α_w   = 0.25
+    r = exp(get_00_dual(sm.props.lnr[k]))
+    P = exp(get_00_dual(sm.props.lnP_face[k]))
+    ρ = exp(get_00_dual(sm.props.lnρ_face[k]))
+    
+    γ_face_00 = get_00_dual(sm.props.gamma_turb[k])
+    ω = exp(γ_face_00)
+    m = sm.props.m[k]
+
+    g = CGRAV * m / (r^2)
+    Hp = P / ( ρ * g)
+    Λ = 1/(1/Hp + 1/r)
+    v = sqrt(2 * ω)
+    D = α_w * Λ * sqrt(2 * ω)
+
+    return ForwardDiff.value(Λ)
+
+end 
+
+# function get_D_cc_turb(sm::StellarModel, k:: Int)
+#     α_w   = 0.25
+#     if k == 1 
+
+#     r = exp(get_00_dual(sm.props.lnr[k])) 
+#     P = exp(get_00_dual(sm.props.lnP_face[k]))
+#     ρ = exp(get_00_dual(sm.props.lnρ_face[k]))
+    
+#     γ_face_00 = get_00_dual(sm.props.gamma_turb[k])
+#     ω = exp(γ_face_00)
+#     m = sm.props.m[k]
+
+#     else 
+#     r = exp(get_00_dual(sm.props.lnr[k])) - 0.5 * (exp(get_00_dual(sm.props.lnr[k])) -  exp(get_m1_dual(sm.props.lnr[k-1])))
+#     P = get_00_dual(sm.props.eos_res[k].P)
+#     ρ = get_00_dual(sm.props.eos_res[k].ρ)
+
+
+    
+
+#     g = CGRAV * m / (r^2)
+#     Hp = P / ( ρ * g)
+#     Λ = 1/(1/Hp + 1/r)
+#     v = sqrt(2 * ω)
+#     D = α_w * Λ * sqrt(2 * ω)
+
+#     return ForwardDiff.value(D)
+
+# end 
+
+# function calculate_profiles(sm::StellarModel, k::Int)
+#     ###Constants###
+#     C_d = 8/3 * sqrt(2/3)
+#     α_w = 0.25 
+    
+#     # Initialize variables to ensure they exist for the return statement
+#     # factor = 0.0
+#     # scaled_source_term = 0.0
+#     # scaled_dissipation_term = 0.0
+#     # s_term = 0.0
+#     # dissipation_term = 0.0
+
+#     ## Outer boundary condition (k = 1)
+#     if k == 1
+#         ### face Values required for calculating all the other terms except mixing term ### 
+#         ### EOS results are defined at the face for k = 1 and k = nz 
+#         γ_face_00 = ForwardDiff.value(get_00_dual(sm.props.gamma_turb[k]))
+#         ω_face_00 = exp(γ_face_00)  ###
+#         dm_cell_00 = sm.props.dm[k] 
+#         m_cell_00 = sm.props.m[k]
+#         r_face_00 = exp(ForwardDiff.value(get_00_dual(sm.props.lnr[k])))
+#         P_face_00 = ForwardDiff.value(get_00_dual(sm.props.eos_res[k].P))
+#         ρ_face_00 = ForwardDiff.value(get_00_dual(sm.props.eos_res[k].ρ))
+#         T_face_00 = ForwardDiff.value(get_00_dual(sm.props.eos_res[k].T))
+#         κ_face_00  = ForwardDiff.value(get_00_dual(sm.props.κ[k])) 
+#         ∇ₐ_face_00 = ForwardDiff.value(get_00_dual(sm.props.eos_res[k].∇ₐ))
+#         cₚ_face_00 = ForwardDiff.value(get_00_dual(sm.props.eos_res[k].cₚ))
+#         L_face_00  = ForwardDiff.value(get_00_dual(sm.props.L[k])) * LSUN
+        
+#         Hₚ_face_00 = P_face_00 / (ρ_face_00 * m_cell_00 * CGRAV / r_face_00^2)
+#         Λ_face_00 = 1 / (1 / Hₚ_face_00 + 1 / r_face_00)
+#         ∇ᵣ_face_00 = (3 * κ_face_00 * L_face_00 * P_face_00) / (16π * CRAD * CLIGHT * CGRAV * m_cell_00 * T_face_00^4)
+#         τᵣ_face_00 = (cₚ_face_00 * κ_face_00 * ρ_face_00^2 * Λ_face_00^2) / (48 * SIGMA_SB * T_face_00^3)
+#         c_s_face_00 = sqrt(P_face_00 / ρ_face_00)
+#         k_rad_face_00 = (16 * SIGMA_SB * T_face_00^3) / (3 * κ_face_00 * ρ_face_00)  ##
+#         α₂_face_00 = ρ_face_00 * cₚ_face_00 * 0.5 * sqrt(2 / 3) * Λ_face_00 * sqrt(ω_face_00)
+#         α₁_face_00 = ∇ₐ_face_00 * T_face_00 * Λ_face_00 * 0.5 * sqrt(2 / 3) * cₚ_face_00 / Hₚ_face_00^2
+        
+#         # Note: start_step_props is already a value, no need for ForwardDiff.value there
+#         dgammadt_face_00 = (ω_face_00 - exp(get_value(sm.start_step_props.gamma_turb[k]))) / sm.props.dt
+#         omega_var_term = dgammadt_face_00 
+#         SA_face_00 = (∇ᵣ_face_00 - ∇ₐ_face_00) * (1 + α₂_face_00 / k_rad_face_00)^(-1)
+
+#         source_term = α₁_face_00 * SA_face_00 *sqrt(ω_face_00)
+#         turb_dissipation_term = C_d * (ω_face_00)^(3/2) / Λ_face_00
+#         rad_dissipation_term = ω_face_00 / τᵣ_face_00
+#         excess_term = C_d * (c_s_face_00 * 1e-7)^3 / Λ_face_00
+        
+#         factor = sqrt(r_face_00^3/(CGRAV * m_cell_00))* (ρ_face_00/P_face_00)
+#         scaled_source_term = (source_term + excess_term) * factor
+#         scaled_dissipation_term = ( turb_dissipation_term + rad_dissipation_term ) * factor 
+#         s_term = (source_term + excess_term)
+#         dissipation_term = ( turb_dissipation_term + rad_dissipation_term )
+
+#     elseif k == sm.props.nz
+
+#        # ==============================================================================
+#         # 1. THERMODYNAMICS & GEOMETRY (From EOS Results = Face Values)
+#         # ==============================================================================
+#         # As per instruction: EOS results here are defined at the face
+#         γ_face_00 = ForwardDiff.value(get_00_dual(sm.props.gamma_turb[k]))
+#         ω_face_00 = exp(γ_face_00)
+        
+#         dm_cell_00 = sm.props.dm[k]
+#         m_face_00  = sm.props.m[k] # Mass at the outer boundary
+#         r_face_00  = exp(ForwardDiff.value(get_00_dual(sm.props.lnr[k])))
+#         L_face_00  = ForwardDiff.value(get_00_dual(sm.props.L[k])) * LSUN
+        
+#         # Thermodynamics directly from EOS (treated as Face values)
+#         P_face_00  = ForwardDiff.value(get_00_dual(sm.props.eos_res[k].P))
+#         ρ_face_00  = ForwardDiff.value(get_00_dual(sm.props.eos_res[k].ρ))
+#         T_face_00  = ForwardDiff.value(get_00_dual(sm.props.eos_res[k].T))
+        
+#         # Opacity and gradients (Assuming these are available in props or eos_res)
+#         κ_face_00  = ForwardDiff.value(get_00_dual(sm.props.κ[k])) 
+#         ∇ₐ_face_00 = ForwardDiff.value(get_00_dual(sm.props.eos_res[k].∇ₐ))
+#         cₚ_face_00 = ForwardDiff.value(get_00_dual(sm.props.eos_res[k].cₚ))
+
+#         Hₚ_face_00 = P_face_00 / (ρ_face_00 * m_face_00 * CGRAV / r_face_00^2)
+#         Λ_face_00  = 1 / (1 / Hₚ_face_00 + 1 / r_face_00)
+        
+#         ∇ᵣ_face_00 = (3 * κ_face_00 * L_face_00 * P_face_00) / (16π * CRAD * CLIGHT * CGRAV * m_face_00 * T_face_00^4)
+#         τᵣ_face_00 = (cₚ_face_00 * κ_face_00 * ρ_face_00^2 * Λ_face_00^2) / (48 * SIGMA_SB * T_face_00^3)
+#         c_s_face_00 = sqrt(P_face_00 / ρ_face_00)
+#         k_rad_face_00 = (16 * SIGMA_SB * T_face_00^3) / (3 * κ_face_00 * ρ_face_00)
+        
+#         α₂_face_00 = ρ_face_00 * cₚ_face_00 * 0.5 * sqrt(2 / 3) * Λ_face_00 * sqrt(ω_face_00)
+#         α₁_face_00 = ∇ₐ_face_00 * T_face_00 * Λ_face_00 * 0.5 * sqrt(2 / 3) * cₚ_face_00 / Hₚ_face_00^2
+#         SA_face_00 = (∇ᵣ_face_00 - ∇ₐ_face_00) * (1 + α₂_face_00 / k_rad_face_00)^(-1)
+        
+#         dgammadt_face_00 = (ω_face_00 - exp(get_value(sm.start_step_props.gamma_turb[k]))) / sm.props.dt
+#         omega_var_term = dgammadt_face_00 
+        
+#         source_term = α₁_face_00 * SA_face_00 * sqrt(ω_face_00)
+#         turb_dissipation_term = C_d * (ω_face_00)^(3/2) / Λ_face_00
+#         rad_dissipation_term = ω_face_00 / τᵣ_face_00
+#         excess_term = C_d * (c_s_face_00 * 1e-7)^3 / Λ_face_00
+        
+#         factor = sqrt(r_face_00^3/(CGRAV * m_face_00))* (ρ_face_00/P_face_00)
+#         scaled_source_term = (source_term + excess_term) * factor
+#         scaled_dissipation_term = ( turb_dissipation_term + rad_dissipation_term ) * factor 
+#         s_term = (source_term + excess_term)
+#         dissipation_term = ( turb_dissipation_term + rad_dissipation_term )
+
+#     ### Other Calculations : 1 < k < nz ###
+#     else
+
+#         ### face Values are required for all other terms except the mixing term ###
+#         γ_face_00 = ForwardDiff.value(get_00_dual(sm.props.gamma_turb[k]))
+#         ω_face_00 = exp(γ_face_00) ###
+#         dm_cell_00 = sm.props.dm[k] 
+#         m_cell_00 = sm.props.m[k]
+#         r_face_00 = exp(ForwardDiff.value(get_00_dual(sm.props.lnr[k])))
+#         P_face_00 = exp(ForwardDiff.value(get_00_dual(sm.props.lnP_face[k])))
+#         ρ_face_00 = exp(ForwardDiff.value(get_00_dual(sm.props.lnρ_face[k])))
+#         T_face_00 = exp(ForwardDiff.value(get_00_dual(sm.props.lnT_face[k])))
+#         κ_face_00 = ForwardDiff.value(get_00_dual(sm.props.κ_face[k]))
+#         ∇ₐ_face_00 = ForwardDiff.value(get_00_dual(sm.props.∇ₐ_face[k]))
+#         cₚ_face_00 = ForwardDiff.value(get_00_dual(sm.props.cₚ_face[k]))
+#         L_face_00 = ForwardDiff.value(get_00_dual(sm.props.L[k])) * LSUN
+
+#         Hₚ_face_00 = P_face_00 / (ρ_face_00 * m_cell_00 * CGRAV / r_face_00^2)
+#         Λ_face_00 = 1 / (1 / Hₚ_face_00 + 1 / r_face_00)
+#         ∇ᵣ_face_00 = (3 * κ_face_00 * L_face_00 * P_face_00) / (16π * CRAD * CLIGHT * CGRAV * m_cell_00 * T_face_00^4)
+#         τᵣ_face_00 = (cₚ_face_00 * κ_face_00 * ρ_face_00^2 * Λ_face_00^2) / (48 * SIGMA_SB * T_face_00^3)
+#         c_s_face_00 = sqrt(P_face_00 / ρ_face_00)
+#         k_rad_face_00 = (16 * SIGMA_SB * T_face_00^3) / (3 * κ_face_00 * ρ_face_00)  ##
+#         α₂_face_00 = ρ_face_00 * cₚ_face_00 * 0.5 * sqrt(2 / 3) * Λ_face_00 * sqrt(ω_face_00)
+#         α₁_face_00 = ∇ₐ_face_00 * T_face_00 * Λ_face_00 * 0.5 * sqrt(2 / 3) * cₚ_face_00 / Hₚ_face_00^2
+#         SA_face_00 = (∇ᵣ_face_00 - ∇ₐ_face_00) * (1 + α₂_face_00 / k_rad_face_00)^(-1)
+#         dgammadt_face_00 = (ω_face_00- exp(get_value(sm.start_step_props.gamma_turb[k]))) / sm.props.dt
+#         omega_var_term = dgammadt_face_00  
+#         source_term = α₁_face_00 * SA_face_00 * sqrt(ω_face_00)
+#         turb_dissipation_term = C_d * (ω_face_00)^(3/2) / Λ_face_00
+#         rad_dissipation_term = ω_face_00 / τᵣ_face_00
+#         excess_term = C_d * (c_s_face_00 * 1e-7)^3 / Λ_face_00  
+        
+#         factor = sqrt(r_face_00^3/(CGRAV * m_cell_00))* (ρ_face_00/P_face_00)
+#         scaled_source_term = (source_term + excess_term) * factor
+#         scaled_dissipation_term = ( turb_dissipation_term + rad_dissipation_term ) * factor 
+#         s_term = (source_term + excess_term)
+#         dissipation_term = ( turb_dissipation_term + rad_dissipation_term )
+#     end
+#     # if k == 50 # Pick a cell in the middle of the star
+#     #     println("\n--- DEBUGGING CELL 50 ---")
+#     #     println("1. Factor (t_dyn/c_s^2): ", factor)
+#     #     println("2. Scaled Source (Should be ~1): ", scaled_source_term)
+#     #     println("4. Physical Source (Should be HUGE): ", s_term)
+#     #     println("-------------------------\n")
+        
+#     # end
+#     return factor, scaled_source_term, scaled_dissipation_term, s_term, dissipation_term
+# end
+
+#### ====== End of equation ======= #####
+"""
+Beginning of function for setting up alpha_overshoot history functions
+"""
+
+# function interpolate_boundary_live(sm::StellarModel, i_rad::Int)
+#     i_conv = i_rad - 1
+    
+#     #Radius 
+#     logr_rad  = get_value(sm.props.lnr[i_rad])
+#     logr_conv = get_value(sm.props.lnr[i_conv])
+#     #Pressure
+#     P_rad  = get_value(sm.props.eos_res[i_rad].P)
+#     P_conv = get_value(sm.props.eos_res[i_conv].P)
+#     #density 
+#     logρ_rad  = get_value(sm.props.lnρ[i_rad])
+#     logρ_conv = get_value(sm.props.lnρ[i_conv])
+#     #mass
+#     m_rad  = sm.props.m[i_rad] 
+#     m_conv = sm.props.m[i_conv]
+
+#     # Delta-Nabla (Δ∇ = ∇_rad - ∇_ad)
+#     dnabla_rad  = get_value(sm.props.turb_res[i_rad].∇ᵣ) - get_value(sm.props.∇ₐ_face[i_rad])
+#     dnabla_conv = get_value(sm.props.turb_res[i_conv].∇ᵣ) - get_value(sm.props.∇ₐ_face[i_conv])
+    
+#     # 2. Linear Interpolation Calculation
+#     dnabla_total = dnabla_rad - dnabla_conv
+    
+#     if abs(dnabla_total) < 1e-12 
+#         # Avoid division by zero: return the midpoint if profiles are flat
+#         logr_sch = (logr_rad + logr_conv) / 2.0
+#         P_sch = (P_rad + P_conv) / 2.0
+#         logρ_sch = (logρ_rad + logρ_conv) / 2.0
+#         m_sch = (m_rad + m_conv) / 2.0
+#     else
+#         # Interpolation: logr_sch = logr_conv - Δ∇_conv * (Δlogr / Δ(Δ∇))
+#         logr_sch = logr_conv - dnabla_conv * (logr_rad - logr_conv) / dnabla_total
+#         P_sch = P_conv - dnabla_conv * (P_rad - P_conv) / dnabla_total
+#         logρ_sch = logρ_conv - dnabla_conv * (logρ_rad - logρ_conv) / dnabla_total
+#         m_sch = m_conv - dnabla_conv * (m_rad - m_conv) / dnabla_total
+#     end
+    
+#     # Return the interpolated natural log radius (ln r_sch)
+#     return logr_sch, P_sch, logρ_sch, m_sch
+# end
+
+# function interpolate_ov_boundary(sm::StellarModel, i_ov:: Int)
+#     if i_ov == 1 
+#         r_inner = 0 
+#         r_outer = exp(get_value(sm.props.lnr[1]))
+#         D_outer = get_value(sm.props.D_turb[1])
+#         D_inner = 0 
+#         diff_D = D_outer - D_inner 
+#         diff_r = r_outer - r_inner 
+#         slope = diff_D / diff_r
+#         logr_boundary = r_inner  + (1e5 - D_inner) / slope
+#     else 
+#     i_d = i_ov - 1 
+#     logr_d  = get_value(sm.props.lnr[i_d])
+#     logr_ov = get_value(sm.props.lnr[i_ov])
+
+#     D_ov = get_value(sm.props.D_turb[i_ov])
+#     D_d = get_value(sm.props.D_turb[i_d])
+
+#     diff_D = D_ov - D_d
+#     diff_r = logr_ov - logr_d
+#     slope = diff_D / diff_r
+
+#     logr_boundary = logr_d + (1e5 - D_d) / slope
+#     end 
+#     return logr_boundary
+# end
+# function calculate_overshoot_length(sm:: StellarModel) 
+    
+
+#     P_inner_face_00 = get_00_dual(sm.props.eos_res[1].P) #defined at the inner face 
+#     P_cc_p1 = get_p1_dual(sm.props.eos_res[2].P)
+#     ρ_inner_face_00 = get_00_dual(sm.props.eos_res[1].ρ) #defined at the inner face 
+#     ρ_cc_p1 = get_p1_dual(sm.props.eos_res[2].ρ)
+#     T_inner_face_00 = get_00_dual(sm.props.eos_res[1].T) #defined at the inner face 
+#     T_cc_p1 = get_p1_dual(sm.props.eos_res[2].T) 
+#     ∇ₐ_inner_face_00 = get_00_dual(sm.props.eos_res[1].∇ₐ) #defined at the inner face 
+#     ∇ₐ_cc_p1 = get_p1_dual(sm.props.eos_res[2].∇ₐ)
+#     κ_face_00  = get_00_dual(sm.props.κ[k])  #defined at outer face 
+#     L_face_00  = get_00_dual(sm.props.L[k]) * LSUN #defined at oyer face 
+#     P_face_00 = P_inner_face_00 + (P_cc_p1 - P_inner_face_00)*(m_cell_00/0.5*(sm.props.m[1] + sm.props.m[2]))
+#     ρ_face_00 = ρ_inner_face_00 + (ρ_cc_p1 - ρ_inner_face_00)*(m_cell_00/0.5*(sm.props.m[1] + sm.props.m[2]))
+#     T_face_00 = T_inner_face_00 + (T_cc_p1 - T_inner_face_00)*(m_cell_00/0.5*(sm.props.m[1] + sm.props.m[2]))
+#     ∇ₐ_face_00 = ∇ₐ_inner_face_00 + (∇ₐ_cc_p1 - ∇ₐ_inner_face_00)*(m_cell_00/0.5*(sm.props.m[1] + sm.props.m[2])) # defined at outer face 
+#     ∇ᵣ_face_00 =   3 * κ_face_00 * L_face_00 * P_face_00 / (16π * CRAD * CLIGHT * CGRAV * sm.props.m[1]  * T_face_00^4) #defined at outer face 
+#     OVERSHOOT_THRESHOLD = 1e5
+    
+#     nz_exterior  = sm.props.nz - 1 
+#     i_Sch = nothing
+    
+
+#     if ∇ᵣ_face_00 < ∇ₐ_face_00
+#         # Case A: Cell 1 is Radiative. 
+#         # The boundary is INSIDE the first cell (between Center and k=1).
+#         i_Sch = 1
+#     else
+#         # Case B: Cell 1 is Convective.
+#         # The boundary is somewhere further out. Scan k=2..nz
+#         for k in 2:nz_interior
+#             nabla_ad = get_value(sm.props.∇ₐ_face[k])
+#             nabla_rad = get_value(sm.props.turb_res[k].∇ᵣ)
+
+#             if nabla_ad > nabla_rad
+#                 i_Sch = k
+#                 break
+#             end   
+#         end 
+        
+#     if isnothing(i_Sch)
+#          return 0.0
+#     end
+    
+#     if i_Sch == 1
+#         r_outer = exp(get_value(sm.props.lnr[1]))
+#         r_inner = 0.0
+#         dn_inner = 1e-5 # Assumed slightly convective center 
+#         # Linear Fraction
+#         denom = dn_outer - dn_inner
+#         f = (abs(denom) > 1e-25) ? -dn_inner / denom : 0.0 
+#         r_boundary = r_inner + f * (r_outer - r_inner)
+#         P_boundary = P_inner_face_00 + f*(P_face_00 - P_inner_face_00)
+#         ρ_boundary = ρ_inner_face_00 + f*(ρ_face_00 - ρ_inner_face_00)
+#         m_boundary = f * sm.props.m[1]
+
+#     else 
+#     # Interpolate to find boundary properties
+#     logr_sch, logP_sch, logρ_sch, m_sch = interpolate_boundary_live(sm, i_Sch)
+#     P_boundary = logP_sch
+#     ρ_boundary = exp(logρ_sch)
+#     r_boundary = exp(logr_sch) # Radius in cm
+#     m_boundary = m_sch
+#     end
+
+#     HP_Sch = P_boundary / (ρ_boundary * CGRAV * m_boundary / r_boundary^2)
+
+    
+#     i_ov = nothing
+#     start_k = (i_Sch == 1) ? 1 : i_Sch
+#     #todo : calculate overshoot length using interpolation 
+#     for k = start_k:nz_exterior
+#         D_turb = get_value(sm.props.D_turb[k])
+#         if D_turb < OVERSHOOT_THRESHOLD
+#             i_ov = k
+#             break
+#         end
+#     end
+    
+#     if isnothing(i_ov)
+#         # If mixing doesn't fall below threshold before the surface
+#         return 0.0 
+#     end
+
+#     logr_ov = interpolate_ov_boundary(sm, i_ov) #Redundant calculations 
+#     if i_ov == 1
+#     r_overshoot = logr_ov # Radius in cm 
+#     else 
+#     r_overshoot = exp(logr_ov)
+#     end 
+   
+#     overshooting_distance_cm = abs(r_overshoot - r_boundary)
+#     alpha_ov = overshooting_distance_cm / HP_Sch
+    
+#     return alpha_ov 
+# end
+
+# function get_overshoot(sm)
+#     # Calls the calculation function and extracts the pure numerical value.
+#     return calculate_overshoot_length(sm)
+# end
+"""
+End of function 
+"""
 
 
 #### ====== End of equation ======= #####
@@ -360,11 +792,11 @@ function interpolate_boundary_live(sm::StellarModel, i_rad::Int)
     logr_rad  = get_value(sm.props.lnr[i_rad])
     logr_conv = get_value(sm.props.lnr[i_conv])
     #Pressure
-    logP_rad  = get_value(sm.props.eos_res[i_rad].P)
-    logP_conv = get_value(sm.props.eos_res[i_conv].P)
+    logP_rad  = get_value(sm.props.lnP_face[i_rad])
+    logP_conv = get_value(sm.props.lnP_face[i_conv])
     #density 
-    logρ_rad  = get_value(sm.props.lnρ[i_rad])
-    logρ_conv = get_value(sm.props.lnρ[i_conv])
+    logρ_rad  = get_value(sm.props.lnρ_face[i_rad])
+    logρ_conv = get_value(sm.props.lnρ_face[i_conv])
     #mass
     m_rad  = sm.props.m[i_rad] 
     m_conv = sm.props.m[i_conv]
@@ -373,7 +805,7 @@ function interpolate_boundary_live(sm::StellarModel, i_rad::Int)
     dnabla_rad  = get_value(sm.props.turb_res[i_rad].∇ᵣ) - get_value(sm.props.∇ₐ_face[i_rad])
     dnabla_conv = get_value(sm.props.turb_res[i_conv].∇ᵣ) - get_value(sm.props.∇ₐ_face[i_conv])
     
-    # 2. Linear Interpolation Calculation
+    # Linear Interpolation Calculation
     dnabla_total = dnabla_rad - dnabla_conv
     
     if abs(dnabla_total) < 1e-12 
@@ -399,14 +831,31 @@ function interpolate_ov_boundary(sm::StellarModel, i_ov:: Int)
     logr_d  = get_value(sm.props.lnr[i_d])
     logr_ov = get_value(sm.props.lnr[i_ov])
 
-    D_ov = get_value(sm.props.D_turb[i_ov])
-    D_d = get_value(sm.props.D_turb[i_d])
+    # D_ov = get_value(sm.props.D_turb[i_ov])
+    # D_d = get_value(sm.props.D_turb[i_d])
 
-    diff_D = D_ov - D_d
+    D_ov = get_D_turb(sm, i_ov)
+    D_d = get_D_turb(sm, i_d)
+    #Logarithmic interpolation 
+    #Putting a safer lower limit 
+    D_ov_safe = max(D_ov, 1e-20)
+    D_d_safe = max(D_d, 1e-20)
+    target_logD = log10(1e5)
+    logD_ov = log(D_ov_safe)
+    logD_d = log(D_d_safe)
+
+    # diff_D = D_ov - D_d
+    diff_logD = logD_ov - logD_d
     diff_r = logr_ov - logr_d
-    slope = diff_D / diff_r
 
-    logr_boundary = logr_d + (1e5 - D_d) / slope
+    # Avoid div by zero
+    if abs(diff_logD) < 1e-15
+        return (logr_ov + logr_d) / 2.0
+    end
+
+    slope = diff_logD / diff_r
+
+    logr_boundary = logr_d + (target_logD - logD_d) / slope
     return logr_boundary
 end
 function calculate_overshoot_length(sm:: StellarModel) 
@@ -434,7 +883,7 @@ function calculate_overshoot_length(sm:: StellarModel)
     
     # Interpolate to find boundary properties
     logr_sch, logP_sch, logρ_sch, m_sch = interpolate_boundary_live(sm, i_Sch)
-    P_boundary = logP_sch
+    P_boundary = exp(logP_sch)
     ρ_boundary = exp(logρ_sch)
     r_boundary = exp(logr_sch) # Radius in cm
     m_boundary = m_sch
@@ -444,9 +893,9 @@ function calculate_overshoot_length(sm:: StellarModel)
     
     i_ov = nothing
 
-    #todo : calculate overshoot length using interpolation 
+    #calculate overshoot length using interpolation 
     for k = i_Sch + 1:nz_interior
-        D_turb = get_value(sm.props.D_turb[k])
+        D_turb = get_D_turb(sm,k)
         if D_turb < OVERSHOOT_THRESHOLD
             i_ov = k
             break
@@ -455,7 +904,7 @@ function calculate_overshoot_length(sm:: StellarModel)
     
     if isnothing(i_ov)
         # If mixing doesn't fall below threshold before the surface
-        return 0.0 
+        return (0.0,  ForwardDiff.value(r_boundary), ForwardDiff.value(HP_Sch),0.0, 0.0)
     end
     logr_ov = interpolate_ov_boundary(sm, i_ov) #Redundant calculations 
     r_overshoot = exp(logr_ov) # Radius in cm 
@@ -463,13 +912,14 @@ function calculate_overshoot_length(sm:: StellarModel)
     overshooting_distance_cm = abs(r_overshoot - r_boundary)
     alpha_ov = overshooting_distance_cm / HP_Sch
     
-    return alpha_ov 
+    return (ForwardDiff.value(alpha_ov), ForwardDiff.value(r_boundary), ForwardDiff.value(HP_Sch), ForwardDiff.value(r_overshoot), ForwardDiff.value(overshooting_distance_cm))
 end
 
-function get_overshoot(sm)
-    # Calls the calculation function and extracts the pure numerical value.
-    return calculate_overshoot_length(sm)
-end
+# function get_overshoot(sm)
+#     # Calls the calculation function and extracts the pure numerical value.
+#     return calculate_overshoot_length(sm)
+# end
+
 """
 End of function 
 """
@@ -530,7 +980,11 @@ function setup_model_history_functions!(sm::StellarModel)
     add_history_option!(sm, "dt", "year", sm -> sm.props.dt / SECYEAR, label=L"\Delta t\,[\text{yr}]")
     add_history_option!(sm, "model_number", "unitless", sm -> sm.props.model_number, label=L"\text{Model Number}")
     add_history_option!(sm, "star_mass", "Msun", sm -> sm.props.mstar / MSUN, label=L"\text{Mass}\,[M_\odot]")
-    add_history_option!(sm, "alpha_overshoot", "H_p", get_overshoot, label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
+    add_history_option!(sm, "alpha_overshoot", "H_p", sm ->calculate_overshoot_length(sm)[1], label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
+    add_history_option!(sm, "Sch_radius", "Rsun", sm ->calculate_overshoot_length(sm)[2], label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
+    add_history_option!(sm, "pressure_scale_height", "unitless", sm ->calculate_overshoot_length(sm)[3], label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
+    add_history_option!(sm, "ov_radius", "unitless", sm ->calculate_overshoot_length(sm)[4], label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
+    add_history_option!(sm, "ov_distance", "unitless", sm ->calculate_overshoot_length(sm)[5], label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
     # surface properties
     add_history_option!(sm, "R_surf", "Rsun", sm -> exp(get_value(sm.props.lnr[sm.props.nz])) / RSUN, label=L"R_\text{surf}\,[R_\odot]")
     add_history_option!(sm, "L_surf", "Lsun", sm -> get_value(sm.props.L[sm.props.nz]), label=L"\text{surf}\,[L_\odot]")
@@ -557,6 +1011,8 @@ function setup_model_history_functions!(sm::StellarModel)
     add_history_option!(sm, "budget_abs_error", "erg", sm -> Energy_cal(sm)[8], label=L"E_\text{abs_err,ex}")
     add_history_option!(sm, "budget_rel_error", "unitless", sm -> Energy_cal(sm)[9], label=L"E_\text{rek_err,ex}")
     add_history_option!(sm,"budget_norm_mix", "unitless", sm -> Energy_cal(sm)[7], label = L"E_\text{Norm_mix}" )
+    add_history_option!(sm,"budget_turb_energy", "erg", sm -> Energy_cal(sm)[10], label = L"E_\text{E_t}" )
+    add_history_option!(sm, "budget_energy_frac","unitless", sm -> Energy_cal(sm)[11], label = L"E_\text{E_t}")
     # add species
     for j in eachindex(sm.network.species_names)
         species = sm.network.species_names[j]
@@ -623,7 +1079,43 @@ function setup_model_profile_functions!(sm::StellarModel)
     add_profile_option!(sm, "turb_energy", "unitless", (sm, k) -> (exp(get_value(sm.props.gamma_turb[k]))))
     add_profile_option!(sm, "nabla_tdc", "unitless", get_nabla_tdc)
     add_profile_option!(sm, "D_face_kuhfuss", "unitless", (sm, k) -> get_value(sm.props.D_turb[k]))
+    add_profile_option!(sm, "D", "unitless", get_D_turb )
+    add_profile_option!(sm, "lamda", "unitless", get_lambda_turb )
+    # add_profile_option!(sm, "v", "unitless", get_D_turb[3] )
+    #Scaling checks 
+    # --- NON-DIMENSIONAL SCALING CHECKS ---
 
+    # # 1. Scaling Factor (Index 1)
+    # add_profile_option!(sm, "scaling_factor", "s^3/cm^2", 
+    #     (sm, k) -> calculate_profiles(sm, k)[1], 
+    #     label=L"\text{Scaling Factor } (t_{dyn}/c_s^2)"
+    # )
+
+    # # 2. Scaled Source Term (Index 2)
+    # add_profile_option!(sm, "scaled_source", "unitless", 
+    #     (sm, k) -> calculate_profiles(sm, k)[2],
+    #     label=L"\text{Scaled Source}"
+    # )
+
+    # # 3. Scaled Dissipation Term (Index 3)
+    # add_profile_option!(sm, "scaled_dissipation", "unitless", 
+    #     (sm, k) -> calculate_profiles(sm, k)[3],
+    #     label=L"\text{Scaled Dissipation}"
+    # )
+
+    # # --- RAW PHYSICAL TERMS (Optional, for reference) ---
+
+    # # 4. Physical Source + Excess (Index 4)
+    # add_profile_option!(sm, "phys_source", "erg/s/cm^3", 
+    #     (sm, k) -> calculate_profiles(sm, k)[4],
+    #     label=L"\text{Source } [\text{erg s}^{-1} \text{cm}^{-3}]"
+    # )
+
+    # # 5. Physical Dissipation (Index 5)
+    # add_profile_option!(sm, "phys_dissipation", "erg/s/cm^3", 
+    #     (sm, k) -> calculate_profiles(sm, k)[5],
+    #     label=L"\text{Dissipation } [\text{erg s}^{-1} \text{cm}^{-3}]"
+    # )
     
 end
 

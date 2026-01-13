@@ -16,7 +16,7 @@ using Jems.Evolution
 using Jems.Plotting
 using Jems.ReactionRates
 using Jems.DualSupport
-
+using BenchmarkTools
 
 function split_omega(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
     # use same omega in both cells to preserve energy
@@ -47,10 +47,10 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
                        Evolution.gammaTurb]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa, split_omega]
-net = NuclearNetwork([:H1, :He4], [(:kipp_rates, :kipp_pp)])
+net = NuclearNetwork([:H1, :He4,:C12, :N14, :O16], [(:kipp_rates, :kipp_pp),(:kipp_rates, :kipp_cno)])
 # net2 = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_cno)])
 # net = merge_nuclear_networks([net1, net2])
-nz = 1000
+nz = 2000
 nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
@@ -100,28 +100,29 @@ end
 StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
 Evolution.eval_jacobian_eqs!(sm)
 #=
-
+##
 To benchmark the linear solver itself we need to perform
 the jacobian evaluation as a setup for the benchmark. This is because the solver
 destroys the Jacobian to perform in-place operations.
 =#
-
+##
 @benchmark begin
     Evolution.thomas_algorithm!($sm)
 end setup=(Evolution.eval_jacobian_eqs!($sm))
-
 ##
-#=
-### Evolving our model
 
-We can now evolve our star! We will initiate a $1M_\odot$ star with a radius of $100R_\odot$ using an n=3 polytrope.
-The star is expected to contract until it ignites hydrogen. We set a few options for the simulation with a
-toml file, which we generate dynamically. These simulation should complete in about a thousand steps once it reaches the
-`max_center_T` limit.
+# ##
+# #=
+# ### Evolving our model
 
-Output is stored in HDF5 files, and easy to use functions are provided with the `StellarModels` module to turn these HDF5
-files into DataFrame objects. HDF5 output is compressed by default.
-=#
+# We can now evolve our star! We will initiate a $1M_\odot$ star with a radius of $100R_\odot$ using an n=3 polytrope.
+# The star is expected to contract until it ignites hydrogen. We set a few options for the simulation with a
+# toml file, which we generate dynamically. These simulation should complete in about a thousand steps once it reaches the
+# `max_center_T` limit.
+
+# Output is stored in HDF5 files, and easy to use functions are provided with the `StellarModels` module to turn these HDF5
+# files into DataFrame objects. HDF5 output is compressed by default.
+# =#
 open("example_options.toml", "w") do file
     write(file,
           """
@@ -134,7 +135,7 @@ open("example_options.toml", "w") do file
           newton_max_iter = 200
           scale_max_correction = 1.0
           solver_progress_iter = 1
-          relative_correction_tolerance = 1e10
+          relative_correction_tolerance = 1e8
           maximum_residual_tolerance = 1e-4
           [timestep]
           dt_max_increase = 1.5
@@ -143,21 +144,21 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 100000
-          max_center_T = 1e8
-          
-
+          max_model_number = 1750
+          max_center_T = 1e10
           
           [io]
-          profile_interval = 50
+          profile_interval = 1
 
           terminal_header_interval = 100
           terminal_info_interval = 100
-          profile_values = ["zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity",
-                                      "X", "Y","D_face", "nabla_a_face", "nabla_r_face","nabla_face", "nabla_tdc","velocity_turb","turb_energy", "D_face_kuhfuss"]
-            history_values = ["age", "dt", "star_mass", "alpha_overshoot" , "budget_source","budget_mixing","budget_omega_var", "budget_diss_turb", "budget_diss_rad", "budget_diss_excess", "budget_abs_error", "budget_rel_error", "budget_norm_mix"] 
+          profile_values = ["D", "zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity",
+                                      "X", "Y","D_face", "nabla_a_face", "nabla_r_face","nabla_face", "nabla_tdc","velocity_turb","turb_energy", "D_face_kuhfuss", "lamda"]
+            history_values = ["model_number", "age", "dt", "star_mass", "budget_source","budget_mixing","budget_omega_var", "budget_diss_turb", "budget_diss_rad", "budget_diss_excess", "budget_rel_error", "budget_energy_frac","X_center", "alpha_overshoot","pressure_scale_height", "Sch_radius", "ov_radius", "ov_distance"]
+
           """)
 end
+
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
@@ -166,24 +167,24 @@ rm(sm.opt.io.hdf5_profile_filename; force=true)
 using GLMakie
 set_theme!(Plotting.basic_theme())
 f = Figure(size=(1400,750))
-hist_plot = Plotting.HistoryPlot(f[1,3], sm, x_name="age", y_name="alpha_overshoot", link_yaxes=true)
+hist_plot = Plotting.HistoryPlot(f[1,1], sm, x_name="age", y_name="alpha_overshoot", link_yaxes=true)
 ylims!(hist_plot.axis, 0, 0.5)
-plots = [Plotting.HRPlot(f[1,1]),
-         Plotting.TRhoProfile(f[1,2]),
-         Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
-         Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3),
-         Plotting.HistoryPlot(f[3,1], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
-         hist_plot,
-         Plotting.ProfilePlot(f[2,3], sm, x_name="mass", y_name="log10_rho", othery_name="log10_T")]
+plots = [ #Plotting.HRPlot(f[1,1]),
+#          Plotting.TRhoProfile(f[1,2]),
+#          Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
+#          Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3),
+#          Plotting.HistoryPlot(f[3,1], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
+         hist_plot]
+        #  Plotting.ProfilePlot(f[2,3], sm, x_name="mass", y_name="log10_rho", othery_name="log10_T")
 plotter = Plotting.Plotter(fig=f,plots=plots)
 # plotter = Plotting.NullPlotter()
 
 #set initial condition and run model
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+                                            5 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm, plotter=plotter);
-                                           
+#  "budget_source","budget_mixing","budget_omega_var", "budget_diss_turb", "budget_diss_rad", "budget_diss_excess", "budget_abs_error", "budget_rel_error", "budget_norm_mix","budget_turb_energy"] 
 
 ##
 #=
@@ -823,12 +824,24 @@ using CairoMakie
 history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
 age = history[!, "age"]
 lhs = history[!, "budget_omega_var"]
+a = history[!, "alpha_overshoot"]
+nonzero_indices = findall(history[!, "alpha_overshoot"] .> 1e-10)
 
+if !isempty(nonzero_indices)
+    first_index = nonzero_indices[1]
+    first_alpha = history[first_index, "alpha_overshoot"]
+    
+    println(first_index)
+else
+    println("Alpha never becomes non-zero in this simulation.")
+end
 
+b = history[517, ]
+##
 sources = history[!, "budget_source"] .+ history[!, "budget_diss_excess"]
 sinks   = history[!, "budget_diss_turb"] .+ history[!, "budget_diss_rad"] 
 mixing  = history[!, "budget_norm_mix"] 
-error = abs.(history[!,"budget_rel_error"])
+error = (history[!,"budget_rel_error"])
 
 residual = (lhs .- (sources .- sinks .+ mixing))
 
@@ -867,6 +880,8 @@ scatter!(ax1,
 
 axislegend(ax1, position = :rt) 
 f
+##
+
 # save("/home/ritavash/Desktop/Resources/convection_results/velocity_gradients.png", f)
 
 

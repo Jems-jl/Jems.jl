@@ -1,7 +1,6 @@
+##
 #=
-# NuclearBurning.jl
-
-This notebook provides a simple example of a star with simplified microphysics undergoing nuclear burning.
+# NuclearBurning.jl This notebook provides a simple example of a star with simplified microphysics undergoing nuclear burning.
 Import all necessary Jems modules. We will also do some benchmarks, so we import BenchmarkTools as well.
 =#
 using BenchmarkTools

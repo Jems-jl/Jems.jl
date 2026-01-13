@@ -213,6 +213,12 @@ function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullP
             println("Reached maximum central temperature")
             break
         end
+        if  (get_value(sm.props.xa[1]) < sm.opt.termination.min_center_H1)
+            StellarModels.write_terminal_info(sm; now=true)
+            println("Reached minimum Hydrogen fraction at centre")
+            break
+        end
+
 
         # get dt for coming step
         sm.props.dt_next = get_dt_next(sm)

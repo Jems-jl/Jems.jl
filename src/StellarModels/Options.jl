@@ -64,6 +64,7 @@ Substructure of Options containing controls relating to termination of the simul
 @kwdef mutable struct TerminationOptions
     max_model_number::Int = 1
     max_center_T::Float64 = 1e99
+    min_center_H1::Float64 = 0.0
 end
 
 """
