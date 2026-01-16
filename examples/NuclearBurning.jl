@@ -14,7 +14,7 @@ using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.Plotting
-
+include("RT_opacity.jl")
 ##
 #=
 ### Model creation
@@ -37,10 +37,11 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
-nz = 1000
+nz = 2000
 nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
+# my_opacity_instance = RT_table_opacity("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/oplib_agss09_z0.022_x0.7.data")
 turbulence = Turbulence.BasicMLT(1.0)
 sm = StellarModel(varnames, varscaling, structure_equations, Evolution.equation_composition,
                     nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
@@ -116,13 +117,15 @@ open("example_options.toml", "w") do file
           [solver]
           newton_max_iter_first_step = 1000
           initial_model_scale_max_correction = 0.2
-          newton_max_iter = 10
+          newton_max_iter = 100
           scale_max_correction = 0.1
+          solver_progress_iter = 1
+          relative_correction_tolerance = 1e7
 
           [timestep]
-          dt_max_increase = 1.5
-          delta_R_limit = 0.01
-          delta_Tc_limit = 0.01
+          dt_max_increase = 1.1
+          delta_R_limit = 0.005
+          delta_Tc_limit = 0.005
           delta_Xc_limit = 0.005
 
           [termination]
