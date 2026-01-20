@@ -45,7 +45,7 @@ opacity = Opacity.SimpleElectronScatteringOpacity()
 # my_opacity_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/")
 low_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/low_kap_data/")
 high_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/")
-Composite_Opacity_instance = CompositeOpacity(low_T_collection, high_T_collection, 3.5, 4.7)
+Composite_Opacity_instance = CompositeOpacity(low_T_collection, high_T_collection, 3, 5)
 turbulence = Turbulence.BasicMLT(1.0)
 sm = StellarModel(varnames, varscaling, structure_equations, Evolution.equation_composition,
                     nz, nextra, remesh_split_functions, net, eos, Composite_Opacity_instance, turbulence);

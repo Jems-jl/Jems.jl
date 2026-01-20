@@ -261,7 +261,7 @@ function Jems.Opacity.get_opacity_resultsTρ(collection :: Opacity_table_collect
     wx = damp_slope((X_dual - X0) / (X1 - X0))
     wz = damp_slope((Z_dual - Z0) / (Z1 - Z0))
 
-
+    
     t00 = collection.tables[ix,   iz]   # Low X, Low Z
     t10 = collection.tables[ix+1, iz]   # High X, Low Z
     t01 = collection.tables[ix,   iz+1] # Low X, High Z
@@ -283,10 +283,9 @@ function Jems.Opacity.get_opacity_resultsTρ(collection :: Opacity_table_collect
     limit = 50.0
     val_final = ForwardDiff.value(log_kappa_final)
     if val_final > limit
-         # Limit + tiny slope
-         log_kappa_final = limit + 1e-6 * (log_kappa_final - limit)
+         log_kappa_final = limit + 1e-6 * log_kappa_final
     elseif val_final < -limit
-         log_kappa_final = -limit + 1e-6 * (log_kappa_final + limit)
+         log_kappa_final = -limit + 1e-6 * log_kappa_final
     end
 
     return 10^log_kappa_final
