@@ -2,6 +2,9 @@ using Jems
 using ForwardDiff
 using DelimitedFiles
 
+"""
+Structure to store data from a single OPLIB data file and store it as a 1D array of R,T alon with some metadata 
+"""
 struct RT_table_opacity <: Jems.Opacity.AbstractOpacity 
     X :: Float64
     Z :: Float64
@@ -10,12 +13,28 @@ struct RT_table_opacity <: Jems.Opacity.AbstractOpacity
     kap_data :: Vector{Float64} #Instead of Array{Float64} 
 end 
 
+"""
+Structure to store a matrix with X,Z being the rows and columns, and each element being a RT opacity table 
+"""
 struct Opacity_table_collector <: Jems.Opacity.AbstractOpacity
     Xs :: Vector{Float64}
     Zs :: Vector{Float64}
     tables :: Matrix{RT_table_opacity} #Grid containing each opacity table at X,Z
 end 
 
+"""
+Structure to store opacaity tables of X,Z,R,T from different data set, also the meta data required to smooth interopolate between them 
+using a cubic spline 
+"""
+struct CompositeOpacity <: Jems.Opacity.AbstractOpacity 
+    low_T_collector :: Opacity_table_collector # Holds the matrix of X,Z with each element being RT_table (for low T)
+    high_T_collector :: Opacity_table_collector #Holds the matrix of X,Z with each element being RT_table (for high T)
+
+    # Holds the transition points 
+    trans_logT_min :: Float64
+    trans_logT_max :: Float64 
+
+end 
     
 function RT_table_opacity(filepath :: String)
     
@@ -212,7 +231,7 @@ function get_log_kappa_per_table(table::RT_table_opacity, val_logT::Float64, val
 
 end
 
-function Jems.Opacity.get_opacity_resultsTρ(collection :: Opacity_table_collector, lnT::TT, lnρ::TT, xa::AbstractVector{<:TT}, species::Vector{Symbol})::TT where {TT<:Real}
+function get_opacity_table_collection(collection :: Opacity_table_collector, lnT::TT, lnρ::TT, xa::AbstractVector{<:TT}, species::Vector{Symbol})::TT where {TT<:Real}
     
     inv_ln10 = 0.4342944819032518
     logT = lnT * inv_ln10
@@ -291,3 +310,49 @@ function Jems.Opacity.get_opacity_resultsTρ(collection :: Opacity_table_collect
 
     return 10^log_kappa_final
 end
+
+# Smoothing function to interpolate smoothly between the two datasets 
+# Using the function f(t)=3t^2 - 2t^3
+@inline function smooth_step_func(x::T, floor::Float64, ceil::Float64) where T
+    if x <= floor 
+        return zero(T)
+    elseif x >= ceil
+        return one(T)
+    else
+        t = (x - floor)/(ceil - floor)
+
+        return t * t * (3.0 -2.0 * t)
+    end 
+
+end
+
+function Jems.Opacity.get_opacity_resultsTρ(composite :: CompositeOpacity, lnT::TT, lnρ::TT, xa::AbstractVector{<:TT}, species::Vector{Symbol})::TT where {TT <: Real}
+    inv_ln10 = 0.4342944819032518
+    logT = lnT * inv_ln10
+
+    val_logT = ForwardDiff.value(logT)
+
+    if val_logT >= composite.trans_logT_max 
+        return get_opacity_table_collection(composite.high_T_collector, lnT, lnρ, xa, species)
+
+    elseif val_logT <= composite.trans_logT_min
+        return get_opacity_table_collection(composite.low_T_collector, lnT, lnρ, xa, species)
+
+    else 
+        κ_low  = get_opacity_table_collection(composite.low_T_collector, lnT, lnρ, xa, species)
+        κ_high = get_opacity_table_collection(composite.high_T_collector, lnT, lnρ, xa, species)
+
+        #calculating the weight 
+        w = smooth_step_func(logT, composite.trans_logT_min, composite.trans_logT_max)
+
+        log_κ_low = log10(κ_low)
+        log_κ_high = log10(κ_high)
+        smooth_log_κ = (1-w) * log_κ_low + w * log_κ_high
+
+        return 10^smooth_log_κ
+
+    end 
+end
+
+
+

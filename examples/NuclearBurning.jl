@@ -14,7 +14,7 @@ using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.Plotting
-include("RT_opacity.jl")
+include("two_table_opacity.jl")
 ##
 #=
 ### Model creation
@@ -42,9 +42,13 @@ nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 # my_opacity_instance = RT_table_opacity("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/oplib_agss09_z0.022_x0.7.data")
+# my_opacity_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/")
+low_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/low_kap_data/")
+high_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/")
+Composite_Opacity_instance = CompositeOpacity(low_T_collection, high_T_collection, 3.5, 4.7)
 turbulence = Turbulence.BasicMLT(1.0)
 sm = StellarModel(varnames, varscaling, structure_equations, Evolution.equation_composition,
-                    nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
+                    nz, nextra, remesh_split_functions, net, eos, Composite_Opacity_instance, turbulence);
 
 ##
 #=
@@ -163,7 +167,7 @@ n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm, plotter=plotter);
-
+ 
 ##
 #=
 ### Plotting with Makie
