@@ -14,7 +14,7 @@ using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.Plotting
-include("two_table_opacity.jl")
+include("one_t_opacity.jl")
 ##
 #=
 ### Model creation
@@ -40,15 +40,15 @@ net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:
 nz = 2000
 nextra = 100
 eos = EOS.IdealEOS(true)
-opacity = Opacity.SimpleElectronScatteringOpacity()
-# my_opacity_instance = RT_table_opacity("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/oplib_agss09_z0.022_x0.7.data")
+# opacity = Opacity.SimpleElectronScatteringOpacity()
+my_opacity_instance = RT_table_opacity("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/oplib_agss09_z0.022_x0.7.data")
 # my_opacity_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/")
-low_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/low_kap_data/")
-high_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/")
-Composite_Opacity_instance = CompositeOpacity(low_T_collection, high_T_collection, 3, 5)
+# low_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/low_kap_data/")
+# high_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/")
+# Composite_Opacity_instance = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2)
 turbulence = Turbulence.BasicMLT(1.0)
 sm = StellarModel(varnames, varscaling, structure_equations, Evolution.equation_composition,
-                    nz, nextra, remesh_split_functions, net, eos, Composite_Opacity_instance, turbulence);
+                    nz, nextra, remesh_split_functions, net, eos, my_opacity_instance, turbulence);
 
 ##
 #=
@@ -124,7 +124,7 @@ open("example_options.toml", "w") do file
           newton_max_iter = 100
           scale_max_correction = 0.1
           solver_progress_iter = 1
-          relative_correction_tolerance = 1e7
+          relative_correction_tolerance = 1e10
 
           [timestep]
           dt_max_increase = 1.1
@@ -133,7 +133,7 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 2000
+          max_model_number = 10000
           max_center_T = 1e8
 
           [io]
@@ -154,7 +154,7 @@ GLMakie.activate!()
 set_theme!(Plotting.basic_theme())
 f = Figure(size=(1400,750))
 plots = [Plotting.HRPlot(f[1,1]),
-         Plotting.TRhoProfile(f[1,2]),
+        #  Plotting.TRhoProfile(f[1,2],my_opacity_instance),
          Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
          Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3),
          Plotting.HistoryPlot(f[1,3], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
@@ -163,9 +163,9 @@ plotter = Plotting.Plotter(fig=f,plots=plots)
 
 ##
 #set initial condition and run model
-n = 3
+n = 1.5
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+                                            5 * MSUN, 1000 * RSUN; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm, plotter=plotter);
  
 ##
