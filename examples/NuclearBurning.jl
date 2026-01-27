@@ -14,7 +14,7 @@ using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.Plotting
-include("one_t_opacity.jl")
+include("two_table_opacity.jl")
 ##
 #=
 ### Model creation
@@ -37,18 +37,18 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
-nz = 2000
+nz = 2000   
 nextra = 100
 eos = EOS.IdealEOS(true)
 # opacity = Opacity.SimpleElectronScatteringOpacity()
-my_opacity_instance = RT_table_opacity("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/oplib_agss09_z0.022_x0.7.data")
+# my_opacity_instance = RT_table_opacity("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/oplib_agss09_z0.022_x0.7.data")
 # my_opacity_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/")
-# low_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/low_kap_data/")
-# high_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/")
-# Composite_Opacity_instance = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2)
+low_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/low_kap_data/", "lowT_fa05_gs98")
+high_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/","oplib_agss09" )
+composite_opacity_instance = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2)
 turbulence = Turbulence.BasicMLT(1.0)
 sm = StellarModel(varnames, varscaling, structure_equations, Evolution.equation_composition,
-                    nz, nextra, remesh_split_functions, net, eos, my_opacity_instance, turbulence);
+                    nz, nextra, remesh_split_functions, net, eos, composite_opacity_instance, turbulence);
 
 ##
 #=
@@ -63,7 +63,7 @@ Information of the model at its present and following step are required at the b
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], MSUN,
                                              100 * RSUN; initial_dt=10 * SECYEAR)
-Evolution.compute_starting_model_properties!(sm)
+Evolution.compute_starting_model_properties!(sm)zero
 
 ##
 #=
@@ -154,7 +154,7 @@ GLMakie.activate!()
 set_theme!(Plotting.basic_theme())
 f = Figure(size=(1400,750))
 plots = [Plotting.HRPlot(f[1,1]),
-        #  Plotting.TRhoProfile(f[1,2],my_opacity_instance),
+        Plotting.TRhoProfile(f[1,2]),
          Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
          Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3),
          Plotting.HistoryPlot(f[1,3], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
@@ -166,7 +166,7 @@ plotter = Plotting.Plotter(fig=f,plots=plots)
 n = 1.5
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
                                             5 * MSUN, 1000 * RSUN; initial_dt=10 * SECYEAR)
-@time Evolution.do_evolution_loop!(sm, plotter=plotter);
+@time Evolution.do_evolution_loop!(sm, plotter=plotter); 
  
 ##
 #=
