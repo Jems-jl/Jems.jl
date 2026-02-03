@@ -9,8 +9,9 @@ abstract type AbstractModelProperties end
 
 include("Options.jl")
 include("StellarModelProperties.jl")
+include("OneZoneProperties.jl")
 include("SolverData.jl")
-include("EquationSupport.jl")
+include("EquationSet.jl")
 include("StellarModel.jl")
 include("OneZone.jl")
 include("IO.jl")

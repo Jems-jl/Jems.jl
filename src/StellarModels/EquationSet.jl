@@ -1,0 +1,9 @@
+export DefaultStellarEquationSet, DefaultOneZoneEquationSet
+
+abstract type AbstractEquationSet end
+
+struct DefaultStellarEquationSet<:AbstractEquationSet
+end
+
+struct DefaultOneZoneEquationSet<:AbstractEquationSet
+end

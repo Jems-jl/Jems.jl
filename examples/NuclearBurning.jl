@@ -32,8 +32,6 @@ to $\kappa=0.2(1+X)\;[\text{cm^2\;g^{-1}}]$ is available.
 
 varnames = [:lnρ, :lnT, :lnr, :lum]
 varscaling = [:log, :log, :log, :maxval]
-structure_equations = [Evolution.equationHSE, Evolution.equationT,
-                       Evolution.equationContinuity, Evolution.equationLuminosity]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
@@ -42,7 +40,7 @@ nextra = 100
 eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 turbulence = Turbulence.BasicMLT(1.0)
-sm = StellarModel(varnames, varscaling, structure_equations, Evolution.equation_composition,
+sm = StellarModel(varnames, varscaling, StellarModels.DefaultStellarEquationSet(),
                     nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
 
 ##
