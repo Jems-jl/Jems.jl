@@ -27,9 +27,6 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
 
     solver_data::TSOLVER
 
-    # Remeshing functions
-    remesh_split_functions::Vector{Function}
-
     # Microphyical models
     eos::TEOS
     opacity::TKAP
@@ -65,16 +62,16 @@ Constructor for a `StellarModel` instance, using `varnames` for the independent 
 `structure_equations` to be solved, number of independent variables `nvars`, number of species in the network `nspecies`
 number of zones in the model `nz` and an iterface to the EOS and Opacity laws.
 """
-function StellarModel(var_names::Vector{Symbol}, var_scaling::Vector{Symbol}, equation_set::AbstractEquationSet,
+function StellarModel(equation_set::AbstractEquationSet,
                       nz::Int, nextra::Int,
-                      remesh_split_functions::Vector{Function},
                       network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity, turbulence::AbstractTurb;
                       use_static_arrays=true, number_type=Float64)
-    nvars = length(var_names) + network.nspecies
+    hydro_var_names = hydro_vars(equation_set)
+    nvars = length(hydro_var_names) + network.nspecies
 
     # var_names should also contain the name of species, we get them from the network
-    var_names_full = vcat(var_names, network.species_names)
-    var_scaling_full = vcat(var_scaling, [:unity for i in 1:network.nspecies])
+    var_names_full = vcat(hydro_var_names, network.species_names)
+    var_scaling_full = vcat(hydro_vars_scaling(equation_set), [:unity for i in 1:network.nspecies])
 
     # link var_names to the correct index so you can do ind_var[vari[:lnT]] = 'some temperature'
     vari::Dict{Symbol,Int} = Dict()
@@ -85,12 +82,9 @@ function StellarModel(var_names::Vector{Symbol}, var_scaling::Vector{Symbol}, eq
     solver_data = SolverData(nvars, nz, nextra, use_static_arrays, number_type)
 
     # properties
-    prv_step_props = StellarModelProperties(nvars, nz, nextra,
-                                            length(network.reactions), network.nspecies, vari, number_type)
-    start_step_props = StellarModelProperties(nvars, nz, nextra,
-                                              length(network.reactions), network.nspecies, vari, number_type)
-    props = StellarModelProperties(nvars, nz, nextra,
-                                   length(network.reactions), network.nspecies, vari, number_type)
+    prv_step_props = build_properties_for_equation_set(equation_set, nvars, nz, nextra, network, vari, number_type)
+    start_step_props = build_properties_for_equation_set(equation_set, nvars, nz, nextra, network, vari, number_type)
+    props = build_properties_for_equation_set(equation_set, nvars, nz, nextra, network, vari, number_type)
 
     opt = Options()  # create options object
 
@@ -100,7 +94,6 @@ function StellarModel(var_names::Vector{Symbol}, var_scaling::Vector{Symbol}, eq
                       vari=vari, nextra=nextra,
                       equation_set=equation_set,
                       solver_data = solver_data,
-                      remesh_split_functions=remesh_split_functions,
                       eos=eos, opacity=opacity, network=network, turbulence=turbulence,
                       start_step_props=start_step_props, prv_step_props=prv_step_props, props=props,
                       opt=opt,
