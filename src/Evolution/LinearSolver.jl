@@ -7,7 +7,7 @@ using LinearAlgebra
 # This is not BCYCLIC, but their description of the Thomas
 # algorithm for block tridiagonal systems. Beware there are typos
 # in their equations (3a) and (3b)
-function thomas_algorithm!(sm)
+function block_tridiagonal_solver!(sm, ::StellarModels.ThomasSolverData)
     eqs_numbers = sm.solver_data.eqs_numbers
     solver_LU = sm.solver_data.solver_LU
     jacobian_D = sm.solver_data.jacobian_D

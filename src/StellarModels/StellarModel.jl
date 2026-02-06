@@ -79,7 +79,7 @@ function StellarModel(equation_set::AbstractEquationSet,
         vari[var_names_full[i]] = i
     end
 
-    solver_data = SolverData(nvars, nz, nextra, use_static_arrays, number_type)
+    solver_data = build_solver_data_for_equation_set(equation_set, nvars, nz, nextra, use_static_arrays, number_type)
 
     # properties
     prv_step_props = build_properties_for_equation_set(equation_set, nvars, nz, nextra, network, vari, number_type)

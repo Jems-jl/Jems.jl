@@ -57,7 +57,7 @@ function OneZone(equation_set::AbstractEquationSet, network::NuclearNetwork, use
         vari[var_names_full[i]] = i
     end
 
-    solver_data = StellarModels.SolverData(nvars, 1, 0, use_static_arrays, number_type)
+    solver_data = build_solver_data_for_equation_set(equation_set, nvars, 1, 0, use_static_arrays, number_type)
 
     # properties
     prv_step_props = OneZoneProperties(nvars, length(network.reactions), network.nspecies, number_type)

@@ -91,18 +91,9 @@ plotter = Plotting.Plotter(fig=f,plots=plots)
 Evolution.do_one_zone_burn!(oz, plotter=plotter)
 
 ##
-using CairoMakie, LaTeXStrings, MathTeXEngine
-basic_theme = Theme(fonts=(regular=texfont(:text), bold=texfont(:bold),
-                           italic=texfont(:italic), bold_italic=texfont(:bolditalic)),
-                    fontsize=30, size=(1000, 750), linewidth=7,
-                    Axis=(xlabelsize=40, ylabelsize=40, titlesize=40, xgridvisible=false, ygridvisible=false,
-                          spinewidth=2.5, xminorticksvisible=true, yminorticksvisible=true, xtickalign=1, ytickalign=1,
-                          xminortickalign=1, yminortickalign=1, xticksize=14, xtickwidth=2.5, yticksize=14,
-                          ytickwidth=2.5, xminorticksize=7, xminortickwidth=2.5, yminorticksize=7, yminortickwidth=2.5,
-                          xticklabelsize=35, yticklabelsize=35, xticksmirrored=true, yticksmirrored=true),
-                    Legend=(patchsize=(70, 10), framevisible=false, patchlabelgap=20, rowgap=10))
-set_theme!(basic_theme)
-# GLMakie.activate!()
+using CairoMakie, LaTeXStrings
+set_theme!(Plotting.basic_theme())
+
 ##
 ### Plot the history
 f = Figure();

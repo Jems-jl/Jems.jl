@@ -20,11 +20,15 @@ function remesh_splitting(equation_set::DefaultStellarEquationSet, sm, i, dm_m1,
     StellarModels.split_xa(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
 end
 
-
 function build_properties_for_equation_set(equation_set::DefaultStellarEquationSet, nvars, nz, nextra, network, vari, number_type)
     StellarModelProperties(nvars, nz, nextra,
                                    length(network.reactions), network.nspecies, vari, number_type)
 end
 
 struct DefaultOneZoneEquationSet<:AbstractEquationSet
+end
+
+# Use ThomasSolverData by default
+function build_solver_data_for_equation_set(equation_set::AbstractEquationSet, nvars, nz, nextra, use_static_arrays, number_type)
+    return ThomasSolverData(nvars, nz, nextra, use_static_arrays, number_type)
 end

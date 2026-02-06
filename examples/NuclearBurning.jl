@@ -85,7 +85,7 @@ destroys the Jacobian to perform in-place operations.
 =#
 
 @benchmark begin
-    Evolution.thomas_algorithm!($sm)
+    Evolution.block_tridiagonal_solver!($sm, $sm.solver_data)
 end setup=(Evolution.eval_jacobian_eqs!($sm))
 
 ##
