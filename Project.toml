@@ -1,15 +1,11 @@
 name = "Jems"
 uuid = "80e28b2b-5ac7-4db2-b78d-9e35bb8cec21"
 version = "0.1.0"
-authors = ["Pablo Marchant <pablo.marchant@kuleuven.be>", 
-            "Matthias Fabry <matthias.fabry@villanova.edu>", 
-            "Eva Kuipers <evakuipers2612@gmail.com>", 
-            "Digonto Rahman  <digontorahman@hotmail.com>"]
+authors = ["Pablo Marchant <pablo.marchant@ugent.be>", "Matthias Fabry <matthias.fabry@villanova.edu>", "Ritavash Debnath <ritavash.debnath@ugent.be>", "Eva Kuipers <evakuipers2612@gmail.com>", "Digonto Rahman  <digontorahman@hotmail.com>"]
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
-FunctionWrappers = "069b7b12-0de2-55c6-9aab-29f3d0a68a2e"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
@@ -24,7 +20,6 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 [compat]
 DataFrames = "1"
 ForwardDiff = "1"
-FunctionWrappers = "1"
 HDF5 = "0.17"
 Interpolations = "0.15, 0.16"
 LaTeXStrings = "1"

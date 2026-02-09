@@ -210,7 +210,7 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
     # flux term is (4πr^2ρ)^2*D/dm_face, with all quantities evaluated at the face
     # maybe good to experiment with a soft flux limiter that is continuous rather than
     # taking a min
-    flux_limiter = sm.opt.physics.flux_limiter
+    flux_limiter = sm.opt.physics.flux_limiter*one(X00)
     if k != sm.props.nz 
         Xp1 = get_p1_dual(sm.props.xa[k+1, sm.network.xa_index[iso_name]])
         flux_term_up = get_00_dual(sm.props.flux_term[k])
@@ -228,40 +228,38 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
     return ((X00 - Xi00) -  (dXdt_nuc + dXdt_mix)*sm.props.dt)
 end
 
-# This is unused for now, can be used to implement fractional mixing to a cell that
-# is partially convective. Requires :convfrac to be a variable, which represents
-# the fraction of a cell that is convective.
-function equationConvFrac(sm::StellarModel, k::Int)
-    convfrac = get_00_dual(sm.props.convfrac[k])
-    if k==1
-        diffgrads_00 = get_00_dual(sm.props.turb_res[k].∇ᵣ) - get_00_dual(sm.props.∇ₐ_face[k])
-        if diffgrads_00 > 0
-            return convfrac - 1.0 # cell is fully convective, so solution is convfrac=1
-        else
-            return convfrac # cell is fully radiative, so solution is convfrac=0
-        end
+function equation_composition(oz::OneZone, k::Int, iso_name::Symbol)
+    # Get mass fraction for this iso
+    X00 = get_00_dual(oz.props.xa[oz.network.xa_index[iso_name]])
+    dXdt_nuc::typeof(X00) = 0
+    reactions_in = oz.network.species_reactions_in[oz.network.xa_index[iso_name]]
+    for reaction_in in reactions_in
+        rate = get_00_dual(oz.props.rates[reaction_in[1]])
+        dXdt_nuc -= rate * reaction_in[2] * Chem.isotope_list[iso_name].A * AMU
     end
-    if k==sm.props.nz
-        diffgrads_m1 = get_m1_dual(sm.props.turb_res[k-1].∇ᵣ) - get_m1_dual(sm.props.∇ₐ_face[k-1])
-        if diffgrads_m1 > 0
-            return convfrac - 1.0 # cell is fully convective, so solution is convfrac=1
-        else
-            return convfrac # cell is fully radiative, so solution is convfrac=0
-        end
+    reactions_out = oz.network.species_reactions_out[oz.network.xa_index[iso_name]]
+    for reaction_out in reactions_out
+        rate = get_00_dual(oz.props.rates[reaction_out[1]])
+        dXdt_nuc += rate * reaction_out[2] * Chem.isotope_list[iso_name].A * AMU
     end
-    diffgrads_m1 = get_m1_dual(sm.props.turb_res[k-1].∇ᵣ) - get_m1_dual(sm.props.∇ₐ_face[k-1])
-    diffgrads_00 = get_00_dual(sm.props.turb_res[k].∇ᵣ) - get_00_dual(sm.props.∇ₐ_face[k])
-    if diffgrads_m1>0 && diffgrads_00>0
-        return convfrac - 1.0 # cell is fully convective, so solution is convfrac=1
-    elseif diffgrads_m1<0 && diffgrads_00<0
-        return convfrac # cell is fully radiative, so solution is convfrac=0
-    elseif diffgrads_m1>0
-        #convection from the bottom of the cell (diffgrads_00 is negative)
-        real_convfrac = diffgrads_m1/(diffgrads_m1-diffgrads_00)
-        return convfrac - real_convfrac
-    else
-        #convection from the top of the cell (diffgrads_m1 is negative)
-        real_convfrac = diffgrads_00/(diffgrads_00-diffgrads_m1)
-        return convfrac - real_convfrac
+    Xi = get_value(oz.prv_step_props.xa[oz.network.xa_index[iso_name]])  # is never a dual!!
+    return ((X00 - Xi) / oz.props.dt - dXdt_nuc)
+end
+
+function eval_cell_eqs!(sm::StellarModel, ::StellarModels.DefaultStellarEquationSet, k::Int)
+    sm.solver_data.eqs_duals[k, 1] = Evolution.equationHSE(sm, k)
+    sm.solver_data.eqs_duals[k, 2] = Evolution.equationT(sm, k)
+    sm.solver_data.eqs_duals[k, 3] = Evolution.equationContinuity(sm, k)
+    sm.solver_data.eqs_duals[k, 4] = Evolution.equationLuminosity(sm, k)
+    # evaluate all composition equations
+    for i = 1:(sm.network.nspecies)
+        sm.solver_data.eqs_duals[k, sm.nvars - sm.network.nspecies + i] = equation_composition(sm, k, sm.network.species_names[i])
+    end
+end
+
+function eval_cell_eqs!(oz::OneZone, ::StellarModels.DefaultOneZoneEquationSet, k::Int)
+    # evaluate all composition equations
+    for i = 1:(oz.network.nspecies)
+        oz.solver_data.eqs_duals[k, i] = equation_composition(oz, k, oz.network.species_names[i])
     end
 end

@@ -95,7 +95,7 @@ function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullP
         StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
         eval_jacobian_eqs!(sm)  # heavy lifting happens here!
         for i = 1:max_steps
-            thomas_algorithm!(sm)  # here as well
+            block_tridiagonal_solver!(sm, sm.solver_data)  # here as well
 
             (abs_max_corr, i_corr) = findmax(abs, corr)
             signed_max_corr = corr[i_corr]

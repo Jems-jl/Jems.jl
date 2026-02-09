@@ -2,7 +2,7 @@ using StaticArrays
 
 abstract type AbstractSolverData end
 
-@kwdef mutable struct SolverData{TNUMBER, TDUALFULL, TMATRIX, TLU, TVECTOR} <: AbstractSolverData
+@kwdef mutable struct ThomasSolverData{TNUMBER, TDUALFULL, TMATRIX, TLU, TVECTOR} <: AbstractSolverData
     eqs_numbers::Vector{TNUMBER}  # Stores the results of the equation evaluations (as numbers), size nz * nvars
     eqs_duals::Matrix{TDUALFULL}  # Stores the dual results of the equation evaluation, shape (nz, nvars)
     jacobian_D::Vector{TMATRIX}
@@ -19,7 +19,7 @@ abstract type AbstractSolverData end
     use_static_arrays::Bool
 end
 
-function SolverData(nvars, nz, nextra, use_static_arrays, number_type)
+function ThomasSolverData(nvars, nz, nextra, use_static_arrays, number_type)
     # create the equation results matrix, holding dual numbers (for automatic differentiation, AD)
     dual_sample = ForwardDiff.Dual(zero(number_type), (zeros(number_type, 3 * nvars)...))
     eqs_duals = Matrix{typeof(dual_sample)}(undef, nz+nextra, nvars)
@@ -62,18 +62,18 @@ function SolverData(nvars, nz, nextra, use_static_arrays, number_type)
 
     preconditioning_factor = ones(number_type, nvars * (nz+nextra))
 
-    SolverData(eqs_numbers = eqs_numbers,
-               eqs_duals = eqs_duals,
-               jacobian_D = jacobian_D,
-               jacobian_U = jacobian_U,
-               jacobian_L = jacobian_L,
-               solver_LU = solver_LU,
-               solver_tmp1 = solver_tmp1,
-               solver_tmp2 = solver_tmp2,
-               solver_β = solver_β,
-               solver_x = solver_x,
-               solver_corr = solver_corr,
-               preconditioning_factor = preconditioning_factor,
-               newton_iters = 0,
-               use_static_arrays = use_static_arrays)
+    ThomasSolverData(eqs_numbers = eqs_numbers,
+                     eqs_duals = eqs_duals,
+                     jacobian_D = jacobian_D,
+                     jacobian_U = jacobian_U,
+                     jacobian_L = jacobian_L,
+                     solver_LU = solver_LU,
+                     solver_tmp1 = solver_tmp1,
+                     solver_tmp2 = solver_tmp2,
+                     solver_β = solver_β,
+                     solver_x = solver_x,
+                     solver_corr = solver_corr,
+                     preconditioning_factor = preconditioning_factor,
+                     newton_iters = 0,
+                     use_static_arrays = use_static_arrays)
 end
