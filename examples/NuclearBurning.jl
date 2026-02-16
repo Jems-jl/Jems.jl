@@ -15,6 +15,7 @@ using Jems.StellarModels
 using Jems.Evolution
 using Jems.Plotting
 include("two_table_opacity.jl")
+include("eos.jl")
 ##
 #=
 ### Model creation
@@ -37,18 +38,24 @@ structure_equations = [Evolution.equationHSE, Evolution.equationT,
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
                           StellarModels.split_lnT, StellarModels.split_xa]
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+# net = merge_nuclear_networks([NuclearNetworks.networks[:JINA_PPI],
+#                             NuclearNetworks.networks[:JINA_PPII],
+#                             NuclearNetworks.networks[:JINA_CNOI],
+#                             NuclearNetworks.networks[:JINA_CNOII],])
+
 nz = 2000   
 nextra = 100
-eos = EOS.IdealEOS(true)
+# eos = EOS.IdealEOS(true)
+eos_instance = EOS_table_collector("/Users/rdbnath/Documents/mesa-25.12.1/eos/eosFreeEOS_data")
 # opacity = Opacity.SimpleElectronScatteringOpacity()
 # my_opacity_instance = RT_table_opacity("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/oplib_agss09_z0.022_x0.7.data")
 # my_opacity_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/")
-low_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/low_kap_data/", "lowT_fa05_gs98")
+low_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/low_kap_data/", "lowT_fa05_gs98_z")
 high_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/","oplib_agss09" )
 composite_opacity_instance = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2)
 turbulence = Turbulence.BasicMLT(1.0)
 sm = StellarModel(varnames, varscaling, structure_equations, Evolution.equation_composition,
-                    nz, nextra, remesh_split_functions, net, eos, composite_opacity_instance, turbulence);
+                    nz, nextra, remesh_split_functions, net, eos_instance, composite_opacity_instance, turbulence);
 
 ##
 #=
@@ -60,10 +67,10 @@ luminosity is initialized by assuming pure radiative transport for the temperatu
 Information of the model at its present and following step are required at the beginning, the function
 `compute_starting_model_properties!` takes care of setting this up.
 =#
-n = 3
+n = 1.5
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], MSUN,
                                              100 * RSUN; initial_dt=10 * SECYEAR)
-Evolution.compute_starting_model_properties!(sm)zero
+Evolution.compute_starting_model_properties!(sm)
 
 ##
 #=
@@ -112,6 +119,7 @@ toml file, which we generate dynamically. These simulation should complete in ab
 Output is stored in HDF5 files, and easy to use functions are provided with the `StellarModels` module to turn these HDF5
 files into DataFrame objects. HDF5 output is compressed by default.
 =#
+
 open("example_options.toml", "w") do file
     write(file,
           """
@@ -121,10 +129,13 @@ open("example_options.toml", "w") do file
           [solver]
           newton_max_iter_first_step = 1000
           initial_model_scale_max_correction = 0.2
-          newton_max_iter = 100
+          newton_max_iter = 10
           scale_max_correction = 0.1
           solver_progress_iter = 1
-          relative_correction_tolerance = 1e10
+          relative_correction_tolerance = 1e12
+          maximum_residual_tolerance = 1e8
+          use_preconditioning = true
+
 
           [timestep]
           dt_max_increase = 1.1
@@ -137,16 +148,18 @@ open("example_options.toml", "w") do file
           max_center_T = 1e8
 
           [io]
-          profile_interval = 50
+          profile_interval = 1
           terminal_header_interval = 100
           terminal_info_interval = 100
+
+          profile_values = ["zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity",
+                                      "X", "Y","kappa", "chi_T","chi_rho"]
 
           """)
 end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
-
 ##
 #Configure live plots. To turn off one can use `plotter = Plotting.NullPlotter()`
 using GLMakie
@@ -154,18 +167,19 @@ GLMakie.activate!()
 set_theme!(Plotting.basic_theme())
 f = Figure(size=(1400,750))
 plots = [Plotting.HRPlot(f[1,1]),
-        Plotting.TRhoProfile(f[1,2]),
+        Plotting.TRhoProfile(f[1,2], eos_instance),
          Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
          Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3),
          Plotting.HistoryPlot(f[1,3], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
          Plotting.ProfilePlot(f[2,3], sm, x_name="mass", y_name="log10_rho", othery_name="log10_T")]
 plotter = Plotting.Plotter(fig=f,plots=plots)
+##
 
 ##
 #set initial condition and run model
 n = 1.5
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            5 * MSUN, 1000 * RSUN; initial_dt=10 * SECYEAR)
+                                            5 * MSUN, 1000 * RSUN; initial_dt=5 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm, plotter=plotter); 
  
 ##
