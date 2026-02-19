@@ -17,7 +17,7 @@ y = Dual(yfloat,(0.0,1.0))
 
 ##
 #=
-In here the first number given to the `Dual` constructor is the value of the variable, meaning I set $x=3$ and $y=3$, while the tuple that follows are the partial derivatives with respect to $x$ and $y$. For each of these we just have $\partial y/\partial y=1$ and $\partial x/\partial x=1$. Next we can perform some operations with these numbers and verify that we obtain the expected result and partial derivatives (assert will throw an exception if the approximate equality is not satisfied):
+In here the first number given to the `Dual` constructor is the value of the variable, meaning I set $x=3$ and $y=2$, while the tuple that follows are the partial derivatives with respect to $x$ and $y$. For each of these we just have $\partial x/\partial x=1$, $\partial y/\partial y=1$, and of course $\partial x, y/\partial x, y = 0$. Next we can perform some operations with these numbers and verify that we obtain the expected result and partial derivatives (assert will throw an exception if the approximate equality is not satisfied):
 =#
 
 function test(x,y)
@@ -39,10 +39,10 @@ One important issue with the use of dual numbers is that constantly creating the
 import Jems.DualSupport: StarDiffCache, get_dual
 
 cache_x = StarDiffCache{3,Float64}(zeros(3))
-cache_x.dual_data[2] = 1.0 # dual_data[1] contains the value, dual_data[2] is ∂x/∂x=1, dual_data[3] is ∂x/∂y=0
+cache_x.dual_data[2] = 1.0  # dual_data[1] contains the value, dual_data[2] is ∂x/∂x=1, dual_data[3] is ∂x/∂y=0
 
 cache_y = StarDiffCache{3,Float64}(zeros(3))
-cache_y.dual_data[3] = 1.0; # dual_data[1] contains the value, dual_data[2] is ∂x/∂x=1, dual_data[3] is ∂x/∂y=0
+cache_y.dual_data[3] = 1.0;  # dual_data[1] contains the value, dual_data[2] is ∂x/∂x=1, dual_data[3] is ∂x/∂y=0
 
 #we can repeat the example from above using these
 #first set the value of each dual number, which goes into the first entry of `dual_data`
@@ -88,18 +88,18 @@ using Jems.DualSupport
 
 nvars = 2
 
-P_m1 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=1) # this is pressure at the cell below
-P_00 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=1) # this is pressure at the current cell
-P_p1 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=1) # this is pressure at the cell above
+P_m1 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=1)  # this is pressure at the cell below
+P_00 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=1)  # this is pressure at the current cell
+P_p1 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=1)  # this is pressure at the cell above
 #initialize them with arbitrary values
 update_cell_dual_data_value!(P_m1, 0.9)
 update_cell_dual_data_value!(P_00, 1.0)
 update_cell_dual_data_value!(P_p1, 1.0)
 
 #same for density
-r_m1 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=2) # this is pressure at the cell below
-r_00 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=2) # this is pressure at the current cell
-r_p1 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=2) # this is pressure at the cell above
+r_m1 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=2)  # this is density at the cell below
+r_00 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=2)  # this is density at the current cell
+r_p1 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=2)  # this is density at the cell above
 #initialize them with arbitrary values
 update_cell_dual_data_value!(r_m1, 1.0)
 update_cell_dual_data_value!(r_00, 1.0)
@@ -122,7 +122,7 @@ r_p1_dual = get_p1_dual(r_p1)
 @show P_00_dual.partials
 @show r_00_dual.partials
 @show P_p1_dual.partials
-@show r_p1_dual.partials;
+@show r_p1_dual.partials
 
 ##
 #=

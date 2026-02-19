@@ -128,7 +128,7 @@ function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullP
                 corr .*= correction_multiplier
             end
 
-            # apply correction!
+            # apply correction:
             sm.props.ind_vars[1:sm.nvars*sm.props.nz] .+= corr[1:sm.nvars*sm.props.nz]
             sm.solver_data.newton_iters = i
 
@@ -152,7 +152,7 @@ function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullP
                     if sm.props.model_number == 0
                         println("Found first model")
                     end
-                    break  # successful, break the step loop
+                    break  # tolerances met, accept the model; break the step loop!
                 end
             catch e
                 if isa(e, InterruptException)
@@ -162,7 +162,7 @@ function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullP
                 showerror(stdout, e)
                 retry_step = true
             end
-            #if not, determine if we give up or retry
+            # tolerances not met, determine if we give up or retry
             if i == max_steps
                 if retry_count > max_retries_in_a_row
                     exit_evolution = true
@@ -185,7 +185,7 @@ function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullP
 
         if (exit_evolution)
             println("Terminating evolution")
-            break
+            break  # breaks the while true loop
         end
 
         # step must be successful at this point
@@ -202,7 +202,7 @@ function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullP
 
         update_plotter!(plotter, sm)
 
-        # check termination conditions
+        # check termination conditions; breaks the while true loop if met
         if (sm.props.model_number > sm.opt.termination.max_model_number)
             StellarModels.write_terminal_info(sm; now=true)
             println("Reached maximum model number")
@@ -217,6 +217,8 @@ function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullP
         # get dt for coming step
         sm.props.dt_next = get_dt_next(sm)
     end
+
+    # do some cleanup after evolution loop
     StellarModels.shut_down_IO!(sm)
 
     return
