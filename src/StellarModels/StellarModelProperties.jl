@@ -57,13 +57,13 @@ using Jems.Turbulence
 end
 
 function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, nspecies::Int, vari::Dict{Symbol,Int},
-                                ::Type{TN}) where {TN<:Real}
+                                ::Type{TN}, internal_tag::Type{TT}) where {TN<:Real, TT<:ForwardDiff.Tag}
 
     # define the types
     CDDTYPE = CellDualData{nvars + 1,3 * nvars + 1,TN}  # full dual arrays
     FDDTYPE = FaceDualData{2 * nvars + 1,3 * nvars + 1,TN}
-    TD = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, nvars))...))  # only the cell duals
-    TDF = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, 2 * nvars))...))  # only the face duals
+    TD = typeof(ForwardDiff.Dual{internal_tag}(zero(TN), (zeros(TN, nvars))...))  # only the cell duals
+    TDF = typeof(ForwardDiff.Dual{internal_tag}(zero(TN), (zeros(TN, 2 * nvars))...))  # only the face duals
 
     # create the vector containing the independent variables
     ind_vars = zeros(TN, nvars * (nz + nextra))
@@ -80,7 +80,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
     lnρ = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnρ]) for i in 1:(nz+nextra)]
     lnr = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnr]) for i in 1:(nz+nextra)]
     L = [CellDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lum]) for i in 1:(nz+nextra)]
-    xa = Matrix{CDDTYPE}(undef,nz+nextra, nspecies)
+    xa = Matrix{CDDTYPE}(undef, nz+nextra, nspecies)
     for k in 1:(nz+nextra)
         for i in 1:nspecies
             xa[k,i] = CellDualData(nvars, TN;
@@ -89,7 +89,6 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
     end
 
     xa_dual = zeros(TD, nz + nextra, nspecies)
-    rates_dual = zeros(TD, nz + nextra, nrates)
 
     # mesh
     m = zeros(TN, nz + nextra)
@@ -128,6 +127,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
             rates[k, i] = CellDualData(nvars, TN)
         end
     end
+    # @show typeof(rates_dual)
 
     return StellarModelProperties(; ind_vars=ind_vars, model_number=zero(Int),
                                   nz=nz, m=m, dm=dm, mstar=zero(TN),
@@ -153,7 +153,7 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
                                   cₚ_face=cₚ_face,
                                   κ=κ,
                                   rates=rates,
-                                  ϵ_nuc=zeros(nz + nextra),
+                                  ϵ_nuc=zeros(TN, nz + nextra),
                                   rates_dual=rates_dual,
                                   mixing_type=mixing_type)
 end

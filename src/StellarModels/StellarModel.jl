@@ -65,7 +65,7 @@ number of zones in the model `nz` and an iterface to the EOS and Opacity laws.
 function StellarModel(equation_set::AbstractEquationSet,
                       nz::Int, nextra::Int,
                       network::NuclearNetwork, eos::AbstractEOS, opacity::AbstractOpacity, turbulence::AbstractTurb;
-                      use_static_arrays=true, number_type=Float64)
+                      use_static_arrays=true, number_type=Float64, internal_dual_tag=ForwardDiff.Tag{:internal, nothing})
     hydro_var_names = hydro_vars(equation_set)
     nvars = length(hydro_var_names) + network.nspecies
 
@@ -79,12 +79,12 @@ function StellarModel(equation_set::AbstractEquationSet,
         vari[var_names_full[i]] = i
     end
 
-    solver_data = build_solver_data_for_equation_set(equation_set, nvars, nz, nextra, use_static_arrays, number_type)
+    solver_data = build_solver_data_for_equation_set(equation_set, nvars, nz, nextra, use_static_arrays, number_type, internal_dual_tag)
 
     # properties
-    prv_step_props = build_properties_for_equation_set(equation_set, nvars, nz, nextra, network, vari, number_type)
-    start_step_props = build_properties_for_equation_set(equation_set, nvars, nz, nextra, network, vari, number_type)
-    props = build_properties_for_equation_set(equation_set, nvars, nz, nextra, network, vari, number_type)
+    prv_step_props = build_properties_for_equation_set(equation_set, nvars, nz, nextra, network, vari, number_type, internal_dual_tag)
+    start_step_props = build_properties_for_equation_set(equation_set, nvars, nz, nextra, network, vari, number_type, internal_dual_tag)
+    props = build_properties_for_equation_set(equation_set, nvars, nz, nextra, network, vari, number_type, internal_dual_tag)
 
     opt = Options()  # create options object
 
