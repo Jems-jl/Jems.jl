@@ -15,7 +15,7 @@ using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.Plotting
-
+using Jems.DualSupport
 
 ##
 
@@ -26,68 +26,37 @@ eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
 turbulence = Turbulence.BasicMLT(1.0)
 
-# setup tags for ForwardDiff
 external_tag = ForwardDiff.Tag{:external, nothing}
+ForwardDiff.tagcount(external_tag)  # register tag
 internal_tag = ForwardDiff.Tag{:internal, nothing}
+ForwardDiff.tagcount(internal_tag)
 d_to_mass_dual_type = ForwardDiff.Dual{external_tag, Float64, 1}
+# d_to_mass_dual_type = Float64
 
 sm = StellarModel(StellarModels.DefaultStellarEquationSet(), nz, nextra, net, eos, opacity, turbulence; number_type=d_to_mass_dual_type, internal_dual_tag=internal_tag);
 
 ##
 
 n = 3
-mass_dual = ForwardDiff.Dual{tag_external}(5.0 * MSUN, 1.0)
+mass_dual = ForwardDiff.Dual{external_tag}(5.0 * MSUN, 1.0)
+# mass = 5.0 * MSUN
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], mass_dual,
                                              100 * RSUN; initial_dt=10 * SECYEAR)
+
+##
+typeof(sm.props.κ[1])
+val00 = get_face_00_dual(sm.props.κ[1])
+valp1 = get_face_p1_dual(sm.props.κ[2])
+dm_00 = sm.props.dm[1]
+dm_p1 = sm.props.dm[2]
+valface_dual = exp((log(val00) * dm_p1 + log(valp1) * dm_00) / (dm_00 + dm_p1))
+StellarModels.update_face_dual_data!(sm.props.κ_face[1], valface_dual)
+StellarModels.eval_face_property_log!(sm.props.κ[1], sm.props.κ[2], sm.props.dm[1], sm.props.dm[2], sm.props.κ_face[1])
+
+##
 Evolution.compute_starting_model_properties!(sm)
 
 ##
-#=
-### Benchmarking
-
-The previous code leaves everything ready to solve the linearized system.
-For now we make use of a the serial Thomas algorithm for tridiagonal block matrices.
-We first show how long it takes to evaluate the Jacobian matrix. This requires two
-steps, the first is to evaluate properties across the model (for example, the EOS)
-and then evaluate all differential equations and fill the Jacobian. We first benchmark
-the evaluation of model properties:
-=#
-@benchmark begin
-    StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
-end
-
-##
-#=
-And next we benchmark the evaluation of the model equations and construction of the Jacobian:
-=#
-@benchmark begin
-    Evolution.eval_jacobian_eqs!($sm)
-end
-
-##
-#=
-
-To benchmark the linear solver itself we need to perform
-the jacobian evaluation as a setup for the benchmark. This is because the solver
-destroys the Jacobian to perform in-place operations.
-=#
-
-@benchmark begin
-    Evolution.block_tridiagonal_solver!($sm, $sm.solver_data)
-end setup = (Evolution.eval_jacobian_eqs!($sm))
-
-##
-#=
-### Evolving our model
-
-We can now evolve our star! We will initiate a $1M_\odot$ star with a radius of $100R_\odot$ using an n=3 polytrope.
-The star is expected to contract until it ignites hydrogen. We set a few options for the simulation with a
-toml file, which we generate dynamically. These simulation should complete in about a thousand steps once it reaches the
-`max_center_T` limit.
-
-Output is stored in HDF5 files, and easy to use functions are provided with the `StellarModels` module to turn these HDF5
-files into DataFrame objects. HDF5 output is compressed by default.
-=#
 open("example_options.toml", "w") do file
     write(file,
           """
@@ -121,34 +90,15 @@ StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 
-##
-#Configure live plots. To turn off one can use `plotter = Plotting.NullPlotter()`
-using GLMakie
-GLMakie.activate!()
-set_theme!(Plotting.basic_theme())
-f = Figure(size=(1400, 750))
-plots = [Plotting.HRPlot(f[1, 1]),
-         Plotting.TRhoProfile(f[1, 2]),
-         Plotting.KippenLine(f[2, 1], xaxis=:time, time_units=:Gyr),
-         Plotting.AbundancePlot(f[2, 2], net, log_yscale=true, ymin=1e-3),
-         Plotting.HistoryPlot(f[1, 3], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
-         Plotting.ProfilePlot(f[2, 3], sm, x_name="mass", y_name="log10_rho", othery_name="log10_T")]
-plotter = Plotting.Plotter(fig=f, plots=plots)
 
 ##
 #set initial condition and run model
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09],
-                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-@time Evolution.do_evolution_loop!(sm, plotter=plotter);
+                                             mass_dual, 100 * RSUN; initial_dt=10 * SECYEAR)
+@time Evolution.do_evolution_loop!(sm, plotter=Plotting.NullPlotter());
 
 ##
-#=
-### Plotting with Makie
-
-Now that our simulation is complete we can analyze the results. We make use of the Makie package for this. I'm not a fan
-of the Makie defaults, so I adjust them.
-=#
 using CairoMakie, LaTeXStrings
 set_theme!(Plotting.basic_theme())
 
