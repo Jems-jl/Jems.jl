@@ -192,7 +192,7 @@ end
 
 Creates output files for history and profile data
 """
-function create_output_files!(m::AbstractModel)
+function create_output_files!(m::AbstractModel, ::Type{TNUMBER}=Float64) where {TNUMBER}
     # Create history file
     m.history_file = h5open(m.opt.io.hdf5_history_filename, "w")
     data_cols = m.opt.io.history_values
@@ -220,6 +220,20 @@ function create_output_files!(m::AbstractModel)
     attrs(history)["column_units"] = [m.history_output_units[data_cols[i]] for i in eachindex(data_cols)]
     # Finally, place column names
     attrs(history)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
+    
+    if TNUMBER != Float64
+        println("TNUMBER is not Float64")
+        number_of_partials = TNUMBER.parameters[3]
+        dual_histories = [create_dataset(m.history_file, "history_partial_$i", Float64, ((0, ncols), (-1, ncols)),
+                                         chunk=(m.opt.io.hdf5_history_chunk_size, ncols),
+                                         compress=m.opt.io.hdf5_history_compression_level)
+                          for i = 1:number_of_partials]
+        for dual_history in dual_histories
+            attrs(dual_history)["column_units"] = [m.history_output_units[data_cols[i]] for i in eachindex(data_cols)]
+            attrs(dual_history)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
+        end
+    end
+
     if (!m.opt.io.hdf5_history_keep_open)
         close(m.history_file)
     end
@@ -259,7 +273,7 @@ end
 
 Saves data (history/profile) for the current model, as required by the settings in `sm.opt.io`.
 """
-function write_data(m::AbstractModel)
+function write_data(m::AbstractModel, ::Type{TNUMBER}=Float64) where {TNUMBER}
     # do history
     if (m.opt.io.history_interval > 0)
         file_exists = isfile(m.opt.io.hdf5_history_filename)
@@ -273,11 +287,37 @@ function write_data(m::AbstractModel)
             data_cols = m.opt.io.history_values
             ncols = length(data_cols)
 
-            # after being sure the header is there, print the data
+            # after being sure the header is there,...
             history = m.history_file["history"]
             HDF5.set_extent_dims(history, (size(history)[1] + 1, ncols))
+            if TNUMBER != Float64
+                dual_histories = [m.history_file["history_partial_$i"] for i = 1:TNUMBER.parameters[3]]
+                for dual_history in dual_histories
+                    HDF5.set_extent_dims(dual_history, (size(dual_history)[1] + 1, ncols))
+                end
+            end
+            # ...print the data
             for i in eachindex(data_cols)
-                history[end, i] = m.history_output_functions[data_cols[i]](m)
+                this_value = m.history_output_functions[data_cols[i]](m)
+                if this_value isa ForwardDiff.Dual
+                    history[end, i] = this_value.value
+                elseif this_value isa Number  # some properties might be plain numbers
+                    history[end, i] = this_value
+                else
+                    throw(ArgumentError("History output function for column $(data_cols[i]) does not return a Number or ForwardDiff.Dual"))
+                end
+                if TNUMBER != Float64
+                    if this_value isa ForwardDiff.Dual
+                        for (k, dual_history) in enumerate(dual_histories)
+                            dual_history[end, i] = m.history_output_functions[data_cols[i]](m).partials[k]
+                        end
+                    elseif this_value isa Number
+                        for (k, dual_history) in enumerate(dual_histories)
+                            dual_history[end, i] = NaN  # if the value is not a dual, partials are not defined
+                        end
+                    else
+                    end
+                end
             end
             if (!m.opt.io.hdf5_history_keep_open)
                 close(m.history_file)
@@ -313,9 +353,48 @@ function write_data(m::AbstractModel)
             # Place column names
             attrs(profile)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
 
-            # store data
-            for i in eachindex(data_cols), k = 1:(m.props.nz)
-                profile[k, i] = m.profile_output_functions[data_cols[i]](m, k)
+
+           
+            if TNUMBER == Float64
+                # store data
+                for i in eachindex(data_cols), k = 1:(m.props.nz)
+                    profile[k, i] = m.profile_output_functions[data_cols[i]](m, k)
+                end
+            else TNUMBER != Float64
+                for i in eachindex(data_cols), k = 1:(m.props.nz)
+                    # storing the actual profile data, not yet the partials
+                    this_value = m.profile_output_functions[data_cols[i]](m, k)
+                    if this_value isa ForwardDiff.Dual
+                        profile[k, i] = this_value.value
+                    elseif this_value isa Number
+                        profile[k, i] = this_value
+                    else
+                        throw(ArgumentError("Profile output function for column $(colname) does not return a Number or ForwardDiff.Dual"))
+                    end
+                end
+                number_of_partials = TNUMBER.parameters[3]
+                for partial_index in 1:number_of_partials # loop over all input parameters
+                    # create a new profile dual_profile for the (partial_index)th partial
+                    dual_profile = create_dataset(m.profiles_file,
+                        "$(lpad(m.props.model_number,m.opt.io.hdf5_profile_dataset_name_zero_padding,"0"))_partial_$partial_index",
+                        Float64, ((m.props.nz, ncols), (m.props.nz, ncols));
+                        chunk=(m.opt.io.hdf5_profile_chunk_size, ncols),
+                        compress=m.opt.io.hdf5_profile_compression_level)
+                    # next up, include the units for all quantities. No need to recheck columns.
+                    attrs(dual_profile)["column_units"] = [m.profile_output_units[data_cols[i]] for i in eachindex(data_cols)]
+                    # Place column names
+                    attrs(dual_profile)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
+                    # loop over all columns and all zones to store data
+                    for i in eachindex(data_cols), k = 1:(m.props.nz)
+                        #storing the partial derivatives with respect to the (partial_index)th input parameter
+                        this_value = m.profile_output_functions[data_cols[i]](m, k)
+                        if this_value isa ForwardDiff.Dual
+                            dual_profile[k, i] = this_value.partials[partial_index]
+                        elseif this_value isa Number
+                            dual_profile[k, i] = NaN  # if the value is not a dual, partials are not defined
+                        end
+                    end
+                end
             end
             if (!m.opt.io.hdf5_profile_keep_open)
                 close(m.profiles_file)
