@@ -51,7 +51,7 @@ function update_plot!(p::AbundancePlot, m)
         index = p.xa_index[p.species_names[i]]
         p.abundances[i][] = [max(1e-99,get_value(m.props.xa[k, index])) for k in 1:m.props.nz]
 
-        surf_value = get_value(m.props.xa[m.props.nz, index])
+        surf_value = max(1e-99,get_value(m.props.xa[m.props.nz, index]))
         p.label_locations[i][] = Point(total_mass, surf_value)
     end
     xlims!(p.axis, 0, total_mass*1.15)

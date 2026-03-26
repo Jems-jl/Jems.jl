@@ -13,7 +13,17 @@ using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.ReactionRates
+using Jems.Plotting
 using CairoMakie
+include("initial_conditions.jl")
+include("opacity.jl")
+include("eos.jl")
+
+function split_omega(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
+    # use same omega in both cells to preserve energy
+     varnew_low[sm.vari[:gamma_turb]] = var_00[sm.vari[:gamma_turb]]
+     varnew_up[sm.vari[:gamma_turb]] = var_00[sm.vari[:gamma_turb]]
+end
 
 ##
 #=
@@ -28,18 +38,29 @@ simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple 
 to $\kappa=0.2(1+X)\;[\mathrm{cm^2\;g^{-1}}]$ is available.
 =#
 
-varnames = [:lnρ, :lnT, :lnr, :lum]
-varscaling = [:log, :log, :log, :maxval]
+varnames = [:lnρ, :lnT, :lnr, :lum, :gamma_turb] 
+varscaling = [:log, :log, :log, :maxval, :log]
 structure_equations = [Evolution.equationHSE, Evolution.equationT,
-                       Evolution.equationContinuity, Evolution.equationLuminosity]
+                       Evolution.equationContinuity, Evolution.equationLuminosity,
+                       Evolution.gammaTurb]
 remesh_split_functions = [StellarModels.split_lnr_lnρ, StellarModels.split_lum,
-                          StellarModels.split_lnT, StellarModels.split_xa]
+                          StellarModels.split_lnT, StellarModels.split_xa, split_omega]
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
-nz = 1000 
+#net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+# net = merge_nuclear_networks([NuclearNetworks.networks[:JINA_PPI],
+#                             NuclearNetworks.networks[:JINA_PPII],
+#                             NuclearNetworks.networks[:JINA_CNOI],
+#                             NuclearNetworks.networks[:JINA_CNOII],])
+
+nz = 2000 
 nextra = 100
-eos = EOS.IdealEOS(true)
+# eos = EOS.IdealEOS(true)
 opacity = Opacity.SimpleElectronScatteringOpacity()
-turbulence = Turbulence.BasicMLT(1.0)
+turbulence = Turbulence.cgMLT(1.0, 9/4)
+eos = EOS_table_collector("/Users/rdbnath/Documents/mesa-25.12.1/eos/eosFreeEOS_data")
+# low_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_low_alt/", "lowT_fa05_gs98")
+# high_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/","oplib_agss09" )
+# opacity = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2)
 sm = StellarModel(varnames, varscaling, structure_equations, Evolution.equation_composition,
                     nz, nextra, remesh_split_functions, net, eos, opacity, turbulence);
 
@@ -122,58 +143,59 @@ open("example_options.toml", "w") do file
           [solver]
           newton_max_iter_first_step = 1000
           initial_model_scale_max_correction = 0.2
-          newton_max_iter = 50
-          scale_max_correction = 0.1
-
+          newton_max_iter = 200
+          scale_max_correction = 1.0
+          solver_progress_iter = 1
+          relative_correction_tolerance = 1e12
+          maximum_residual_tolerance = 1e-2
           [timestep]
           dt_max_increase = 1.5
           delta_R_limit = 0.01
-          delta_Tc_limit = 0.01
+          delta_Tc_limit = 0.01     
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 2000
-          max_center_T = 1e8
-
-          [plotting]
-          do_plotting = true
-          wait_at_termination = false
-          plotting_interval = 1
-
-          window_specs = ["HR", "Kippenhahn", "profile", "TRhoProfile"]
-          window_layout = [[1, 1],  # arrangement of plots
-                            [1, 2],
-                            [2, 1],
-                            [2, 2]
-                            ]
-
-          profile_xaxis = 'mass'
-          profile_yaxes = ['log10_T']
-          profile_alt_yaxes = ['X','Y']
-
-          history_xaxis = 'age'
-          history_yaxes = ['R_surf']
-          history_alt_yaxes = ['T_center']
-
-          max_log_eps = 5.0
-
+          max_model_number = 1750
+          max_center_T = 1e10
+          
           [io]
-          profile_interval = 50
+          profile_interval = 1
+
           terminal_header_interval = 100
           terminal_info_interval = 100
-          profile_values = ["zone", "mass", "dm", "log10_ρ", "log10_r", "log10_P", "log10_T", "luminosity",
-                                      "X", "Y", "D_face", "nabla_a_face", "nabla_r_face","nabla_face"]
+          profile_values = ["D", "zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity",
+                                      "X", "Y","D_face", "nabla_a_face", "nabla_r_face","nabla_face", "nabla_tdc","velocity_turb","turb_energy", "D_face_kuhfuss", "lamda"]
+            history_values = ["model_number", "age", "dt", "star_mass", "budget_source","budget_mixing","budget_omega_var", "budget_diss_turb", "budget_diss_rad", "budget_diss_excess", "budget_rel_error", "budget_energy_frac","X_center", "alpha_overshoot","pressure_scale_height", "Sch_radius", "ov_radius", "ov_distance"]
+
           """)
 end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
 rm(sm.opt.io.hdf5_history_filename; force=true)
 rm(sm.opt.io.hdf5_profile_filename; force=true)
 
-n = 3
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-@time Evolution.do_evolution_loop!(sm);
+##
+#Configure live plots. To turn off one can use `plotter = Plotting.NullPlotter()`
+using GLMakie
+GLMakie.activate!()
+set_theme!(Plotting.basic_theme())
+f = Figure(size=(1400,750))
+plots = [Plotting.HRPlot(f[1,1]),
+        Plotting.TRhoProfile(f[1,2]),
+         Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
+         Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3),
+         Plotting.HistoryPlot(f[1,3], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
+         Plotting.ProfilePlot(f[2,3], sm, x_name="mass", y_name="log10_rho", othery_name="log10_T")]
+plotter = Plotting.Plotter(fig=f,plots=plots)
 
+##
+#set initial condition and run model
+# n = 3
+# StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
+#                                            5 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+n = 1.5
+pms_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 5 * MSUN, 100 * RSUN; initial_dt=0.01 * SECYEAR)
+@time Evolution.do_evolution_loop!(sm, plotter=plotter); 
+ 
 ##
 #=
 ### Plotting with Makie
