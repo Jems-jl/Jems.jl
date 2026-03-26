@@ -8,11 +8,11 @@ using DelimitedFiles
 Structure to store data from a single OPLIB data file and store it as a 1D array of R,T alon with some metadata 
 """
 struct RT_table_opacity <: Jems.Opacity.AbstractOpacity 
-    X :: Float64
-    Z :: Float64
+    X :: Float64 
+    Z :: Float64 
     logTs :: Vector{Float64}
     logRs :: Vector{Float64}
-    kap_data :: Vector{Float64} #Instead of Array{Float64} 
+    kap_data :: Vector{Float64} 
 end 
 
 """
@@ -71,7 +71,7 @@ function RT_table_opacity(filepath :: String)
     if grid_line_idx == 0
         error("Could not find Grid Line! Searched 20 lines after metadata for a row with $num_Rs numbers.")
     end
-    println("Grid (logRs) found at Line $grid_line_idx.")
+    # println("Grid (logRs) found at Line $grid_line_idx.")
 
     data_start_idx = 0
     
@@ -86,7 +86,7 @@ function RT_table_opacity(filepath :: String)
     if data_start_idx == 0
         error("Could not find Data Start! Searched lines after grid for row with $(num_Rs + 1) numbers.")
     end
-    println("Data starts at Line $data_start_idx.")
+    # println("Data starts at Line $data_start_idx.")
 
     ## pre-allocating memory 
 
@@ -147,7 +147,7 @@ function Opacity_table_collector(directory :: String, mixture_key :: String)
         z_idx = searchsortedfirst(unique_Zs, t.Z)
         grid[x_idx, z_idx] = t 
     end 
-
+    println("Opacity tables loaded")
     return Opacity_table_collector(unique_Xs, unique_Zs, grid)
 
 end 
@@ -452,34 +452,28 @@ function Jems.Opacity.get_opacity_resultsTρ(composite :: CompositeOpacity, lnT:
     logT = lnT * inv_ln10
     val_logT = ForwardDiff.value(logT)
 
-    # if val_logT > 7 
-    #     iH1 = findfirst(==(:H1), species)
-    #     return 0.2 * (1 + xa[iH1])  # in cm^2/g
+    # calculating the weight based on log
 
 
-    # else
+    if val_logT >= composite.trans_logT_max 
+        return get_opacity_table_collection(composite.high_T_collector, lnT, lnρ, xa, species)
 
-        if val_logT >= composite.trans_logT_max 
-            return get_opacity_table_collection(composite.high_T_collector, lnT, lnρ, xa, species)
+    elseif val_logT <= composite.trans_logT_min
+        return get_opacity_table_collection(composite.low_T_collector, lnT, lnρ, xa, species)
 
-        elseif val_logT <= composite.trans_logT_min
-            return get_opacity_table_collection(composite.low_T_collector, lnT, lnρ, xa, species)
+    else 
+        κ_low  = get_opacity_table_collection(composite.low_T_collector, lnT, lnρ, xa, species)
+        κ_high = get_opacity_table_collection(composite.high_T_collector, lnT, lnρ, xa, species)
 
-        else 
-            κ_low  = get_opacity_table_collection(composite.low_T_collector, lnT, lnρ, xa, species)
-            κ_high = get_opacity_table_collection(composite.high_T_collector, lnT, lnρ, xa, species)
+        #calculating the weight 
+        w = smooth_step_func(logT, composite.trans_logT_min, composite.trans_logT_max)
 
-            #calculating the weight 
-            w = smooth_step_func(logT, composite.trans_logT_min, composite.trans_logT_max)
+        log_κ_low = log10(κ_low)
+        log_κ_high = log10(κ_high)
+        smooth_log_κ = (1-w) * log_κ_low + w * log_κ_high
 
-            log_κ_low = log10(κ_low)
-            log_κ_high = log10(κ_high)
-            smooth_log_κ = (1-w) * log_κ_low + w * log_κ_high
+        return 10^smooth_log_κ
 
-            return 10^smooth_log_κ
-
-        end 
-    # end
+    end 
 end
-
 

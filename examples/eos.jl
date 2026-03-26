@@ -370,10 +370,10 @@ function Jems.EOS.set_EOS_resultsTρ!(eos:: EOS_table_collector, r::EOSResults{T
     r.ρ = exp(lnρ)
     
     # calculating weight of the step based on the logT value 
-    # Transition 1 at low T (3.2 -> 3.6)
-    # Transition 2 at high T (8.0 -> 8.5)
+    # Transition 1 at low T (3.1 -> 3.2)
+    # Transition 2 at high T (7.0 -> 7.2)
 
-    w_low = smooth_step_func(logT, 3.8, 4.2)
+    w_low = smooth_step_func(logT, 3.1, 3.2)
     w_high = 1.0 - smooth_step_func(logT, 7.0, 7.4)
     # Combined Weight: 
     w = w_low * w_high 
