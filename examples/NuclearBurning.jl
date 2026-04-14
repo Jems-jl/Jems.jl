@@ -14,6 +14,10 @@ using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.Plotting
+include("equations.jl")
+include("initial_condition.jl")
+include("opacity.jl")
+include("eos.jl")
 
 ##
 #=
@@ -31,12 +35,17 @@ to $\kappa=0.2(1+X)\;[\text{cm^2\;g^{-1}}]$ is available.
 ##
 
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
-nz = 1000
+nz = 2000
 nextra = 100
 eos = EOS.IdealEOS(true)
-opacity = Opacity.SimpleElectronScatteringOpacity()
-turbulence = Turbulence.BasicMLT(1.0)
-sm = StellarModel(StellarModels.DefaultStellarEquationSet(), nz, nextra, net, eos, opacity, turbulence);
+eos = EOS_table_collector("/Users/rdbnath/Documents/mesa-25.12.1/eos/eosFreeEOS_data")
+# opacity = Opacity.SimpleElectronScatteringOpacity()
+low_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_low_alt/", "lowT_fa05_gs98") 
+high_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/","oplib_agss09" ) 
+opacity = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2)
+turbulence = Turbulence.BasicMLT(2.0)
+##
+sm = StellarModel(TDCEquationSet(), nz, nextra, net, eos, opacity, turbulence);
 
 ##
 #=
@@ -48,9 +57,11 @@ luminosity is initialized by assuming pure radiative transport for the temperatu
 Information of the model at its present and following step are required at the beginning, the function
 `compute_starting_model_properties!` takes care of setting this up.
 =#
-n = 3
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], MSUN,
-                                             100 * RSUN; initial_dt=10 * SECYEAR)
+n = 1.5
+ pms_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 5*MSUN,
+                                            100 * RSUN; initial_dt=10 * SECYEAR)
+# Jems.StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 5*MSUN,
+#                                              100 * RSUN; initial_dt=10 * SECYEAR)                                       
 Evolution.compute_starting_model_properties!(sm)
 
 ##
@@ -100,6 +111,12 @@ toml file, which we generate dynamically. These simulation should complete in ab
 Output is stored in HDF5 files, and easy to use functions are provided with the `StellarModels` module to turn these HDF5
 files into DataFrame objects. HDF5 output is compressed by default.
 =#
+##
+# Additional Profiles
+Jems.StellarModels.add_profile_option!(sm, "velocity_turb", "unitless", (sm, k) -> sqrt(2*exp(get_value(sm.props.gamma_turb[k]))))
+Jems.StellarModels.add_profile_option!(sm, "turb_energy", "unitless", (sm, k) -> (exp(get_value(sm.props.gamma_turb[k]))))
+Jems.StellarModels.add_profile_option!(sm, "D_face_kuhfuss", "unitless", (sm, k) -> get_value(sm.props.D_turb[k]))
+##
 open("example_options.toml", "w") do file
     write(file,
           """
@@ -109,8 +126,12 @@ open("example_options.toml", "w") do file
           [solver]
           newton_max_iter_first_step = 1000
           initial_model_scale_max_correction = 0.2
-          newton_max_iter = 10
+          newton_max_iter = 200
           scale_max_correction = 0.1
+          solver_progress_iter = 1
+          relative_correction_tolerance = 1e12
+          maximum_residual_tolerance = 1e-2
+          use_preconditioning = true
 
           [timestep]
           dt_max_increase = 1.5
@@ -123,9 +144,11 @@ open("example_options.toml", "w") do file
           max_center_T = 1e8
 
           [io]
-          profile_interval = 50
+          profile_interval = 1
           terminal_header_interval = 100
           terminal_info_interval = 100
+          profile_values = ["zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity",
+                                      "X", "Y", "nabla_a_face", "nabla_r_face"]
 
           """)
 end
@@ -149,9 +172,9 @@ plotter = Plotting.Plotter(fig=f,plots=plots)
 
 ##
 #set initial condition and run model
-n = 3
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+n = 1.5
+pms_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
+                                            5 * MSUN, 100 * RSUN; initial_dt=0.01 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm, plotter=plotter);
 
 ##
