@@ -324,11 +324,10 @@ function get_log_kappa_per_table(table::RT_table_opacity, val_logT::Float64, val
             flat_idx = real_idx_R + (real_idx_T - 1) * N_R
             val = table.kap_data[flat_idx] # This is a Float64
 
-            # Float * Dual scales linearly, bypassing the heavy chain rule!
+            
             sum_R += val * weights_R[idx_R]
         end
         
-        # (Dual * Dual = SLOW, but we only do it 4 times per table now instead of 16!)
         log_kappa += sum_R * weights_T[idx_T]
     end
     return log_kappa

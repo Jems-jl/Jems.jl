@@ -242,7 +242,7 @@ function n_polytrope_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfra
     # set luminosity
     for i = 1:nz - 1
         Pface = Pc * (θ_n(ξ_face[i]))^(n + 1)
-        ρface = ρc * (θ_n(ξ_face[i]))^(n)
+        ρface = ρc * (θ_n(ξ_face[i]))^(n) 
         Tfaceinit = Pface * μ / (CGAS * ρface)
         lnTface = getlnT_NewtonRhapson(log(Tfaceinit),log(ρface), Pface, massfractions,sm.eos)
         Tface = exp(lnTface)

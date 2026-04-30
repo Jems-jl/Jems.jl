@@ -17,8 +17,8 @@ using Jems.Plotting
 include("equations.jl")
 include("initial_condition.jl")
 #include(".jl")
-#include("Interpolation.jl")
-include("eos.jl")
+include("Interpolation.jl")
+#include("eos.jl")
 using Profile
 
 ##
