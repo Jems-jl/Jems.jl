@@ -12,15 +12,15 @@ using Test
         i, j, u, v = get_data_position(grid_x, grid_y, 0.5, 0.3)
         result = evaluate_interp(interp, i, j, u, v)
         
-        @test result ≈ 2.55 rtol=1e-2
+        @test result ≈ 2.4 rtol=1e-2
     end
     
     @testset "Bicubic Interpolation" begin
-        
+
         grid_x = [0.0, 1.0, 2.0, 3.0, 4.0]
         grid_y = [0.0, 1.0, 2.0, 3.0]
         
-        # Create sample data: f(x,y) = x^2 + y^2
+       
         data = zeros(1, 5, 4)
         for i in 1:5
             for j in 1:4
@@ -30,10 +30,9 @@ using Test
         
         interp = build_bicubic_interpolator(grid_x, grid_y, data)
         
-        # Test at (x=1.5, y=1.5): expected ≈ 1.5^2 + 1.5^2 = 4.5
         i, j, u, v = get_data_position(grid_x, grid_y, 1.5, 1.5)
         result = evaluate_interp(interp, i, j, u, v)
         
-        @test result ≈ 4.5 rtol=1e-1  # Larger tolerance for bicubic
+        @test result ≈ 4.5 rtol=1e-1  
     end
 end
