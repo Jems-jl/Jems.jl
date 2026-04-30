@@ -1,4 +1,5 @@
 using Jems
+using Jems.Interpolations
 using Test
 
 @testset "Jems.jl" begin
