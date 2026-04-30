@@ -168,6 +168,25 @@ function setup_model_profile_functions!(sm::StellarModel)
     add_profile_option!(sm, "nabla_r_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇ᵣ), label=L"\nabla_\text{r,face}")
     add_profile_option!(sm, "nabla_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇), label=L"\nabla_\text{face}")
     add_profile_option!(sm, "D_face", "cm^2*s^{-1}", (sm, k) -> get_value(sm.props.turb_res[k].D_turb), label=L"D_\text{face}\,[\text{cm^2\,s^{-1}}]")
+
+    # solver residual diagnostics
+    add_profile_option!(sm, "residual_continuity", "unitless", (sm, k) -> sm.solver_data.eqs_numbers[(k - 1) * sm.nvars + 3], label=L"\mathcal{R}_\text{continuity}")
+    add_profile_option!(sm, "residual_gamma", "unitless", (sm, k) -> sm.solver_data.eqs_numbers[(k - 1) * sm.nvars + 5], label=L"\mathcal{R}_\text{continuity}")
+    add_profile_option!(sm, "residual_HSE", "unitless", (sm, k) -> sm.solver_data.eqs_numbers[(k - 1) * sm.nvars + 1], label=L"\mathcal{R}_\text{continuity}")
+    add_profile_option!(sm, "residual_T", "unitless", (sm, k) -> sm.solver_data.eqs_numbers[(k - 1) * sm.nvars + 2], label=L"\mathcal{R}_\text{continuity}")
+    add_profile_option!(sm, "residual_lum", "unitless", (sm, k) -> sm.solver_data.eqs_numbers[(k - 1) * sm.nvars + 4], label=L"\mathcal{R}_\text{continuity}")
+    # corr
+    add_profile_option!(sm, "correction_lnrho", "unitless", (sm, k) -> sm.solver_data.solver_corr[(k - 1) * sm.nvars + sm.vari[:lnρ]], label=L"\Delta\ln\rho")
+    add_profile_option!(sm, "correction_lnr", "unitless", (sm, k) -> sm.solver_data.solver_corr[(k - 1) * sm.nvars + sm.vari[:lnr]], label=L"\Delta\ln r")
+    add_profile_option!(sm, "correction_lnT", "unitless", (sm, k) -> sm.solver_data.solver_corr[(k - 1) * sm.nvars + sm.vari[:lnT]], label=L"\Delta\ln r")
+    add_profile_option!(sm, "correction_lum", "unitless", (sm, k) -> sm.solver_data.solver_corr[(k - 1) * sm.nvars + sm.vari[:lum]], label=L"\Delta\ln r")
+    add_profile_option!(sm, "correction_gamma", "unitless", (sm, k) -> sm.solver_data.solver_corr[(k - 1) * sm.nvars + sm.vari[:gamma_turb]], label=L"\Delta\ln r")
+end
+
+function init_IO(m::AbstractModel)
+end
+
+function init_IO(m::AbstractModel)
 end
 
 function init_IO(m::AbstractModel)
@@ -254,6 +273,58 @@ function shut_down_IO!(m)
     end
 end
 
+function write_newton_iteration_data(sm::StellarModel, newton_iter::Int)
+    if sm.opt.io.profile_interval <= 0 #error handling 
+        return
+    end
+
+    # We are solving for the next accepted model, so this is the model number that
+    # will be assigned if the current Newton solve converges.
+    next_model_number = sm.props.model_number + 1
+    if next_model_number % sm.opt.io.profile_interval != 0
+        return
+    end
+
+    file_exists = isfile(sm.opt.io.hdf5_profile_filename)
+    if !file_exists
+        throw(ErrorException("Profile file does not exist at $(sm.opt.io.hdf5_profile_filename)"))
+    end
+
+    if !sm.opt.io.hdf5_profile_keep_open
+        sm.profiles_file = h5open(sm.opt.io.hdf5_profile_filename, "r+")
+    end
+
+    data_cols = sm.opt.io.profile_values
+    ncols = length(data_cols)
+    dataset_name = "newton_$(lpad(next_model_number, sm.opt.io.hdf5_profile_dataset_name_zero_padding, "0"))_$(lpad(newton_iter, sm.opt.io.hdf5_profile_newton_iter_zero_padding, "0"))"
+
+    if haskey(sm.profiles_file, dataset_name)
+        if !sm.opt.io.hdf5_profile_keep_open
+            close(sm.profiles_file)
+        end
+        return
+    end
+
+    profile = create_dataset(sm.profiles_file,
+                             dataset_name,
+                             Float64, ((sm.props.nz, ncols), (sm.props.nz, ncols));
+                             chunk=(sm.opt.io.hdf5_profile_chunk_size, ncols),
+                             compress=sm.opt.io.hdf5_profile_compression_level)
+
+    attrs(profile)["column_units"] = [sm.profile_output_units[data_cols[i]] for i in eachindex(data_cols)]
+    attrs(profile)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
+    attrs(profile)["model_number"] = next_model_number
+    attrs(profile)["newton_iter"] = newton_iter
+
+    for k = 1:(sm.props.nz), i in eachindex(data_cols)
+        profile[k, i] = sm.profile_output_functions[data_cols[i]](sm, k)
+    end
+
+    if !sm.opt.io.hdf5_profile_keep_open
+        close(sm.profiles_file)
+    end
+end
+
 """
     write_data(sm::StellarModel)
 
@@ -301,6 +372,15 @@ function write_data(m::AbstractModel)
             end
             data_cols = m.opt.io.profile_values
             ncols = length(data_cols)
+
+            base_name = "newton_$(lpad(next_model_number, sm.opt.io.hdf5_profile_dataset_name_zero_padding, "0"))_$(lpad(newton_iter, sm.opt.io.hdf5_profile_newton_iter_zero_padding, "0"))"
+            dataset_name = base_name 
+            retry_count = 0 
+
+            while haskey(sm.profiles_file, dataset_name)
+                retry_count += 1
+                dataset_name = "$(base_name)_r$(retry_count)"
+            end
             # Save current profile
             profile = create_dataset(m.profiles_file,
                                      "$(lpad(m.props.model_number,m.opt.io.hdf5_profile_dataset_name_zero_padding,"0"))",
@@ -308,11 +388,12 @@ function write_data(m::AbstractModel)
                                      chunk=(m.opt.io.hdf5_profile_chunk_size, ncols),
                                      compress=m.opt.io.hdf5_profile_compression_level)
 
-            # next up, include the units for all quantities. No need to recheck columns.
             attrs(profile)["column_units"] = [m.profile_output_units[data_cols[i]] for i in eachindex(data_cols)]
             # Place column names
             attrs(profile)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
-
+            attrs(profile)["model_number"] = next_model_number
+            attrs(profile)["newton_iter"] = newton_iter
+            attrs(profile)["retry_count"] = retry_count
             # store data
             for i in eachindex(data_cols), k = 1:(m.props.nz)
                 profile[k, i] = m.profile_output_functions[data_cols[i]](m, k)

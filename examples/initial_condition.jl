@@ -366,34 +366,81 @@ function ismonotonic(A :: Array, cmp = >)
 
 end
 
-function cardino_cubic(A::T, B::T, C::T, D::T) where {T <: Real} 
-    # Convert the equation ax^3 + bx^2 +cx + d = 0 to the depressed cubic form 
-    # t^3 + pt + q = 0 
-    Δ₀ = B^2 - 3*A*C 
-    Δ₁ = 2*B^3 - 9*A*B*C + 27*A^2*D 
-    discriminant = Δ₁^2 - 4*Δ₀^3
+# function cardino_cubic(A::T, B::T, C::T, D::T) where {T <: Real}
+#     # Calculate Cardano discriminants
+#     Δ0 = B^2 - 3*A*C
+#     Δ1 = 2*B^3 - 9*A*B*C + 27*A^2*D
+    
+#     # discriminant calculation:
+#     # disc > 0: one real root 
+#     # disc = 0: repeated real roots 
+#     # disc < 0: three distict real roots 
+#     disc = Δ1^2 - 4*Δ0^3
 
-    sqrt_term = sqrt(complex(discriminant))
-    cube_arg = (Δ₁ + sqrt_term) / 2
-    if iszero(cube_arg)
-        Δ = zero(complex(T))
-    else
-        # Convert to polar form and take cube root
-        r = abs(cube_arg)
-        θ = angle(cube_arg)
-        Δ = cbrt(r) * exp(im * θ / 3)  # Principal cube root
+#     if disc < 0
+#         phi = acos(clamp(Δ1 / (2 * sqrt(Δ0^3)), -1.0, 1.0))
+        
+#         r1 = -1/(3*A) * (B + 2*sqrt(Δ0) * cos(phi/3))
+#         r2 = -1/(3*A) * (B + 2*sqrt(Δ0) * cos((phi + 2π)/3))
+#         r3 = -1/(3*A) * (B + 2*sqrt(Δ0) * cos((phi + 4π)/3))
+        
+#         return max(r1, r2, r3) # taking the maximum 
+#     else
+        
+#        # CASE: 1 Real Root (and 2 Complex Conjugates)
+#         # The region is sub-adiabatic/radiative. We only want the true real root.
+        
+#         sqrt_disc = sqrt(disc)
+        
+#         # Use sign matching to prevent catastrophic cancellation of floats
+#         cube_arg = (Δ1 + sign(Δ1) * sqrt_disc) / 2.0
+        
+#         # cbrt naturally handles negative reals in Julia, no 'im' needed
+#         C_term = cbrt(cube_arg)
+        
+#         if C_term == 0
+#             return -B / (3*A)
+#         end
+        
+#         # The exact, single real root
+#         true_root = -1/(3*A) * (B + C_term + Δ0/C_term)
+        
+#         return true_root
+#     end
+# end
+function newton_cubic_solver(A::T, B::T, C::T, D::T, E::T; max_iter=50, tol_corr=1e-10, tol_res=1e-10) where {T <: Real}
+    ω = 1e5
+    scale = max(abs(D), 1.0)
+    
+    for i in 1:max_iter
+        residual = A*ω^4 + B*ω^3 + C*ω^2 + D*ω + E
+        f_prime = 4*A*ω^3 + 3*B*ω^2 + 2*C*ω + D
+        
+        if abs(f_prime) < floatmin(T)
+            return ω 
+        end
+        
+        # 3. Calculate the Correction: Δω = f(ω) / f'(ω)
+        corr = residual / f_prime
+        
+        # Apply the correction to find the next guess
+        ω_new = ω - corr
+        
+        corr_is_small = abs(corr) < tol_corr * max(abs(ω_new), 1.0)
+        
+        res_is_small = abs(residual) < tol_res * scale
+        
+        if corr_is_small && res_is_small
+            return ω_new
+        end
+
+        ω = ω_new
     end
-    if abs(Δ) < eps(T)
-        Δ = complex(T(1e-10), T(1e-10))
-    end
-
-    ω_sol_complex = -1/(3*A) * (B + Δ + Δ₀/Δ)
-    ω_sol = real(ω_sol_complex)
-    ω_sol = max(ω_sol, eps(T))
-
-    return ω_sol 
-
-end 
+    
+    # If the loop exhausts max_iter without passing the checks, 
+    # it returns the last calculated value. 
+    return ω
+end
 function pms_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfraction, abundanceList:: AbundanceList, M::Real, R::Real; initial_dt = 100 * SECYEAR)
 
     # Setup Grid
@@ -427,34 +474,65 @@ function pms_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfraction, a
     sm.props.dm = dms
     sm.props.m = m_face
 
+
+    for i = 1:nz 
+        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]] = final_lnr[i]
+        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]] = final_lnρ[i]
+        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = final_lnT[i]
+        for (isotope, massfraction) in massfractions
+                sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[isotope]] = massfraction 
+            end
+    end
+
     for i = 1:nz 
         r_eos = EOSResults{Float64}()
         set_EOS_resultsTρ!(sm.eos, r_eos,final_lnT[i], final_lnρ[i], xa, species_names)
         κ = Jems.Opacity.get_opacity_resultsTρ(sm.opacity,final_lnT[i], final_lnρ[i], xa, species_names)      
         H_p = final_P[i]/ (exp(final_lnρ[i])* m_face[i] * CGRAV / (exp(final_lnr[i]))^2)
         Λ = (1/H_p + 1/exp(final_lnr[i]))
-        k_rad = (16 * SIGMA_SB * (exp(final_lnT[i]))^3) / (3 * κ * exp(final_lnρ[i]))
-        a1 = ((∇_ad_profile[i] * exp(final_lnT[i]) * Λ * 0.5 * sqrt(2 / 3) * r_eos.cₚ)/H_p^2)*(- 0.01)
-        a2 = (exp(final_lnρ[i]) * r_eos.cₚ *  0.5 * sqrt(2 / 3) * Λ)/ k_rad
-        a3 = (8/3 * sqrt(2/3))/Λ
-        a4 = (r_eos.cₚ * κ * exp(final_lnρ[i])^2 * Λ^2) / (48 * SIGMA_SB * (exp(final_lnT[i]))^3)
-        #Cubic equation call 
-        A = a2 * a3  
-        B = a3 + a2 * a4
-        C = 1/a4
-        D = -a1
-        ω_sol = cardino_cubic(A,B,C,D)
+        k_rad = (16 * SIGMA_SB * (exp(final_lnT[i]))^3) / (3 * κ * exp(final_lnρ[i]))  
+        c_s = sqrt(final_P[i]/exp(final_lnρ[i]))
 
-        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]] = final_lnr[i]
-        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]] = final_lnρ[i]
-        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = final_lnT[i]
-        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (∇_ad_profile[i] - 0.01) * (16π * CRAD * CLIGHT * CGRAV * m_face[i] * (exp(final_lnT[i]))^4)/ (3 * κ * final_P[i] * LSUN)
-        sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:gamma_turb]] =  10.0
-        for (isotope, massfraction) in massfractions
-            sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[isotope]] = massfraction 
-        end
-    end
-
+        if i == 1 
+            dlnP = log(final_P[i])
+            dlnT = final_lnT[i]
+            #sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (dlnT/dlnP) * (16π * CRAD * CLIGHT * CGRAV * m_face[i] * (exp(final_lnT[i]))^4)/ (3 * κ * final_P[i] * LSUN)
+            sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (∇_ad_profile[i] - 0.01) * (16π * CRAD * CLIGHT * CGRAV * m_face[i] * (exp(final_lnT[i]))^4)/ (3 * κ * final_P[i] * LSUN)
+            #a1 = ((∇_ad_profile[i] * exp(final_lnT[i]) * Λ * 0.5 * sqrt(2 / 3) * r_eos.cₚ)/H_p^2)*((dlnT/dlnP)-∇_ad_profile[i])
+            a1 = ((∇_ad_profile[i] * exp(final_lnT[i]) * Λ * 0.5 * sqrt(2 / 3) * r_eos.cₚ)/H_p^2)*(-0.01)
+            a2 = (exp(final_lnρ[i]) * r_eos.cₚ *  0.5 * sqrt(2 / 3) * Λ)/ k_rad
+            a3 = (8/3 * sqrt(2/3))/Λ
+            a4 = 1/((r_eos.cₚ * κ * exp(final_lnρ[i])^2 * Λ^2) / (48 * SIGMA_SB * (exp(final_lnT[i]))^3))
+            a5 = (8/3 * sqrt(2/3)) * (c_s * 1e-4)^3 / Λ
+            #Cubic equation call   
+            A = a2 * a3  
+            B = a3 + a2 * a4
+            C = a4
+            D = -a1 - a2*a5
+            E = -a5
+            ω_sol = newton_cubic_solver(A,B,C,D,E)
+            sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:gamma_turb]] = -1.0
+        else   
+            dlnP = log(final_P[i]) - log(final_P[i-1])
+            dlnT = final_lnT[i] -final_lnT[i-1]
+            #a1 = ((∇_ad_profile[i] * exp(final_lnT[i]) * Λ * 0.5 * sqrt(2 / 3) * r_eos.cₚ)/H_p^2)*( (dlnT/dlnP) - ∇_ad_profile[i])
+            a1 = ((∇_ad_profile[i] * exp(final_lnT[i]) * Λ * 0.5 * sqrt(2 / 3) * r_eos.cₚ)/H_p^2)*(-0.01)
+            a2 = (exp(final_lnρ[i]) * r_eos.cₚ *  0.5 * sqrt(2 / 3) * Λ)/ k_rad
+            a3 = (8/3 * sqrt(2/3))/Λ
+            a4 = 1/((r_eos.cₚ * κ * exp(final_lnρ[i])^2 * Λ^2) / (48 * SIGMA_SB * (exp(final_lnT[i]))^3))
+            a5 = (8/3 * sqrt(2/3)) * (c_s * 1e-4)^3 / Λ
+            #Cubic equation call       
+            A = a2 * a3  
+            B = a3 + a2 * a4
+            C = a4
+            D = -a1 - a2*a5
+            E = -a5
+            ω_sol = newton_cubic_solver(A,B,C,D,E)
+            #sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (dlnT/dlnP) * (16π * CRAD * CLIGHT * CGRAV * m_face[i] * (exp(final_lnT[i]))^4)/ (3 * κ * final_P[i] * LSUN)
+            sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (∇_ad_profile[i] - 0.01) * (16π * CRAD * CLIGHT * CGRAV * m_face[i] * (exp(final_lnT[i]))^4)/ (3 * κ * final_P[i] * LSUN)
+            sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:gamma_turb]] = -1.0
+        end 
+    end 
     sm.props.time = 0.0
     sm.props.dt = initial_dt
     sm.props.dt_next = initial_dt

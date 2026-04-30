@@ -16,8 +16,10 @@ using Jems.Evolution
 using Jems.Plotting
 include("equations.jl")
 include("initial_condition.jl")
-include("opacity.jl")
+#include(".jl")
+#include("Interpolation.jl")
 include("eos.jl")
+using Profile
 
 ##
 #=
@@ -31,21 +33,45 @@ The Evolution module has pre-defined equations corresponding to these variables,
 simple (fully ionized) ideal gas law EOS is available. Similarly, only a simple simple electron scattering opacity equal
 to $\kappa=0.2(1+X)\;[\text{cm^2\;g^{-1}}]$ is available.
 =#
+mutable struct BlendedOpacity{ O1 <: AbstractOpacity, O2 <: AbstractOpacity} <: AbstractOpacity
+    op_es :: O1 
+    op_oplib :: O2
+    λ :: Float64
+end 
 
+function Jems.Opacity.get_opacity_resultsTρ(op::BlendedOpacity, lnT :: TT, lnρ :: TT, xa::AbstractVector{<:TT}, species_names::Vector{Symbol}) where TT<:Real
+    if op.λ == 0.0
+        return Jems.Opacity.get_opacity_resultsTρ(op.op_es, lnT, lnρ, xa, species_names)
+    
+    # 2. If we are at 100%, ONLY calculate the tables
+    elseif op.λ == 1.0
+        return Jems.Opacity.get_opacity_resultsTρ(op.op_oplib, lnT, lnρ, xa, species_names)
+    
+    # 3. If we are blending, we must safely calculate both
+    else
+        κ_base = Jems.Opacity.get_opacity_resultsTρ(op.op_es, lnT, lnρ, xa, species_names)
+        κ_target = Jems.Opacity.get_opacity_resultsTρ(op.op_oplib, lnT, lnρ, xa, species_names)
+        return (1.0 - op.λ) * κ_base + op.λ * κ_target 
+    end
+end
 ##
+
+
 
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 nz = 2000
 nextra = 100
-eos = EOS.IdealEOS(true)
-eos = EOS_table_collector("/Users/rdbnath/Documents/mesa-25.12.1/eos/eosFreeEOS_data")
-# opacity = Opacity.SimpleElectronScatteringOpacity()
-low_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_low_alt/", "lowT_fa05_gs98") 
-high_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/","oplib_agss09" ) 
-opacity = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2)
+#eos = EOS.IdealEOS(true)
+@time eos = EOS_table_collector("/Users/rdbnath/Documents/mesa-25.12.1/eos/eosFreeEOS_data")
+op_es = Opacity.SimpleElectronScatteringOpacity()
+@time low_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_low_alt/", "lowT_fa05_gs98") 
+@time high_T_collection = Opacity_table_collector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/","oplib_agss09" ) 
+@time op_oplib = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2)
+# blended_opacity = BlendedOpacity(op_es, op_oplib, 0.0)
 turbulence = Turbulence.BasicMLT(2.0)
 ##
-sm = StellarModel(TDCEquationSet(), nz, nextra, net, eos, opacity, turbulence);
+sm = StellarModel(TDCEquationSet(), nz, nextra, net, eos, op_oplib, turbulence);
+
 
 ##
 #=
@@ -64,6 +90,7 @@ n = 1.5
 #                                              100 * RSUN; initial_dt=10 * SECYEAR)                                       
 Evolution.compute_starting_model_properties!(sm)
 
+
 ##
 #=
 ### Benchmarking
@@ -78,11 +105,25 @@ the evaluation of model properties:
 @benchmark begin
     StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
 end
-
 ##
+Jems.StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+
+Profile.clear()
+
+# We put it in a small loop to make sure it runs long enough to get a good statistical sample
+@profile begin
+    for i in 1:1000
+        StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+    end
+end
+
+Profile.print(format=:flat, sortedby=:count)
+# 4. Print the results in a readable, "flat" format sorted by the heaviest hitters
+#Profile.print(format=:flat, sortedby=:count)
 #=
 And next we benchmark the evaluation of the model equations and construction of the Jacobian:
 =#
+##
 @benchmark begin
     Evolution.eval_jacobian_eqs!($sm)
 end
@@ -140,7 +181,7 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 2000
+          max_model_number = 20000
           max_center_T = 1e8
 
           [io]
@@ -148,7 +189,7 @@ open("example_options.toml", "w") do file
           terminal_header_interval = 100
           terminal_info_interval = 100
           profile_values = ["zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity",
-                                      "X", "Y", "nabla_a_face", "nabla_r_face"]
+                                      "X", "Y", "nabla_a_face", "nabla_r_face", "residual_continuity", "residual_gamma", "residual_HSE", "residual_lum", "residual_T", "correction_gamma", "correction_lnr", "correction_lnrho", "correction_lum", "correction_lnT"]
 
           """)
 end
@@ -176,9 +217,9 @@ n = 1.5
 pms_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
                                             5 * MSUN, 100 * RSUN; initial_dt=0.01 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm, plotter=plotter);
-
+ 
 ##
-#=
+#=-
 ### Plotting with Makie
 
 Now that our simulation is complete we can analyze the results. We make use of the Makie package for this. I'm not a fan

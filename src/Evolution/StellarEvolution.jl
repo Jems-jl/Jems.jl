@@ -136,7 +136,7 @@ function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullP
             try
                 StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
                 eval_jacobian_eqs!(sm)  # heavy lifting happens here!
-
+                StellarModels.write_newton_iteration_data(sm, i) ##Added for residuals and tolerance 
                 (max_res, i_res) = findmax(abs, equs)
                 res_nz = i_res÷sm.nvars + 1
                 res_equ = i_res%sm.nvars

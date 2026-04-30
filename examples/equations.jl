@@ -199,12 +199,12 @@ end
 
 function Jems.StellarModels.evaluate_stellar_model_properties!(sm, props::TDCStellarModelProperties)
 
-    if sm.opacity isa BlendedOpacity
-        ramp_steps = 1000.0  # Number of steps to reach 100% table opacity
-        sm.opacity.λ = min(1.0, props.model_number / ramp_steps)
+    # if sm.opacity isa BlendedOpacity
+    #     ramp_steps = 1000.0  # Number of steps to reach 100% table opacity
+    #     sm.opacity.λ = min(1.0, props.model_number / ramp_steps)
 
-        println("Current Step: $(props.model_number) | Blending λ: $(sm.opacity.λ)")
-    end
+    #     println("Current Step: $(props.model_number) | Blending λ: $(sm.opacity.λ)")
+    # end
 
     lnT_i = sm.vari[:lnT]
     lnρ_i = sm.vari[:lnρ]
@@ -299,11 +299,52 @@ end
 function Jems.StellarModels.hydro_vars_scaling(equation_set::TDCEquationSet)
     return [:log, :log, :log, :maxval,:log]
 end
-function split_omega(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
-    # use same omega in both cells to preserve energy
-     varnew_low[sm.vari[:gamma_turb]] = var_00[sm.vari[:gamma_turb]]
-     varnew_up[sm.vari[:gamma_turb]] = var_00[sm.vari[:gamma_turb]]
+# function split_omega(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
+#     # use same omega in both cells to preserve energy
+#      varnew_low[sm.vari[:gamma_turb]] = var_00[sm.vari[:gamma_turb]]
+#      varnew_up[sm.vari[:gamma_turb]] = var_00[sm.vari[:gamma_turb]]
+# end
+
+function split_gamma_turb(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
+    # We use mass-weighted linear interpolation to preserve the gradient of gamma_turb, 
+    # preventing artificial zero-flux boundaries in the Time-Dependent Convection equations.
+    
+    if i == 1
+        γ_low = var_00[sm.vari[:gamma_turb]]  # Central cell remains unchanged
+        γ_cell_above = var_p1[sm.vari[:gamma_turb]]
+
+        mnew_up = 0.75 * dm_00  # mass from the core
+        mcell_above = dm_00 + 0.5 * dm_p1
+
+        γ_up = γ_low + (γ_cell_above - γ_low) * mnew_up / mcell_above
+        
+    elseif i == sm.prv_step_props.nz
+        γ_up = var_00[sm.vari[:gamma_turb]]  # Surface remains unchanged
+        γ_cell_below = var_m1[sm.vari[:gamma_turb]]
+
+        mnew_low = 0.5 * dm_m1 + 0.25 * dm_00  # mass of new lower cell from center of lower cell
+        mup = 0.5 * dm_m1 + dm_00 # mass of the surface from center of lower cell
+
+        γ_low = γ_cell_below + (γ_up - γ_cell_below) * mnew_low / mup
+        
+    else
+        γ_cell_above = var_p1[sm.vari[:gamma_turb]]
+        γ_cell_below = var_m1[sm.vari[:gamma_turb]]
+        γ_old = var_00[sm.vari[:gamma_turb]]
+
+        mnew_low = 0.5 * dm_m1 + 0.25 * dm_00  # mass at cell center of new lower cell, from center of cell below
+        mold = 0.5 * dm_m1 + 0.5 * dm_00  # old mass at cell center, from center of cell below
+        γ_low = γ_cell_below + (γ_old - γ_cell_below) * mnew_low / mold
+
+        mnew_up = 0.25 * dm_00  # mass from center of cell before splitting
+        mcell_above = 0.5 * dm_00 + 0.5 * dm_p1
+        γ_up = γ_old + (γ_cell_above - γ_old) * mnew_up / mcell_above
+    end
+    
+    varnew_low[sm.vari[:gamma_turb]] = γ_low
+    varnew_up[sm.vari[:gamma_turb]] = γ_up
 end
+
 function Jems.StellarModels.remesh_splitting(equation_set::TDCEquationSet, sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
     StellarModels.split_lnr_lnρ(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
     StellarModels.split_lum(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
@@ -402,7 +443,7 @@ if k == 1
 
     # Different terms for residual at k = 1
     mixing_term =  (F_p1/  dm_face_p1)  
-    omega_var_term = (γ_face_00- get_value(sm.start_step_props.gamma_turb[k])) / sm.props.dt
+    omega_var_term = ((γ_face_00- get_value(sm.start_step_props.gamma_turb[k])) / sm.props.dt) * ω_face_00
     source_term = α₁_face_00 * SA_face_00 *sqrt(ω_face_00)
     turb_dissipation_term = C_d * (ω_face_00)^(3/2) / Λ_face_00
     rad_dissipation_term = ω_face_00 / τᵣ_face_00
@@ -599,7 +640,7 @@ end
 
 function Jems.Evolution.eval_cell_eqs!(sm::StellarModel, ::TDCEquationSet, k::Int)
     sm.solver_data.eqs_duals[k, 1] = Evolution.equationHSE(sm, k)
-    sm.solver_data.eqs_duals[k, 2] = equationTDC_temp(sm, k)
+    sm.solver_data.eqs_duals[k, 2] = Evolution.equationT(sm,k)                           #equationTDC_temp(sm, k)
     sm.solver_data.eqs_duals[k, 3] = Evolution.equationContinuity(sm, k)
     sm.solver_data.eqs_duals[k, 4] = Evolution.equationLuminosity(sm, k)
     sm.solver_data.eqs_duals[k, 5] = gammaTurb(sm,k)
