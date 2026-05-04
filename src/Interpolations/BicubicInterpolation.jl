@@ -1,7 +1,7 @@
 using LinearAlgebra
 
 """
-    BicubicInterpolation <: AbstractBiInterpolation
+    BicubicInterpolation <: Abstract2DInterpolation
 
 Structure holding pre-calculated coefficients for bicubic (Catmull-Rom) interpolation.
 
@@ -10,7 +10,7 @@ Structure holding pre-calculated coefficients for bicubic (Catmull-Rom) interpol
 - `grid_y::Vector{Float64}`: Rectilinear grid axes for Y.
 - `coeff::Array{Float64, 4}`: 4D array `(num_vars, 16, Nx, Ny)` containing the 16 polynomial coefficients.
 """
-struct BicubicInterpolation <: AbstractBiInterpolation
+struct BicubicInterpolation <: Abstract2DInterpolation
     grid_x :: Vector{Float64}
     grid_y :: Vector{Float64}
     coeff :: Array{Float64, 4} # (num_variables, 16, num_boxes_X, num_boxes_Y)

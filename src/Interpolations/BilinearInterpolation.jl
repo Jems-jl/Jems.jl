@@ -1,6 +1,6 @@
 
 """
-    BilinearInterpolation <: AbstractBiInterpolation
+    BilinearInterpolation <: Abstract2DInterpolation
 
 Structure holding pre-calculated coefficients for bilinear interpolation.
 
@@ -9,7 +9,7 @@ Structure holding pre-calculated coefficients for bilinear interpolation.
 - `grid_y::Vector{Float64}`: Rectilinear grid axes for Y.
 - `coeff::Array{Float64, 4}`: 4D array `(num_vars, 4, Nx, Ny)` containing linear coefficients `{C1, C2, C3, C4}`.
 """
-struct BilinearInterpolation <: AbstractBiInterpolation
+struct BilinearInterpolation <: Abstract2DInterpolation
     grid_x :: Vector{Float64}
     grid_y :: Vector{Float64}
     coeff :: Array{Float64, 4} # (num_variables, 4, num_boxes_X, num_boxes_Y)
