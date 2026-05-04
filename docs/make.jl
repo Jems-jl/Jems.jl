@@ -26,6 +26,7 @@ makedocs(modules=[Jems],
          pages=["Home" => "index.md",
                 "Examples" => ["DualNumbers.md","NuclearBurning.md"],
                 "Modules" => [
+                    "Interpolations.md",
                     "Chem.md",
                     "Constants.md",
                     "DualSupport.md",
