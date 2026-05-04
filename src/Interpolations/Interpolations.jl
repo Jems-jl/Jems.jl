@@ -3,18 +3,18 @@ module Interpolations
 using ForwardDiff
 using LinearAlgebra
 
-export AbstractBiInterpolation, get_data_position, 
+export Abstract2DInterpolation, get_data_position, 
        BilinearInterpolation, build_bilinear_interpolator,
        BicubicInterpolation, build_bicubic_interpolator, evaluate_interp
 
 """
-    abstract type AbstractBiInterpolation
+    abstract type Abstract2DInterpolation
 
 Abstract supertype from which all Bi-Interpolation definitions must derive
 
-`struct BilinearInterpolation <: AbstractBiInterpolation`
+`struct BilinearInterpolation <: Abstract2DInterpolation`
 """
-abstract type AbstractBiInterpolation end
+abstract type Abstract2DInterpolation end
 
 """
     get_data_position(grid_x, grid_y, x, y)
