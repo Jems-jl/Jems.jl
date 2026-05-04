@@ -14,7 +14,6 @@ using Jems.Turbulence
 using Jems.StellarModels
 using Jems.Evolution
 using Jems.Plotting
-using Jems.Interpolations
 
 ##
 #=
