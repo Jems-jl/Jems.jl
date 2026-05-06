@@ -15,7 +15,8 @@ include("EquationSet.jl")
 include("StellarModel.jl")
 include("OneZone.jl")
 include("IO.jl")
-include("InitialCondition.jl")
+include("PolytropeInitialCondition.jl")
+include("AdiabaticInitialCondition.jl")
 include("Remesher.jl")
 
 end  # module StellarModels
