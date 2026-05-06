@@ -259,7 +259,7 @@ surface radiative luminosity to match the Stefan-Boltzmann law.
             continue 
         end
 
-        κ_surf = Jems.Opacity.get_opacity_resultsTρ(sm.opacity,ln_T_arr[end], ln_ρ_arr[end], xa, species_names)
+        κ_surf = get_opacity_resultsTρ(sm.opacity,ln_T_arr[end], ln_ρ_arr[end], xa, species_names)
         m_surf, T_surf, P_surf, ∇_ad_surf, r_surf = m_face[end], exp(ln_T_arr[end]), P_arr[end], ∇_ad_arr[end], exp(ln_r_arr[end])
         L_rad = (16 * π * CRAD * CLIGHT * CGRAV * m_surf * T_surf^4 * ∇_ad_surf)/ (3 * κ_surf * P_surf)
         L_sb = 4 * π * SIGMA_SB * r_surf^2 * T_surf^4
@@ -327,7 +327,7 @@ function adiabatic_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfract
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnr]] = final_lnr[i]
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnρ]] = final_lnρ[i]
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lnT]] = final_lnT[i]
-        κ = Jems.Opacity.get_opacity_resultsTρ(sm.opacity,final_lnT[i], final_lnρ[i], xa, species_names)
+        κ = get_opacity_resultsTρ(sm.opacity,final_lnT[i], final_lnρ[i], xa, species_names)
         sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (∇_ad_profile[i]) * (16π * CRAD * CLIGHT * CGRAV * m_face[i] * (exp(final_lnT[i]))^4)/ (3 * κ * final_P[i] * LSUN)
         for (isotope, massfraction) in massfractions
             sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[isotope]] = massfraction 
