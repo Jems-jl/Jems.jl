@@ -15,28 +15,48 @@ using Jems.Interpolations
 if !isdir("MESA_data")
     mkdir("MESA_data")
     download("https://zenodo.org/records/19722306/files/mesa-26.04.1.zip", "MESA_data/mesa-26.04.1.zip")
+    
     cd("MESA_data")
-    run(`unzip mesa-26.04.1.zip`) # this assumes unzip is available
+    run(`unzip -q mesa-26.04.1.zip`)
+    
     mv("mesa-26.04.1/kap/kap_data.tar.xz", "./kap_data.tar.xz")
-    rm("mesa-26.04.1", recursive=true)
-    run(`tar -xvJf kap_data.tar.xz`)
+    run(`tar -xJf kap_data.tar.xz`)
     rm("kap_data.tar.xz")
+
+    mkdir("eosFreeEOS_data_filtered")
+    mv("mesa-26.04.1/eos/eosFreeEOS_data.tar.xz", "./eos_data.tar.xz")
+    run(`tar -xJf eos_data.tar.xz`)
+    rm("eos_data.tar.xz")
+
+    extracted_eos_dir = "eosFreeEOS_data"
+    target_pattern = r"^mesa-FreeEOS_\d+z\d+x\.data$"
+    
+    for file in readdir(extracted_eos_dir)
+        if occursin(target_pattern, file)
+            mv(joinpath(extracted_eos_dir, file), joinpath("eosFreeEOS_data_filtered", file))
+        end
+    end
+
+    rm("mesa-26.04.1", recursive=true)
+    rm("eosFreeEOS_data", recursive=true)
+    mv("eosFreeEOS_data_filtered", "eosFreeEOS_data")
     rm("mesa-26.04.1.zip")
+    
     cd("../")
 end
-
 ##
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 nz = 2000
 nextra = 100
 eos = EOS.IdealEOS(true)
+eos_table = EOSTableCollector("MESA_data/eosFreeEOS_data")
 low_T_collection = OpacityTableCollector("MESA_data/kap_data", "lowT_fa05_gs98") 
 high_T_collection = OpacityTableCollector("MESA_data/kap_data","oplib_agss09" ) 
 opacity = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2)
 turbulence = Turbulence.BasicMLT(2.0)
 
 ##
-sm = StellarModel(StellarModels.DefaultStellarEquationSet(), nz, nextra, net, eos, opacity, turbulence);
+sm = StellarModel(StellarModels.DefaultStellarEquationSet(), nz, nextra, net, eos_table, opacity, turbulence);
 n = 1.5
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
