@@ -1,8 +1,7 @@
 using ForwardDiff
 using Jems.Interpolations
 
-export get_opacity_resultsTρ,RTTableOpacity, OpacityTableCollector, CompositeOpacity,
-    get_opacity_table_collection
+export get_opacity_resultsTρ,RTTableOpacity, OpacityTableCollector, CompositeOpacity
 """
     RTTableOpacity <: AbstractOpacity
 
@@ -202,7 +201,7 @@ Performs a 4D interpolation to find the Rosseland mean opacity.
 - Performs a bicubic interpolation in (logR, logT) space inside each of the 4 tables.
 - Performs a bilinear interpolation in (X, Z) space to combine the 4 bicubic results.
 """
-function get_opacity_table_collection(collection::OpacityTableCollector, lnT::TT, lnρ::TT, xa::AbstractVector{<:TT}, species::Vector{Symbol}) where {TT<:Real}
+function get_opacity_resultsTρ(collection::OpacityTableCollector, lnT::TT, lnρ::TT, xa::AbstractVector{<:TT}, species::Vector{Symbol}) where {TT<:Real}
     
     inv_ln10 = 0.4342944819032518
     logT = lnT * inv_ln10
@@ -318,14 +317,14 @@ function get_opacity_resultsTρ(composite :: CompositeOpacity, lnT::TT, lnρ::TT
     # calculating the weight based on log
 
     if val_logT >= composite.trans_logT_max 
-        return get_opacity_table_collection(composite.high_T_collector, lnT, lnρ, xa, species)
+        return get_opacity_resultsTρ(composite.high_T_collector, lnT, lnρ, xa, species)
 
     elseif val_logT <= composite.trans_logT_min
-        return get_opacity_table_collection(composite.low_T_collector, lnT, lnρ, xa, species)
+        return get_opacity_resultsTρ(composite.low_T_collector, lnT, lnρ, xa, species)
 
     else 
-        κ_low  = get_opacity_table_collection(composite.low_T_collector, lnT, lnρ, xa, species)
-        κ_high = get_opacity_table_collection(composite.high_T_collector, lnT, lnρ, xa, species)
+        κ_low  = get_opacity_resultsTρ(composite.low_T_collector, lnT, lnρ, xa, species)
+        κ_high = get_opacity_resultsTρ(composite.high_T_collector, lnT, lnρ, xa, species)
 
         #calculating the weight 
         w = smooth_step_func(logT, composite.trans_logT_min, composite.trans_logT_max)

@@ -14,6 +14,6 @@ Abstract supertype from which all defined opacity laws must derive, _ie_:
 abstract type AbstractOpacity end
 
 include("SimpleElectronScattering.jl")
-include("OPLIBTableOpacity.jl")
+include("RTTableOpacity.jl")
 
 end  # module Opacity
