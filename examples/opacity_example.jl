@@ -10,21 +10,61 @@ using Jems.Evolution
 using Jems.Plotting
 using Jems.Interpolations
 
+##
+# Get MESA data if not available
+if !isdir("MESA_data")
+    mkdir("MESA_data")
+    download("https://zenodo.org/records/19722306/files/mesa-26.04.1.zip", "MESA_data/mesa-26.04.1.zip")
+    cd("MESA_data")
+    run(`unzip mesa-26.04.1.zip`) # this assumes unzip is available
+    mv("mesa-26.04.1/kap/kap_data.tar.xz", "./kap_data.tar.xz")
+    rm("mesa-26.04.1", recursive=true)
+    run(`tar -xvJf kap_data.tar.xz`)
+    rm("kap_data.tar.xz")
+    rm("mesa-26.04.1.zip")
+    cd("../")
+end
 
+##
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
 nz = 2000
 nextra = 100
 eos = EOS.IdealEOS(true)
-op_es = Opacity.SimpleElectronScatteringOpacity() #for electron scattering 
-"""
-For using the opacity tables, you need to use the mesa opacity tables, with the path to directory and the identifier 
-at the start. And then you need to use them with the transition region (in the same way as shown below )
-"""
-# low_T_collection = OpacityTableCollector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_low_alt/", "lowT_fa05_gs98") 
-# high_T_collection = OpacityTableCollector("/Users/rdbnath/Documents/share_oplib_type1_tables/kap_data/","oplib_agss09" ) 
-# op_oplib = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2)
+low_T_collection = OpacityTableCollector("MESA_data/kap_data", "lowT_fa05_gs98") 
+high_T_collection = OpacityTableCollector("MESA_data/kap_data","oplib_agss09" ) 
+opacity = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2)
 turbulence = Turbulence.BasicMLT(2.0)
-sm = StellarModel(TDCEquationSet(), nz, nextra, net, eos, op_oplib, turbulence);
+
+##
+sm = StellarModel(StellarModels.DefaultStellarEquationSet(), nz, nextra, net, eos, opacity, turbulence);
+n = 1.5
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
+                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+
+##
+@benchmark begin
+    StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
+end
+
+##
+#=
+And next we benchmark the evaluation of the model equations and construction of the Jacobian:
+=#
+@benchmark begin
+    Evolution.eval_jacobian_eqs!($sm)
+end
+
+##
+#=
+
+To benchmark the linear solver itself we need to perform
+the jacobian evaluation as a setup for the benchmark. This is because the solver
+destroys the Jacobian to perform in-place operations.
+=#
+
+@benchmark begin
+    Evolution.block_tridiagonal_solver!($sm, $sm.solver_data)
+end setup=(Evolution.eval_jacobian_eqs!($sm))
 
 ##
 open("example_options.toml", "w") do file
@@ -36,7 +76,7 @@ open("example_options.toml", "w") do file
           [solver]
           newton_max_iter_first_step = 1000
           initial_model_scale_max_correction = 0.2
-          newton_max_iter = 200
+          newton_max_iter = 20
           scale_max_correction = 0.1
           solver_progress_iter = 1
           relative_correction_tolerance = 1e12
@@ -83,8 +123,8 @@ plotter = Plotting.Plotter(fig=f,plots=plots)
 ##
 #set initial condition and run model
 n = 1.5
-pms_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            5 * MSUN, 100 * RSUN; initial_dt=0.01 * SECYEAR)
+StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
+                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm, plotter=plotter);
  
 ##
