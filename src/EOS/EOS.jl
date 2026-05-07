@@ -39,6 +39,6 @@ Structure that holds various results from the evaluation of the EOS of a certain
 end
 
 include("IdealEOS.jl")
-include("FreeEOS.jl")
+include("QTTableEOS.jl")
 
 end
