@@ -49,18 +49,21 @@ net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:
 nz = 2000
 nextra = 100
 eos = EOS.IdealEOS(true)
-eos_table = EOSTableCollector("MESA_data/eosFreeEOS_data";true)
+eos_table = EOSTableCollector("MESA_data/eosFreeEOS_data", include_radiation = true)
 low_T_collection = OpacityTableCollector("MESA_data/kap_data", "lowT_fa05_gs98") 
 high_T_collection = OpacityTableCollector("MESA_data/kap_data","oplib_agss09" ) 
 opacity = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2)
 turbulence = Turbulence.BasicMLT(2.0)
-
-##
 sm = StellarModel(StellarModels.DefaultStellarEquationSet(), nz, nextra, net, eos_table, opacity, turbulence);
+##
 n = 1.5
+# Polytropic Initial condition
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-
+# Adiabatic Initial condition
+StellarModels.adiabatic_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
+                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+#
 ##
 @benchmark begin
     StellarModels.evaluate_stellar_model_properties!($sm, $sm.props)
@@ -143,7 +146,9 @@ plotter = Plotting.Plotter(fig=f,plots=plots)
 ##
 #set initial condition and run model
 n = 1.5
-StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
+# StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
+#                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+StellarModels.adiabatic_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm, plotter=plotter);
  

@@ -1,4 +1,5 @@
 using Jems.Interpolations
+using ForwardDiff
 
 export set_EOS_resultsTρ!, EOSTableCollector
 
@@ -145,7 +146,7 @@ function TρTableCollector(filepath :: String)
     for k in 1:num_vars 
         # Extract 2D slice and wrap in 3D for build_bicubic_interpolator
         data_slice = reshape(eos_data_3D[k, :, :], (1, num_Ts, num_Qs))
-        interp = build_bicubic_interpolator(logQs, logTs, data_slice)
+        interp = build_bicubic_interpolator(logTs, logQs, data_slice)
         push!(interpolators, interp)
     end 
     
@@ -181,6 +182,19 @@ function EOSTableCollector(directory :: String; include_radiation::Bool = true)
 
     return EOSTableCollector(unique_Zs, slices, include_radiation)
 end 
+
+@inline function smooth_step_func(x::T, floor::Float64, ceil::Float64) where T
+    if x <= floor 
+        return zero(T)
+    elseif x >= ceil
+        return one(T)
+    else
+        t = (x - floor)/(ceil - floor)
+
+        return t * t * (3.0 -2.0 * t)
+    end 
+
+end
 
 
 """
@@ -246,7 +260,7 @@ function set_EOS_resultsTρ!(eos::EOSTableCollector, r::EOSResults{TT}, lnT::TT,
 
     
     sample_interp = eos.slices[1].tables[1].interpolator[1]
-    i, j, u, v = get_data_position(sample_interp.grid_x, sample_interp.grid_y, logQ, logT)
+    i, j, u, v = get_data_position(sample_interp.grid_x, sample_interp.grid_y, logT, logQ)
 
     # Z-direction lookup
     val_Z = ForwardDiff.value(Z_val)
