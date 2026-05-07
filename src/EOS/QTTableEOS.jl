@@ -44,7 +44,7 @@ struct EOS_Z_Slice
 end
 
 """
-    EOSTableCollector <: EOS.AbstractEOS
+    EOSTableCollector <: AbstractEOS
 
 Struct handling the full 4D Equation of State interpolation grid. 
 It organizes tabulated data into a nested structure to facilitate fast interpolation across 
@@ -56,7 +56,7 @@ Metallicity (Z), Hydrogen fraction (X), log10Q, and log10T.
 - `include_radiation::Bool`: Flag to determine whether analytical radiation pressure 
   (P_rad = a T^4 / 3) should be explicitly added to the gas pressure evaluated from the tables.
 """
-struct EOSTableCollector <: EOS.AbstractEOS
+struct EOSTableCollector <: AbstractEOS
     Zs :: Vector{Float64}
     slices :: Vector{EOS_Z_Slice}
     include_radiation :: Bool
@@ -153,12 +153,12 @@ function TρTableCollector(filepath :: String)
 end 
 
 """
-    EOSTableCollector(directory)
+    EOSTableCollector(directory,include_radiation)
 
 Constructor that scans a given `directory` for `.data` files, parses each into a `TρTableCollector`, 
 and groups them sequentially into `EOS_Z_Slice` objects to construct the full 4D EOS grid.
 """
-function EOSTableCollector(directory :: String)
+function EOSTableCollector(directory :: String; include_radiation::Bool = true)
     files = readdir(directory; join = true)
     candidate_files = filter(f -> endswith(f, ".data"), files)
     #Load all tables
@@ -179,7 +179,7 @@ function EOSTableCollector(directory :: String)
         push!(slices, EOS_Z_Slice(z_val, xs_at_z, tables_at_z))
     end
 
-    return EOSTableCollector(unique_Zs, slices, true)
+    return EOSTableCollector(unique_Zs, slices, include_radiation)
 end 
 
 
