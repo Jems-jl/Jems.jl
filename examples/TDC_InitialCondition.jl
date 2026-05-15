@@ -457,7 +457,7 @@ function tdc_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfraction, a
             #sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (dlnT/dlnP) * (16π * CRAD * CLIGHT * CGRAV * m_face[i] * (exp(final_lnT[i]))^4)/ (3 * κ * final_P[i] * LSUN)
             sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (∇_ad_profile[i] - 0.01) * (16π * CRAD * CLIGHT * CGRAV * m_face[i] * (exp(final_lnT[i]))^4)/ (3 * κ * final_P[i] * LSUN)
             #a1 = ((∇_ad_profile[i] * exp(final_lnT[i]) * Λ * 0.5 * sqrt(2 / 3) * r_eos.cₚ)/H_p^2)*((dlnT/dlnP)-∇_ad_profile[i])
-            a1 = ((∇_ad_profile[i] * exp(final_lnT[i]) * Λ * 0.5 * sqrt(2 / 3) * r_eos.cₚ)/H_p^2)*(-0.01)
+            a1 = 0.0 # ((∇_ad_profile[i] * exp(final_lnT[i]) * Λ * 0.5 * sqrt(2 / 3) * r_eos.cₚ)/H_p^2)*(-0.01)
             a2 = (exp(final_lnρ[i]) * r_eos.cₚ *  0.5 * sqrt(2 / 3) * Λ)/ k_rad
             a3 = (8/3 * sqrt(2/3))/Λ
             a4 = 1/((r_eos.cₚ * κ * exp(final_lnρ[i])^2 * Λ^2) / (48 * SIGMA_SB * (exp(final_lnT[i]))^3))
@@ -474,7 +474,7 @@ function tdc_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfraction, a
             dlnP = log(final_P[i]) - log(final_P[i-1])
             dlnT = final_lnT[i] -final_lnT[i-1]
             #a1 = ((∇_ad_profile[i] * exp(final_lnT[i]) * Λ * 0.5 * sqrt(2 / 3) * r_eos.cₚ)/H_p^2)*( (dlnT/dlnP) - ∇_ad_profile[i])
-            a1 = ((∇_ad_profile[i] * exp(final_lnT[i]) * Λ * 0.5 * sqrt(2 / 3) * r_eos.cₚ)/H_p^2)*(-0.01)
+            a1 = 0.0  #((∇_ad_profile[i] * exp(final_lnT[i]) * Λ * 0.5 * sqrt(2 / 3) * r_eos.cₚ)/H_p^2)*(-0.01)
             a2 = (exp(final_lnρ[i]) * r_eos.cₚ *  0.5 * sqrt(2 / 3) * Λ)/ k_rad
             a3 = (8/3 * sqrt(2/3))/Λ
             a4 = 1/((r_eos.cₚ * κ * exp(final_lnρ[i])^2 * Λ^2) / (48 * SIGMA_SB * (exp(final_lnT[i]))^3))
@@ -487,8 +487,8 @@ function tdc_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfraction, a
             E = -a5
             ω_sol = newton_cubic_solver(A,B,C,D,E)
             #sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (dlnT/dlnP) * (16π * CRAD * CLIGHT * CGRAV * m_face[i] * (exp(final_lnT[i]))^4)/ (3 * κ * final_P[i] * LSUN)
-            sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (∇_ad_profile[i] - 0.01) * (16π * CRAD * CLIGHT * CGRAV * m_face[i] * (exp(final_lnT[i]))^4)/ (3 * κ * final_P[i] * LSUN)
-            sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:gamma_turb]] = 10.0 # This needs to figured out still! 
+            sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (∇_ad_profile[i]) * (16π * CRAD * CLIGHT * CGRAV * m_face[i] * (exp(final_lnT[i]))^4)/ (3 * κ * final_P[i] * LSUN)
+            sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:gamma_turb]] = 10.0
         end 
     end 
     sm.props.time = 0.0
