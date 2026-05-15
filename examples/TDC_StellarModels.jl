@@ -305,45 +305,79 @@ end
 #      varnew_up[sm.vari[:gamma_turb]] = var_00[sm.vari[:gamma_turb]]
 # end
 
-function split_gamma_turb(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
-    # We use mass-weighted linear interpolation to preserve the gradient of gamma_turb, 
-    # preventing artificial zero-flux boundaries in the Time-Dependent Convection equations.
-    
-    if i == 1
-        γ_low = var_00[sm.vari[:gamma_turb]]  # Central cell remains unchanged
-        γ_cell_above = var_p1[sm.vari[:gamma_turb]]
-
-        mnew_up = 0.75 * dm_00  # mass from the core
-        mcell_above = dm_00 + 0.5 * dm_p1
-
-        γ_up = γ_low + (γ_cell_above - γ_low) * mnew_up / mcell_above
-        
-    elseif i == sm.prv_step_props.nz
-        γ_up = var_00[sm.vari[:gamma_turb]]  # Surface remains unchanged
-        γ_cell_below = var_m1[sm.vari[:gamma_turb]]
-
-        mnew_low = 0.5 * dm_m1 + 0.25 * dm_00  # mass of new lower cell from center of lower cell
-        mup = 0.5 * dm_m1 + dm_00 # mass of the surface from center of lower cell
-
-        γ_low = γ_cell_below + (γ_up - γ_cell_below) * mnew_low / mup
-        
-    else
-        γ_cell_above = var_p1[sm.vari[:gamma_turb]]
-        γ_cell_below = var_m1[sm.vari[:gamma_turb]]
-        γ_old = var_00[sm.vari[:gamma_turb]]
-
-        mnew_low = 0.5 * dm_m1 + 0.25 * dm_00  # mass at cell center of new lower cell, from center of cell below
-        mold = 0.5 * dm_m1 + 0.5 * dm_00  # old mass at cell center, from center of cell below
-        γ_low = γ_cell_below + (γ_old - γ_cell_below) * mnew_low / mold
-
-        mnew_up = 0.25 * dm_00  # mass from center of cell before splitting
-        mcell_above = 0.5 * dm_00 + 0.5 * dm_p1
-        γ_up = γ_old + (γ_cell_above - γ_old) * mnew_up / mcell_above
-    end
-    
-    varnew_low[sm.vari[:gamma_turb]] = γ_low
-    varnew_up[sm.vari[:gamma_turb]] = γ_up
+function split_omega(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
+    # use same omega in both cells to preserve energy
+     varnew_low[sm.vari[:gamma_turb]] = var_00[sm.vari[:gamma_turb]]
+     varnew_up[sm.vari[:gamma_turb]] = var_00[sm.vari[:gamma_turb]]
 end
+
+# function split_omega(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
+#     gamma_old = var_00[sm.vari[:gamma_turb]] #original gamma_turb in the cell 
+
+#     if i == 1
+#         g_above = var_p1[sm.vari[:gamma_turb]] # original gamma_turb for the i = 2 cell 
+#         mnew_up = 0.75*dm_00
+#         mcell_above = dm_00 + 0.5*dm_p1
+#         g_up = g_old + (g_above - g_old)*mnew_up/mcell_above
+#         g_low = g_old
+#     elseif i == sm.prv_step_props.nz
+#         g_below = var_m1[sm.vari[:gamma_turb]]
+#         mnew_low = 0.5*dm_m1 + 0.25*dm_00
+#         mup = 0.5*dm_m1 + dm_00
+#         g_low = g_below + (g_old - g_below)*mnew_low/mup
+#         g_up = g_old
+#     else
+#         g_below = var_m1[sm.vari[:gamma_turb]]
+#         g_above = var_p1[sm.vari[:gamma_turb]]
+
+#         mnew_low = 0.5*dm_m1 + 0.25*dm_00
+#         mold     = 0.5*dm_m1 + 0.5*dm_00
+#         g_low = g_below + (g_old - g_below)*mnew_low/mold
+
+#         mnew_up = 0.25*dm_00
+#         mcell_above = 0.5*dm_00 + 0.5*dm_p1
+#         g_up = g_old + (g_above - g_old)*mnew_up/mcell_above
+#     end
+
+#     varnew_low[sm.vari[:gamma_turb]] = g_low
+#     varnew_up[sm.vari[:gamma_turb]]  = g_up
+# end
+
+
+
+# function split_omega(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
+#     if i==1
+#         g_low = var_00[sm.vari[:gamma_turb]]  # Central cell remains at the center
+#         g_above = var_p1[sm.vari[:gamma_turb]]
+
+#         mnew_up = 0.75*dm_00  # mass from the core
+#         mcell_above = dm_00 + 0.5*dm_p1
+
+#         g_up = g_low + (g_above - g_low)*mnew_up/mcell_above
+#     elseif i==sm.prv_step_props.nz
+#         g_up = var_00[sm.vari[:gamma_turb]]  # Surface remians at same temperature
+#         g_below = var_m1[sm.vari[:gamma_turb]]
+
+#         mnew_low = 0.5*dm_m1 + 0.25*dm_00  # mass of new lower cell from center of lower cell
+#         mup = 0.5*dm_m1 + dm_00 # mass of the surface from center of lower cell
+
+#         g_low = g_below + (g_up - g_below)*mnew_low/mup
+#     else
+#         g_above = var_p1[sm.vari[:gamma_turb]]
+#         g_below = var_m1[sm.vari[:gamma_turb]]
+#         g_old = var_00[sm.vari[:gamma_turb]]
+
+#         mnew_low = 0.5*dm_m1+0.25*dm_00  # mass at cell center of new lower cell, from center of cell below
+#         mold = 0.5*dm_m1+0.5*dm_00  # old mass at cell center, from center of cell below
+#         g_low = g_below + (g_old - g_below)*mnew_low/mold
+
+#         mnew_up = 0.25*dm_00  # mass from center of cell before splitting
+#         mcell_above = 0.5*dm_00+0.5*dm_p1
+#         g_up = g_old + (g_above - g_old)*mnew_up/mcell_above
+#     end
+#     varnew_low[sm.vari[:gamma_turb]] = g_low
+#     varnew_up[sm.vari[:gamma_turb]] = g_up
+# end
 
 function Jems.StellarModels.remesh_splitting(equation_set::TDCEquationSet, sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
     StellarModels.split_lnr_lnρ(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
