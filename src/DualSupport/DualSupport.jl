@@ -3,8 +3,8 @@ module DualSupport
 using ForwardDiff
 using StaticArrays
 
-export CellDualData, update_cell_dual_data_value!, update_cell_dual_data!,
-        get_cell_dual, get_m1_dual, get_00_dual, get_p1_dual, get_value
+export LocalDualData, update_local_dual_data_value!, update_local_dual_data!,
+        get_local_dual, get_m1_dual, get_00_dual, get_p1_dual, get_value
 
 # Inspired by DiffCache from PreallocationTools (https://github.com/SciML/PreallocationTools.jl)
 """
@@ -40,12 +40,12 @@ function get_dual(sdc::StarDiffCache{SIZE, TNUMBER}) where {SIZE,TNUMBER}
     unsafe_load(p)         # Load the first element from that pointer
 end
 
-function get_face_dual(sdc::StarDiffCache{SIZE, TNUMBER}) where {SIZE,TNUMBER}
+function get_mixed_dual(sdc::StarDiffCache{SIZE, TNUMBER}) where {SIZE,TNUMBER}
     p::Ptr{ForwardDiff.Dual{Nothing, TNUMBER, (SIZE-1)*2÷3}} = pointer(sdc.dual_data)
     unsafe_load(p)         # Load the first element from that pointer
 end
 
-include("CellDualData.jl")
-include("FaceDualData.jl")
+include("LocalDualData.jl")
+include("MixedDualData.jl")
 
 end

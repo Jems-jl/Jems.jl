@@ -1,4 +1,4 @@
-@kwdef mutable struct OneZoneProperties{TN,TDual,TCellDualData} <: AbstractModelProperties
+@kwdef mutable struct OneZoneProperties{TN,TDual,TLocalDualData} <: AbstractModelProperties
     # scalar quantities
     dt::TN  # Timestep of the current evolutionary step (s)
     dt_next::TN
@@ -14,11 +14,11 @@
     ind_vars::Vector{TN}
 
     # independent variables (duals constructed from the ind_vars array)
-    xa::Vector{TCellDualData}   # dim-less
+    xa::Vector{TLocalDualData}   # dim-less
     xa_dual::Vector{TDual}      # only the cell duals wrt itself
 
     # rates
-    rates::Vector{TCellDualData}  # g^-1 s^-1
+    rates::Vector{TLocalDualData}  # g^-1 s^-1
     rates_dual::Vector{TDual}     # only cell duals wrt itself
 
     ϵ_nuc::TN
@@ -26,21 +26,21 @@ end
 
 function OneZoneProperties(nvars::Int, nrates::Int, nspecies::Int, ::Type{TN}) where {TN<:Real}
     # define the types
-    CDDTYPE = CellDualData{nvars + 1,3 * nvars + 1,TN}  # full dual arrays
-    TD = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, nvars))...))  # only the cell duals
+    LDDTYPE = LocalDualData{nvars + 1,3 * nvars + 1,TN}  # full dual arrays
+    TDL = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, nvars))...))  # only the local duals
 
     # create the vector containing the independent variables
     ind_vars = zeros(TN, nvars)
 
-    xa_dual = zeros(TD, nvars)
-    xa = Vector{CDDTYPE}(undef, nspecies)
+    xa_dual = zeros(TDL, nvars)
+    xa = Vector{LDDTYPE}(undef, nspecies)
     for j = 1:nspecies
-        xa[j] = CellDualData(nvars, TN; is_ind_var=true, ind_var_i=nvars - nspecies + j)
+        xa[j] = LocalDualData(nvars, TN; is_ind_var=true, ind_var_i=nvars - nspecies + j)
     end
-    rates_dual = zeros(TD, nrates)
-    rates = Vector{CDDTYPE}(undef, nrates)
+    rates_dual = zeros(TDL, nrates)
+    rates = Vector{LDDTYPE}(undef, nrates)
     for k = 1:nrates
-        rates[k] = CellDualData(nvars, TN)
+        rates[k] = LocalDualData(nvars, TN)
     end
 
     return OneZoneProperties(; ind_vars=ind_vars, model_number=zero(Int), dt=zero(TN), dt_next=zero(TN), time=zero(TN),
@@ -49,24 +49,23 @@ function OneZoneProperties(nvars::Int, nrates::Int, nspecies::Int, ::Type{TN}) w
 end
 
 """
-    function evaluate_stellar_model_properties!(oz, props::StellarModelProperties{TDual, TCellDualData}) where
-        {TDual <: ForwardDiff.Dual, TCellDualData}
+    function evaluate_one_zone_properties!(oz, props::OneZoneProperties)
 
-Evaluates the stellar model properties `props` from the `ind_vars` array. The goal is to save the 'state' of the
-StellarModel so we can easily get properties like rates, eos, opacity values, and retrace if a retry is called.
+Evaluates the one zone model properties `props` from the `ind_vars` array. The goal is to save the 'state' of the
+OneZone so we can easily get properties like rates, eos, opacity values, and retrace if a retry is called.
 This does _not_ update the mesh/ind_vars arrays.
 """
-function evaluate_one_zone_properties!(oz, props::OneZoneProperties{TN,TDual}) where {TN<:Real,TDual<:ForwardDiff.Dual}
+function evaluate_one_zone_properties!(oz, props::OneZoneProperties)
     # update independent variables
     for j = 1:(oz.network.nspecies)
-        update_cell_dual_data_value!(props.xa[j], props.ind_vars[oz.nvars - oz.network.nspecies + j])
-        props.xa_dual[j] = get_cell_dual(props.xa[j])
+        update_local_dual_data_value!(props.xa[j], props.ind_vars[oz.nvars - oz.network.nspecies + j])
+        props.xa_dual[j] = get_local_dual(props.xa[j])
     end
 
     # evaluate rates
     set_rates_for_network!(props.rates_dual, oz.network, props.T, props.ρ, props.xa_dual)
     for j in eachindex(props.rates_dual)
-        update_cell_dual_data!(props.rates[j], props.rates_dual[j])
+        update_local_dual_data!(props.rates[j], props.rates_dual[j])
     end
 
     props.ϵ_nuc = 0.0

@@ -59,7 +59,7 @@ result = test(x,y)
 
 ##
 #=
-### `CellDualData` for calculations in a three-point stencil
+### `LocalDualData` for calculations in a three-point stencil
 
 An extra level of complexity is concerned with how the equations of stellar structure and evolution are solved. Consider for instance the equation of hydrostatic equilibrium:
 
@@ -81,29 +81,29 @@ In reality we have more differential equations of stellar structure that we need
 
 $$\frac{\partial f_i}{\partial P_{i+1}}=1,\quad \frac{\partial f_i}{\partial P_{i-1}}=-1,\quad \frac{\partial f_i}{\partial r_i}=-4 r_i^{-5}.$$
 
-So from this we see, we are considering two independent variables $P$ and $r$, but the partial derivatives we need from the residuals need to be taken against the independent variables above, below and at the present cell. In general, for each residual we need $3n_\mathrm{vars}$ partial derivatives, although typically many are equal to zero. A standard practice is just to hard code the partial derivatives as determined from the analytical expressions, but for complex calculations this can be very cumbersome and error prone. So the idea is to setup automatic differentiation tools that take care of this. This is the purpose of the `CellDualData` struct. We start by initializing 6 different `CellDualData` to represent densities and pressures around a point in the three-point stencil:
+So from this we see, we are considering two independent variables $P$ and $r$, but the partial derivatives we need from the residuals need to be taken against the independent variables above, below and at the present cell. In general, for each residual we need $3n_\mathrm{vars}$ partial derivatives, although typically many are equal to zero. A standard practice is just to hard code the partial derivatives as determined from the analytical expressions, but for complex calculations this can be very cumbersome and error prone. So the idea is to setup automatic differentiation tools that take care of this. This is the purpose of the `LocalDualData` struct. We start by initializing 6 different `LocalDualData` to represent densities and pressures around a point in the three-point stencil:
 =#
 
 using Jems.DualSupport
 
 nvars = 2
 
-P_m1 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=1) # this is pressure at the cell below
-P_00 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=1) # this is pressure at the current cell
-P_p1 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=1) # this is pressure at the cell above
+P_m1 = LocalDualData(nvars, Float64; is_ind_var=true, ind_var_i=1) # this is pressure at the cell below
+P_00 = LocalDualData(nvars, Float64; is_ind_var=true, ind_var_i=1) # this is pressure at the current cell
+P_p1 = LocalDualData(nvars, Float64; is_ind_var=true, ind_var_i=1) # this is pressure at the cell above
 #initialize them with arbitrary values
-update_cell_dual_data_value!(P_m1, 0.9)
-update_cell_dual_data_value!(P_00, 1.0)
-update_cell_dual_data_value!(P_p1, 1.0)
+update_local_dual_data_value!(P_m1, 0.9)
+update_local_dual_data_value!(P_00, 1.0)
+update_local_dual_data_value!(P_p1, 1.0)
 
 #same for density
-r_m1 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=2) # this is pressure at the cell below
-r_00 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=2) # this is pressure at the current cell
-r_p1 = CellDualData(nvars, Float64; is_ind_var=true, ind_var_i=2) # this is pressure at the cell above
+r_m1 = LocalDualData(nvars, Float64; is_ind_var=true, ind_var_i=2) # this is pressure at the cell below
+r_00 = LocalDualData(nvars, Float64; is_ind_var=true, ind_var_i=2) # this is pressure at the current cell
+r_p1 = LocalDualData(nvars, Float64; is_ind_var=true, ind_var_i=2) # this is pressure at the cell above
 #initialize them with arbitrary values
-update_cell_dual_data_value!(r_m1, 1.0)
-update_cell_dual_data_value!(r_00, 1.0)
-update_cell_dual_data_value!(r_p1, 1.0);
+update_local_dual_data_value!(r_m1, 1.0)
+update_local_dual_data_value!(r_00, 1.0)
+update_local_dual_data_value!(r_p1, 1.0);
 
 ##
 #=
@@ -143,13 +143,13 @@ f_i = P_p1_dual-P_m1_dual+r_00_dual^(-4)
 ##
 #=
 
-### Evaluating and storing results into `CellDualData` instances (TODO)
+### Evaluating and storing results into `LocalDualData` instances (TODO)
 
 ### A simple example including a Newton_Rhapson solver (TODO)
 
 Here I want to show a simple system with a known solution, a vertical tube with an ideal gas fixed at constant temperatur, where the idea is to determine the density profile at arbitrary heights when there is a constant gravity.
 
-### Further complications, `FaceDualData` (TODO)
+### Further complications, `MixedDualData` (TODO)
 
 Properties evaluated at faces are defined differently, need to also summarize why and how.
 
