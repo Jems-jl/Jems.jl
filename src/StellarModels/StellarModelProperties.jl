@@ -1,7 +1,7 @@
 using ForwardDiff
 using Jems.Turbulence
 
-@kwdef mutable struct StellarModelProperties{TN, TDual, TDualMixed, TLocalDualData, TMixedDualData} <: AbstractModelProperties
+@kwdef mutable struct StellarModelProperties{TN,TDual,TDualMixed,TLocalDualData,TMixedDualData} <: AbstractModelProperties
     # scalar quantities
     dt::TN  # Timestep of the current evolutionary step (s)
     dt_next::TN
@@ -60,10 +60,10 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
                                 ::Type{TN}, ::Type{internal_tag}) where {TN<:Real,internal_tag<:ForwardDiff.Tag}
 
     # define the types
-    LDDTYPE = LocalDualData{nvars + 1,3 * nvars + 1,TN}  # full dual arrays
-    MDDTYPE = MixedDualData{2 * nvars + 1,3 * nvars + 1,TN}
-    TDL = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, nvars))...))  # only the local duals
-    TDM = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, 2 * nvars))...))  # only the mixed duals
+    LDDTYPE = LocalDualData{nvars + 1,3 * nvars + 1,TN,internal_tag}  # full dual arrays
+    MDDTYPE = MixedDualData{2 * nvars + 1,3 * nvars + 1,TN,internal_tag}
+    TDL = typeof(ForwardDiff.Dual{internal_tag}(zero(TN), (zeros(TN, nvars))...))  # only the local duals
+    TDM = typeof(ForwardDiff.Dual{internal_tag}(zero(TN), (zeros(TN, 2 * nvars))...))  # only the mixed duals
 
     # create the vector containing the independent variables
     ind_vars = zeros(TN, nvars * (nz + nextra))
@@ -76,14 +76,14 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
     turb_res = [TurbResults{MDDTYPE}() for i = 1:(nz + nextra)]
 
     # unpacked ind_vars
-    lnT = [LocalDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnT]) for i in 1:(nz+nextra)]
-    lnρ = [LocalDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnρ]) for i in 1:(nz+nextra)]
-    lnr = [LocalDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lnr]) for i in 1:(nz+nextra)]
-    L = [LocalDualData(nvars, TN; is_ind_var=true, ind_var_i=vari[:lum]) for i in 1:(nz+nextra)]
+    lnT = [LocalDualData(nvars, TN, internal_tag; is_ind_var=true, ind_var_i=vari[:lnT]) for i in 1:(nz+nextra)]
+    lnρ = [LocalDualData(nvars, TN, internal_tag; is_ind_var=true, ind_var_i=vari[:lnρ]) for i in 1:(nz+nextra)]
+    lnr = [LocalDualData(nvars, TN, internal_tag; is_ind_var=true, ind_var_i=vari[:lnr]) for i in 1:(nz+nextra)]
+    L = [LocalDualData(nvars, TN, internal_tag; is_ind_var=true, ind_var_i=vari[:lum]) for i in 1:(nz+nextra)]
     xa = Matrix{LDDTYPE}(undef,nz+nextra, nspecies)
     for k in 1:(nz+nextra)
         for i in 1:nspecies
-            xa[k,i] = LocalDualData(nvars, TN;
+            xa[k,i] = LocalDualData(nvars, TN, internal_tag;
                         is_ind_var=true, ind_var_i=nvars-nspecies+i) # nvars-nspecies in here is the number of non-composition variables being solved
         end
     end
@@ -109,23 +109,23 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
     flux_term = Vector{MDDTYPE}(undef, nz+nextra)#zeros(LDDTYPE, nz+nextra)
     mixing_type::Vector{Symbol} = repeat([:no_mixing], nz+nextra)
     for k in 1:(nz+nextra)
-        lnP_face[k] = MixedDualData(nvars, TN)
-        lnρ_face[k] = MixedDualData(nvars, TN)
-        lnT_face[k] = MixedDualData(nvars, TN)
-        κ_face[k] = MixedDualData(nvars, TN)
-        ∇ₐ_face[k] = MixedDualData(nvars, TN)
-        ∇ᵣ_face[k] = MixedDualData(nvars, TN)
-        δ_face[k] = MixedDualData(nvars, TN)
-        cₚ_face[k] = MixedDualData(nvars, TN)
-        κ[k] = LocalDualData(nvars, TN)
-        flux_term[k] = MixedDualData(nvars, TN)
+        lnP_face[k] = MixedDualData(nvars, TN, internal_tag)
+        lnρ_face[k] = MixedDualData(nvars, TN, internal_tag)
+        lnT_face[k] = MixedDualData(nvars, TN, internal_tag)
+        κ_face[k] = MixedDualData(nvars, TN, internal_tag)
+        ∇ₐ_face[k] = MixedDualData(nvars, TN, internal_tag)
+        ∇ᵣ_face[k] = MixedDualData(nvars, TN, internal_tag)
+        δ_face[k] = MixedDualData(nvars, TN, internal_tag)
+        cₚ_face[k] = MixedDualData(nvars, TN, internal_tag)
+        κ[k] = LocalDualData(nvars, TN, internal_tag)
+        flux_term[k] = MixedDualData(nvars, TN, internal_tag)
     end
 
     rates_dual = zeros(TDL, nz + nextra, nrates)
     rates = Matrix{LDDTYPE}(undef, nz + nextra, nrates)
     for k = 1:(nz + nextra)
         for i = 1:nrates
-            rates[k, i] = LocalDualData(nvars, TN)
+            rates[k, i] = LocalDualData(nvars, TN, internal_tag)
         end
     end
     # @show typeof(rates_dual)

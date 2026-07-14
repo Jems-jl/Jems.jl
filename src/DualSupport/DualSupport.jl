@@ -13,7 +13,7 @@ export LocalDualData, update_local_dual_data_value!, update_local_dual_data!,
 Definition of StarDiffCache, a cache that makes room to store partial derivatives.
 Parametric in types `SIZE`, the size of the array, and `TNUMBER`, the type of the number used for calculations. 
 """
-struct StarDiffCache{SIZE, TNUMBER, DUAL_TAG}
+struct StarDiffCache{SIZE,TNUMBER,DUAL_TAG}
     dual_data::MVector{SIZE,TNUMBER}
     dual_tag::Type{DUAL_TAG}
 end
@@ -24,7 +24,7 @@ end
 
 Instantiates a StarDiffCache object of size `nvars+1`, and fills it with zeros.
 """
-function StarDiffCache(nvars::Int, ::Type{TNUMBER}, ::Type{DUAL_TAG}) where {TNUMBER, DUAL_TAG}
+function StarDiffCache(nvars::Int, ::Type{TNUMBER}, ::Type{DUAL_TAG}) where {TNUMBER,DUAL_TAG}
     StarDiffCache{nvars + 1,TNUMBER,DUAL_TAG}(zeros(TNUMBER, nvars + 1), DUAL_TAG)
 end
 
@@ -41,8 +41,8 @@ function get_dual(sdc::StarDiffCache{SIZE,TNUMBER,DUAL_TAG}) where {SIZE,TNUMBER
     unsafe_load(p)         # Load the first element from that pointer
 end
 
-function get_mixed_dual(sdc::StarDiffCache{SIZE, TNUMBER}) where {SIZE,TNUMBER}
-    p::Ptr{ForwardDiff.Dual{Nothing, TNUMBER, (SIZE-1)*2÷3}} = pointer(sdc.dual_data)
+function get_mixed_dual(sdc::StarDiffCache{SIZE,TNUMBER,DUAL_TAG}) where {SIZE,TNUMBER,DUAL_TAG}
+    p::Ptr{ForwardDiff.Dual{DUAL_TAG,TNUMBER,(SIZE-1)*2÷3}} = pointer(sdc.dual_data)
     unsafe_load(p)         # Load the first element from that pointer
 end
 
