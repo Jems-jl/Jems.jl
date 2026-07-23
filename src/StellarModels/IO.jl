@@ -194,6 +194,7 @@ Creates output files for history and profile data
 """
 function create_output_files!(m::AbstractModel, ::Type{TNUMBER}=Float64) where {TNUMBER}
     # Create history file
+    mkpath(dirname(m.opt.io.hdf5_history_filename))
     m.history_file = h5open(m.opt.io.hdf5_history_filename, "w")
     data_cols = m.opt.io.history_values
     ncols = length(data_cols)
@@ -222,7 +223,6 @@ function create_output_files!(m::AbstractModel, ::Type{TNUMBER}=Float64) where {
     attrs(history)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
     
     if TNUMBER != Float64
-        println("TNUMBER is not Float64")
         number_of_partials = TNUMBER.parameters[3]
         dual_histories = [create_dataset(m.history_file, "history_partial_$i", Float64, ((0, ncols), (-1, ncols)),
                                          chunk=(m.opt.io.hdf5_history_chunk_size, ncols),
@@ -241,8 +241,9 @@ function create_output_files!(m::AbstractModel, ::Type{TNUMBER}=Float64) where {
     if isa(m, OneZone)
         return
     end
-
+    
     # Create profile file
+    mkpath(dirname(m.opt.io.hdf5_profile_filename))
     m.profiles_file = h5open(m.opt.io.hdf5_profile_filename, "w")
     data_cols = m.opt.io.profile_values
     # verify validity of column names
