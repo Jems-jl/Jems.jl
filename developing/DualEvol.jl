@@ -188,6 +188,12 @@ history = StellarModels.get_history_dataframe_from_hdf5("history.hdf5")
 lines!(ax, log10.(history[!, "T_surf"]), log10.(history[!, "L_surf"]))
 f
 
+
+## see derivative of the luminosity wrt the mass
+f = Figure();
+ax = Axis(f[1, 1]; xlabel=L"age", ylabel=L"\frac{dL}{dM}")
+history = StellarModels.get_ith_partial_history_dataframe_from_hdf5("history.hdf5", 1)
+
 ##
 #=
 #### Perform some cleanup

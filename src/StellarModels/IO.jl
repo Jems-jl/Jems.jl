@@ -466,6 +466,24 @@ function get_history_dataframe_from_hdf5(hdf5_filename)
 end
 
 """
+    get_ith_partial_history_dataframe_from_hdf5(hdf5_filename, i)
+
+Returns a DataFrame object built from the ith partial of an hdf5 file, named `hdf5_filename`.
+"""
+function get_ith_partial_history_dataframe_from_hdf5(hdf5_filename, i)
+    h5open(hdf5_filename) do history_file
+        if i < 1
+            throw(ArgumentError("Partial index must be a positive integer"))
+        end
+        all_names = keys(history_file)
+        if filter(name -> contains(name, "partial_$(i)"), all_names) == []
+            throw(ArgumentError("No partial history found for partial index $(i)"))
+        end
+        return DataFrame(history_file["history_partial_$(i)"][:, :], attrs(history_file["history_partial_$(i)"])["column_names"])
+    end
+end
+
+"""
     get_profile_names_from_hdf5(hdf5_filename)
 
 Returns the column names of the profile data contained in the hdf5 file `hdf5_filename`.
