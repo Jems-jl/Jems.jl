@@ -64,6 +64,7 @@ Substructure of Options containing controls relating to termination of the simul
 @kwdef mutable struct TerminationOptions
     max_model_number::Int = 1
     max_center_T::Float64 = 1e99
+    min_center_X::Float64 = -1.0
 end
 
 """
@@ -137,7 +138,7 @@ function set_options!(opt::Options, toml_path::String)
     # Do this before anything is changed, in that way if the load will fail the
     # input is unmodified
     for key in keys(options_file)
-        if !(key in ["remesh", "solver", "timestep", "termination", "plotting", "io", "physics"])
+        if !(key in ["remesh", "solver", "timestep", "termination", "io", "physics"])
             throw(ArgumentError("Error while reading $toml_path. 
                     One of the sections on the TOML file provided ([$key]) is not valid."))
         end
