@@ -468,13 +468,34 @@ end
 """
     get_profile_names_from_hdf5(hdf5_filename)
 
-Retruns the column names of the profile data contained in the hdf5 file `hdf5_filename`.
+Returns the column names of the profile data contained in the hdf5 file `hdf5_filename`.
 """
 function get_profile_names_from_hdf5(hdf5_filename)
     h5open(hdf5_filename) do profiles_file
-        return keys(profiles_file)
+        all_names = keys(profiles_file)
+        profile_names = filter(name -> !contains(name, "partial"), all_names)
+        return profile_names
     end
 end
+
+"""
+    get_ith_partial_profile_names_from_hdf5(hdf5_filename, i)
+
+Returns the column names of the ith partial of profile data contained in the hdf5 file `hdf5_filename`.
+"""
+function get_ith_partial_profile_names_from_hdf5(hdf5_filename, i)
+    h5open(hdf5_filename) do profiles_file
+        if i < 1
+            throw(ArgumentError("Partial index must be a positive integer"))
+        end
+        all_names = keys(profiles_file)
+        if filter(name -> contains(name, "partial_$(i)"), all_names) == []
+            throw(ArgumentError("No partial profile found for partial index $(i)"))
+        end
+        return filter(name -> contains(name, "partial_$(i)"), all_names)
+    end
+end
+
 
 """
     get_profile_dataframe_from_hdf5(hdf5_filename, profile_name)

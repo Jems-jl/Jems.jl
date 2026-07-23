@@ -38,23 +38,25 @@ sm = StellarModel(StellarModels.DefaultStellarEquationSet(), nz, nextra, net, eo
 ##
 
 n = 3
-mass_dual = ForwardDiff.Dual{external_tag}(5.0 * MSUN, 1.0)
+mass_dual = ForwardDiff.Dual{external_tag}(1.0 * MSUN, 1.0)
 # mass = 5.0 * MSUN
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], mass_dual,
                                              100 * RSUN; initial_dt=10 * SECYEAR)
 
-##
-typeof(sm.props.κ[1])
-val00 = get_face_00_dual(sm.props.κ[1])
-valp1 = get_face_p1_dual(sm.props.κ[2])
-dm_00 = sm.props.dm[1]
-dm_p1 = sm.props.dm[2]
-valface_dual = exp((log(val00) * dm_p1 + log(valp1) * dm_00) / (dm_00 + dm_p1))
-StellarModels.update_face_dual_data!(sm.props.κ_face[1], valface_dual)
-StellarModels.eval_face_property_log!(sm.props.κ[1], sm.props.κ[2], sm.props.dm[1], sm.props.dm[2], sm.props.κ_face[1])
+
 
 ##
 Evolution.compute_starting_model_properties!(sm)
+
+## test some of the dual operations
+typeof(sm.props.κ[1])
+val00 = get_mixed_00_dual(sm.props.κ[1])
+valp1 = get_mixed_p1_dual(sm.props.κ[2])
+dm_00 = sm.props.dm[1]
+dm_p1 = sm.props.dm[2]
+valface_dual = exp((log(val00) * dm_p1 + log(valp1) * dm_00) / (dm_00 + dm_p1))
+StellarModels.update_mixed_dual_data!(sm.props.κ_face[1], valface_dual)
+StellarModels.eval_mixed_property_log!(sm.props.κ[1], sm.props.κ[2], sm.props.dm[1], sm.props.dm[2], sm.props.κ_face[1])
 
 ##
 open("example_options.toml", "w") do file
