@@ -157,7 +157,7 @@ function setup_model_profile_functions!(sm::StellarModel)
     add_profile_option!(sm, "log10_P", "log10(dyne)", (sm, k) -> log10(get_value(sm.props.eos_res[k].P)), label=L"\log_{10}(P/[\text{dyne}])")
     add_profile_option!(sm, "log10_T", "log10(K)", (sm, k) -> get_value(sm.props.lnT[k]) * log10(ℯ), label=L"\log_{10}(T/[\text{K}])")
     add_profile_option!(sm, "log10_rho", "log10_(g*cm^-3)", (sm, k) -> get_value(sm.props.lnρ[k]) * log10(ℯ), label=L"\log_{10}(\rho/[\text{g\,cm^{-3}}])")
-    add_profile_option!(sm, "luminosity", "Lsun", (sm, k) -> get_value(sm.props.L[k]) / LSUN, label=L"L/L_\odot")
+    add_profile_option!(sm, "luminosity", "Lsun", (sm, k) -> get_value(sm.props.L[k]), label=L"L/L_\odot")
 
     # abundances
     add_profile_option!(sm, "X", "unitless", (sm, k) -> get_value(sm.props.xa[k, sm.network.xa_index[:H1]]), label=L"X")
