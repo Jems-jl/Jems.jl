@@ -139,7 +139,7 @@ for theta0 in theta0s
         vx = vx_array[end]
         vy = vy_array[end]
 
-        t_next, x_next, vx_next, y_next, vy_next = RK4(t, x, vx, y, vy, dt)
+        t_next, x_next, vx_next, y_next, vy_next = forward_euler_step(t, x, vx, y, vy, dt)
         push!(t_array, t_next)
         push!(x_array, x_next)
         push!(y_array, y_next)
@@ -241,7 +241,7 @@ scatter!(ax2, rad2deg.(theta0s), int_ders, color=:red, label="interpolated")
 axislegend(ax2;)
 linkxaxes!(ax, ax2)
 f
-save("developing/range_theta_0.png", f)
+save("DualExamples/range_theta_0.png", f)
 
 ## choose the trajectory for π/4...
 x_array = x_arrays[div(length(theta0s),2)]
@@ -272,4 +272,4 @@ annotation!(ax, to_value(x_array[end-1]), to_value(y_array[end-1]), text=dual_la
 annotation!(ax, to_value(x_array[end-2]), to_value(y_array[end-2]), text=dual_label(x_array[end-2], y_array[end-2]), align=(:left, :bottom), fontsize=15)
 annotation!(ax, to_value(x_array[end-3]), to_value(y_array[end-3]), text=dual_label(x_array[end-3], y_array[end-3]), align=(:left, :top), fontsize=15)
 f
-save("developing/y_x.png", f)
+save("DualExamples/y_x.png", f)

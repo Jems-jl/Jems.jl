@@ -4,7 +4,8 @@ using ForwardDiff
 using StaticArrays
 
 export LocalDualData, update_local_dual_data_value!, update_local_dual_data!,
-        get_local_dual, get_m1_dual, get_00_dual, get_p1_dual, get_value
+        get_local_dual, get_m1_dual, get_00_dual, get_p1_dual, get_value, 
+        get_slope, construct_derivative, interpolate_to_value
 
 # Inspired by DiffCache from PreallocationTools (https://github.com/SciML/PreallocationTools.jl)
 """
@@ -45,6 +46,34 @@ function get_mixed_dual(sdc::StarDiffCache{SIZE,TNUMBER,DUAL_TAG}) where {SIZE,T
     p::Ptr{ForwardDiff.Dual{DUAL_TAG,TNUMBER,(SIZE-1)*2÷3}} = pointer(sdc.dual_data)
     unsafe_load(p)         # Load the first element from that pointer
 end
+
+"""
+Interpolate the linear slope of y to x at x[i]
+"""
+function get_slope(xs, ys, i)
+    if i == length(xs)
+        throw(ArgumentError("i=$i is the last index of xs, cannot compute slope"))
+    end
+    return (ys[i+1] - ys[i]) / (xs[i+1] - xs[i])
+end
+
+function interpolate_to_value(x1, x2, y1, y2, x)
+    if x < min(ForwardDiff.value(x1), ForwardDiff.value(x2)) || x > max(ForwardDiff.value(x1), ForwardDiff.value(x2))  # coerce value here because we don't want partials to affect the bounds check
+        throw(ArgumentError("x=$x is outside the range [$x1, $x2]"))
+    end
+    return y1 + (y2 - y1) * (x - x1) / (x2 - x1)
+end
+
+
+"""
+Compute the value 
+    dy/dx|_{z} = ∂y/∂x - Δy/Δz * ∂z/∂x
+per the implicit function theorem.
+"""
+function construct_derivative(partial_y, partial_z, slope)
+    return partial_y - slope * partial_z
+end
+
 
 include("LocalDualData.jl")
 include("MixedDualData.jl")
