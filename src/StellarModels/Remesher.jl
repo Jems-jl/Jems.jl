@@ -10,10 +10,14 @@ function remesher!(sm::StellarModel)
     do_split = Vector{Bool}(undef, psp.nz)
     do_split .= false
     Threads.@threads for i in 1:psp.nz-1
-        a = abs(log10(get_value(psp.eos_res[i].P)) -
+        a_P = abs(log10(get_value(psp.eos_res[i].P)) -
                 log10(get_value(psp.eos_res[i+1].P)))
-        b = sm.opt.remesh.delta_log10P_split
-        if a > b
+        b_P = sm.opt.remesh.delta_log10P_split
+
+        a_ρ = abs(log10(get_value(psp.eos_res[i].ρ)) -
+                log10(get_value(psp.eos_res[i+1].ρ)))
+        b_ρ = sm.opt.remesh.delta_log10ρ_split
+        if a_P > b_P || a_ρ > b_ρ 
             # if the condition is satisfied, we split the largest of the two cells
             if psp.dm[i] > psp.dm[i+1]
                 do_split[i] = true
@@ -186,7 +190,7 @@ function adjust_props_size!(sm::StellarModel, new_nz::Int, nextra::Int)
         throw(ArgumentError("Can't fit model of size nz=$(sm.prv_step_props.nz) using new_nz=$(new_nz) and nextra=$(nextra)."))
     end
     # new properties object
-    adj_props = build_properties_for_equation_set(sm.equation_set, sm.nvars, new_nz, nextra, network,
+    adj_props = build_properties_for_equation_set(sm.equation_set, sm.nvars, new_nz, nextra, sm.network,
                                        sm.vari, eltype(sm.prv_step_props.ind_vars))
     # backup scalar quantities
     StellarModels.copy_scalar_properties!(adj_props, sm.start_step_props)
@@ -195,14 +199,14 @@ function adjust_props_size!(sm::StellarModel, new_nz::Int, nextra::Int)
     sm.start_step_props = adj_props
 
     # also the props used later need new size:
-    adj_props = build_properties_for_equation_set(sm.equation_set, sm.nvars, new_nz, nextra, network,
+    adj_props = build_properties_for_equation_set(sm.equation_set, sm.nvars, new_nz, nextra, sm.network,
                                        sm.vari, eltype(sm.prv_step_props.ind_vars))
     StellarModels.copy_scalar_properties!(adj_props, sm.props)
     StellarModels.copy_mesh_properties!(sm, adj_props, sm.props)
     sm.props = adj_props
 
     # prv_step_props is also reallocated to be sure all have the same size
-    adj_props = build_properties_for_equation_set(sm.equation_set, sm.nvars, new_nz, nextra, network,
+    adj_props = build_properties_for_equation_set(sm.equation_set, sm.nvars, new_nz, nextra, sm.network,
                                        sm.vari, eltype(sm.prv_step_props.ind_vars))
     StellarModels.copy_scalar_properties!(adj_props, sm.prv_step_props)
     StellarModels.copy_mesh_properties!(sm, adj_props, sm.prv_step_props)
