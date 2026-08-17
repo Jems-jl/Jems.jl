@@ -720,9 +720,9 @@ function gammaTurb_arcsin(sm::StellarModel, k::Int)
         
         # CHANGED: exp -> sin
         ω_cc_p1 = 0.5*((sinh(get_p1_dual(sm.props.gamma_turb[k+1])))^2 + (sinh(get_00_dual(sm.props.gamma_turb[k])))^2)
-        μ_cc_p1 = 0.5 * (sinh(get_p1_dual(sm.props.gamma_turb[k+1])) + sinh(get_00_dual(sm.props.gamma_turb[k])))
+        μ_cc_p1 = 0.5 * (abs(sinh(get_p1_dual(sm.props.gamma_turb[k+1]))) + abs(sinh(get_00_dual(sm.props.gamma_turb[k]))))
         Λ_cc_p1 = 1 / (1 / Hₚ_cc_p1 + 1 / r_cc_p1)
-        A_p1 = (4π  *ρ_cc_p1* r_cc_p1^2)^2 * Λ_cc_p1 * α_w_FACTOR[] * sqrt(ω_cc_p1)             #abs(μ_cc_p1)
+        A_p1 = (4π  *ρ_cc_p1* r_cc_p1^2)^2 * Λ_cc_p1 * α_w_FACTOR[] * (μ_cc_p1)    #sqrt(ω_cc_p1)             
 
         # CHANGED: exp -> sin
         F_p1 = (A_p1 / dm_cell_p1) * ((sinh(get_p1_dual(sm.props.gamma_turb[k+1])))^2 - (sinh(get_00_dual(sm.props.gamma_turb[k])))^2) 
@@ -754,7 +754,7 @@ function gammaTurb_arcsin(sm::StellarModel, k::Int)
         
         # CHANGED: exp -> sin
         ω_cc_00 = 0.5*((sinh(get_00_dual(sm.props.gamma_turb[k])))^2 + (sinh(get_m1_dual(sm.props.gamma_turb[k-1])))^2)
-        γ_cc_00 = 0.5*((sinh(get_00_dual(sm.props.gamma_turb[k]))) + (sinh(get_m1_dual(sm.props.gamma_turb[k-1]))))
+        γ_cc_00 = 0.5* ((abs(sinh(get_00_dual(sm.props.gamma_turb[k])))) + abs(sinh(get_m1_dual(sm.props.gamma_turb[k-1]))))
         dm_cell_00 = sm.props.dm[k]
         m_face_00  = sm.props.m[k] # Mass at the outer boundary
         m_cc_00 = 0.5*(sm.props.m[k] + sm.props.m[k-1])
@@ -790,7 +790,7 @@ function gammaTurb_arcsin(sm::StellarModel, k::Int)
         #  FLUX CALCULATION (A_00)
         # ==============================================================================
         # We use the same Face values for A_00 as they are the definitive properties at k
-        A_00 = (4π * ρ_face_00 * r_cc_00^2)^2 * Λ_face_00 * α_w_FACTOR[] *  sqrt(ω_cc_00) #abs(sinh(γ_cc_00))
+        A_00 = (4π * ρ_face_00 * r_cc_00^2)^2 * Λ_face_00 * α_w_FACTOR[] * (γ_cc_00) #sqrt(ω_cc_00)
         
         # CHANGED: exp -> sin
         F_00 = (A_00 / sm.props.dm[k]) * ((sinh(get_00_dual(sm.props.gamma_turb[k])))^2 - (sinh(get_m1_dual(sm.props.gamma_turb[k-1])))^2)
@@ -846,7 +846,7 @@ function gammaTurb_arcsin(sm::StellarModel, k::Int)
         ## 00 values ##
         # CHANGED: exp -> sin
         ω_cc_00 = 0.5*((sinh(get_00_dual(sm.props.gamma_turb[k])))^2 + (sinh(get_m1_dual(sm.props.gamma_turb[k-1])))^2)
-        γ_cc_00 = 0.5*((sinh(get_00_dual(sm.props.gamma_turb[k]))) + (sinh(get_m1_dual(sm.props.gamma_turb[k-1]))))
+        γ_cc_00 = 0.5* ((abs(sinh(get_00_dual(sm.props.gamma_turb[k])))) + abs(sinh(get_m1_dual(sm.props.gamma_turb[k-1]))))
         dm_cell_00 = sm.props.dm[k]
         dm_face_00 = 0.5*(sm.props.dm[k] + sm.props.dm[k-1]) ##
         m_face_00 = 0.5*(sm.props.m[k] + sm.props.m[k-1])
@@ -856,7 +856,7 @@ function gammaTurb_arcsin(sm::StellarModel, k::Int)
         L_cc_00 = 0.5*(get_00_dual(sm.props.L[k]) + get_m1_dual(sm.props.L[k-1])) * LSUN
         Hₚ_cc_00 = P_cc_00 / (ρ_cc_00 * m_face_00 * CGRAV / r_cc_00^2)
         Λ_cc_00 = 1 / (1 / Hₚ_cc_00 + 1 / r_cc_00)
-        A_00 = (4π  *ρ_cc_00 * r_cc_00^2)^2 * Λ_cc_00 * α_w_FACTOR[] *  sqrt(ω_cc_00) #abs(sinh(γ_cc_00))
+        A_00 = (4π  *ρ_cc_00 * r_cc_00^2)^2 * Λ_cc_00 * α_w_FACTOR[] *  (γ_cc_00) # sqrt(ω_cc_00)
         
         # CHANGED: exp -> sin
         F_00 = (A_00 / sm.props.dm[k]) * ((sinh(get_00_dual(sm.props.gamma_turb[k])))^2 - (sinh(get_m1_dual(sm.props.gamma_turb[k-1])))^2)
@@ -874,8 +874,8 @@ function gammaTurb_arcsin(sm::StellarModel, k::Int)
         
         # CHANGED: exp -> sin
         ω_cc_p1 = 0.5*((sinh(get_p1_dual(sm.props.gamma_turb[k+1])))^2 + (sinh(get_00_dual(sm.props.gamma_turb[k])))^2)
-        γ_cc_p1 = 0.5 * (sinh(get_p1_dual(sm.props.gamma_turb[k+1])) + sinh(get_00_dual(sm.props.gamma_turb[k])))
-        A_p1 = (4π *ρ_cc_p1* r_cc_p1^2)^2 * Λ_cc_p1 * α_w_FACTOR[] * sqrt(ω_cc_p1)            # abs(sin( γ_cc_p1))
+        γ_cc_p1 = 0.5 * (abs(sinh(get_p1_dual(sm.props.gamma_turb[k+1]))) + abs(sinh(get_00_dual(sm.props.gamma_turb[k]))))
+        A_p1 = (4π *ρ_cc_p1* r_cc_p1^2)^2 * Λ_cc_p1 * α_w_FACTOR[] * ( γ_cc_p1)  #sqrt(ω_cc_p1)    
         
         # CHANGED: exp -> sin
         F_p1 = (A_p1 / sm.props.dm[k+1]) * ((sinh(get_p1_dual(sm.props.gamma_turb[k+1])))^2 - (sinh(get_00_dual(sm.props.gamma_turb[k])))^2)
@@ -930,11 +930,11 @@ end
 end
 function gammaTurb_blend(sm::StellarModel, k::Int)
     m_solar = sm.props.m[k] / MSUN
-    w = smooth_step_func(m_solar, 3.9 , 4.0)
+    w = smooth_step_func(m_solar, 4.95 , 4.99)
 
     #  Pure TDC region
-    if m_solar <= 3.9
-        return gammaTurb(sm, k)
+    if m_solar <= 4.95
+        return gammaTurb_arcsin(sm, k)
     end
 
     # Get the target values (duals stripped)
@@ -948,7 +948,7 @@ function gammaTurb_blend(sm::StellarModel, k::Int)
     ρ_face = exp(get_value(sm.props.lnρ_face[k]))
     c_s = sqrt(P_face / ρ_face)
     
-    v_floor = c_s * 1e-7
+    v_floor = c_s * 1e-9
     v_turb_floored = max(v_turb, v_floor)
     
     γ_target = log((v_turb_floored^2) / 2.0)
@@ -966,7 +966,7 @@ function gammaTurb_blend(sm::StellarModel, k::Int)
     
     res_fixed = (γ_face_active - γ_target) * scale
     
-    return (1.0 - w) * gammaTurb(sm, k) + w * res_fixed
+    return (1.0 - w) * gammaTurb_arcsin(sm, k) + w * res_fixed
 end
 function equationTDC_blend_temp(sm::StellarModel, k::Int)
     lnT₀ = get_00_dual(sm.props.eos_res[k].lnT)
@@ -987,7 +987,7 @@ function equationTDC_blend_temp(sm::StellarModel, k::Int)
     # Calculating TDC ∇
     L = get_00_dual(sm.props.L[k]) * LSUN
     γ₀ = get_00_dual(sm.props.gamma_turb[k])
-    ω = exp(γ₀)
+    ω = (sinh(γ₀))^2
     ρ_face = exp(get_00_dual(sm.props.lnρ_face[k]))
     P_face = exp(get_00_dual(sm.props.lnP_face[k]))
     r₀ = exp(get_00_dual(sm.props.lnr[k]))
@@ -999,7 +999,7 @@ function equationTDC_blend_temp(sm::StellarModel, k::Int)
     Hₚ = P_face / (ρ_face * CGRAV * m₀ / r₀^2) #defined at face 
     Λ = 1/(1/Hₚ + 1/r₀) 
     k_rad = 16 * SIGMA_SB * T_face^3 / (3 * κ * ρ_face)
-    α₂ = ρ_face*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
+    α₂ = ρ_face*cₚ*0.5*sqrt(2/3)*Λ*abs(sinh(γ₀))
     ∇ᵣ = 3 * κ * L * P_face / (16π * CRAD * CLIGHT * CGRAV * m₀ * T_face^4)
     SA = (∇ᵣ - ∇ₐ)*(1 + α₂/k_rad)^(-1)
     ∇_tdc = ∇ₐ + SA 
@@ -1007,7 +1007,7 @@ function equationTDC_blend_temp(sm::StellarModel, k::Int)
    
     m_solar = m₀ / MSUN 
     
-    w = smooth_step_func(m_solar, 3.9, 4.0)
+    w = smooth_step_func(m_solar, 4.95, 4.99)
     
 
     ∇ = (1.0 - w) * ∇_tdc + w * ∇_turb
@@ -1020,9 +1020,9 @@ end
 
 function Jems.Evolution.eval_cell_eqs!(sm::StellarModel, ::TDCEquationSet, k::Int)
     sm.solver_data.eqs_duals[k, 1] = Evolution.equationHSE(sm, k)
-    sm.solver_data.eqs_duals[k, 2] = Evolution.equationT(sm,k)
+    sm.solver_data.eqs_duals[k, 2] = equationTDC_temp_arcsin(sm,k)
     sm.solver_data.eqs_duals[k, 3] = Evolution.equationContinuity(sm, k)
-    sm.solver_data.eqs_duals[k, 4] = equationLuminosity_arcsin(sm, k)
+    sm.solver_data.eqs_duals[k, 4] = equationLuminosity_arcsin(sm,k)
     sm.solver_data.eqs_duals[k, 5] = gammaTurb_arcsin(sm,k)
     # evaluate all composition equations
     for i = 1:(sm.network.nspecies)
