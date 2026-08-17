@@ -13,10 +13,15 @@ function remesher!(sm::StellarModel)
         a_P = abs(log10(get_value(psp.eos_res[i].P)) -
                 log10(get_value(psp.eos_res[i+1].P)))
         b_P = sm.opt.remesh.delta_log10P_split
-
-        a_ρ = abs(log10(get_value(psp.eos_res[i].ρ)) -
-                log10(get_value(psp.eos_res[i+1].ρ)))
-        b_ρ = sm.opt.remesh.delta_log10ρ_split
+        if psp.model_number < 100
+            a_ρ = 0.0
+            b_ρ = 1000.0
+        else
+            a_ρ = abs(log10(get_value(psp.κ[i])) -
+                log10(get_value(psp.κ[i+1])))
+            b_ρ = 0.05
+        end 
+        
         if a_P > b_P || a_ρ > b_ρ 
             # if the condition is satisfied, we split the largest of the two cells
             if psp.dm[i] > psp.dm[i+1]
