@@ -641,6 +641,7 @@ StellarModels.add_history_option!(sm, "pressure_scale_height", "unitless", sm ->
 StellarModels.add_history_option!(sm, "ov_radius", "unitless", sm ->calculate_overshoot_length(sm)[4], label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
 StellarModels.add_history_option!(sm, "ov_distance", "unitless", sm ->calculate_overshoot_length(sm)[5], label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
 # "tau", "rad_diss", "vis_diss", "Lambda", "excess_term"
+##
 open("example_options.toml", "w") do file
     write(file,
           """
@@ -652,7 +653,7 @@ open("example_options.toml", "w") do file
           newton_max_iter = 20
           scale_max_correction = 1.0
           solver_progress_iter = 1
-          relative_correction_tolerance = 1e15
+          relative_correction_tolerance = 1e10
           maximum_residual_tolerance = 1e-2
           use_preconditioning = true
 
@@ -667,7 +668,7 @@ open("example_options.toml", "w") do file
           max_center_T = 1e12
 
           [io]
-          profile_interval = 1
+          profile_interval = 50
           terminal_header_interval = 100
           terminal_info_interval = 100
           profile_values = ["zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity",
