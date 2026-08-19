@@ -614,6 +614,7 @@ end
     
 
 ##
+using LaTeXStrings
 StellarModels.add_profile_option!(sm, "gamma_turb_energy", "unitless", (sm, k) -> ((get_value(sm.props.gamma_turb[k]))))
 StellarModels.add_profile_option!(sm, "D_turb_kuff", "unitless", (sm, k) -> ((get_value(sm.props.D_turb[k]))))
 StellarModels.add_profile_option!(sm, "kappa", "unitless", (sm, k) -> ((get_value(sm.props.κ[k]))))
@@ -698,7 +699,7 @@ n = 1.5
 # StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
 #                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 tdc_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                           50 * MSUN, 100 *  RSUN; initial_dt=0.01 * SECYEAR)
+                                           5 * MSUN, 80 *  RSUN; initial_dt=0.01 * SECYEAR)
 
            
 @time Evolution.do_evolution_loop!(sm, plotter=plotter); 
