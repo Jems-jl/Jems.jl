@@ -667,7 +667,10 @@ function gammaTurb_arcsin(sm::StellarModel, k::Int)
         dm_cell_00 = sm.props.dm[k]  
         m_cell_00 = sm.props.m[k]
         r_face_00 = exp(get_00_dual(sm.props.lnr[k])) #defined at the outer face 
-        κ_face_00  = get_00_dual(sm.props.κ[k])  #defined at outer face 
+        # PABLO: opacity is defined at inner face for first cell 
+        #κ_face_00  = get_00_dual(sm.props.κ[k])  #defined at outer face 
+        κ_inner_face_00  = get_00_dual(sm.props.κ[k])  #defined at outer face 
+        κ_cc_p1  = get_p1_dual(sm.props.κ[k+1])
         L_face_00  = get_00_dual(sm.props.L[k]) * LSUN #defined at outer face 
 
         P_inner_face_00 = get_00_dual(sm.props.eos_res[k].P) #defined at the inner face 
