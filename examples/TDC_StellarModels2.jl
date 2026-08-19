@@ -682,11 +682,20 @@ function gammaTurb_arcsin(sm::StellarModel, k::Int)
         cₚ_cc_p1 = get_p1_dual(sm.props.eos_res[k+1].cₚ)
 
         ## Interpolating the values to get the outer face values ##
-        P_face_00 = P_inner_face_00 + (P_cc_p1 - P_inner_face_00)*(m_cell_00/(sm.props.m[k] + 0.5* sm.props.m[k+1]))
-        ρ_face_00 = ρ_inner_face_00 + (ρ_cc_p1 - ρ_inner_face_00)*(m_cell_00/(sm.props.m[k] + 0.5* sm.props.m[k+1]))
-        T_face_00 = T_inner_face_00 + (T_cc_p1 - T_inner_face_00)*(m_cell_00/(sm.props.m[k] + 0.5* sm.props.m[k+1]))
-        cₚ_face_00 = cₚ_inner_face_00 + (cₚ_cc_p1 - cₚ_inner_face_00)*(m_cell_00/(sm.props.m[k] + 0.5* sm.props.m[k+1]))
-        ∇ₐ_face_00 = ∇ₐ_inner_face_00 + (∇ₐ_cc_p1 - ∇ₐ_inner_face_00)*(m_cell_00/(sm.props.m[k] + 0.5* sm.props.m[k+1]))
+        ## Interpolating the values to get the outer face values ##
+        # PABLO: masses are wrong here, should be dm
+        #κ_face_00 = κ_inner_face_00 + (κ_cc_p1 - κ_inner_face_00)*(m_cell_00/(sm.props.m[k] + 0.5* sm.props.m[k+1]))
+        #P_face_00 = P_inner_face_00 + (P_cc_p1 - P_inner_face_00)*(m_cell_00/(sm.props.m[k] + 0.5* sm.props.m[k+1]))
+        #ρ_face_00 = ρ_inner_face_00 + (ρ_cc_p1 - ρ_inner_face_00)*(m_cell_00/(sm.props.m[k] + 0.5* sm.props.m[k+1]))
+        #T_face_00 = T_inner_face_00 + (T_cc_p1 - T_inner_face_00)*(m_cell_00/(sm.props.m[k] + 0.5* sm.props.m[k+1]))
+        #cₚ_face_00 = cₚ_inner_face_00 + (cₚ_cc_p1 - cₚ_inner_face_00)*(m_cell_00/(sm.props.m[k] + 0.5* sm.props.m[k+1]))
+        #∇ₐ_face_00 = ∇ₐ_inner_face_00 + (∇ₐ_cc_p1 - ∇ₐ_inner_face_00)*(m_cell_00/(sm.props.m[k] + 0.5* sm.props.m[k+1]))
+        κ_face_00 = κ_inner_face_00 + (κ_cc_p1 - κ_inner_face_00)*(m_cell_00/(sm.props.dm[k] + 0.5* sm.props.dm[k+1]))
+        P_face_00 = P_inner_face_00 + (P_cc_p1 - P_inner_face_00)*(m_cell_00/(sm.props.dm[k] + 0.5* sm.props.dm[k+1]))
+        ρ_face_00 = ρ_inner_face_00 + (ρ_cc_p1 - ρ_inner_face_00)*(m_cell_00/(sm.props.dm[k] + 0.5* sm.props.dm[k+1]))
+        T_face_00 = T_inner_face_00 + (T_cc_p1 - T_inner_face_00)*(m_cell_00/(sm.props.dm[k] + 0.5* sm.props.dm[k+1]))
+        cₚ_face_00 = cₚ_inner_face_00 + (cₚ_cc_p1 - cₚ_inner_face_00)*(m_cell_00/(sm.props.dm[k] + 0.5* sm.props.dm[k+1]))
+        ∇ₐ_face_00 = ∇ₐ_inner_face_00 + (∇ₐ_cc_p1 - ∇ₐ_inner_face_00)*(m_cell_00/(sm.props.dm[k] + 0.5* sm.props.dm[k+1]))
         
         Hₚ_face_00 = P_face_00 / (ρ_face_00 * m_cell_00 * CGRAV / r_face_00^2)
         Λ_face_00 = 1 / (1 / Hₚ_face_00 + 1 / r_face_00)
@@ -726,8 +735,9 @@ function gammaTurb_arcsin(sm::StellarModel, k::Int)
         # CHANGED: exp -> sin
         F_p1 = (A_p1 / dm_cell_p1) * ((sinh(get_p1_dual(sm.props.gamma_turb[k+1])))^2 - (sinh(get_00_dual(sm.props.gamma_turb[k])))^2) 
 
-        # Different terms for residual at k = 1
-        mixing_term =  (F_p1/  dm_face_p1)  
+        # PABLO: this should be full mass of cell 1 + half mass of cell 2
+        #mixing_term =  (F_p1/  dm_face_p1)  
+        mixing_term =  (F_p1/  (sm.props.dm[k]+0.5*sm.props.dm[k+1]))  
         
         # CHANGED: Chain rule application. Multiply by cos(γ) instead of ω.
         omega_var_term = ((γ_face_00- get_value(sm.start_step_props.gamma_turb[k])) / sm.props.dt) * 2*sinh(γ_face_00)*cosh(γ_face_00) 
@@ -772,8 +782,11 @@ function gammaTurb_arcsin(sm::StellarModel, k::Int)
         ∇ₐ_face_00 = get_00_dual(sm.props.eos_res[k].∇ₐ)
         cₚ_face_00 = get_00_dual(sm.props.eos_res[k].cₚ)
 
-        Hₚ_face_00 = P_face_00 / (ρ_face_00 * m_cc_00 * CGRAV / r_cc_00^2)
-        Λ_face_00  = 1 / (1 / Hₚ_face_00 + 1 / r_cc_00)
+        # PABLO: why are the ones below using cc values?
+        #Hₚ_face_00 = P_face_00 / (ρ_face_00 * m_cc_00 * CGRAV / r_cc_00^2)
+        #Λ_face_00  = 1 / (1 / Hₚ_face_00 + 1 / r_cc_00)
+        Hₚ_face_00 = P_face_00 / (ρ_face_00 * m_face_00 * CGRAV / r_face_00^2)
+        Λ_face_00  = 1 / (1 / Hₚ_face_00 + 1 / r_face_00)
         
         ∇ᵣ_face_00 = (3 * κ_face_00 * L_face_00 * P_face_00) / (16π * CRAD * CLIGHT * CGRAV * m_face_00 * T_face_00^4)
         τᵣ_face_00 = (cₚ_face_00 * κ_face_00 * ρ_face_00^2 * Λ_face_00^2) / (48 * SIGMA_SB * T_face_00^3)
@@ -797,7 +810,9 @@ function gammaTurb_arcsin(sm::StellarModel, k::Int)
         # ==============================================================================
         # RESIDUAL
         # ==============================================================================
-        mixing_term = -(F_00 / sm.props.dm[k]) # Flux out (F_p1) is zero at surface
+        # PABLO: we should just use half of the surface cell mass
+        #mixing_term = -(F_00 / sm.props.dm[k]) # Flux out (F_p1) is zero at surface
+        mixing_term = -(F_00 / (0.5*sm.props.dm[k])) # Flux out (F_p1) is zero at surface
         
         # CHANGED: Chain rule. Multiply by cos(γ)
         omega_var_term = dgammadt_face_00 * 2*sinh(γ_face_00)*cosh(γ_face_00) 
