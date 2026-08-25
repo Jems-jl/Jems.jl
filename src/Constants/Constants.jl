@@ -34,7 +34,7 @@ Source: [CODATA 2018](https://www.doi.org/10.1103/RevModPhys.93.025010)
 
 Exact constant
 """
-const PLANCK_H = 6.62607015e-27          
+const PLANCK_H = 6.62607015e-27
 
 """
     HBAR = PLANCK_H / (2 * pi) = 1.0545718176461565e-27

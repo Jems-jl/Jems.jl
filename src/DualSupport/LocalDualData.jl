@@ -12,11 +12,11 @@ Parametric in types `NVARSP1`, the number of independent variables plus one, `TH
 independe variables plus one, and `TNUMBER`, the type of the number used for the calculations (usually floats, but
 can be duals themselves).
 """
-struct LocalDualData{NVARSP1, THREENVARSP1, TNUMBER}
-    diff_cache_local::StarDiffCache{NVARSP1, TNUMBER}
-    diff_cache_m1::StarDiffCache{THREENVARSP1, TNUMBER}
-    diff_cache_00::StarDiffCache{THREENVARSP1, TNUMBER}
-    diff_cache_p1::StarDiffCache{THREENVARSP1, TNUMBER}
+struct LocalDualData{NVARSP1,THREENVARSP1,TNUMBER,DUAL_TAG}
+    diff_cache_local::StarDiffCache{NVARSP1,TNUMBER,DUAL_TAG}
+    diff_cache_m1::StarDiffCache{THREENVARSP1,TNUMBER,DUAL_TAG}
+    diff_cache_00::StarDiffCache{THREENVARSP1,TNUMBER,DUAL_TAG}
+    diff_cache_p1::StarDiffCache{THREENVARSP1,TNUMBER,DUAL_TAG}
 end
 
 """
@@ -27,12 +27,13 @@ own properties as well as its neighbors.
 Use `is_ind_var=True` and `ind_var_i=i` to instantiate a LocalDualData of a base independent variable,
 with ones assigned in the appropriate spots
 """
-function LocalDualData(nvars::Int, ::Type{TNUMBER}; is_ind_var=false, ind_var_i=0) where{TNUMBER}
-    diff_cache_local = StarDiffCache(nvars, TNUMBER)
-    diff_cache_m1 = StarDiffCache(3*nvars, TNUMBER)
-    diff_cache_00 = StarDiffCache(3*nvars, TNUMBER)
-    diff_cache_p1 = StarDiffCache(3*nvars, TNUMBER)
-    cd = LocalDualData{nvars+1, 3*nvars+1, TNUMBER}(diff_cache_local, 
+function LocalDualData(nvars::Int, ::Type{TNUMBER}, ::Type{DUAL_TAG}; 
+                        is_ind_var=false, ind_var_i=0) where{TNUMBER,DUAL_TAG<:ForwardDiff.Tag}
+    diff_cache_local = StarDiffCache(nvars, TNUMBER, DUAL_TAG)
+    diff_cache_m1 = StarDiffCache(3*nvars, TNUMBER, DUAL_TAG)
+    diff_cache_00 = StarDiffCache(3*nvars, TNUMBER, DUAL_TAG)
+    diff_cache_p1 = StarDiffCache(3*nvars, TNUMBER, DUAL_TAG)
+    cd = LocalDualData{nvars+1,3*nvars+1,TNUMBER,DUAL_TAG}(diff_cache_local, 
                                 diff_cache_m1, diff_cache_00, diff_cache_p1)
     if !is_ind_var
         return cd
@@ -53,21 +54,21 @@ function LocalDualData(nvars::Int, ::Type{TNUMBER}; is_ind_var=false, ind_var_i=
 end
 
 """
-    function Base.zero(::Type{LocalDualData{SIZE1,SIZE2,TNUMBER}}) where {SIZE1, SIZE2, TNUMBER}
+    function Base.zero(::Type{LocalDualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}}) where {SIZE1, SIZE2, TNUMBER, DUAL_TAG}
 
 Instantiates a LocalDualData with zero entries (the neutral element for duals).
 """
-function Base.zero(::Type{LocalDualData{SIZE1,SIZE2,TNUMBER}}) where {SIZE1, SIZE2, TNUMBER}
-    return LocalDualData(SIZE1-1, TNUMBER)
+function Base.zero(::Type{LocalDualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}}) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG}
+    return LocalDualData(SIZE1-1, TNUMBER, DUAL_TAG)
 end
 
 """
-    function Base.convert(::Type{LocalDualData{SIZE1, SIZE2, TN1}}, x::TN2) where {SIZE1, SIZE2, TN1<:Number, TN2<:Number} 
+    function Base.convert(::Type{LocalDualData{SIZE1, SIZE2, TN1, DUAL_TAG}}, x::TN2) where {SIZE1, SIZE2, TN1<:Number, TN2<:Number, DUAL_TAG} 
 
 Convert `x` of type `TN2` to a LocalDualData object of types `SIZE1`, `SIZE2` and `TN1`.
 """
-function Base.convert(::Type{LocalDualData{SIZE1, SIZE2, TN1}}, x::TN2) where {SIZE1, SIZE2, TN1<:Number, TN2<:Number} 
-    cd = zero(LocalDualData{SIZE1,SIZE2,TN1})
+function Base.convert(::Type{LocalDualData{SIZE1,SIZE2,TN1,DUAL_TAG}}, x::TN2) where {SIZE1,SIZE2,TN1<:Number,TN2<:Number,DUAL_TAG<:ForwardDiff.Tag} 
+    cd = zero(LocalDualData{SIZE1,SIZE2,TN1,DUAL_TAG})
     update_local_dual_data_value!(cd, x)
     return cd
 end
@@ -90,11 +91,11 @@ function update_local_dual_data_value!(cd::LocalDualData, value)
 end
 
 """
-    function update_local_dual_data!(cd::LocalDualData{SIZE1, SIZE2, TNUMBER}, dual::TDSC) where {SIZE1, SIZE2, TNUMBER, TDSC}
+    function update_local_dual_data!(cd::LocalDualData{SIZE1, SIZE2, TNUMBER, DUAL_TAG}, dual::TDSC) where {SIZE1, SIZE2, TNUMBER, DUAL_TAG<:ForwardDiff.Tag, TDSC}
 
 Updates all data of the LocalDualData object to the data of a given dual number.
 """
-function update_local_dual_data!(cd::LocalDualData{SIZE1, SIZE2, TNUMBER}, dual::TDSC) where {SIZE1, SIZE2, TNUMBER, TDSC}
+function update_local_dual_data!(cd::LocalDualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
     update_local_dual_data_value!(cd, dual.value)
     nvars = SIZE1-1
     for i in 1:nvars

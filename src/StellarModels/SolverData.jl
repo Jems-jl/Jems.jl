@@ -19,13 +19,13 @@ abstract type AbstractSolverData end
     use_static_arrays::Bool
 end
 
-function ThomasSolverData(nvars, nz, nextra, use_static_arrays, number_type)
+function ThomasSolverData(nvars, nz, nextra, use_static_arrays, number_type, internal_dual_tag)
     # create the equation results matrix, holding dual numbers (for automatic differentiation, AD)
-    dual_sample = ForwardDiff.Dual(zero(number_type), (zeros(number_type, 3 * nvars)...))
+    dual_sample = ForwardDiff.Dual{internal_dual_tag}(zero(number_type), (zeros(number_type, 3 * nvars)...))
     eqs_duals = Matrix{typeof(dual_sample)}(undef, nz+nextra, nvars)
     for k = 1:(nz + nextra)
         for i = 1:nvars
-            eqs_duals[k, i] = ForwardDiff.Dual(zero(number_type), (zeros(number_type, 3 * nvars)...))
+            eqs_duals[k, i] = ForwardDiff.Dual{internal_dual_tag}(zero(number_type), (zeros(number_type, 3 * nvars)...))
         end
     end
 

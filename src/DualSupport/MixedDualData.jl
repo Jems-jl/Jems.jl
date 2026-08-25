@@ -12,10 +12,10 @@ Parametric in types `TWONVARSP1`, two times the number of independent variables 
 independe variables plus one, and `TNUMBER`, the type of the number used for the calculations (usually floats, but
 can be duals themselves).
 """
-struct MixedDualData{TWONVARSP1, THREENVARSP1, TNUMBER}
-    diff_cache_mixed::StarDiffCache{TWONVARSP1, TNUMBER}
-    diff_cache_m1::StarDiffCache{THREENVARSP1, TNUMBER}
-    diff_cache_00::StarDiffCache{THREENVARSP1, TNUMBER}
+struct MixedDualData{TWONVARSP1,THREENVARSP1,TNUMBER,DUAL_TAG}
+    diff_cache_mixed::StarDiffCache{TWONVARSP1,TNUMBER,DUAL_TAG}
+    diff_cache_m1::StarDiffCache{THREENVARSP1,TNUMBER,DUAL_TAG}
+    diff_cache_00::StarDiffCache{THREENVARSP1,TNUMBER,DUAL_TAG}
 end
 
 """
@@ -24,21 +24,21 @@ end
 Instantiates an object of type MixedDualData, that holds the information needed to construct partial derivatives wrt its
 own properties as well as its neighbors.
 """
-function MixedDualData(nvars::Int, ::Type{TNUMBER}) where {TNUMBER}
-    diff_cache_mixed = StarDiffCache(2*nvars, TNUMBER)
-    diff_cache_m1 = StarDiffCache(3*nvars, TNUMBER)
-    diff_cache_00 = StarDiffCache(3*nvars, TNUMBER)
-    fd = MixedDualData{2*nvars+1, 3*nvars+1, TNUMBER}(diff_cache_mixed, 
+function MixedDualData(nvars::Int, ::Type{TNUMBER}, ::Type{DUAL_TAG}) where {TNUMBER,DUAL_TAG}
+    diff_cache_mixed = StarDiffCache(2*nvars, TNUMBER, DUAL_TAG)
+    diff_cache_m1 = StarDiffCache(3*nvars, TNUMBER, DUAL_TAG)
+    diff_cache_00 = StarDiffCache(3*nvars, TNUMBER, DUAL_TAG)
+    fd = MixedDualData{2*nvars+1,3*nvars+1,TNUMBER,DUAL_TAG}(diff_cache_mixed, 
                                 diff_cache_00, diff_cache_m1)
     return fd
 end
 
-function Base.zero(::Type{MixedDualData{SIZE1,SIZE2,TNUMBER}}) where {SIZE1, SIZE2, TNUMBER}
-    return MixedDualData((SIZE1-1)÷2, TNUMBER)
+function Base.zero(::Type{MixedDualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}}) where {SIZE1, SIZE2, TNUMBER, DUAL_TAG}
+    return MixedDualData((SIZE1-1)÷2, TNUMBER, DUAL_TAG)
 end
 
-function Base.convert(::Type{MixedDualData{SIZE1, SIZE2, TN1}}, x::TN2) where {SIZE1, SIZE2, TN1<:Number, TN2<:Number} 
-    cd = zero(MixedDualData{SIZE1,SIZE2,TN1})
+function Base.convert(::Type{MixedDualData{SIZE1, SIZE2, TN1, DUAL_TAG}}, x::TN2) where {SIZE1, SIZE2, TN1<:Number, TN2<:Number, DUAL_TAG} 
+    cd = zero(MixedDualData{SIZE1,SIZE2,TN1,DUAL_TAG})
     update_mixed_dual_data_value!(cd, x)
     return cd
 end
@@ -53,7 +53,7 @@ function update_mixed_dual_data_value!(fd::MixedDualData, value)
     #@inbounds fd.diff_cache_00.dual_data[1] = value
 end
 
-function update_mixed_dual_data!(fd::MixedDualData{SIZE1, SIZE2, TNUMBER}, dual::TDSC) where {SIZE1, SIZE2, TNUMBER, TDSC}
+function update_mixed_dual_data!(fd::MixedDualData{SIZE1, SIZE2, TNUMBER, DUAL_TAG}, dual::TDSC) where {SIZE1, SIZE2, TNUMBER, DUAL_TAG, TDSC}
     update_mixed_dual_data_value!(fd, dual.value)
     twonvars = (SIZE1-1)
     nvars = twonvars÷2

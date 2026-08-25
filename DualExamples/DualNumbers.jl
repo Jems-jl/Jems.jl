@@ -33,15 +33,16 @@ result = test(x,y)
 
 ##
 #=
-One important issue with the use of dual numbers is that constantly creating them can produce a lot of allocations leading to significant slowdown. We can work around this issue by using a cache, which is precisely what the struct `StarDiffCache` is meant to do (the implementation of this struct was adapted from `PreallocationTools.jl`). Considering a case with $n_\mathrm{vars}=2$, we need a cache that can store three values (that of the variable and that of the partial derivatives). We make here a cache for both $x$ and $y$, this is very low level and very likely you will not need to interact with it.
+One important issue with the use of dual numbers is that constantly creating them can produce a lot of allocations leading to significant slowdown. We can work around this issue by using a cache, which is precisely what the struct `StarDiffCache` is meant to do (the implementation of this struct was adapted from `PreallocationTools.jl`). Considering a case with $n_\mathrm{vars}=2$, we need a cache that can store three values (that of the variable and that of the partial derivatives). We make here a cache for both $x$ and $y$, this is very low level and very likely you will not need to interact with it. The `:tag` that is given to the dual number is intended for nested dual numbers that can be used for differentiable simulations.
 =#
 
 import Jems.DualSupport: StarDiffCache, get_dual
+tag = Tag{:tag, nothing}
 
-cache_x = StarDiffCache{3,Float64}(zeros(3))
+cache_x = StarDiffCache(3,Float64,tag)
 cache_x.dual_data[2] = 1.0 # dual_data[1] contains the value, dual_data[2] is ∂x/∂x=1, dual_data[3] is ∂x/∂y=0
 
-cache_y = StarDiffCache{3,Float64}(zeros(3))
+cache_y = StarDiffCache(3,Float64,tag)
 cache_y.dual_data[3] = 1.0; # dual_data[1] contains the value, dual_data[2] is ∂x/∂x=1, dual_data[3] is ∂x/∂y=0
 
 #we can repeat the example from above using these
@@ -88,18 +89,18 @@ using Jems.DualSupport
 
 nvars = 2
 
-P_m1 = LocalDualData(nvars, Float64; is_ind_var=true, ind_var_i=1) # this is pressure at the cell below
-P_00 = LocalDualData(nvars, Float64; is_ind_var=true, ind_var_i=1) # this is pressure at the current cell
-P_p1 = LocalDualData(nvars, Float64; is_ind_var=true, ind_var_i=1) # this is pressure at the cell above
+P_m1 = LocalDualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=1) # this is pressure at the cell below
+P_00 = LocalDualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=1) # this is pressure at the current cell
+P_p1 = LocalDualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=1) # this is pressure at the cell above
 #initialize them with arbitrary values
 update_local_dual_data_value!(P_m1, 0.9)
 update_local_dual_data_value!(P_00, 1.0)
 update_local_dual_data_value!(P_p1, 1.0)
 
 #same for density
-r_m1 = LocalDualData(nvars, Float64; is_ind_var=true, ind_var_i=2) # this is pressure at the cell below
-r_00 = LocalDualData(nvars, Float64; is_ind_var=true, ind_var_i=2) # this is pressure at the current cell
-r_p1 = LocalDualData(nvars, Float64; is_ind_var=true, ind_var_i=2) # this is pressure at the cell above
+r_m1 = LocalDualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=2) # this is pressure at the cell below
+r_00 = LocalDualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=2) # this is pressure at the current cell
+r_p1 = LocalDualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=2) # this is pressure at the cell above
 #initialize them with arbitrary values
 update_local_dual_data_value!(r_m1, 1.0)
 update_local_dual_data_value!(r_00, 1.0)

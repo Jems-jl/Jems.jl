@@ -56,7 +56,8 @@ termination criteria is reached (defined in `sm.opt.termination`).
 function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullPlotter(),
                                 max_retries_in_a_row = 10) where{TPLOTTER<:AbstractPlotter}
     # before loop actions
-    StellarModels.create_output_files!(sm)
+    TNUMBER = eltype(sm.props.ind_vars)  # determine type of numbers
+    StellarModels.create_output_files!(sm, TNUMBER)
     compute_starting_model_properties!(sm)
     retry_count = 0
 
@@ -197,7 +198,7 @@ function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullP
 
         # write state in sm.props and potential history/profiles.
         StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
-        StellarModels.write_data(sm)
+        StellarModels.write_data(sm, TNUMBER)
         StellarModels.write_terminal_info(sm)
 
         update_plotter!(plotter, sm)
@@ -211,6 +212,12 @@ function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullP
         if (exp(get_value(sm.props.lnT[1])) > sm.opt.termination.max_center_T)
             StellarModels.write_terminal_info(sm; now=true)
             println("Reached maximum central temperature")
+            break
+        end
+
+        if (get_value(sm.props.xa[1, sm.network.xa_index[:H1]]) < sm.opt.termination.min_center_X)
+            StellarModels.write_terminal_info(sm; now=true)
+            println("Reached minimum central hydrogen abundance")
             break
         end
 
