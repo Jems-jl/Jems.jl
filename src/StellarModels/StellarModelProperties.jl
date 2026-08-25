@@ -1,7 +1,8 @@
 using ForwardDiff
 using Jems.Turbulence
+using Jems.DualSupport: get_local_dual, get_00_dual, get_p1_dual
 
-@kwdef mutable struct StellarModelProperties{TN,TDual,TDualMixed,TLocalDualData,TMixedDualData} <: AbstractModelProperties
+@kwdef mutable struct StellarModelProperties{TN,TLocalDual,TFullDual,TDualData} <: AbstractModelProperties
     # scalar quantities
     dt::TN  # Timestep of the current evolutionary step (s)
     dt_next::TN
@@ -15,41 +16,41 @@ using Jems.Turbulence
     m::Vector{TN}
     dm::Vector{TN}
 
-    eos_res_dual::Vector{EOSResults{TDual}}
-    eos_res::Vector{EOSResults{TLocalDualData}}
+    eos_res_dual::Vector{EOSResults{TLocalDual}}
+    eos_res::Vector{EOSResults{TDualData}}
 
     # independent variables (duals constructed from the ind_vars array)
     # represents a staggered mesh: T, ρ and abundances are defined in the center of each cell, L and r on the outer face
-    lnT::Vector{TLocalDualData}  # [K]
-    lnρ::Vector{TLocalDualData}  # [g cm^-3]
-    lnr::Vector{TLocalDualData}  # [cm]
-    L::Vector{TLocalDualData}    # Lsun
-    xa::Matrix{TLocalDualData}   # dim-less
-    xa_dual::Matrix{TDual}      # only the cell duals wrt itself
+    lnT::Vector{TDualData}  # [K]
+    lnρ::Vector{TDualData}  # [g cm^-3]
+    lnr::Vector{TDualData}  # [cm]
+    L::Vector{TDualData}    # Lsun
+    xa::Matrix{TDualData}   # dim-less
+    xa_dual::Matrix{TLocalDual}      # only the cell duals wrt itself
 
     # opacity (cell centered)
-    κ::Vector{TLocalDualData}  # cm^2 g^-1
+    κ::Vector{TDualData}  # cm^2 g^-1
 
     # rates (cell centered)
-    rates::Matrix{TLocalDualData}  # g^-1 s^-1
-    rates_dual::Matrix{TDual}     # only cell duals wrt itself
+    rates::Matrix{TDualData}  # g^-1 s^-1
+    rates_dual::Matrix{TLocalDual}     # only cell duals wrt itself
 
     # face values
-    lnP_face::Vector{TMixedDualData}  # [dyne]
-    lnT_face::Vector{TMixedDualData}  # [K]
-    lnρ_face::Vector{TMixedDualData}  # [g cm^-3]
-    κ_face::Vector{TMixedDualData}    # cm^2 g^-1
-    ∇ₐ_face::Vector{TMixedDualData}   # dim-less
-    ∇ᵣ_face::Vector{TMixedDualData}   # dim-less
-    δ_face::Vector{TMixedDualData}   # dim-less
-    cₚ_face::Vector{TMixedDualData}   # erg K^-1 g^-1
+    lnP_face::Vector{TDualData}  # [dyne]
+    lnT_face::Vector{TDualData}  # [K]
+    lnρ_face::Vector{TDualData}  # [g cm^-3]
+    κ_face::Vector{TDualData}    # cm^2 g^-1
+    ∇ₐ_face::Vector{TDualData}   # dim-less
+    ∇ᵣ_face::Vector{TDualData}   # dim-less
+    δ_face::Vector{TDualData}   # dim-less
+    cₚ_face::Vector{TDualData}   # erg K^-1 g^-1
 
     # turbulence (i.e. convection, face valued)
-    turb_res_dual::Vector{TurbResults{TDualMixed}}
-    turb_res::Vector{TurbResults{TMixedDualData}}
+    turb_res_dual::Vector{TurbResults{TFullDual}}
+    turb_res::Vector{TurbResults{TDualData}}
 
     # flux term for mixing equations (4πr^2ρ)^2 D / dm
-    flux_term::Vector{TMixedDualData}
+    flux_term::Vector{TDualData}
 
     ϵ_nuc::Vector{TN}
 
@@ -60,30 +61,29 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
                                 ::Type{TN}, ::Type{internal_tag}) where {TN<:Real,internal_tag<:ForwardDiff.Tag}
 
     # define the types
-    LDDTYPE = LocalDualData{nvars + 1,3 * nvars + 1,TN,internal_tag}  # full dual arrays
-    MDDTYPE = MixedDualData{2 * nvars + 1,3 * nvars + 1,TN,internal_tag}
+    DDTYPE = DualData{nvars + 1,3 * nvars + 1,TN,internal_tag}  # full dual arrays
     TDL = typeof(ForwardDiff.Dual{internal_tag}(zero(TN), (zeros(TN, nvars))...))  # only the local duals
-    TDM = typeof(ForwardDiff.Dual{internal_tag}(zero(TN), (zeros(TN, 2 * nvars))...))  # only the mixed duals
+    TDF = typeof(ForwardDiff.Dual{internal_tag}(zero(TN), (zeros(TN, 3 * nvars))...))  # only the full duals
 
     # create the vector containing the independent variables
     ind_vars = zeros(TN, nvars * (nz + nextra))
 
     # result containers
     eos_res_dual = [EOSResults{TDL}() for i = 1:(nz + nextra)]
-    eos_res = [EOSResults{LDDTYPE}() for i = 1:(nz + nextra)]
+    eos_res = [EOSResults{DDTYPE}() for i = 1:(nz + nextra)]
 
-    turb_res_dual = [TurbResults{TDM}() for i = 1:(nz + nextra)]
-    turb_res = [TurbResults{MDDTYPE}() for i = 1:(nz + nextra)]
+    turb_res_dual = [TurbResults{TDF}() for i = 1:(nz + nextra)]
+    turb_res = [TurbResults{DDTYPE}() for i = 1:(nz + nextra)]
 
     # unpacked ind_vars
-    lnT = [LocalDualData(nvars, TN, internal_tag; is_ind_var=true, ind_var_i=vari[:lnT]) for i in 1:(nz+nextra)]
-    lnρ = [LocalDualData(nvars, TN, internal_tag; is_ind_var=true, ind_var_i=vari[:lnρ]) for i in 1:(nz+nextra)]
-    lnr = [LocalDualData(nvars, TN, internal_tag; is_ind_var=true, ind_var_i=vari[:lnr]) for i in 1:(nz+nextra)]
-    L = [LocalDualData(nvars, TN, internal_tag; is_ind_var=true, ind_var_i=vari[:lum]) for i in 1:(nz+nextra)]
-    xa = Matrix{LDDTYPE}(undef,nz+nextra, nspecies)
+    lnT = [DualData(nvars, TN, internal_tag; is_ind_var=true, ind_var_i=vari[:lnT]) for i in 1:(nz+nextra)]
+    lnρ = [DualData(nvars, TN, internal_tag; is_ind_var=true, ind_var_i=vari[:lnρ]) for i in 1:(nz+nextra)]
+    lnr = [DualData(nvars, TN, internal_tag; is_ind_var=true, ind_var_i=vari[:lnr]) for i in 1:(nz+nextra)]
+    L = [DualData(nvars, TN, internal_tag; is_ind_var=true, ind_var_i=vari[:lum]) for i in 1:(nz+nextra)]
+    xa = Matrix{DDTYPE}(undef,nz+nextra, nspecies)
     for k in 1:(nz+nextra)
         for i in 1:nspecies
-            xa[k,i] = LocalDualData(nvars, TN, internal_tag;
+            xa[k,i] = DualData(nvars, TN, internal_tag;
                         is_ind_var=true, ind_var_i=nvars-nspecies+i) # nvars-nspecies in here is the number of non-composition variables being solved
         end
     end
@@ -97,38 +97,37 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
 
     # for some reason using zeros just creates a bunch of instances of the same object
     # so we just initialize a vector of undef
-    lnP_face = Vector{MDDTYPE}(undef, nz+nextra)#zeros(LDDTYPE, nz+nextra)
-    lnρ_face = Vector{MDDTYPE}(undef, nz+nextra)#zeros(LDDTYPE, nz+nextra)
-    lnT_face = Vector{MDDTYPE}(undef, nz+nextra)#zeros(LDDTYPE, nz+nextra)
-    κ_face = Vector{MDDTYPE}(undef, nz+nextra)#zeros(LDDTYPE, nz+nextra)
-    ∇ₐ_face = Vector{MDDTYPE}(undef, nz+nextra)#zeros(LDDTYPE, nz+nextra)
-    ∇ᵣ_face = Vector{MDDTYPE}(undef, nz+nextra)#zeros(LDDTYPE, nz+nextra)
-    δ_face = Vector{MDDTYPE}(undef, nz+nextra)#zeros(LDDTYPE, nz+nextra)
-    cₚ_face = Vector{MDDTYPE}(undef, nz+nextra)#zeros(LDDTYPE, nz+nextra)
-    κ = Vector{LDDTYPE}(undef, nz+nextra)  # zeros(LDDTYPE, nz+nextra)
-    flux_term = Vector{MDDTYPE}(undef, nz+nextra)#zeros(LDDTYPE, nz+nextra)
+    lnP_face = Vector{DDTYPE}(undef, nz+nextra)#zeros(DDTYPE, nz+nextra)
+    lnρ_face = Vector{DDTYPE}(undef, nz+nextra)#zeros(DDTYPE, nz+nextra)
+    lnT_face = Vector{DDTYPE}(undef, nz+nextra)#zeros(DDTYPE, nz+nextra)
+    κ_face = Vector{DDTYPE}(undef, nz+nextra)#zeros(DDTYPE, nz+nextra)
+    ∇ₐ_face = Vector{DDTYPE}(undef, nz+nextra)#zeros(DDTYPE, nz+nextra)
+    ∇ᵣ_face = Vector{DDTYPE}(undef, nz+nextra)#zeros(DDTYPE, nz+nextra)
+    δ_face = Vector{DDTYPE}(undef, nz+nextra)#zeros(DDTYPE, nz+nextra)
+    cₚ_face = Vector{DDTYPE}(undef, nz+nextra)#zeros(DDTYPE, nz+nextra)
+    κ = Vector{DDTYPE}(undef, nz+nextra)  # zeros(DDTYPE, nz+nextra)
+    flux_term = Vector{DDTYPE}(undef, nz+nextra)#zeros(DDTYPE, nz+nextra)
     mixing_type::Vector{Symbol} = repeat([:no_mixing], nz+nextra)
     for k in 1:(nz+nextra)
-        lnP_face[k] = MixedDualData(nvars, TN, internal_tag)
-        lnρ_face[k] = MixedDualData(nvars, TN, internal_tag)
-        lnT_face[k] = MixedDualData(nvars, TN, internal_tag)
-        κ_face[k] = MixedDualData(nvars, TN, internal_tag)
-        ∇ₐ_face[k] = MixedDualData(nvars, TN, internal_tag)
-        ∇ᵣ_face[k] = MixedDualData(nvars, TN, internal_tag)
-        δ_face[k] = MixedDualData(nvars, TN, internal_tag)
-        cₚ_face[k] = MixedDualData(nvars, TN, internal_tag)
-        κ[k] = LocalDualData(nvars, TN, internal_tag)
-        flux_term[k] = MixedDualData(nvars, TN, internal_tag)
+        lnP_face[k] = DualData(nvars, TN, internal_tag)
+        lnρ_face[k] = DualData(nvars, TN, internal_tag)
+        lnT_face[k] = DualData(nvars, TN, internal_tag)
+        κ_face[k] = DualData(nvars, TN, internal_tag)
+        ∇ₐ_face[k] = DualData(nvars, TN, internal_tag)
+        ∇ᵣ_face[k] = DualData(nvars, TN, internal_tag)
+        δ_face[k] = DualData(nvars, TN, internal_tag)
+        cₚ_face[k] = DualData(nvars, TN, internal_tag)
+        κ[k] = DualData(nvars, TN, internal_tag)
+        flux_term[k] = DualData(nvars, TN, internal_tag)
     end
 
     rates_dual = zeros(TDL, nz + nextra, nrates)
-    rates = Matrix{LDDTYPE}(undef, nz + nextra, nrates)
+    rates = Matrix{DDTYPE}(undef, nz + nextra, nrates)
     for k = 1:(nz + nextra)
         for i = 1:nrates
-            rates[k, i] = LocalDualData(nvars, TN, internal_tag)
+            rates[k, i] = DualData(nvars, TN, internal_tag)
         end
     end
-    # @show typeof(rates_dual)
 
     return StellarModelProperties(; ind_vars=ind_vars, model_number=zero(Int),
                                   nz=nz, m=m, dm=dm, mstar=zero(TN),
@@ -159,31 +158,31 @@ function StellarModelProperties(nvars::Int, nz::Int, nextra::Int, nrates::Int, n
                                   mixing_type=mixing_type)
 end
 
-@inline function eval_mixed_property_log!(prop_00, prop_p1, dm_00, dm_p1, mixed_prop)
-    val00 = get_mixed_00_dual(prop_00)
-    valp1 = get_mixed_p1_dual(prop_p1)
+@inline function eval_mixed_p1_property_log!(prop_00, prop_p1, dm_00, dm_p1, mixed_prop)
+    val00 = get_00_dual(prop_00)
+    valp1 = get_p1_dual(prop_p1)
     valmixed_dual = exp((dm_p1 * log(val00) + dm_00 * log(valp1)) / (dm_00 + dm_p1))
-    update_mixed_dual_data!(mixed_prop, valmixed_dual)
+    update_dual_data_mixed_p1!(mixed_prop, valmixed_dual)
 end
 
-@inline function eval_mixed_property!(prop_00, prop_p1, dm_00, dm_p1, mixed_prop)
-    val00 = get_mixed_00_dual(prop_00)
-    valp1 = get_mixed_p1_dual(prop_p1)
+@inline function eval_mixed_p1_property!(prop_00, prop_p1, dm_00, dm_p1, mixed_prop)
+    val00 = get_00_dual(prop_00)
+    valp1 = get_p1_dual(prop_p1)
     valmixed_dual = (dm_p1 * val00 + dm_00 * valp1) / (dm_00 + dm_p1)
-    update_mixed_dual_data!(mixed_prop, valmixed_dual)
+    update_dual_data_mixed_p1!(mixed_prop, valmixed_dual)
 end
 
-@generated function update_struct_local_dual_data(obj::T1,obj_dual::T2) where{T1,T2}
+@generated function update_struct_dual_data_local(obj::T1,obj_dual::T2) where{T1,T2}
     names = fieldnames(T1)
-    lines::Vector{Expr} = [:(update_local_dual_data!(obj.$name, obj_dual.$name)) for name in names]
+    lines::Vector{Expr} = [:(update_dual_data_local!(obj.$name, obj_dual.$name)) for name in names]
     return quote
         $(lines...)
     end
 end
 
-@generated function update_struct_mixed_dual_data(obj::T1,obj_dual::T2) where{T1,T2}
+@generated function update_struct_dual_data_mixed_p1(obj::T1,obj_dual::T2) where{T1,T2}
     names = fieldnames(T1)
-    lines::Vector{Expr} = [:(update_mixed_dual_data!(obj.$name, obj_dual.$name)) for name in names]
+    lines::Vector{Expr} = [:(update_dual_data_mixed_p1!(obj.$name, obj_dual.$name)) for name in names]
     return quote
         $(lines...)
     end
@@ -204,12 +203,12 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties)
 
     Threads.@threads for i = 1:(props.nz)
         # update independent variables
-        update_local_dual_data_value!(props.lnT[i], props.ind_vars[(i-1)*(sm.nvars)+lnT_i])
-        update_local_dual_data_value!(props.lnρ[i], props.ind_vars[(i-1)*(sm.nvars)+lnρ_i])
-        update_local_dual_data_value!(props.lnr[i], props.ind_vars[(i-1)*(sm.nvars)+lnr_i])
-        update_local_dual_data_value!(props.L[i], props.ind_vars[(i-1)*(sm.nvars)+L_i])
+        update_dual_data_value!(props.lnT[i], props.ind_vars[(i-1)*(sm.nvars)+lnT_i])
+        update_dual_data_value!(props.lnρ[i], props.ind_vars[(i-1)*(sm.nvars)+lnρ_i])
+        update_dual_data_value!(props.lnr[i], props.ind_vars[(i-1)*(sm.nvars)+lnr_i])
+        update_dual_data_value!(props.L[i], props.ind_vars[(i-1)*(sm.nvars)+L_i])
         for j in 1:sm.network.nspecies
-            update_local_dual_data_value!(props.xa[i,j],
+            update_dual_data_value!(props.xa[i,j],
                             props.ind_vars[(i-1)*(sm.nvars)+(sm.nvars - sm.network.nspecies + j)])
             props.xa_dual[i,j] = get_local_dual(props.xa[i,j])
         end
@@ -220,17 +219,17 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties)
 
         # evaluate EOS
         set_EOS_resultsTρ!(sm.eos, props.eos_res_dual[i], lnT, lnρ, xa, sm.network.species_names)
-        update_struct_local_dual_data(props.eos_res[i], props.eos_res_dual[i])
+        update_struct_dual_data_local(props.eos_res[i], props.eos_res_dual[i])
 
         # evaluate opacity
         κ_dual = get_opacity_resultsTρ(sm.opacity, lnT, lnρ, xa, sm.network.species_names)
-        update_local_dual_data!(props.κ[i], κ_dual)
+        update_dual_data_local!(props.κ[i], κ_dual)
 
         # evaluate rates
         rates = @view props.rates_dual[i, :]
         set_rates_for_network!(rates, sm.network, exp(lnT), exp(lnρ), xa)
         for j in eachindex(rates)
-            update_local_dual_data!(props.rates[i, j], rates[j])
+            update_dual_data_local!(props.rates[i, j], rates[j])
         end
 
         # compute eps_nuc
@@ -242,33 +241,33 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties)
 
     # do face values next
     Threads.@threads for i = 1:(props.nz - 1)
-        eval_mixed_property_log!(props.κ[i], props.κ[i + 1], props.dm[i], props.dm[i+1], props.κ_face[i])
-        eval_mixed_property!(props.eos_res[i].lnP, props.eos_res[i+1].lnP, props.dm[i], props.dm[i+1], props.lnP_face[i])
-        eval_mixed_property!(props.eos_res[i].lnρ, props.eos_res[i+1].lnρ, props.dm[i], props.dm[i+1], props.lnρ_face[i])
-        eval_mixed_property!(props.eos_res[i].lnT, props.eos_res[i+1].lnT, props.dm[i], props.dm[i+1], props.lnT_face[i])
-        eval_mixed_property!(props.eos_res[i].∇ₐ, props.eos_res[i+1].∇ₐ, props.dm[i], props.dm[i+1], props.∇ₐ_face[i])
-        eval_mixed_property!(props.eos_res[i].δ, props.eos_res[i+1].δ, props.dm[i], props.dm[i+1], props.δ_face[i])
-        eval_mixed_property!(props.eos_res[i].cₚ, props.eos_res[i+1].cₚ, props.dm[i], props.dm[i+1], props.cₚ_face[i])
+        eval_mixed_p1_property_log!(props.κ[i], props.κ[i + 1], props.dm[i], props.dm[i+1], props.κ_face[i])
+        eval_mixed_p1_property!(props.eos_res[i].lnP, props.eos_res[i+1].lnP, props.dm[i], props.dm[i+1], props.lnP_face[i])
+        eval_mixed_p1_property!(props.eos_res[i].lnρ, props.eos_res[i+1].lnρ, props.dm[i], props.dm[i+1], props.lnρ_face[i])
+        eval_mixed_p1_property!(props.eos_res[i].lnT, props.eos_res[i+1].lnT, props.dm[i], props.dm[i+1], props.lnT_face[i])
+        eval_mixed_p1_property!(props.eos_res[i].∇ₐ, props.eos_res[i+1].∇ₐ, props.dm[i], props.dm[i+1], props.∇ₐ_face[i])
+        eval_mixed_p1_property!(props.eos_res[i].δ, props.eos_res[i+1].δ, props.dm[i], props.dm[i+1], props.δ_face[i])
+        eval_mixed_p1_property!(props.eos_res[i].cₚ, props.eos_res[i+1].cₚ, props.dm[i], props.dm[i+1], props.cₚ_face[i])
 
-        κ_face_dual = get_mixed_dual(props.κ_face[i])
-        ρ_face_dual = exp(get_mixed_dual(props.lnρ_face[i]))
-        T_face_dual = exp(get_mixed_dual(props.lnT_face[i]))
-        P_face_dual = exp(get_mixed_dual(props.lnP_face[i]))
-        ∇ₐ_face_dual = get_mixed_dual(props.∇ₐ_face[i])
-        δ_face_dual = get_mixed_dual(props.δ_face[i])
-        cₚ_face_dual = get_mixed_dual(props.cₚ_face[i])
+        κ_face_dual = get_00_dual(props.κ_face[i])
+        ρ_face_dual = exp(get_00_dual(props.lnρ_face[i]))
+        T_face_dual = exp(get_00_dual(props.lnT_face[i]))
+        P_face_dual = exp(get_00_dual(props.lnP_face[i]))
+        ∇ₐ_face_dual = get_00_dual(props.∇ₐ_face[i])
+        δ_face_dual = get_00_dual(props.δ_face[i])
+        cₚ_face_dual = get_00_dual(props.cₚ_face[i])
 
-        L₀_dual = get_mixed_00_dual(props.L[i]) * LSUN
-        r_dual = exp(get_mixed_00_dual(props.lnr[i]))
+        L₀_dual = get_00_dual(props.L[i]) * LSUN
+        r_dual = exp(get_00_dual(props.lnr[i]))
 
         set_turb_results!(sm.turbulence, props.turb_res_dual[i],
                     κ_face_dual, L₀_dual, ρ_face_dual, P_face_dual, T_face_dual, r_dual,
                     δ_face_dual, cₚ_face_dual, ∇ₐ_face_dual, props.m[i])
-        update_struct_mixed_dual_data(props.turb_res[i], props.turb_res_dual[i])
+        update_struct_dual_data_mixed_p1(props.turb_res[i], props.turb_res_dual[i])
 
         flux_term_dual = (4π*r_dual^2*ρ_face_dual)^2*props.turb_res_dual[i].D_turb/
                             (0.5*(props.dm[i]+props.dm[i+1]))
-        update_mixed_dual_data!(props.flux_term[i], flux_term_dual)
+        update_dual_data_mixed_p1!(props.flux_term[i], flux_term_dual)
 
         if get_value(props.turb_res[i].∇) < get_value(props.turb_res[i].∇ᵣ)
             props.mixing_type[i] = :convection

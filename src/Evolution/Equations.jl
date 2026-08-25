@@ -1,4 +1,4 @@
-using Jems.DualSupport
+using Jems.DualSupport: get_value, get_m1_dual, get_00_dual, get_p1_dual
 
 """
     equationHSE(sm::StellarModel, k::Int,
