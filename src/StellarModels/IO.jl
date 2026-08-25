@@ -213,7 +213,7 @@ function create_output_files!(m::AbstractModel, ::Type{TNUMBER}=Float64) where {
     # compression but faster writes.
     # The compression level can be anywhere between 0 and 9, 0 being no compression 9 being the highest.
     # Compression is lossless.
-    history = create_dataset(m.history_file, "history", Float64, ((0, ncols), (-1, ncols)),
+    history = create_dataset(m.history_file, "history", TNUMBER, ((0, ncols), (-1, ncols)),
                              chunk=(m.opt.io.hdf5_history_chunk_size, ncols),
                              compress=m.opt.io.hdf5_history_compression_level)
 
@@ -222,9 +222,9 @@ function create_output_files!(m::AbstractModel, ::Type{TNUMBER}=Float64) where {
     # Finally, place column names
     attrs(history)["column_names"] = [data_cols[i] for i in eachindex(data_cols)]
     
-    if TNUMBER != Float64
+    if TNUMBER <: ForwardDiff.Dual
         number_of_partials = TNUMBER.parameters[3]
-        dual_histories = [create_dataset(m.history_file, "history_partial_$i", Float64, ((0, ncols), (-1, ncols)),
+        dual_histories = [create_dataset(m.history_file, "history_partial_$i", TNUMBER, ((0, ncols), (-1, ncols)),
                                          chunk=(m.opt.io.hdf5_history_chunk_size, ncols),
                                          compress=m.opt.io.hdf5_history_compression_level)
                           for i = 1:number_of_partials]
@@ -291,7 +291,7 @@ function write_data(m::AbstractModel, ::Type{TNUMBER}=Float64) where {TNUMBER}
             # after being sure the header is there,...
             history = m.history_file["history"]
             HDF5.set_extent_dims(history, (size(history)[1] + 1, ncols))
-            if TNUMBER != Float64
+            if TNUMBER <: ForwardDiff.Dual
                 dual_histories = [m.history_file["history_partial_$i"] for i = 1:TNUMBER.parameters[3]]
                 for dual_history in dual_histories
                     HDF5.set_extent_dims(dual_history, (size(dual_history)[1] + 1, ncols))
@@ -356,12 +356,12 @@ function write_data(m::AbstractModel, ::Type{TNUMBER}=Float64) where {TNUMBER}
 
 
            
-            if TNUMBER == Float64
+            if !(TNUMBER <: ForwardDiff.Dual)
                 # store data
                 for i in eachindex(data_cols), k = 1:(m.props.nz)
                     profile[k, i] = m.profile_output_functions[data_cols[i]](m, k)
                 end
-            else TNUMBER != Float64
+            else
                 for i in eachindex(data_cols), k = 1:(m.props.nz)
                     # storing the actual profile data, not yet the partials
                     this_value = m.profile_output_functions[data_cols[i]](m, k)
@@ -471,11 +471,8 @@ end
 
 Returns a DataFrame object built from the ith partial of an hdf5 file, named `hdf5_filename`.
 """
-function get_ith_partial_history_dataframe_from_hdf5(hdf5_filename, i)
+function get_ith_partial_history_dataframe_from_hdf5(hdf5_filename, i::UInt)
     h5open(hdf5_filename) do history_file
-        if i < 1
-            throw(ArgumentError("Partial index must be a positive integer"))
-        end
         all_names = keys(history_file)
         if filter(name -> contains(name, "partial_$(i)"), all_names) == []
             throw(ArgumentError("No partial history found for partial index $(i)"))
@@ -502,11 +499,8 @@ end
 
 Returns the column names of the ith partial of profile data contained in the hdf5 file `hdf5_filename`.
 """
-function get_ith_partial_profile_names_from_hdf5(hdf5_filename, i)
+function get_ith_partial_profile_names_from_hdf5(hdf5_filename, i::UInt)
     h5open(hdf5_filename) do profiles_file
-        if i < 1
-            throw(ArgumentError("Partial index must be a positive integer"))
-        end
         all_names = keys(profiles_file)
         if filter(name -> contains(name, "partial_$(i)"), all_names) == []
             throw(ArgumentError("No partial profile found for partial index $(i)"))
