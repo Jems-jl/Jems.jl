@@ -36,6 +36,7 @@ Structure definition of a model having one internal zone.
     history_file::HDF5.File
 
     # Output options
+    output_files_created::Bool = false
     history_output_units::Dict{String,String} = Dict()
     history_output_functions::Dict{String,Function} = Dict()
     history_output_labels::Dict{String,LaTeXStrings.LaTeXString} = Dict()
@@ -48,7 +49,8 @@ end
 Constructor for a `OneZone` instance, using `varnames` for the independent variables, the composition equation
 to be solved, number of independent variables `nvars`, number of species in the network `nspecies`
 """
-function OneZone(equation_set::AbstractEquationSet, network::NuclearNetwork, use_static_arrays=true, number_type=Float64)
+function OneZone(equation_set::AbstractEquationSet, network::NuclearNetwork, use_static_arrays=true,
+                    number_type=Float64, internal_dual_tag=ForwardDiff.Tag{:internal, nothing})
     nvars = network.nspecies
     var_names_full = network.species_names
     # link var_names to the correct index so you can do ind_var[vari[:lnT]] = 'some temperature'
@@ -57,11 +59,11 @@ function OneZone(equation_set::AbstractEquationSet, network::NuclearNetwork, use
         vari[var_names_full[i]] = i
     end
 
-    solver_data = build_solver_data_for_equation_set(equation_set, nvars, 1, 0, use_static_arrays, number_type)
+    solver_data = build_solver_data_for_equation_set(equation_set, nvars, 1, 0, use_static_arrays, number_type, internal_dual_tag)
 
     # properties
-    prv_step_props = OneZoneProperties(nvars, length(network.reactions), network.nspecies, number_type)
-    props = OneZoneProperties(nvars, length(network.reactions), network.nspecies, number_type)
+    prv_step_props = OneZoneProperties(nvars, length(network.reactions), network.nspecies, number_type, internal_dual_tag)
+    props = OneZoneProperties(nvars, length(network.reactions), network.nspecies, number_type, internal_dual_tag)
 
     opt = StellarModels.Options()  # create options object
 

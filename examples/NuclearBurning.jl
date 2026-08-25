@@ -119,7 +119,7 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 2000
+          max_model_number = 400
           max_center_T = 1e8
 
           [io]
@@ -130,8 +130,7 @@ open("example_options.toml", "w") do file
           """)
 end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
-rm(sm.opt.io.hdf5_history_filename; force=true)
-rm(sm.opt.io.hdf5_profile_filename; force=true)
+##
 
 ##
 #Configure live plots. To turn off one can use `plotter = Plotting.NullPlotter()`
@@ -145,13 +144,14 @@ plots = [Plotting.HRPlot(f[1,1]),
          Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3),
          Plotting.HistoryPlot(f[1,3], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
          Plotting.ProfilePlot(f[2,3], sm, x_name="mass", y_name="log10_rho", othery_name="log10_T")]
-plotter = Plotting.Plotter(fig=f,plots=plots)
+plotter = Plotting.Plotter(fig=f,plots=plots);
 
 ##
 #set initial condition and run model
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+##
 @time Evolution.do_evolution_loop!(sm, plotter=plotter);
 
 ##

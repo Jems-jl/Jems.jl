@@ -80,7 +80,6 @@ open("example_options.toml", "w") do file
           """)
 end
 StellarModels.set_options!(oz.opt, "./example_options.toml")
-rm(oz.opt.io.hdf5_history_filename; force=true)
 
 using GLMakie
 set_theme!(Plotting.basic_theme())

@@ -24,10 +24,11 @@
     ϵ_nuc::TN
 end
 
-function OneZoneProperties(nvars::Int, nrates::Int, nspecies::Int, ::Type{TN}) where {TN<:Real}
+function OneZoneProperties(nvars::Int, nrates::Int, nspecies::Int,
+                            ::Type{TN}, ::Type{internal_tag}) where {TN<:Real, internal_tag<:ForwardDiff.Tag}
     # define the types
-    LDDTYPE = LocalDualData{nvars + 1,3 * nvars + 1,TN}  # full dual arrays
-    TDL = typeof(ForwardDiff.Dual(zero(TN), (zeros(TN, nvars))...))  # only the local duals
+    LDDTYPE = LocalDualData{nvars + 1,3 * nvars + 1,TN, internal_tag}  # full dual arrays
+    TDL = typeof(ForwardDiff.Dual{internal_tag}(zero(TN), (zeros(TN, nvars))...))  # only the local duals
 
     # create the vector containing the independent variables
     ind_vars = zeros(TN, nvars)
@@ -35,12 +36,12 @@ function OneZoneProperties(nvars::Int, nrates::Int, nspecies::Int, ::Type{TN}) w
     xa_dual = zeros(TDL, nvars)
     xa = Vector{LDDTYPE}(undef, nspecies)
     for j = 1:nspecies
-        xa[j] = LocalDualData(nvars, TN; is_ind_var=true, ind_var_i=nvars - nspecies + j)
+        xa[j] = LocalDualData(nvars, TN, internal_tag; is_ind_var=true, ind_var_i=nvars - nspecies + j)
     end
     rates_dual = zeros(TDL, nrates)
     rates = Vector{LDDTYPE}(undef, nrates)
     for k = 1:nrates
-        rates[k] = LocalDualData(nvars, TN)
+        rates[k] = LocalDualData(nvars, TN, internal_tag)
     end
 
     return OneZoneProperties(; ind_vars=ind_vars, model_number=zero(Int), dt=zero(TN), dt_next=zero(TN), time=zero(TN),

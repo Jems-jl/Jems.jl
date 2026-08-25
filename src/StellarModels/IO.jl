@@ -6,72 +6,6 @@ export add_history_option, add_profile_option,
        history_output_units, history_output_functions, history_output_labels,
        profile_output_units, profile_output_functions, profile_output_labels
 
-ioinit = false
-
-const width = 9
-const decimals = 4
-const floatstr = "%#$width.$decimals" * "g "
-const intstr = "%$width" * "i "
-
-mutable struct TerminalHeader
-    header::String
-    linefmts::Vector{Printf.Format}
-end
-
-const terminal_header = TerminalHeader("", [])
-
-function setup_header(sm::StellarModel)
-    terminal_header.linefmts = Vector{String}(undef, 2)
-    terminal_header.linefmts[1] = Printf.Format(intstr * floatstr^6 * intstr * "\n")
-    terminal_header.linefmts[2] = Printf.Format(floatstr^7 * intstr * "\n")
-
-    terminal_header.header = """
-        model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
-         mass       age      logR     logTc     logPc     logρc   He_cntr     zones
-    -------------------------------------------------------------------------------
-    """
-end
-
-function setup_header(oz::OneZone)
-    lines = oz.network.nspecies ÷ 6 + 1
-    lastline = oz.network.nspecies % 6
-    if lastline == 0
-        terminal_header.linefmts = Vector{Printf.Format}(undef, lines)
-    else
-        terminal_header.linefmts = Vector{Printf.Format}(undef, lines + 1)
-    end
-    terminal_header.linefmts[1] = Printf.Format(intstr * floatstr^4 * intstr * "\n")
-
-    j = oz.network.nspecies
-    i = 2
-    while j > 6
-        terminal_header.linefmts[i] = Printf.Format(floatstr^6 * "\n")
-        j -= 6
-        i += 1
-    end
-    terminal_header.linefmts[end] = Printf.Format(floatstr^j * "\n")
-
-    terminal_header.header = """
-        model     logdt       age      logT      logρ     iters
-    """
-
-    for (j, species) in enumerate(oz.network.species_names)
-        if j % 6 != 1
-            speciesstr = lpad(String(species), width+1)
-        else
-            speciesstr = lpad(String(species), width)
-        end
-        terminal_header.header *= speciesstr
-        if j == oz.network.nspecies || j % 6 == 0
-            terminal_header.header *= "\n"
-        end
-    end
-
-    terminal_header.header *= """
-    -----------------------------------------------------------
-    """
-end
-
 function add_history_option!(m, name, unit, func; label::Union{LaTeXStrings.LaTeXString, String}="")
     if haskey(m.history_output_units, name)
         throw(ArgumentError("Key $name is already part of the history output options"))
@@ -169,22 +103,20 @@ function setup_model_profile_functions!(sm::StellarModel)
     add_profile_option!(sm, "nabla_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇), label=L"\nabla_\text{face}")
     add_profile_option!(sm, "D_face", "cm^2*s^{-1}", (sm, k) -> get_value(sm.props.turb_res[k].D_turb), label=L"D_\text{face}\,[\text{cm^2\,s^{-1}}]")
 end
-
-function init_IO(m::AbstractModel)
-    setup_header(m)
-    setup_model_history_functions!(m)
-    if isa(m, OneZone)
-        global ioinit = true
-        return
-    end
-    setup_model_profile_functions!(m)
-    global ioinit = true
+# StellarModel has profile information
+function has_profiles(sm::StellarModel)
+    return true
+end
+# One zone does not have profile info
+function has_profiles(oz::OneZone)
+    return false
 end
 
-function clear_IO()
-    terminal_header.header = ""
-    terminal_header.linefmts = []
-    global ioinit = false
+function init_IO(m::AbstractModel)
+    setup_model_history_functions!(m)
+    if has_profiles(m)
+        setup_model_profile_functions!(m)
+    end
 end
 
 """
@@ -193,6 +125,18 @@ end
 Creates output files for history and profile data
 """
 function create_output_files!(m::AbstractModel, ::Type{TNUMBER}=Float64) where {TNUMBER}
+    if m.output_files_created && m.props.model_number != 0
+        # preserve the already created files
+        # it is assumed that when model_number == 0 we always need to create the files again
+        return
+    end
+
+    # remove any matching files if present
+    rm(m.opt.io.hdf5_history_filename; force=true)
+    if has_profiles(m)
+        rm(m.opt.io.hdf5_profile_filename; force=true)
+    end
+
     # Create history file
     mkpath(dirname(m.opt.io.hdf5_history_filename))
     m.history_file = h5open(m.opt.io.hdf5_history_filename, "w")
@@ -238,7 +182,8 @@ function create_output_files!(m::AbstractModel, ::Type{TNUMBER}=Float64) where {
         close(m.history_file)
     end
 
-    if isa(m, OneZone)
+    if !has_profiles(m)
+        m.output_files_created = true
         return
     end
     
@@ -255,17 +200,18 @@ function create_output_files!(m::AbstractModel, ::Type{TNUMBER}=Float64) where {
     if (!m.opt.io.hdf5_profile_keep_open)
         close(m.profiles_file)
     end
+
+    m.output_files_created = true
 end
 
 function shut_down_IO!(m)
     if (m.opt.io.hdf5_history_keep_open)
         close(m.history_file)
     end
-    if (m.opt.io.hdf5_profile_keep_open)
-        close(m.profiles_file)
-    end
-    if ioinit
-        clear_IO()
+    if has_profiles(m)
+        if (m.opt.io.hdf5_profile_keep_open)
+            close(m.profiles_file)
+        end
     end
 end
 
@@ -326,7 +272,7 @@ function write_data(m::AbstractModel, ::Type{TNUMBER}=Float64) where {TNUMBER}
         end
     end
 
-    if isa(m, OneZone)
+    if !has_profiles(m)
         return
     end
 
@@ -405,11 +351,27 @@ function write_data(m::AbstractModel, ::Type{TNUMBER}=Float64) where {TNUMBER}
 end
 
 function write_terminal_info(sm::StellarModel; now::Bool=false)
-    if sm.props.model_number == 1 || sm.props.model_number % sm.opt.io.terminal_header_interval == 0 || now
-        print(terminal_header.header)
+    print_header = sm.props.model_number == 1 || sm.props.model_number % sm.opt.io.terminal_header_interval == 0 || now
+    print_step_info = sm.props.model_number == 1 || sm.props.model_number % sm.opt.io.terminal_info_interval == 0 || now
+    if !(print_header || print_step_info)
+        return
     end
-    if sm.props.model_number == 1 || sm.props.model_number % sm.opt.io.terminal_info_interval == 0 || now
-        Printf.format(stdout, terminal_header.linefmts[1],
+
+    if print_header
+        header = """
+            model     logdt      logL   logTeff     logPs     logρs    H_cntr     iters
+            mass       age      logR     logTc     logPc     logρc   He_cntr     zones
+        -------------------------------------------------------------------------------
+        """
+        print(header)
+    end
+    if print_step_info
+        width = 9
+        decimals = 4
+        floatstr = "%#$width.$decimals" * "g "
+        intstr = "%$width" * "i "
+        linefmt = Printf.Format(intstr * floatstr^6 * intstr * "\n")
+        Printf.format(stdout, linefmt,
                       sm.props.model_number,
                       log10(sm.props.dt / SECYEAR),
                       log10(get_value(sm.props.L[sm.props.nz])),
@@ -418,7 +380,8 @@ function write_terminal_info(sm::StellarModel; now::Bool=false)
                       log10(ℯ) * get_value(sm.props.lnρ[sm.props.nz]),
                       get_value(sm.props.xa[1, sm.network.xa_index[:H1]]),
                       sm.solver_data.newton_iters)
-        Printf.format(stdout, terminal_header.linefmts[2],
+        linefmt = Printf.Format(floatstr^7 * intstr * "\n")
+        Printf.format(stdout, linefmt,
                       sm.props.mstar / MSUN,
                       sm.props.time / SECYEAR,
                       log10(ℯ) * get_value(sm.props.lnr[sm.props.nz]) - log10(RSUN),
@@ -432,11 +395,60 @@ function write_terminal_info(sm::StellarModel; now::Bool=false)
 end
 
 function write_terminal_info(oz::OneZone; now::Bool=false)
-    if oz.props.model_number == 1 || oz.props.model_number % oz.opt.io.terminal_header_interval == 0 || now
-        print(terminal_header.header)
+    print_header = oz.props.model_number == 1 || oz.props.model_number % oz.opt.io.terminal_header_interval == 0 || now
+    print_step_info = oz.props.model_number == 1 || oz.props.model_number % oz.opt.io.terminal_info_interval == 0 || now
+    if !(print_header || print_step_info)
+        return
     end
-    if oz.props.model_number == 1 || oz.props.model_number % oz.opt.io.terminal_info_interval == 0 || now
-        Printf.format(stdout, terminal_header.linefmts[1],
+
+    width = 9
+
+    if print_header
+        header = """
+            model     logdt       age      logT      logρ     iters
+        """
+
+        for (j, species) in enumerate(oz.network.species_names)
+            if j % 6 != 1
+                speciesstr = lpad(String(species), width+1)
+            else
+                speciesstr = lpad(String(species), width)
+            end
+            header *= speciesstr
+            if j == oz.network.nspecies || j % 6 == 0
+                header *= "\n"
+            end
+        end
+
+        header *= """
+        -----------------------------------------------------------
+        """
+        print(header)
+    end
+    if print_step_info
+        decimals = 4
+        floatstr = "%#$width.$decimals" * "g "
+        intstr = "%$width" * "i "
+
+        lines = oz.network.nspecies ÷ 6 + 1
+        lastline = oz.network.nspecies % 6
+        if lastline == 0
+            linefmts = Vector{Printf.Format}(undef, lines)
+        else
+            linefmts = Vector{Printf.Format}(undef, lines + 1)
+        end
+        linefmts[1] = Printf.Format(intstr * floatstr^4 * intstr * "\n")
+
+        j = oz.network.nspecies
+        i = 2
+        while j > 6
+            linefmts[i] = Printf.Format(floatstr^6 * "\n")
+            j -= 6
+            i += 1
+        end
+        linefmts[end] = Printf.Format(floatstr^j * "\n")
+
+        Printf.format(stdout, linefmts[1],
                       oz.props.model_number,
                       log10(oz.props.dt / SECYEAR),
                       oz.props.time / SECYEAR,
@@ -446,11 +458,11 @@ function write_terminal_info(oz::OneZone; now::Bool=false)
         j = oz.network.nspecies
         i = 1
         while j > 6
-            Printf.format(stdout, terminal_header.linefmts[i + 1], (get_value.(oz.props.xa[((i - 1) * 6 + 1):(6i)]))...)
+            Printf.format(stdout, linefmts[i + 1], (get_value.(oz.props.xa[((i - 1) * 6 + 1):(6i)]))...)
             i += 1
             j -= 6
         end
-        Printf.format(stdout, terminal_header.linefmts[end], (get_value.(oz.props.xa[((i - 1) * 6 + 1):end]))...)
+        Printf.format(stdout, linefmts[end], (get_value.(oz.props.xa[((i - 1) * 6 + 1):end]))...)
         println()
     end
 end
