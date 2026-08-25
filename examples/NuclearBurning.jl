@@ -119,7 +119,7 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 400
+          max_model_number = 2000
           max_center_T = 1e8
 
           [io]
@@ -151,7 +151,6 @@ plotter = Plotting.Plotter(fig=f,plots=plots);
 n = 3
 StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-##
 @time Evolution.do_evolution_loop!(sm, plotter=plotter);
 
 ##

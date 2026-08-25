@@ -185,9 +185,17 @@ function adjust_props_size!(sm::StellarModel, new_nz::Int, nextra::Int)
     if sm.prv_step_props.nz > new_nz + nextra
         throw(ArgumentError("Can't fit model of size nz=$(sm.prv_step_props.nz) using new_nz=$(new_nz) and nextra=$(nextra)."))
     end
+
+    # Get the type of number being used
+    number_type = eltype(sm.props.ind_vars)
+    # get dual tag
+    # parameters[2] of typeof(sm.props) contains the Dual type used Internally
+    # With that, parameters[1] of a ForwardDiff.Dual will give the Tag
+    internal_tag = typeof(sm.props).parameters[2].parameters[1]
+
     # new properties object
-    adj_props = build_properties_for_equation_set(sm.equation_set, sm.nvars, new_nz, nextra, network,
-                                       sm.vari, eltype(sm.prv_step_props.ind_vars))
+    adj_props = build_properties_for_equation_set(sm.equation_set, sm.nvars, new_nz, nextra, sm.network,
+                                       sm.vari, number_type, internal_tag)
     # backup scalar quantities
     StellarModels.copy_scalar_properties!(adj_props, sm.start_step_props)
     # copy the mesh quantities (other properties are updated later)
@@ -195,20 +203,20 @@ function adjust_props_size!(sm::StellarModel, new_nz::Int, nextra::Int)
     sm.start_step_props = adj_props
 
     # also the props used later need new size:
-    adj_props = build_properties_for_equation_set(sm.equation_set, sm.nvars, new_nz, nextra, network,
-                                       sm.vari, eltype(sm.prv_step_props.ind_vars))
+    adj_props = build_properties_for_equation_set(sm.equation_set, sm.nvars, new_nz, nextra, sm.network,
+                                       sm.vari, number_type, internal_tag)
     StellarModels.copy_scalar_properties!(adj_props, sm.props)
     StellarModels.copy_mesh_properties!(sm, adj_props, sm.props)
     sm.props = adj_props
 
     # prv_step_props is also reallocated to be sure all have the same size
-    adj_props = build_properties_for_equation_set(sm.equation_set, sm.nvars, new_nz, nextra, network,
-                                       sm.vari, eltype(sm.prv_step_props.ind_vars))
+    adj_props = build_properties_for_equation_set(sm.equation_set, sm.nvars, new_nz, nextra, sm.network,
+                                       sm.vari, number_type, internal_tag)
     StellarModels.copy_scalar_properties!(adj_props, sm.prv_step_props)
     StellarModels.copy_mesh_properties!(sm, adj_props, sm.prv_step_props)
     sm.prv_step_props = adj_props
 
     # also the solver needs new arrays!
-    sm.solver_data = StellarModels.SolverData(sm.nvars, new_nz, nextra, sm.solver_data.use_static_arrays,
-                                              eltype(sm.prv_step_props.ind_vars))
+    sm.solver_data = build_solver_data_for_equation_set(sm.equation_set, sm.nvars, new_nz, nextra,
+                                sm.solver_data.use_static_arrays, number_type, internal_tag)
 end
