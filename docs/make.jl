@@ -11,12 +11,12 @@ function ignore_code_blocks(content)
 end
 
 Literate.markdown(pkg_path * "/examples/NuclearBurning.jl", pkg_path * "/docs/src/", preprocess=ignore_code_blocks)
-Literate.markdown(pkg_path * "/examples/DualNumbers.jl", pkg_path * "/docs/src/", preprocess=ignore_code_blocks)
+Literate.markdown(pkg_path * "/DualExamples/DualNumbers.jl", pkg_path * "/docs/src/", preprocess=ignore_code_blocks)
 
 DocMeta.setdocmeta!(Jems, :DocTestSetup, :(using Jems); recursive=true)
 
 makedocs(modules=[Jems],
-         authors="Pablo Marchant <pablo.marchant@kuleuven.be>, Matthias Fabry <matthias.fabry@kuleuven.be>",
+         authors="Pablo Marchant <pablo.marchant@ugent.be>, Matthias Fabry <matthias.fabry@villanova.edu>, Ritavash Debnath <ritavash.debnath@ugent.be>",
          repo="https://github.com/Jems-jl/Jems.jl/blob/{commit}{path}#{line}",
          sitename="Jems.jl",
          format=Documenter.HTML(prettyurls=get(ENV, "CI", "false") == "true",

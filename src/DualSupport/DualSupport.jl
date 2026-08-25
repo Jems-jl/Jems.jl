@@ -9,10 +9,11 @@ export LocalDualData, update_local_dual_data_value!, update_local_dual_data!,
 
 # Inspired by DiffCache from PreallocationTools (https://github.com/SciML/PreallocationTools.jl)
 """
-    struct StarDiffCache{SIZE, TNUMBER}
+    struct StarDiffCache{SIZE, TNUMBER, DUAL_TAG}
 
 Definition of StarDiffCache, a cache that makes room to store partial derivatives.
 Parametric in types `SIZE`, the size of the array, and `TNUMBER`, the type of the number used for calculations. 
+DUAL_TAG is the tag used to identify the Dual number order, required to use nested duals.
 """
 struct StarDiffCache{SIZE,TNUMBER,DUAL_TAG}
     dual_data::MVector{SIZE,TNUMBER}
@@ -21,7 +22,7 @@ end
 
 
 """
-    function StarDiffCache(nvars::Int, ::Type{TNUMBER}) where {TNUMBER}
+    function StarDiffCache(nvars::Int, ::Type{TNUMBER}, ::TYPE{DUAL_TAG}) where {TNUMBER}
 
 Instantiates a StarDiffCache object of size `nvars+1`, and fills it with zeros.
 """
