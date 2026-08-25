@@ -103,14 +103,20 @@ function setup_model_profile_functions!(sm::StellarModel)
     add_profile_option!(sm, "nabla_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇), label=L"\nabla_\text{face}")
     add_profile_option!(sm, "D_face", "cm^2*s^{-1}", (sm, k) -> get_value(sm.props.turb_res[k].D_turb), label=L"D_\text{face}\,[\text{cm^2\,s^{-1}}]")
 end
-
+# StellarModel has profile information
+function has_profiles(sm::StellarModel)
+    return true
+end
 # One zone does not have profile info
-function setup_model_profile_functions!(oz::OneZone)
+function has_profiles(oz::OneZone)
+    return false
 end
 
 function init_IO(m::AbstractModel)
     setup_model_history_functions!(m)
-    setup_model_profile_functions!(m)
+    if has_profiles(m)
+        setup_model_profile_functions!(m)
+    end
 end
 
 """
@@ -119,6 +125,18 @@ end
 Creates output files for history and profile data
 """
 function create_output_files!(m::AbstractModel, ::Type{TNUMBER}=Float64) where {TNUMBER}
+    if m.output_files_created && m.props.model_number != 0
+        # preserve the already created files
+        # it is assumed that when model_number == 0 we always need to create the files again
+        return
+    end
+
+    # remove any matching files if present
+    rm(m.opt.io.hdf5_history_filename; force=true)
+    if has_profiles(m)
+        rm(m.opt.io.hdf5_profile_filename; force=true)
+    end
+
     # Create history file
     mkpath(dirname(m.opt.io.hdf5_history_filename))
     m.history_file = h5open(m.opt.io.hdf5_history_filename, "w")
@@ -164,7 +182,8 @@ function create_output_files!(m::AbstractModel, ::Type{TNUMBER}=Float64) where {
         close(m.history_file)
     end
 
-    if isa(m, OneZone)
+    if !has_profiles(m)
+        m.output_files_created = true
         return
     end
     
@@ -181,14 +200,18 @@ function create_output_files!(m::AbstractModel, ::Type{TNUMBER}=Float64) where {
     if (!m.opt.io.hdf5_profile_keep_open)
         close(m.profiles_file)
     end
+
+    m.output_files_created = true
 end
 
 function shut_down_IO!(m)
     if (m.opt.io.hdf5_history_keep_open)
         close(m.history_file)
     end
-    if (m.opt.io.hdf5_profile_keep_open)
-        close(m.profiles_file)
+    if has_profiles(m)
+        if (m.opt.io.hdf5_profile_keep_open)
+            close(m.profiles_file)
+        end
     end
 end
 
@@ -249,7 +272,7 @@ function write_data(m::AbstractModel, ::Type{TNUMBER}=Float64) where {TNUMBER}
         end
     end
 
-    if isa(m, OneZone)
+    if !has_profiles(m)
         return
     end
 

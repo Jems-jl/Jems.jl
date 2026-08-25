@@ -119,7 +119,7 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 2000
+          max_model_number = 400
           max_center_T = 1e8
 
           [io]
@@ -130,8 +130,7 @@ open("example_options.toml", "w") do file
           """)
 end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
-rm(sm.opt.io.hdf5_history_filename; force=true)
-rm(sm.opt.io.hdf5_profile_filename; force=true)
+##
 
 ##
 #Configure live plots. To turn off one can use `plotter = Plotting.NullPlotter()`

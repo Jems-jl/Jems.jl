@@ -46,6 +46,7 @@ differentiation, `TEOS` for the type of EOS being used and `TKAP` for the type o
     profiles_file::HDF5.File
 
     # Output options
+    output_files_created::Bool = false
     history_output_units::Dict{String,String} = Dict()
     history_output_functions::Dict{String,Function} = Dict()
     history_output_labels::Dict{String,LaTeXStrings.LaTeXString} = Dict()
