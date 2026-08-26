@@ -1,4 +1,6 @@
-@kwdef mutable struct OneZoneProperties{TN,TDual,TLocalDualData} <: AbstractModelProperties
+using Jems.DualSupport: get_local_dual, get_00_dual, get_p1_dual
+
+@kwdef mutable struct OneZoneProperties{TN,TDual,TDualData} <: AbstractModelProperties
     # scalar quantities
     dt::TN  # Timestep of the current evolutionary step (s)
     dt_next::TN
@@ -14,11 +16,11 @@
     ind_vars::Vector{TN}
 
     # independent variables (duals constructed from the ind_vars array)
-    xa::Vector{TLocalDualData}   # dim-less
+    xa::Vector{TDualData}   # dim-less
     xa_dual::Vector{TDual}      # only the cell duals wrt itself
 
     # rates
-    rates::Vector{TLocalDualData}  # g^-1 s^-1
+    rates::Vector{TDualData}  # g^-1 s^-1
     rates_dual::Vector{TDual}     # only cell duals wrt itself
 
     ϵ_nuc::TN
@@ -27,21 +29,21 @@ end
 function OneZoneProperties(nvars::Int, nrates::Int, nspecies::Int,
                             ::Type{TN}, ::Type{internal_tag}) where {TN<:Real, internal_tag<:ForwardDiff.Tag}
     # define the types
-    LDDTYPE = LocalDualData{nvars + 1,3 * nvars + 1,TN, internal_tag}  # full dual arrays
+    DDTYPE = DualData{nvars + 1,3 * nvars + 1,TN, internal_tag}  # full dual arrays
     TDL = typeof(ForwardDiff.Dual{internal_tag}(zero(TN), (zeros(TN, nvars))...))  # only the local duals
 
     # create the vector containing the independent variables
     ind_vars = zeros(TN, nvars)
 
     xa_dual = zeros(TDL, nvars)
-    xa = Vector{LDDTYPE}(undef, nspecies)
+    xa = Vector{DDTYPE}(undef, nspecies)
     for j = 1:nspecies
-        xa[j] = LocalDualData(nvars, TN, internal_tag; is_ind_var=true, ind_var_i=nvars - nspecies + j)
+        xa[j] = DualData(nvars, TN, internal_tag; is_ind_var=true, ind_var_i=nvars - nspecies + j)
     end
     rates_dual = zeros(TDL, nrates)
-    rates = Vector{LDDTYPE}(undef, nrates)
+    rates = Vector{DDTYPE}(undef, nrates)
     for k = 1:nrates
-        rates[k] = LocalDualData(nvars, TN, internal_tag)
+        rates[k] = DualData(nvars, TN, internal_tag)
     end
 
     return OneZoneProperties(; ind_vars=ind_vars, model_number=zero(Int), dt=zero(TN), dt_next=zero(TN), time=zero(TN),
@@ -59,14 +61,14 @@ This does _not_ update the mesh/ind_vars arrays.
 function evaluate_one_zone_properties!(oz, props::OneZoneProperties)
     # update independent variables
     for j = 1:(oz.network.nspecies)
-        update_local_dual_data_value!(props.xa[j], props.ind_vars[oz.nvars - oz.network.nspecies + j])
+        update_dual_data_value!(props.xa[j], props.ind_vars[oz.nvars - oz.network.nspecies + j])
         props.xa_dual[j] = get_local_dual(props.xa[j])
     end
 
     # evaluate rates
     set_rates_for_network!(props.rates_dual, oz.network, props.T, props.ρ, props.xa_dual)
     for j in eachindex(props.rates_dual)
-        update_local_dual_data!(props.rates[j], props.rates_dual[j])
+        update_dual_data_local!(props.rates[j], props.rates_dual[j])
     end
 
     props.ϵ_nuc = 0.0

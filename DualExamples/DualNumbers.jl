@@ -85,31 +85,33 @@ $$\frac{\partial f_i}{\partial P_{i+1}}=1,\quad \frac{\partial f_i}{\partial P_{
 So from this we see, we are considering two independent variables $P$ and $r$, but the partial derivatives we need from the residuals need to be taken against the independent variables above, below and at the present cell. In general, for each residual we need $3n_\mathrm{vars}$ partial derivatives, although typically many are equal to zero. A standard practice is just to hard code the partial derivatives as determined from the analytical expressions, but for complex calculations this can be very cumbersome and error prone. So the idea is to setup automatic differentiation tools that take care of this. This is the purpose of the `LocalDualData` struct. We start by initializing 6 different `LocalDualData` to represent densities and pressures around a point in the three-point stencil:
 =#
 
-using Jems.DualSupport
+using Jems.DualSupport:DualData, update_dual_data_value!
 
 nvars = 2
 
-P_m1 = LocalDualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=1) # this is pressure at the cell below
-P_00 = LocalDualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=1) # this is pressure at the current cell
-P_p1 = LocalDualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=1) # this is pressure at the cell above
+P_m1 = DualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=1) # this is pressure at the cell below
+P_00 = DualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=1) # this is pressure at the current cell
+P_p1 = DualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=1) # this is pressure at the cell above
 #initialize them with arbitrary values
-update_local_dual_data_value!(P_m1, 0.9)
-update_local_dual_data_value!(P_00, 1.0)
-update_local_dual_data_value!(P_p1, 1.0)
+update_dual_data_value!(P_m1, 0.9)
+update_dual_data_value!(P_00, 1.0)
+update_dual_data_value!(P_p1, 1.0)
 
 #same for density
-r_m1 = LocalDualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=2) # this is pressure at the cell below
-r_00 = LocalDualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=2) # this is pressure at the current cell
-r_p1 = LocalDualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=2) # this is pressure at the cell above
+r_m1 = DualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=2) # this is pressure at the cell below
+r_00 = DualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=2) # this is pressure at the current cell
+r_p1 = DualData(nvars, Float64, tag; is_ind_var=true, ind_var_i=2) # this is pressure at the cell above
 #initialize them with arbitrary values
-update_local_dual_data_value!(r_m1, 1.0)
-update_local_dual_data_value!(r_00, 1.0)
-update_local_dual_data_value!(r_p1, 1.0);
+update_dual_data_value!(r_m1, 1.0)
+update_dual_data_value!(r_00, 1.0)
+update_dual_data_value!(r_p1, 1.0);
 
 ##
 #=
 With this in place we can create dual numbers and operate on them. We do this using the `get_00_dual`, `get_m1_dual` and `get_p1_dual`. This ensures the partial derivatives are filled in the way we want. To illustrate this, let's see the partials produced by the following
 =#
+
+using Jems.DualSupport: get_m1_dual, get_00_dual, get_p1_dual
 
 P_m1_dual = get_m1_dual(P_m1)
 r_m1_dual = get_m1_dual(r_m1)
