@@ -51,7 +51,11 @@ EXCESS_FACTOR[] = 1e-6
 α_w_FACTOR[] = 0.25
 
 ##
-net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+#net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+net = merge_nuclear_networks([NuclearNetworks.networks[:JINA_PPI],
+                            NuclearNetworks.networks[:JINA_PPII],
+                            NuclearNetworks.networks[:JINA_CNOI],
+                            NuclearNetworks.networks[:JINA_CNOII],])
 nz = 1000
 nextra = 100
 #eos = EOS.IdealEOS(true)
@@ -155,11 +159,10 @@ destroys the Jacobian to perform in-place operations.
 end setup=(Evolution.eval_jacobian_eqs!($sm))
 ##
 
-# Convective boundary algorithms parsed below
 function calculate_nabla_tdc(sm:: StellarModel, k :: Int)
     L = get_00_dual(sm.props.L[k]) * LSUN
-    γ₀ = get_00_dual(sm.props.gamma_turb[k])
-    ω = exp(γ₀)
+    γ₀ = abs(get_00_dual(sm.props.gamma_turb[k]))
+    ω = (sinh(γ₀))^2
     m₀ = sm.props.m[k]
     r₀ = exp(get_00_dual(sm.props.lnr[k]))
     if k == sm.props.nz
@@ -169,7 +172,7 @@ function calculate_nabla_tdc(sm:: StellarModel, k :: Int)
         κ = get_00_dual(sm.props.κ[k])
         cₚ = get_00_dual(sm.props.eos_res[k].cₚ)
         Hₚ = P / (ρ * CGRAV * m₀ / r₀^2)
-        Λ = 1/(1/Hₚ + 1/r₀)
+        Λ = 1/(1/ (α_Λ_FACTOR[]* Hₚ) + 1/r₀)
         k_rad = 16 * SIGMA_SB * T^3 / (3 * κ * ρ)
         α₂ = ρ*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
         ∇ᵣ = 3 * κ * L * P / (16π * CRAD * CLIGHT * CGRAV * m₀ * T^4)
@@ -185,7 +188,7 @@ function calculate_nabla_tdc(sm:: StellarModel, k :: Int)
     cₚ =  get_00_dual(sm.props.cₚ_face[k])
     κ = get_00_dual(sm.props.κ_face[k])
     Hₚ = P_face / (ρ_face * CGRAV * m₀ / r₀^2) 
-    Λ = 1/(1/Hₚ + 1/r₀)
+    Λ = 1/(1/( α_Λ_FACTOR[]*Hₚ) + 1/r₀)
     m₀ = sm.props.m[k]
     k_rad = 16 * SIGMA_SB * T_face^3 / (3 * κ * ρ_face)
     α₂ = ρ_face*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
@@ -203,12 +206,12 @@ function get_D_turb(sm::StellarModel, k:: Int)
     r = exp(get_00_dual(sm.props.lnr[k]))
     P = exp(get_00_dual(sm.props.lnP_face[k]))
     ρ = exp(get_00_dual(sm.props.lnρ_face[k]))
-    γ_face_00 = get_00_dual(sm.props.gamma_turb[k])
-    ω = exp(γ_face_00)
+    γ_face_00 = abs(get_00_dual(sm.props.gamma_turb[k]))
+    ω = (sinh(γ_face_00))^2
     m = sm.props.m[k]
     g = CGRAV * m / (r^2)
     Hp = P / ( ρ * g)
-    Λ = 1/(1/Hp + 1/r)
+    Λ = 1/(1/(Hp) + 1/r)
     D = 1/3 * Λ * sqrt(2 * ω)
     return ForwardDiff.value(D)
 end 
@@ -220,7 +223,7 @@ function get_lambda_turb(sm::StellarModel, k:: Int)
     m = sm.props.m[k]
     g = CGRAV * m / (r^2)
     Hp = P / ( ρ * g)
-    Λ = 1/(1/Hp + 1/r)
+    Λ = 1/(1/(Hp) + 1/r)
     return ForwardDiff.value(Λ)
 end 
 

@@ -288,7 +288,7 @@ function Jems.StellarModels.evaluate_stellar_model_properties!(sm, props::TDCSte
         #D_turb_dual = (1/3) * sqrt(2 * exp(gamma_turb_dual)) *  1 / (1/(P_face_dual / (ρ_face_dual * CGRAV * sm.props.m[i]/ r_dual^2)) + 1/r_dual)
         update_mixed_dual_data!(props.D_turb[i], D_turb_dual)
         D_turb_fixed = get_value(sm.start_step_props.D_turb[i])
-        flux_term_dual = (4π*r_dual^2*ρ_face_dual)^2*D_turb_fixed/
+        flux_term_dual = (4π*r_dual^2*ρ_face_dual)^2*D_turb_dual/ 
                            (0.5*(props.dm[i]+props.dm[i+1]))
         update_mixed_dual_data!(props.flux_term[i], flux_term_dual)
 
