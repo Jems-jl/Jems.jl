@@ -469,7 +469,7 @@ function tdc_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfraction, a
             D = -a1 - a2*a5
             E = -a5
             ω_sol = newton_cubic_solver(A,B,C,D,E)
-            sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:gamma_turb]] =  10.0    #sqrt(asinh(ω_sol))
+            sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:gamma_turb]] =  10.0 #sqrt(asinh(ω_sol))
         else   
             dlnP = log(final_P[i]) - log(final_P[i-1])
             dlnT = final_lnT[i] -final_lnT[i-1]
@@ -488,7 +488,7 @@ function tdc_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfraction, a
             ω_sol = newton_cubic_solver(A,B,C,D,E)
             #sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (dlnT/dlnP) * (16π * CRAD * CLIGHT * CGRAV * m_face[i] * (exp(final_lnT[i]))^4)/ (3 * κ * final_P[i] * LSUN)
             sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:lum]] = (∇_ad_profile[i]) * (16π * CRAD * CLIGHT * CGRAV * m_face[i] * (exp(final_lnT[i]))^4)/ (3 * κ * final_P[i] * LSUN)
-            sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:gamma_turb]] =  10.0     #sqrt(asinh(ω_sol))
+            sm.props.ind_vars[(i - 1) * sm.nvars + sm.vari[:gamma_turb]] = 10.0   #sqrt(asinh(ω_sol))
         end 
     end 
     sm.props.time = 0.0
@@ -496,4 +496,35 @@ function tdc_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfraction, a
     sm.props.dt_next = initial_dt
     sm.props.model_number = 0
     sm.props.nz = nz
-end 
+
+    # Jems.StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+    # gamma_i = sm.vari[:gamma_turb]
+    # m_total_solar = sm.props.m[nz] / MSUN
+    # m_high = 0.995 * m_total_solar
+
+    # for k in 1:nz
+    #     m_solar = sm.props.m[k] / MSUN
+
+    #     # Change only the pure MLT region for this initial-guess test.
+    #     if m_solar < m_high
+    #         continue
+    #     end
+
+    #     if k == nz
+    #         v_mlt = get_value(sm.props.turb_res[k-1].v_turb)
+    #         P = get_value(sm.props.eos_res[k].P)
+    #         ρ = get_value(sm.props.eos_res[k].ρ)
+    #     else
+    #         v_mlt = get_value(sm.props.turb_res[k].v_turb)
+    #         P = exp(get_value(sm.props.lnP_face[k]))
+    #         ρ = exp(get_value(sm.props.lnρ_face[k]))
+    #     end
+
+    #     v_floor = 1e-10 * sqrt(P / ρ)
+    #     gamma_target = asinh(max(v_mlt, v_floor) / sqrt(2.0))
+
+    #     sm.props.ind_vars[(k-1)*sm.nvars + gamma_i] = gamma_target
+    # end
+    # Jems.StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+
+ end 

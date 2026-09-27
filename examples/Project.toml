@@ -1,6 +1,8 @@
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+CornerPlotting = "4a808bcd-0da0-4a1c-a768-2071018375da"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
@@ -8,6 +10,9 @@ Jems = "80e28b2b-5ac7-4db2-b78d-9e35bb8cec21"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 MathTeXEngine = "0a4f8689-d25c-4efe-a92b-7142dfc1aa53"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+StarStats = "3d48db48-6773-11ed-1a7e-43a2532b2fa8"
+Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 
 [sources]
 Jems = {path = ".."}

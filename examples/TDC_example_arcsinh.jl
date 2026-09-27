@@ -6,7 +6,7 @@ using Jems.EOS
 using Jems.Opacity
 using Jems.NuclearNetworks
 using Jems.Turbulence
-using Jems.StellarModels
+using Jems.StellarModels 
 using Jems.Evolution
 using Jems.Plotting
 using Jems.Interpolations
@@ -47,15 +47,16 @@ if !isdir("MESA_data")
     cd("../")
 end
 ##
-EXCESS_FACTOR[] = 1e-6
+EXCESS_FACTOR[] = 1e-8
 α_w_FACTOR[] = 0.25
+α_Λ_FACTOR[] = 1.0
 
 ##
-#net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
-net = merge_nuclear_networks([NuclearNetworks.networks[:JINA_PPI],
-                            NuclearNetworks.networks[:JINA_PPII],
-                            NuclearNetworks.networks[:JINA_CNOI],
-                            NuclearNetworks.networks[:JINA_CNOII],])
+net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+# net = merge_nuclear_networks([NuclearNetworks.networks[:JINA_PPI],
+#                             NuclearNetworks.networks[:JINA_PPII],
+#                             NuclearNetworks.networks[:JINA_CNOI],
+#                             NuclearNetworks.networks[:JINA_CNOII],])
 nz = 1000
 nextra = 100
 #eos = EOS.IdealEOS(true)
@@ -66,7 +67,7 @@ high_T_collection = OpacityTableCollector("MESA_data/kap_data","oplib_agss09" )
 opacity = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2)
 # eos = EOS.IdealEOS(true)
 # opacity = Opacity.SimpleElectronScatteringOpacity()
-turbulence = Turbulence.BasicMLT(2.0)
+turbulence = Turbulence.BasicMLT(1.0)
 ##
 nz = 1000
 nextra = 10000
@@ -102,7 +103,7 @@ sm.props.dt = sm_alt.props.dt
 n = 1.5
 # Polytropic Initial condition
 tdc_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            100 * MSUN, 3000 * RSUN; initial_dt=10 * SECYEAR)
+                                            1 * MSUN, 80 * RSUN; initial_dt=10 * SECYEAR)
 Evolution.compute_starting_model_properties!(sm)
 
 # Adiabatic Initial condition
@@ -172,7 +173,7 @@ function calculate_nabla_tdc(sm:: StellarModel, k :: Int)
         κ = get_00_dual(sm.props.κ[k])
         cₚ = get_00_dual(sm.props.eos_res[k].cₚ)
         Hₚ = P / (ρ * CGRAV * m₀ / r₀^2)
-        Λ = 1/(1/ (α_Λ_FACTOR[]* Hₚ) + 1/r₀)
+        Λ =  α_Λ_FACTOR[]*Hₚ #1/(1/ (α_Λ_FACTOR[]* Hₚ) + 1/r₀)
         k_rad = 16 * SIGMA_SB * T^3 / (3 * κ * ρ)
         α₂ = ρ*cₚ*0.5*sqrt(2/3)*Λ*sqrt(ω)
         ∇ᵣ = 3 * κ * L * P / (16π * CRAD * CLIGHT * CGRAV * m₀ * T^4)
@@ -380,7 +381,8 @@ function gammaTurb_arcsin_res(sm::StellarModel, k::Int)
         #mixing term 
         F_m1 = get_m1_dual(sm.props.turb_flux_cc[k-1])
         F_00 = get_00_dual(sm.props.turb_flux_cc[k])
-        mixing_term = ((F_00 - F_m1)/  (0.5*sm.props.dm[k-1] + 0.5*sm.props.dm[k]))
+        #mixing_term = ((F_00 - F_m1)/  (0.5*sm.props.dm[k-1] + 0.5*sm.props.dm[k]))
+        mixing_term = ((F_00 - F_m1)/  (0.5*sm.props.dm[k] + 0.5*sm.props.dm[k+1]))
     end 
 
     # variables derived from primary variables at face (00 cell)
@@ -393,17 +395,40 @@ function gammaTurb_arcsin_res(sm::StellarModel, k::Int)
     α₂_face_00 = ρ_face_00 * cₚ_face_00 * 0.5 * sqrt(2 / 3) * Λ_face_00 * abs(sinh(γ_face_00))
     α₁_face_00 = ∇ₐ_face_00 * T_face_00 * Λ_face_00 * 0.5 * sqrt(2 / 3) * cₚ_face_00 / Hₚ_face_00^2
     SA_face_00 = (∇ᵣ_face_00 - ∇ₐ_face_00) * (1 + α₂_face_00 / k_rad_face_00)^(-1)
-
+    beta =  α₂_face_00/k_rad_face_00
     # Terms for calculating the residual 
-    omega_var_term = ((γ_face_00- abs(get_value(sm.start_step_props.gamma_turb[k]))) / sm.props.dt) * 2*sinh(γ_face_00)*cosh(γ_face_00)
+     gamma_old = abs(get_value(sm.start_step_props.gamma_turb[k]))
+    omega_var_term = (sinh(γ_face_00)^2- sinh(gamma_old)^2) / sm.props.dt
     source_term = α₁_face_00 * SA_face_00 * abs(sinh(γ_face_00))
     turb_dissipation_term = C_d * (abs(sinh(γ_face_00)))^3 / Λ_face_00
     rad_dissipation_term = ω_face_00 / τᵣ_face_00
     excess_term = C_d * (c_s_face_00 * EXCESS_FACTOR[])^3 / Λ_face_00
 
-    return  ForwardDiff.value(omega_var_term), ForwardDiff.value(turb_dissipation_term), ForwardDiff.value(rad_dissipation_term), ForwardDiff.value(source_term), ForwardDiff.value(mixing_term), ForwardDiff.value(excess_term), ForwardDiff.value(A_p1), ForwardDiff.value(A_00), ForwardDiff.value(F_p1), ForwardDiff.value(F_00), ForwardDiff.value(t_00), ForwardDiff.value(t_p1), ForwardDiff.value(t_m1)
+    R5 =
+    omega_var_term +
+    turb_dissipation_term +
+    rad_dissipation_term -
+    source_term -
+    excess_term - mixing_term
+
+    term_scale =
+    abs(omega_var_term) +
+    abs(turb_dissipation_term) +
+    abs(rad_dissipation_term) +
+    abs(source_term) +
+    abs(excess_term) + 
+    abs(mixing_term)
+
+    relative_residual = abs(R5) / term_scale
+    relative_residual =
+    term_scale > 0 ?
+    abs(R5) / term_scale :
+    abs(R5)
+
+    return  ForwardDiff.value(omega_var_term), ForwardDiff.value(turb_dissipation_term), ForwardDiff.value(rad_dissipation_term), ForwardDiff.value(source_term), ForwardDiff.value(mixing_term), ForwardDiff.value(excess_term), ForwardDiff.value(relative_residual)
     
     end
+
 
 
     
@@ -411,11 +436,12 @@ function gammaTurb_arcsin_res(sm::StellarModel, k::Int)
 ##
 using LaTeXStrings
 StellarModels.add_profile_option!(sm, "gamma_turb_energy", "unitless", (sm, k) -> ((get_value(sm.props.gamma_turb[k]))))
+StellarModels.add_profile_option!(sm, "turb_flux_cc", "unitless", (sm,k) -> ((get_value(sm.props.turb_flux_cc[k]))))
 StellarModels.add_profile_option!(sm, "D_turb_kuff", "unitless", (sm, k) -> ((get_value(sm.props.D_turb[k]))))
 StellarModels.add_profile_option!(sm, "kappa", "unitless", (sm, k) -> ((get_value(sm.props.κ[k]))))
 StellarModels.add_profile_option!(sm, "nablaa_face", "unitless", (sm, k) -> get_value(sm.props.∇ₐ_face[k]), label="\nabla_\text{a,face}")
 StellarModels.add_profile_option!(sm, "nablar_face", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇ᵣ),  label="\nabla_\text{r,face}")
-StellarModels.add_profile_option!(sm, "nabla_face_k", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].∇), label="\nabla_\text{face}")
+StellarModels.add_profile_option!(sm, "nabla_face_k", "unitless", (sm, k) -> get_nabla_tdc(sm,k), label="\nabla_\text{face}")
 StellarModels.add_profile_option!(sm, "v_turb", "unitless", (sm, k) -> get_value(sm.props.turb_res[k].v_turb), label="\nabla_\text{r,face}")
 StellarModels.add_profile_option!(sm,"omega_var_term", "unitless", (sm,k) -> gammaTurb_arcsin_res(sm,k)[1], label="\nabla_\text{r,face}")
 StellarModels.add_profile_option!(sm,"turb_dissipation_term", "unitless", (sm,k) -> gammaTurb_arcsin_res(sm,k)[2], label="\nabla_\text{r,face}")
@@ -423,6 +449,8 @@ StellarModels.add_profile_option!(sm,"rad_dissipation_term", "unitless", (sm,k) 
 StellarModels.add_profile_option!(sm,"source_term", "unitless", (sm,k) -> gammaTurb_arcsin_res(sm,k)[4], label="\nabla_\text{r,face}")
 StellarModels.add_profile_option!(sm,"mixing_term", "unitless", (sm,k) -> gammaTurb_arcsin_res(sm,k)[5], label="\nabla_\text{r,face}")
 StellarModels.add_profile_option!(sm,"excess_term", "unitless", (sm,k) -> gammaTurb_arcsin_res(sm,k)[6], label="\nabla_\text{r,face}")
+StellarModels.add_profile_option!(sm,"rel_res", "unitless", (sm,k) -> gammaTurb_arcsin_res(sm,k)[7], label="\nabla_\text{r,face}")
+# StellarModels.add_profile_option!(sm,"lambda", "unitless", (sm,k) -> gammaTurb_arcsin_res(sm,k)[10], label="\nabla_\text{r,face}")
 # StellarModels.add_profile_option!(sm,"A_p1", "unitless", (sm,k) -> gammaTurb_arcsin_res(sm,k)[7], label="\nabla_\text{r,face}")
 # StellarModels.add_profile_option!(sm,"A_00", "unitless", (sm,k) -> gammaTurb_arcsin_res(sm,k)[8], label="\nabla_\text{r,face}")
 # StellarModels.add_profile_option!(sm,"F_p1", "unitless", (sm,k) -> gammaTurb_arcsin_res(sm,k)[9], label="\nabla_\text{r,face}")
@@ -431,10 +459,10 @@ StellarModels.add_profile_option!(sm,"excess_term", "unitless", (sm,k) -> gammaT
 # StellarModels.add_profile_option!(sm,"t_00", "unitless", (sm,k) -> gammaTurb_arcsin_res(sm,k)[12], label="\nabla_\text{r,face}")
 # StellarModels.add_profile_option!(sm,"t_m1", "unitless", (sm,k) -> gammaTurb_arcsin_res(sm,k)[13], label="\nabla_\text{r,face}")
 StellarModels.add_history_option!(sm, "alpha_overshoot", "H_p", sm ->calculate_overshoot_length(sm)[1], label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
-StellarModels.add_history_option!(sm, "Sch_radius", "Rsun", sm ->calculate_overshoot_length(sm)[2], label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
-StellarModels.add_history_option!(sm, "pressure_scale_height", "unitless", sm ->calculate_overshoot_length(sm)[3], label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
-StellarModels.add_history_option!(sm, "ov_radius", "unitless", sm ->calculate_overshoot_length(sm)[4], label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
-StellarModels.add_history_option!(sm, "ov_distance", "unitless", sm ->calculate_overshoot_length(sm)[5], label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
+# StellarModels.add_history_option!(sm, "Sch_radius", "Rsun", sm ->calculate_overshoot_length(sm)[2], label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
+# StellarModels.add_history_option!(sm, "pressure_scale_height", "unitless", sm ->calculate_overshoot_length(sm)[3], label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
+# StellarModels.add_history_option!(sm, "ov_radius", "unitless", sm ->calculate_overshoot_length(sm)[4], label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
+# StellarModels.add_history_option!(sm, "ov_distance", "unitless", sm ->calculate_overshoot_length(sm)[5], label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
 StellarModels.add_history_option!(sm, "T_eff", "unitless", sm ->get_T_eff(sm), label=L"\text{Alpha_ov}\,[\alpha_{ov}]")
 ##
 # "tau", "rad_diss", "vis_diss", "Lambda", "excess_term"
@@ -442,17 +470,17 @@ open("example_options.toml", "w") do file
     write(file,
           """
           [remesh]
-          do_remesh = true
+          do_remesh = false
           [solver]
-          newton_max_iter_first_step = 1000
+          newton_max_iter_first_step = 5000
           initial_model_scale_max_correction = 0.2
-          newton_max_iter = 20
+          newton_max_iter = 50
           scale_max_correction = 1.0
           solver_progress_iter = 1
-          relative_correction_tolerance = 1e14
+          relative_correction_tolerance= 1e14
           maximum_residual_tolerance = 1e-2
           use_preconditioning = true
-
+          report_solver_progress = true
           [timestep]
           dt_max_increase = 1.5
           delta_R_limit = 0.01
@@ -462,20 +490,24 @@ open("example_options.toml", "w") do file
           [termination]
           max_model_number = 20000
           max_center_T = 1e12
-          min_center_H1 = 1e-4
+          min_center_H1 = 0.5
 
           [io]
           profile_interval = 20
+          hdf5_history_filename = "history_models_5MSUN_woking.hdf5"
+          hdf5_profile_filename = "profiles_models_5MSUN_working.hdf5"
           terminal_header_interval = 100
           terminal_info_interval = 100
-          
-          profile_values = ["zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity", "X", "Y","D_face", "nablaa_face", "nablar_face","nabla_face", "gamma_turb_energy", "D_turb_kuff", "nabla_face_k"]
-          history_values = ["model_number", "age", "dt", "star_mass","X_center", "T_surf", "T_eff", "L_surf","alpha_overshoot","Sch_radius", "pressure_scale_height", "ov_radius", "ov_distance"]
+          profile_values = ["zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity", "X", "Y","D_face", "nablaa_face", "nablar_face","nabla_face", "gamma_turb_energy", "D_turb_kuff", "nabla_face_k", "kappa", "v_turb", "omega_var_term", "turb_dissipation_term", "rad_dissipation_term", "source_term", "excess_term", "rel_res"]
+          history_values = ["model_number", "age", "dt", "star_mass","X_center", "T_surf", "T_eff", "L_surf","alpha_overshoot"]
+
+    
           """)
 end
 StellarModels.set_options!(sm.opt, "./example_options.toml")
-rm(sm.opt.io.hdf5_history_filename; force=true)
-rm(sm.opt.io.hdf5_profile_filename; force=true)
+# rm(sm.opt.io.hdf5_history_filename; force=true)
+# rm(sm.opt.io.hdf5_profile_filename; force=true)
+
 
 ##
 #Configure live plots. To turn off one can use `plotter = Plotting.NullPlotter()`
@@ -492,23 +524,321 @@ plots = [Plotting.HRPlot(f[1,1]),
 plotter = Plotting.Plotter(fig=f,plots=plots)
 
 ##
+plotter = Plotting.NullPlotter()
+##
 #set initial condition and run model
 n = 1.5
 # StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
 #                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-tdc_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                          5 * MSUN, 80 *  RSUN; initial_dt=0.01 * SECYEAR)
+Z = 0.0142 *2
+Y = 0.249 + 1.67 * Z
+X = 1 - Y - Z
+tdc_initial_condition!(n, sm, nz, X, Z, 0.0, Chem.abundance_lists[:ASG_09], 
+                                        5.0 * MSUN, 80 *  RSUN; initial_dt=0.000001 * SECYEAR)
 
-           
+##         
 @time Evolution.do_evolution_loop!(sm, plotter=plotter); 
-  
+
+
 ##
-Evolution.eval_jacobian_eqs!(sm)
-# check for NaNs/Infs in the Jacobian 
-for k in 1:1000
-    if !all(isfinite, sm.solver_data.jacobian_D[k]) 
-        println("CRITICAL: Non-finite value (NaN/Inf) found at zone k = $k")
-        println("A[k] block: ", sm.solver_data.jacobian_D[k])
+open("gamma_target_no_dual.log", "w") do io
+    redirect_stdout(io) do 
+        redirect_stderr(io) do
+            @time Evolution.do_evolution_loop!(sm, plotter=plotter)
+
+        end
+    end
 end
 
+##
+using Serialization
+
+sm_run = deserialize(
+    "/Users/rdbnath/Documents/Jems.jl/sm_checkpoint.jls"
+)
+
+@show sm_run.props.model_number
+##
+nz_restart = sm_run.props.nz
+nextra_restart = 10000
+
+sm = StellarModel(
+    TDCEquationSet(),
+    nz_restart,
+    nextra_restart,
+    net,
+    eos_table,
+    opacity,
+    turbulence,
+);
+
+##
+using Serialization
+
+# The termination check occurs before dt_next is refreshed.
+sm.props.dt_next = Evolution.get_dt_next(sm)
+
+checkpoint = "/Users/rdbnath/Documents/Jems.jl/sm_checkpoint.jls"
+serialize(checkpoint, sm)
+
+##
+open("example_options.toml", "w") do file
+    write(file,
+          """
+          [remesh]
+          do_remesh = true
+          [solver]
+          newton_max_iter_first_step = 5000
+          initial_model_scale_max_correction = 0.2
+          newton_max_iter = 50
+          scale_max_correction = 1.0
+          solver_progress_iter = 1
+          relative_correction_tolerance= 1e14
+          maximum_residual_tolerance = 1e-2
+          use_preconditioning = true
+          report_solver_progress = true
+          [timestep]
+          dt_max_increase = 1.5
+          delta_R_limit = 0.01
+          delta_Tc_limit = 0.01
+          delta_Xc_limit = 0.005
+
+          [termination]
+          max_model_number = 20000
+          max_center_T = 1e12
+          min_center_H1 = 1e-4
+
+          [io]
+          profile_interval = 1
+          hdf5_history_filename = "history_models_final.hdf5"
+          hdf5_profile_filename = "profiles_models_final.hdf5"
+          terminal_header_interval = 100
+          terminal_info_interval = 100
+          profile_values = ["zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity", "X", "Y","D_face", "nablaa_face", "nablar_face","nabla_face", "gamma_turb_energy", "D_turb_kuff", "nabla_face_k", "kappa"]
+          history_values = ["model_number", "age", "dt", "star_mass","X_center", "T_surf", "T_eff", "L_surf","alpha_overshoot","Sch_radius", "pressure_scale_height", "ov_radius", "ov_distance"]
+
+    
+          
+          
+
+          """)
 end
+sm_run.opt.io.hdf5_history_keep_open = false
+sm_run.opt.io.hdf5_profile_keep_open = false
+sm_run.output_files_created = false
+StellarModels.set_options!(sm_run.opt, "./example_options.toml")
+##
+sm_run.props.dt_next = Jems.Evolution.get_dt_next(sm_run)
+##
+using GLMakie
+GLMakie.activate!()
+set_theme!(Plotting.basic_theme())
+f = Figure(size=(1400,750))
+plots = [Plotting.HRPlot(f[1,1]),
+         Plotting.TRhoProfile(f[1,2]),
+         Plotting.KippenLine(f[2,1], xaxis=:time, time_units=:Gyr),
+         Plotting.AbundancePlot(f[2,2],net,log_yscale=true, ymin=1e-3),
+         Plotting.HistoryPlot(f[1,3], sm, x_name="age", y_name="X_center", othery_name="Y_center", link_yaxes=true),
+         Plotting.ProfilePlot(f[2,3], sm, x_name="mass", y_name="log10_rho", othery_name="log10_T")]
+plotter = Plotting.Plotter(fig=f,plots=plots)
+
+@time Jems.Evolution.do_evolution_loop!(
+    sm_run;
+    plotter = plotter
+)
+
+##
+using Printf
+
+function check_tdc_jacobian(
+    sm;
+    zones = [89],
+    equations = [2],
+    variables = [:lnρ, :lnT, :lnr, :lum, :gamma_turb],
+    steps = (1e-4, 1e-5, 1e-6),
+)
+    @assert sm.props !== sm.start_step_props
+    @assert sm.props.nz == sm.start_step_props.nz
+    @assert sm.props.dt > 0
+
+    nz, nv = sm.props.nz, sm.nvars
+    n = nz * nv
+
+    @assert all(k -> 1 <= k <= nz, zones)
+    @assert all(eq -> 1 <= eq <= nv, equations)
+    @assert all(s -> s > 0, steps)
+
+    x = @view sm.props.ind_vars[1:n]
+    saved_x = copy(x)
+    results = NamedTuple[]
+
+    function evaluate!()
+        Jems.StellarModels.evaluate_stellar_model_properties!(
+            sm, sm.props
+        )
+        Jems.Evolution.eval_jacobian_eqs!(sm)
+        return nothing
+    end
+
+    try
+        evaluate!()
+
+        # Preserve the Jacobian before perturbing anything.
+        baseline = Dict(
+            k => (
+                L = copy(sm.solver_data.jacobian_L[k]),
+                D = copy(sm.solver_data.jacobian_D[k]),
+                U = copy(sm.solver_data.jacobian_U[k]),
+            )
+            for k in zones
+        )
+
+        f0 = copy(@view sm.solver_data.eqs_numbers[1:n])
+
+        for k in zones
+            @printf(
+                "\nEquation zone %d: m/M=%.8e\n",
+                k, sm.props.m[k] / sm.props.m[nz],
+            )
+
+            for eq in equations
+                @printf(
+                    "Baseline F[%d,%d] = % .12e\n",
+                    k, eq, f0[(k - 1) * nv + eq],
+                )
+            end
+
+            for cell in max(1, k - 1):min(nz, k + 1)
+                block = cell < k ? baseline[k].L :
+                        cell > k ? baseline[k].U :
+                                   baseline[k].D
+
+                for variable in variables
+                    j = sm.vari[variable]
+                    index = (cell - 1) * nv + j
+                    x0 = saved_x[index]
+
+                    # Log variables use absolute log increments.
+                    # Luminosity is scaled to its local magnitude.
+                    scale = variable == :lum ?
+                            max(abs(x0), 1e-8) : 1.0
+
+                    for step in steps
+                        h = step * scale
+
+                        # Stay on the same side of gamma=0.
+                        # Relative gamma increments also separate
+                        # the three tests when gamma is very small.
+                        if variable == :gamma_turb
+                            if x0 == 0
+                                println(
+                                    "Skipping gamma at cell ", cell,
+                                    ": derivative at zero may be nonsmooth.",
+                                )
+                                break
+                            end
+
+                            h = min(
+                                step * min(abs(x0), 1.0),
+                                0.1 * abs(x0),
+                            )
+                        end
+
+                        xp, xm = x0 + h, x0 - h
+                        if !(xm < x0 < xp)
+                            println(
+                                "Skipping unrepresentable step: cell=",
+                                cell, " variable=", variable, " h=", h,
+                            )
+                            continue
+                        end
+
+                        copyto!(x, saved_x)
+                        x[index] = xp
+                        evaluate!()
+                        fp = [
+                            sm.solver_data.eqs_numbers[
+                                (k - 1) * nv + eq
+                            ]
+                            for eq in equations
+                        ]
+
+                        copyto!(x, saved_x)
+                        x[index] = xm
+                        evaluate!()
+                        fm = [
+                            sm.solver_data.eqs_numbers[
+                                (k - 1) * nv + eq
+                            ]
+                            for eq in equations
+                        ]
+
+                        for (a, eq) in enumerate(equations)
+                            fbase = f0[(k - 1) * nv + eq]
+                            ad = block[eq, j]
+                            fd = (fp[a] - fm[a]) / (xp - xm)
+
+                            forward = (fp[a] - fbase) / (xp - x0)
+                            backward = (fbase - fm[a]) / (x0 - xm)
+
+                            absolute_error = abs(ad - fd)
+                            relative_error = absolute_error /
+                                max(abs(ad), abs(fd), 1e-30)
+
+                            push!(results, (
+                                zone = k,
+                                equation = eq,
+                                cell = cell,
+                                variable = variable,
+                                h = h,
+                                AD = ad,
+                                FD = fd,
+                                forward = forward,
+                                backward = backward,
+                                abs_error = absolute_error,
+                                rel_error = relative_error,
+                            ))
+
+                            @printf(
+                                "eq=%d cell=%d %-10s h=%.3e AD=% .8e FD=% .8e rel=%.3e FD+=% .8e FD-=% .8e\n",
+                                eq, cell, string(variable), h,
+                                ad, fd, relative_error,
+                                forward, backward,
+                            )
+                        end
+                    end
+                end
+            end
+        end
+    finally
+        copyto!(x, saved_x)
+        evaluate!()
+    end
+
+    return results
+end
+
+
+
+checks_gamma = check_tdc_jacobian(
+    sm_run;
+    zones = [89],
+    equations = [5],
+)
+##
+iz = 1014
+idx = (iz-1)*sm.nvars + 5
+
+γ_before = get_value(sm.props.gamma_turb[iz])
+Δγ_raw = sm.solver_data.solver_corr[idx]
+Δγ_applied = correction_multiplier * Δγ_raw
+
+println(
+    "iter=$i",
+    " gamma=$γ_before",
+    " signgamma=$(sign(γ_before))",
+    " smooth_deriv=$(γ_before / sqrt(γ_before^2 + 1e-16))",
+    " raw_dgamma=$Δγ_raw",
+    " applied_dgamma=$Δγ_applied",
+    " predicted_gamma=$(γ_before + Δγ_applied)"
+)

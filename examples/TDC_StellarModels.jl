@@ -405,7 +405,7 @@ if k == 1
     rad_dissipation_term = ω_face_00 / τᵣ_face_00
     excess_term = C_d * (c_s_face_00 * EXCESS_FACTOR[])^3 / Λ_face_00
 
-    return  omega_var_term  + turb_dissipation_term + rad_dissipation_term - excess_term -  source_term - mixing_term
+    return  omega_var_term  + turb_dissipation_term + rad_dissipation_term - excess_term -  source_term 
 end
 
 
@@ -471,7 +471,7 @@ if k == sm.props.nz
     turb_dissipation_term = C_d * (ω_face_00)^(3/2) / Λ_face_00
     rad_dissipation_term = ω_face_00 / τᵣ_face_00
     excess_term = C_d * (c_s_face_00 * EXCESS_FACTOR[])^3 / Λ_face_00
-    return  omega_var_term  + turb_dissipation_term + rad_dissipation_term - excess_term - source_term - mixing_term
+    return  omega_var_term  + turb_dissipation_term + rad_dissipation_term - excess_term - source_term 
 end
 
 
@@ -546,7 +546,7 @@ begin
     rad_dissipation_term = ω_face_00 / τᵣ_face_00
     excess_term = C_d * (c_s_face_00 * EXCESS_FACTOR[])^3 / Λ_face_00  
 
-    return omega_var_term  + turb_dissipation_term + rad_dissipation_term - excess_term - source_term - mixing_term
+    return omega_var_term  + turb_dissipation_term + rad_dissipation_term - excess_term - source_term 
 end 
 end
 
@@ -702,10 +702,10 @@ end
 
 function Jems.Evolution.eval_cell_eqs!(sm::StellarModel, ::TDCEquationSet, k::Int)
     sm.solver_data.eqs_duals[k, 1] = Evolution.equationHSE(sm, k)
-    sm.solver_data.eqs_duals[k, 2] = equationTDC_blend_temp(sm, k)  
+    sm.solver_data.eqs_duals[k, 2] = equationTDC_temp(sm, k)  
     sm.solver_data.eqs_duals[k, 3] = Evolution.equationContinuity(sm, k)
     sm.solver_data.eqs_duals[k, 4] = Evolution.equationLuminosity(sm, k)
-    sm.solver_data.eqs_duals[k, 5] = gammaTurb_blend(sm,k)
+    sm.solver_data.eqs_duals[k, 5] = gammaTurb(sm,k)
     # evaluate all composition equations
     for i = 1:(sm.network.nspecies)
         sm.solver_data.eqs_duals[k, sm.nvars - sm.network.nspecies + i] = Evolution.equation_composition(sm, k, sm.network.species_names[i])

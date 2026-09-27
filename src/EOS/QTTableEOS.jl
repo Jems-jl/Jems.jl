@@ -21,7 +21,7 @@ density-temperature parameter space (`logQ` and `logT`) for a specific chemical 
 struct TρTableCollector <: AbstractEOS
     X :: Float64 
     Z :: Float64
-    interpolator :: Vector{BilinearInterpolation}
+    interpolator :: Vector{BicubicInterpolation}
     col_names :: Vector{String}
 end 
 
@@ -197,35 +197,35 @@ function TρTableCollector(filepath :: String)
     
     eos_data_3D = reshape(eos_data_flat, (num_vars, num_Ts, num_Qs))
     
-    # 4. BUILD CONCRETE BICUBIC INTERPOLATORS (Using zero-allocation views)
+    # 4. BUILD CONCRETE BIlinear INTERPOLATORS (Using zero-allocation views)
 
-    first_slice = reshape(view(eos_data_3D, 1, :, :), (1, num_Ts, num_Qs))
-    first_interp = build_bilinear_interpolator(logTs, logQs, first_slice)
-    
-    interpolators = [first_interp]
-    
-    for k in 2:num_vars 
-        data_slice = reshape(view(eos_data_3D, k, :, :), (1, num_Ts, num_Qs))
-        interp = build_bilinear_interpolator(logTs, logQs, data_slice)
-        push!(interpolators, interp)
-    end 
-    
-    return TρTableCollector(X_val, Z_val, interpolators, col_names)
-end
-# The lines below are for bicubic interpolation
 #     first_slice = reshape(view(eos_data_3D, 1, :, :), (1, num_Ts, num_Qs))
-#     first_interp = build_bicubic_interpolator(logTs, logQs, first_slice)
+#     first_interp = build_bilinear_interpolator(logTs, logQs, first_slice)
     
 #     interpolators = [first_interp]
     
 #     for k in 2:num_vars 
 #         data_slice = reshape(view(eos_data_3D, k, :, :), (1, num_Ts, num_Qs))
-#         interp = build_bicubic_interpolator(logTs, logQs, data_slice)
+#         interp = build_bilinear_interpolator(logTs, logQs, data_slice)
 #         push!(interpolators, interp)
 #     end 
     
 #     return TρTableCollector(X_val, Z_val, interpolators, col_names)
 # end
+# The lines below are for bicubic interpolation
+    first_slice = reshape(view(eos_data_3D, 1, :, :), (1, num_Ts, num_Qs))
+    first_interp = build_bicubic_interpolator(logTs, logQs, first_slice)
+    
+    interpolators = [first_interp]
+    
+    for k in 2:num_vars 
+        data_slice = reshape(view(eos_data_3D, k, :, :), (1, num_Ts, num_Qs))
+        interp = build_bicubic_interpolator(logTs, logQs, data_slice)
+        push!(interpolators, interp)
+    end 
+    
+    return TρTableCollector(X_val, Z_val, interpolators, col_names)
+end
 """
     EOSTableCollector(directory,include_radiation)
 

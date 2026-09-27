@@ -171,6 +171,18 @@ end
     valmixed_dual = (dm_p1 * val00 + dm_00 * valp1) / (dm_00 + dm_p1)
     update_dual_data_mixed_p1!(mixed_prop, valmixed_dual)
 end
+@inline function eval_mixed_p1_property_log_surface!(prop_00, prop_p1, dm_00, dm_p1, mixed_prop)
+    val00 = get_00_dual(prop_00)
+    valp1 = get_p1_dual(prop_p1)
+    valmixed_dual = exp((dm_p1 * log(val00) + 1/2 * dm_00 * log(valp1)) / (1/2 * dm_00 + dm_p1))
+    update_dual_data_mixed_p1!(mixed_prop, valmixed_dual)
+end
+@inline function eval_mixed_p1_property_surface!(prop_00, prop_p1, dm_00, dm_p1, mixed_prop)
+    val00 = get_00_dual(prop_00)
+    valp1 = get_p1_dual(prop_p1)
+    valmixed_dual = (dm_p1 * val00 + 1/2 * dm_00 * valp1) / (1/2 * dm_00 + dm_p1)
+    update_dual_data_mixed_p1!(mixed_prop, valmixed_dual)
+end
 
 @generated function update_struct_dual_data_local(obj::T1,obj_dual::T2) where{T1,T2}
     names = fieldnames(T1)
