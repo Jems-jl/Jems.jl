@@ -21,7 +21,7 @@ density-temperature parameter space (`logQ` and `logT`) for a specific chemical 
 struct TρTableCollector <: AbstractEOS
     X :: Float64 
     Z :: Float64
-    interpolator :: Vector{BicubicInterpolation}
+    interpolator :: Vector{BilinearInterpolation}
     col_names :: Vector{String}
 end 
 
@@ -199,33 +199,33 @@ function TρTableCollector(filepath :: String)
     
     # 4. BUILD CONCRETE BIlinear INTERPOLATORS (Using zero-allocation views)
 
-#     first_slice = reshape(view(eos_data_3D, 1, :, :), (1, num_Ts, num_Qs))
-#     first_interp = build_bilinear_interpolator(logTs, logQs, first_slice)
-    
-#     interpolators = [first_interp]
-    
-#     for k in 2:num_vars 
-#         data_slice = reshape(view(eos_data_3D, k, :, :), (1, num_Ts, num_Qs))
-#         interp = build_bilinear_interpolator(logTs, logQs, data_slice)
-#         push!(interpolators, interp)
-#     end 
-    
-#     return TρTableCollector(X_val, Z_val, interpolators, col_names)
-# end
-# The lines below are for bicubic interpolation
     first_slice = reshape(view(eos_data_3D, 1, :, :), (1, num_Ts, num_Qs))
-    first_interp = build_bicubic_interpolator(logTs, logQs, first_slice)
+    first_interp = build_bilinear_interpolator(logTs, logQs, first_slice)
     
     interpolators = [first_interp]
     
     for k in 2:num_vars 
         data_slice = reshape(view(eos_data_3D, k, :, :), (1, num_Ts, num_Qs))
-        interp = build_bicubic_interpolator(logTs, logQs, data_slice)
+        interp = build_bilinear_interpolator(logTs, logQs, data_slice)
         push!(interpolators, interp)
     end 
     
     return TρTableCollector(X_val, Z_val, interpolators, col_names)
 end
+# The lines below are for bicubic interpolation
+#     first_slice = reshape(view(eos_data_3D, 1, :, :), (1, num_Ts, num_Qs))
+#     first_interp = build_bicubic_interpolator(logTs, logQs, first_slice)
+    
+#     interpolators = [first_interp]
+    
+#     for k in 2:num_vars 
+#         data_slice = reshape(view(eos_data_3D, k, :, :), (1, num_Ts, num_Qs))
+#         interp = build_bicubic_interpolator(logTs, logQs, data_slice)
+#         push!(interpolators, interp)
+#     end 
+    
+#     return TρTableCollector(X_val, Z_val, interpolators, col_names)
+# end
 """
     EOSTableCollector(directory,include_radiation)
 
@@ -314,17 +314,17 @@ function set_EOS_resultsTρ!(eos::EOSTableCollector, r::EOSResults{TT}, lnT::TT,
 
     
     iH1  = findfirst(==(:H1), species)
-    iH2  = findfirst(==(:H2), species)
+    iD2  = findfirst(==(:D2), species)
     iHe3 = findfirst(==(:He3), species)
     iHe4 = findfirst(==(:He4), species)
     
     val_H1  = isnothing(iH1)  ? zero(TT) : xa[iH1]
-    val_H2  = isnothing(iH2)  ? zero(TT) : xa[iH2]
+    val_D2  = isnothing(iD2)  ? zero(TT) : xa[iD2]
     val_He3 = isnothing(iHe3) ? zero(TT) : xa[iHe3]
     val_He4 = isnothing(iHe4) ? zero(TT) : xa[iHe4]
    
     
-    X_val = val_H1 + val_H2
+    X_val = val_H1 + val_D2
     Y_val = val_He3 + val_He4
     Z_val = 1.0 - X_val - Y_val
 

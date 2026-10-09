@@ -12,6 +12,7 @@ using Jems.Plotting
 using Jems.Interpolations
 include("TDC_StellarModels2.jl")
 include("TDC_InitialCondition.jl")
+
 ##
 # Get MESA data if not available
 if !isdir("MESA_data")
@@ -48,18 +49,24 @@ if !isdir("MESA_data")
 end
 ##
 EXCESS_FACTOR[] = 1e-8
-α_w_FACTOR[] = 0.25
-α_Λ_FACTOR[] = 1.0
+α_w_FACTOR[] = 0.15
+α_Λ_FACTOR[] = 2.0
 
 ##
-net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
-# net = merge_nuclear_networks([NuclearNetworks.networks[:JINA_PPI],
-#                             NuclearNetworks.networks[:JINA_PPII],
-#                             NuclearNetworks.networks[:JINA_CNOI],
-#                             NuclearNetworks.networks[:JINA_CNOII],])
+# net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+net = merge_nuclear_networks([NuclearNetworks.networks[:JINA_PPI],
+                            NuclearNetworks.networks[:JINA_PPII],
+                            NuclearNetworks.networks[:JINA_CNOI],
+                            NuclearNetworks.networks[:JINA_CNOII],])
 nz = 1000
 nextra = 100
 #eos = EOS.IdealEOS(true)
+# eos_table = EOSTableCollector(
+#     "MESA_data/eosFreeEOS_data";
+#     include_radiation = true,
+#     interpolation = :bilinear,  # or :bilinear
+#     bounds = :extrapolate,
+# )
 eos_table = EOSTableCollector("MESA_data/eosFreeEOS_data", include_radiation = true)
 #println("Memory used: $(Base.summarysize(eos_table) / 1024^3) GB")
 low_T_collection = OpacityTableCollector("MESA_data/kap_data", "lowT_fa05_gs98") 
@@ -409,15 +416,14 @@ function gammaTurb_arcsin_res(sm::StellarModel, k::Int)
     turb_dissipation_term +
     rad_dissipation_term -
     source_term -
-    excess_term - mixing_term
+    excess_term
 
     term_scale =
     abs(omega_var_term) +
     abs(turb_dissipation_term) +
     abs(rad_dissipation_term) +
     abs(source_term) +
-    abs(excess_term) + 
-    abs(mixing_term)
+    abs(excess_term)
 
     relative_residual = abs(R5) / term_scale
     relative_residual =
@@ -470,32 +476,33 @@ open("example_options.toml", "w") do file
     write(file,
           """
           [remesh]
-          do_remesh = false
+          do_remesh = true
           [solver]
           newton_max_iter_first_step = 5000
           initial_model_scale_max_correction = 0.2
-          newton_max_iter = 50
-          scale_max_correction = 1.0
+          newton_max_iter = 100
+          scale_max_correction = 0.1
           solver_progress_iter = 1
           relative_correction_tolerance= 1e14
           maximum_residual_tolerance = 1e-2
           use_preconditioning = true
           report_solver_progress = true
+          report_retries = true
           [timestep]
           dt_max_increase = 1.5
+    
           delta_R_limit = 0.01
           delta_Tc_limit = 0.01
           delta_Xc_limit = 0.005
-
           [termination]
           max_model_number = 20000
           max_center_T = 1e12
-          min_center_H1 = 0.5
+          min_center_H1 = 1e-5
 
           [io]
-          profile_interval = 20
-          hdf5_history_filename = "history_models_5MSUN_woking.hdf5"
-          hdf5_profile_filename = "profiles_models_5MSUN_working.hdf5"
+          profile_interval = 2
+          hdf5_history_filename = "/Users/rdbnath/Documents/Active_Research/JEMS/Jems_histories/history_5MSUN_Jina_tdc_implicit_mass_frac_corr.hdf5"
+          hdf5_profile_filename = "/Users/rdbnath/Documents/Active_Research/JEMS/Jems_profiles/profiles_5MSUN_Jina_td_implicit_mass_frac_corr.hdf5"
           terminal_header_interval = 100
           terminal_info_interval = 100
           profile_values = ["zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity", "X", "Y","D_face", "nablaa_face", "nablar_face","nabla_face", "gamma_turb_energy", "D_turb_kuff", "nabla_face_k", "kappa", "v_turb", "omega_var_term", "turb_dissipation_term", "rad_dissipation_term", "source_term", "excess_term", "rel_res"]
@@ -530,14 +537,24 @@ plotter = Plotting.NullPlotter()
 n = 1.5
 # StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
 #                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
-Z = 0.0142 *2
+Z = 0.0142
 Y = 0.249 + 1.67 * Z
 X = 1 - Y - Z
 tdc_initial_condition!(n, sm, nz, X, Z, 0.0, Chem.abundance_lists[:ASG_09], 
-                                        5.0 * MSUN, 80 *  RSUN; initial_dt=0.000001 * SECYEAR)
+                                        5.0 * MSUN, 80 *  RSUN; initial_dt=0.001 * SECYEAR)
 
-##         
-@time Evolution.do_evolution_loop!(sm, plotter=plotter); 
+## 
+# output_dir = "/Users/rdbnath/Documents/Active_Research/JEMS/Jems_logs"
+# log_path = joinpath(output_dir, "log_5MSUN_Jina_tdc_lowalphaw.log")
+
+# open(log_path, "w") do log_io
+#     redirect_stdio(stdout=log_io, stderr=log_io) do
+#         # Put your existing evolution call here.
+#         # For example:
+#         @time Evolution.do_evolution_loop!(sm; plotter=plotter);
+#     end
+# end
+ @time Evolution.do_evolution_loop!(sm, plotter=plotter); 
 
 
 ##
@@ -648,197 +665,12 @@ plotter = Plotting.Plotter(fig=f,plots=plots)
 )
 
 ##
-using Printf
+using CairoMakie
+profile = StellarModels.get_profile_dataframe_from_hdf5("/Users/rdbnath/Documents/Active_Research/JEMS/Jems_profiles/profiles_5MSUN_Jina_td_implicit.hdf5", "0000002500")
 
-function check_tdc_jacobian(
-    sm;
-    zones = [89],
-    equations = [2],
-    variables = [:lnρ, :lnT, :lnr, :lum, :gamma_turb],
-    steps = (1e-4, 1e-5, 1e-6),
-)
-    @assert sm.props !== sm.start_step_props
-    @assert sm.props.nz == sm.start_step_props.nz
-    @assert sm.props.dt > 0
-
-    nz, nv = sm.props.nz, sm.nvars
-    n = nz * nv
-
-    @assert all(k -> 1 <= k <= nz, zones)
-    @assert all(eq -> 1 <= eq <= nv, equations)
-    @assert all(s -> s > 0, steps)
-
-    x = @view sm.props.ind_vars[1:n]
-    saved_x = copy(x)
-    results = NamedTuple[]
-
-    function evaluate!()
-        Jems.StellarModels.evaluate_stellar_model_properties!(
-            sm, sm.props
-        )
-        Jems.Evolution.eval_jacobian_eqs!(sm)
-        return nothing
-    end
-
-    try
-        evaluate!()
-
-        # Preserve the Jacobian before perturbing anything.
-        baseline = Dict(
-            k => (
-                L = copy(sm.solver_data.jacobian_L[k]),
-                D = copy(sm.solver_data.jacobian_D[k]),
-                U = copy(sm.solver_data.jacobian_U[k]),
-            )
-            for k in zones
-        )
-
-        f0 = copy(@view sm.solver_data.eqs_numbers[1:n])
-
-        for k in zones
-            @printf(
-                "\nEquation zone %d: m/M=%.8e\n",
-                k, sm.props.m[k] / sm.props.m[nz],
-            )
-
-            for eq in equations
-                @printf(
-                    "Baseline F[%d,%d] = % .12e\n",
-                    k, eq, f0[(k - 1) * nv + eq],
-                )
-            end
-
-            for cell in max(1, k - 1):min(nz, k + 1)
-                block = cell < k ? baseline[k].L :
-                        cell > k ? baseline[k].U :
-                                   baseline[k].D
-
-                for variable in variables
-                    j = sm.vari[variable]
-                    index = (cell - 1) * nv + j
-                    x0 = saved_x[index]
-
-                    # Log variables use absolute log increments.
-                    # Luminosity is scaled to its local magnitude.
-                    scale = variable == :lum ?
-                            max(abs(x0), 1e-8) : 1.0
-
-                    for step in steps
-                        h = step * scale
-
-                        # Stay on the same side of gamma=0.
-                        # Relative gamma increments also separate
-                        # the three tests when gamma is very small.
-                        if variable == :gamma_turb
-                            if x0 == 0
-                                println(
-                                    "Skipping gamma at cell ", cell,
-                                    ": derivative at zero may be nonsmooth.",
-                                )
-                                break
-                            end
-
-                            h = min(
-                                step * min(abs(x0), 1.0),
-                                0.1 * abs(x0),
-                            )
-                        end
-
-                        xp, xm = x0 + h, x0 - h
-                        if !(xm < x0 < xp)
-                            println(
-                                "Skipping unrepresentable step: cell=",
-                                cell, " variable=", variable, " h=", h,
-                            )
-                            continue
-                        end
-
-                        copyto!(x, saved_x)
-                        x[index] = xp
-                        evaluate!()
-                        fp = [
-                            sm.solver_data.eqs_numbers[
-                                (k - 1) * nv + eq
-                            ]
-                            for eq in equations
-                        ]
-
-                        copyto!(x, saved_x)
-                        x[index] = xm
-                        evaluate!()
-                        fm = [
-                            sm.solver_data.eqs_numbers[
-                                (k - 1) * nv + eq
-                            ]
-                            for eq in equations
-                        ]
-
-                        for (a, eq) in enumerate(equations)
-                            fbase = f0[(k - 1) * nv + eq]
-                            ad = block[eq, j]
-                            fd = (fp[a] - fm[a]) / (xp - xm)
-
-                            forward = (fp[a] - fbase) / (xp - x0)
-                            backward = (fbase - fm[a]) / (x0 - xm)
-
-                            absolute_error = abs(ad - fd)
-                            relative_error = absolute_error /
-                                max(abs(ad), abs(fd), 1e-30)
-
-                            push!(results, (
-                                zone = k,
-                                equation = eq,
-                                cell = cell,
-                                variable = variable,
-                                h = h,
-                                AD = ad,
-                                FD = fd,
-                                forward = forward,
-                                backward = backward,
-                                abs_error = absolute_error,
-                                rel_error = relative_error,
-                            ))
-
-                            @printf(
-                                "eq=%d cell=%d %-10s h=%.3e AD=% .8e FD=% .8e rel=%.3e FD+=% .8e FD-=% .8e\n",
-                                eq, cell, string(variable), h,
-                                ad, fd, relative_error,
-                                forward, backward,
-                            )
-                        end
-                    end
-                end
-            end
-        end
-    finally
-        copyto!(x, saved_x)
-        evaluate!()
-    end
-
-    return results
-end
-
-
-
-checks_gamma = check_tdc_jacobian(
-    sm_run;
-    zones = [89],
-    equations = [5],
-)
-##
-iz = 1014
-idx = (iz-1)*sm.nvars + 5
-
-γ_before = get_value(sm.props.gamma_turb[iz])
-Δγ_raw = sm.solver_data.solver_corr[idx]
-Δγ_applied = correction_multiplier * Δγ_raw
-
-println(
-    "iter=$i",
-    " gamma=$γ_before",
-    " signgamma=$(sign(γ_before))",
-    " smooth_deriv=$(γ_before / sqrt(γ_before^2 + 1e-16))",
-    " raw_dgamma=$Δγ_raw",
-    " applied_dgamma=$Δγ_applied",
-    " predicted_gamma=$(γ_before + Δγ_applied)"
-)
+fig = Figure(size = (900, 700))
+    ax = Axis(fig[1, 1], xlabel = "zone",
+              ylabel = L"Y", title = "profile")
+scatter!(ax, profile[:, "Y"])
+scatter!(ax, log10.(profile[:, "D_turb_kuff"]))
+fig

@@ -46,7 +46,7 @@ if !isdir("MESA_data")
 end
 ##
 net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
-nz = 2000
+nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(true)
 eos_table = EOSTableCollector("MESA_data/eosFreeEOS_data", include_radiation = true)

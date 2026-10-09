@@ -210,16 +210,16 @@ function get_opacity_resultsTρ(collection::OpacityTableCollector, lnT::TT, lnρ
     
     # Evaluate composition 
     iH1  = findfirst(==(:H1), species)
-    iH2  = findfirst(==(:H2), species)
+    iD2  = findfirst(==(:D2), species)
     iHe3 = findfirst(==(:He3), species)
     iHe4 = findfirst(==(:He4), species)
     
     val_H1  = isnothing(iH1)  ? zero(TT) : xa[iH1]
-    val_H2  = isnothing(iH2)  ? zero(TT) : xa[iH2]
+    val_D2  = isnothing(iD2)  ? zero(TT) : xa[iD2]
     val_He3 = isnothing(iHe3) ? zero(TT) : xa[iHe3]
     val_He4 = isnothing(iHe4) ? zero(TT) : xa[iHe4]
    
-    X_val = val_H1 + val_H2
+    X_val = val_H1 + val_D2
     Y_val = val_He3 + val_He4 
     Z_val = 1.0 - X_val - Y_val
     
