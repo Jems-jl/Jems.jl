@@ -1,3 +1,4 @@
+using Revise
 using BenchmarkTools
 using Jems.Chem
 using Jems.Constants
@@ -45,8 +46,12 @@ if !isdir("MESA_data")
     cd("../")
 end
 ##
-net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
-nz = 2000
+# net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+net = merge_nuclear_networks([NuclearNetworks.networks[:JINA_PPI],
+                            NuclearNetworks.networks[:JINA_PPII],
+                            NuclearNetworks.networks[:JINA_CNOI],
+                            NuclearNetworks.networks[:JINA_CNOII],])
+nz = 1000
 nextra = 100
 eos = EOS.IdealEOS(true)
 eos_table = EOSTableCollector("MESA_data/eosFreeEOS_data", include_radiation = true)
@@ -54,6 +59,7 @@ low_T_collection = OpacityTableCollector("MESA_data/kap_data", "lowT_fa05_gs98")
 high_T_collection = OpacityTableCollector("MESA_data/kap_data","oplib_agss09" ) 
 opacity = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2)
 turbulence = Turbulence.BasicMLT(2.0)
+##
 sm = StellarModel(StellarModels.DefaultStellarEquationSet(), nz, nextra, net, eos_table, opacity, turbulence);
 ##
 n = 1.5
@@ -102,7 +108,7 @@ open("example_options.toml", "w") do file
           newton_max_iter = 20
           scale_max_correction = 0.1
           solver_progress_iter = 1
-          relative_correction_tolerance = 1e12
+          relative_correction_tolerance = 1e14
           maximum_residual_tolerance = 1e-2
           use_preconditioning = true
 
@@ -114,10 +120,10 @@ open("example_options.toml", "w") do file
 
           [termination]
           max_model_number = 20000
-          max_center_T = 1e8
+          max_center_T = 1e100
 
           [io]
-          profile_interval = 1
+          profile_interval = 100
           terminal_header_interval = 100
           terminal_info_interval = 100
           profile_values = ["zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity",
@@ -147,9 +153,9 @@ plotter = Plotting.Plotter(fig=f,plots=plots)
 #set initial condition and run model
 n = 1.5
 # StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-#                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+                                            # 1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 StellarModels.adiabatic_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+                                            1 * MSUN, 70 * RSUN; initial_dt=0.01 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm, plotter=plotter);
  
 ##

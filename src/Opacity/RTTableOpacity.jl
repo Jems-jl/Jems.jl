@@ -210,7 +210,7 @@ function get_opacity_resultsTρ(collection::OpacityTableCollector, lnT::TT, lnρ
     
     # Evaluate composition 
     iH1  = findfirst(==(:H1), species)
-    iH2  = findfirst(==(:H2), species)
+    iH2  = findfirst(==(:D2), species)
     iHe3 = findfirst(==(:He3), species)
     iHe4 = findfirst(==(:He4), species)
     
