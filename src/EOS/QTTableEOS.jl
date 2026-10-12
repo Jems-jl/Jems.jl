@@ -241,7 +241,7 @@ function set_EOS_resultsTρ!(eos::EOSTableCollector, r::EOSResults{TT}, lnT::TT,
 
     
     iH1  = findfirst(==(:H1), species)
-    iH2  = findfirst(==(:H2), species)
+    iH2  = findfirst(==(:D2), species)
     iHe3 = findfirst(==(:He3), species)
     iHe4 = findfirst(==(:He4), species)
     
