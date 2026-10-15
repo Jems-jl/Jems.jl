@@ -212,15 +212,17 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
     # taking a min
     flux_limiter = sm.opt.physics.flux_limiter*one(X00)
     if k != sm.props.nz 
+        dmface = 0.5*(sm.props.dm[k] + sm.props.dm[k+1])
         Xp1 = get_p1_dual(sm.props.xa[k+1, sm.network.xa_index[iso_name]])
         flux_term_up = get_00_dual(sm.props.flux_term[k])
-        flux_term_up = min(flux_limiter*sm.props.dm[k]/sm.props.dt, flux_term_up)
+        flux_term_up = min(flux_limiter*dmface/sm.props.dt, flux_term_up)
         flux_up = flux_term_up*(Xp1-X00)
     end
     if k != 1
+        dmface = 0.5*(sm.props.dm[k] + sm.props.dm[k-1])
         Xm1 = get_m1_dual(sm.props.xa[k-1, sm.network.xa_index[iso_name]])
         flux_term_down = get_m1_dual(sm.props.flux_term[k-1])
-        flux_term_down = min(flux_limiter*sm.props.dm[k]/sm.props.dt, flux_term_down)
+        flux_term_down = min(flux_limiter*dmface/sm.props.dt, flux_term_down)
         flux_down = flux_term_down*(X00-Xm1)
     end
     dXdt_mix =  (flux_up - flux_down)/(sm.props.dm[k])
