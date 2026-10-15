@@ -211,14 +211,23 @@ function equation_composition(sm::StellarModel, k::Int, iso_name::Symbol)
     # maybe good to experiment with a soft flux limiter that is continuous rather than
     # taking a min
     flux_limiter = sm.opt.physics.flux_limiter*one(X00)
+<<<<<<< HEAD
     if k != sm.props.nz
+=======
+    if k != sm.props.nz 
+>>>>>>> befa157 (changes in flux limiter)
         dmface = 0.5*(sm.props.dm[k] + sm.props.dm[k+1])
         Xp1 = get_p1_dual(sm.props.xa[k+1, sm.network.xa_index[iso_name]])
         flux_term_up = get_00_dual(sm.props.flux_term[k])
         flux_term_up = min(flux_limiter*dmface/sm.props.dt, flux_term_up)
         flux_up = flux_term_up*(Xp1-X00)
+<<<<<<< HEAD
      end
      if k != 1
+=======
+    end
+    if k != 1
+>>>>>>> befa157 (changes in flux limiter)
         dmface = 0.5*(sm.props.dm[k] + sm.props.dm[k-1])
         Xm1 = get_m1_dual(sm.props.xa[k-1, sm.network.xa_index[iso_name]])
         flux_term_down = get_m1_dual(sm.props.flux_term[k-1])
