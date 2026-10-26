@@ -54,10 +54,14 @@ EXCESS_FACTOR[] = 1e-8
 
 ##
 # net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
-net = merge_nuclear_networks([NuclearNetworks.networks[:JINA_PPI],
-                            NuclearNetworks.networks[:JINA_PPII],
-                            NuclearNetworks.networks[:JINA_CNOI],
-                            NuclearNetworks.networks[:JINA_CNOII],])
+net = merge_nuclear_networks([
+    NuclearNetworks.networks[:basic_He_burn], 
+    NuclearNetworks.networks[:JINA_PPI],
+    NuclearNetworks.networks[:JINA_PPII],
+    NuclearNetworks.networks[:JINA_PPIII],
+    NuclearNetworks.networks[:JINA_CNOI],
+    NuclearNetworks.networks[:JINA_CNOII],
+    ])
 nz = 1000
 nextra = 100
 #eos = EOS.IdealEOS(true)

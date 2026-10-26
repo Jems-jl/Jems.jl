@@ -1,3 +1,4 @@
+using Revise
 using BenchmarkTools
 using Jems.Chem
 using Jems.Constants
@@ -54,6 +55,7 @@ low_T_collection = OpacityTableCollector("MESA_data/kap_data", "lowT_fa05_gs98")
 high_T_collection = OpacityTableCollector("MESA_data/kap_data","oplib_agss09" ) 
 opacity = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2)
 turbulence = Turbulence.BasicMLT(2.0)
+##
 sm = StellarModel(StellarModels.DefaultStellarEquationSet(), nz, nextra, net, eos_table, opacity, turbulence);
 ##
 n = 1.5
@@ -147,9 +149,9 @@ plotter = Plotting.Plotter(fig=f,plots=plots)
 #set initial condition and run model
 n = 1.5
 # StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-#                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+                                            # 1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 StellarModels.adiabatic_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+                                            1 * MSUN, 100 * RSUN; initial_dt=0.01 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm, plotter=plotter);
  
 ##

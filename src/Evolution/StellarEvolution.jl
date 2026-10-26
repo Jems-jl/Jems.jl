@@ -21,6 +21,11 @@ function get_dt_next(sm::StellarModel)
     Xold = get_value(sm.prv_step_props.xa[1, sm.network.xa_index[:H1]])
     ΔX = abs(X - Xold)
 
+    #Avoiding division by zero 
+    ΔR_div_R_safe = max(ΔR_div_R, eps(Float64))
+    ΔTc_div_Tc_safe = max(ΔTc_div_Tc, eps(Float64))
+    ΔX_safe = max(ΔX, eps(Float64))
+
     dt_nextR = dt_next * sm.opt.timestep.delta_R_limit / ΔR_div_R
     dt_nextTc = dt_next * sm.opt.timestep.delta_Tc_limit / ΔTc_div_Tc
     dt_nextX = dt_next * sm.opt.timestep.delta_Xc_limit / ΔX
@@ -52,364 +57,6 @@ end
 """
 Stellar evolution loop for basic mlt 
 """
-function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullPlotter(),
-                                max_retries_in_a_row = 10) where{TPLOTTER<:AbstractPlotter}
-    # before loop actions
-    TNUMBER = eltype(sm.props.ind_vars)  # determine type of numbers
-    StellarModels.create_output_files!(sm, TNUMBER)
-    compute_starting_model_properties!(sm)
-    retry_count = 0
-
-    # evolution loop, be sure to have sensible termination conditions or this will go on forever!
-    while true
-        StellarModels.cycle_props!(sm)  # move props of previous step to prv_step_props of current step
-
-        # either remesh, or copy over from prv_step_props
-        if sm.opt.remesh.do_remesh
-            StellarModels.remesher!(sm)
-        else
-            StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props)
-        end
-        # time derivatives in the equations use the remeshed info, so
-        # save start_step_props before we attempt any newton solver
-        StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
-        StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
-        sm.start_step_props.dt = sm.prv_step_props.dt_next  # dt of this step becomes dt_next of previous
-
-        # step loop
-        sm.solver_data.newton_iters = 0
-        max_steps = sm.opt.solver.newton_max_iter
-        if (sm.start_step_props.model_number == 0)
-            max_steps = sm.opt.solver.newton_max_iter_first_step
-        end
-
-        exit_evolution = false
-        retry_step = false
-        StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
-        StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
-
-        corr = @view sm.solver_data.solver_corr[1:sm.nvars*sm.props.nz]
-        equs = @view sm.solver_data.eqs_numbers[1:sm.nvars*sm.props.nz]
-
-        # evaluate the equations for the first step
-        StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
-        eval_jacobian_eqs!(sm)  # heavy lifting happens here!
-        for i = 1:max_steps
-            block_tridiagonal_solver!(sm, sm.solver_data)  # here as well
-
-            (abs_max_corr, i_corr) = findmax(abs, corr)
-            signed_max_corr = corr[i_corr]
-            corr_nz = i_corr÷sm.nvars + 1
-            corr_equ = i_corr%sm.nvars
-            rel_corr = abs_max_corr/eps(sm.props.ind_vars[i_corr])
-
-            # scale correction
-            if sm.props.model_number == 0
-                correction_limit = sm.opt.solver.initial_model_scale_max_correction
-            else
-                correction_limit = sm.opt.solver.scale_max_correction
-            end
-            correction_multiplier = 1.0
-            for j in 1:sm.nvars
-                sub_corr = @view sm.solver_data.solver_corr[j:sm.nvars:(sm.nvars*(sm.props.nz-1)+j)]
-                max_sub_corr = maximum(abs, sub_corr)
-                if sm.var_scaling[j] == :log || sm.var_scaling[j] == :unity
-                    correction_multiplier = min(correction_multiplier,
-                                                    correction_limit/max_sub_corr)
-                elseif sm.var_scaling[j] == :maxval
-                    sub_ind_vars = @view sm.props.ind_vars[j:sm.nvars:(sm.nvars*(sm.props.nz-1)+j)]
-                    max_var_value = maximum(abs, sub_ind_vars)
-                    correction_multiplier = min(correction_multiplier,
-                                                    max_var_value*correction_limit/max_sub_corr)
-                end
-            end
-
-            if correction_multiplier < 1.0
-                corr .*= correction_multiplier
-            end
-
-            # apply correction!
-            sm.props.ind_vars[1:sm.nvars*sm.props.nz] .+= corr[1:sm.nvars*sm.props.nz]
-            sm.solver_data.newton_iters = i
-
-            # evaluate the equations after correction and get residuals
-            try
-                StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
-                eval_jacobian_eqs!(sm)  # heavy lifting happens here!
-
-                (max_res, i_res) = findmax(abs, equs)
-                res_nz = i_res÷sm.nvars + 1
-                res_equ = i_res%sm.nvars
-
-                #reporting
-                if sm.opt.solver.report_solver_progress &&
-                    i % sm.opt.solver.solver_progress_iter == 0
-                    @show sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ
-                end
-                #check if tolerances are satisfied
-                if rel_corr < sm.opt.solver.relative_correction_tolerance &&
-                        max_res < sm.opt.solver.maximum_residual_tolerance
-                    if sm.props.model_number == 0
-                        println("Found first model")
-                    end
-                    break  # successful, break the step loop
-                end
-            catch e
-                if isa(e, InterruptException)
-                    throw(e)
-                end
-                println("Error while evaluating equations")
-                showerror(stdout, e)
-                retry_step = true
-            end
-            #if not, determine if we give up or retry
-            if i == max_steps
-                if retry_count > max_retries_in_a_row
-                    exit_evolution = true
-                    println("Too many retries, ending simulation")
-                else
-                    retry_count = retry_count + 1
-                    retry_step = true
-                    if sm.opt.solver.report_retries
-                        println("Failed to converge step $(sm.props.model_number) with timestep $(sm.props.dt/SECYEAR), retrying")
-                    end
-                end
-            end
-        end
-
-        if retry_step
-            StellarModels.uncycle_props!(sm)  # reset props to what prv_step_props contains, ie mimic state at end of previous step
-            sm.props.dt_next *= sm.opt.timestep.dt_retry_decrease # adapt dt
-            continue  # go back to top of evolution loop
-        end
-
-        if (exit_evolution)
-            println("Terminating evolution")
-            break
-        end
-
-        # step must be successful at this point
-        retry_count = 0
-
-        # increment age and model number since we accept the step.
-        sm.props.time += sm.props.dt
-        sm.props.model_number += 1
-
-        # write state in sm.props and potential history/profiles.
-        StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
-        StellarModels.write_data(sm, TNUMBER)
-        StellarModels.write_terminal_info(sm)
-
-        update_plotter!(plotter, sm)
-
-        # check termination conditions
-        if (sm.props.model_number > sm.opt.termination.max_model_number)
-            StellarModels.write_terminal_info(sm; now=true)
-            println("Reached maximum model number")
-            break
-        end
-        if (exp(get_value(sm.props.lnT[1])) > sm.opt.termination.max_center_T)
-            StellarModels.write_terminal_info(sm; now=true)
-            println("Reached maximum central temperature")
-            break
-        end
-
-        if (get_value(sm.props.xa[1, sm.network.xa_index[:H1]]) < sm.opt.termination.min_center_X)
-            StellarModels.write_terminal_info(sm; now=true)
-            println("Reached minimum central hydrogen abundance")
-            break
-        end
-
-        # get dt for coming step
-        sm.props.dt_next = get_dt_next(sm)
-    end
-    StellarModels.shut_down_IO!(sm)
-
-    return
-end
-
-"""
-Stellar evolution loop for step overshooting 
-"""
-# @inline function build_step_overshoot!(
-#     props;
-#     alpha_ov,
-#     f0 = 0.005
-# )
-
-#     fill!(props.D_overshoot, 0.0)
-
-#     nzf = props.nz - 1
-#     nzf < 3 && return
-
-#     # ============================================================
-#     # 1. Find formal Schwarzschild boundary
-#     # ============================================================
-
-#     discriminant(i) = get_value(props.turb_res[i].∇ᵣ) - get_value(props.∇ₐ_face[i])
-#     # Convective core must begin at centre.
-#     d_prev = discriminant(1)
-#     if !isfinite(d_prev) || d_prev <= 0
-#         return
-#     end
-
-#     i_rad = nothing
-#     for i in 2:nzf
-#         d = discriminant(i)
-#         isfinite(d) || return
-#         if d <= 0
-#             i_rad = i
-#             break
-#         end
-#         d_prev = d
-#     end
-#     isnothing(i_rad) && return
-
-#     i_conv = i_rad - 1
-
-#     d_conv = discriminant(i_conv)
-#     d_rad  = discriminant(i_rad)
-
-#     # Fraction between convective and radiative face where
-#     # nabla_rad - nabla_ad = 0.
-#     w_b = d_conv / (d_conv - d_rad)
-#     if !isfinite(w_b) || !(0.0 <= w_b <= 1.0)
-#         return
-#     end
-#     # ============================================================
-#     # 2. Interpolate physical quantities to Schwarzschild boundary
-#     # ============================================================
-
-#     logr_conv = get_value(props.lnr[i_conv])
-#     logr_rad  = get_value(props.lnr[i_rad])
-
-#     logP_conv = get_value(props.lnP_face[i_conv])
-#     logP_rad  = get_value(props.lnP_face[i_rad])
-
-#     logρ_conv = get_value(props.lnρ_face[i_conv])
-#     logρ_rad  = get_value(props.lnρ_face[i_rad])
-
-#     m_conv = props.m[i_conv]
-#     m_rad  = props.m[i_rad]
-
-#     logr_b = logr_conv + w_b * (logr_rad - logr_conv)
-#     logP_b = logP_conv + w_b * (logP_rad - logP_conv)
-#     logρ_b = logρ_conv + w_b * (logρ_rad - logρ_conv)
-#     m_b    = m_conv    + w_b * (m_rad - m_conv)
-
-#     r_b = exp(logr_b)
-#     P_b = exp(logP_b)
-#     ρ_b = exp(logρ_b)
-
-#     if !all(isfinite, (r_b, P_b, ρ_b, m_b)) ||
-#        r_b <= 0 || P_b <= 0 || ρ_b <= 0 || m_b <= 0
-#         return
-#     end
-
-#     # ============================================================
-#     # 3. Hp at formal convective boundary
-#     # ============================================================
-
-#     g_b = CGRAV * m_b / r_b^2
-#     Hp_b = P_b / (ρ_b * g_b)
-
-#     if !isfinite(Hp_b) || Hp_b <= 0
-#         return
-#     end
-#     # Geometric limiter
-#     H_eff = min(Hp_b, r_b)
-
-#     # ============================================================
-#     # 4. MESA-style geometry
-#     #
-#     # r0: point f0 Hp inside the formal boundary
-#     #
-#     # f_total = alpha_ov + f0
-#     #
-#     # r_out = r0 + f_total Hp
-#     #
-#     # therefore:
-#     #
-#     # r_out - r_b = alpha_ov Hp
-#     # ============================================================
-
-#     f_total = alpha_ov + f0
-
-#     r0 = r_b - f0 * H_eff
-#     r_out = r0 + f_total * H_eff
-
-#     r0 = max(r0, 0.0)
-
-#     # ============================================================
-#     # 5 & 6. Find bracket and interpolate D_MLT at r0
-#     # ============================================================
-#     r_face_1 = exp(get_value(props.lnr[1]))
-#     D0 = 0.0
-
-#     if r0 <= r_face_1
-#         # r0 is inside the innermost cell. No interpolation needed, 
-#         # just use the innermost diffusion coefficient.
-#         D0 = get_value(props.D_turb[1])
-#     else
-#         i0 = nothing
-#         for i in 1:(i_conv)
-#             r_left  = exp(get_value(props.lnr[i]))
-#             r_right = exp(get_value(props.lnr[i+1]))
-
-#             if r_left <= r0 <= r_right
-#                 i0 = i
-#                 break
-#             end
-#         end
-
-#         isnothing(i0) && return
-
-#         r_left  = exp(get_value(props.lnr[i0]))
-#         r_right = exp(get_value(props.lnr[i0+1]))
-#         D_left  = get_value(props.D_turb[i0])
-#         D_right = get_value(props.D_turb[i0+1])
-
-#        if D_left > 0 && D_right > 0
-#             w0 = (r0 - r_left) / (r_right - r_left)
-#             D0 = exp(log(D_left) + w0 * (log(D_right) - log(D_left)))
-#         elseif D_left > 0
-#             D0 = D_left
-#         else
-#             return
-#         end
-#     end
-
-#     if !isfinite(D0) || D0 <= 0
-#         return
-#     end
-
-#     # ============================================================
-#     # 7. Apply the constant step FROM r0, not from rb
-#     # ============================================================
-
-#     for i in 1:nzf
-
-#         r_face = exp(get_value(props.lnr[i]))
-
-#         if r0 <= r_face <= r_out
-
-#             props.D_overshoot[i] = D0
-
-#         elseif r_face > r_out
-
-#             break
-
-#         end
-#     end
-
-#     return
-# end
-# """
-#     do_evolution_loop(sm::StellarModel)
-
-# Performs the main evolutionary loop of the input StellarModel `sm`. It continues taking steps until one of the
-# termination criteria is reached (defined in `sm.opt.termination`).
-# """
 # function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullPlotter(),
 #                                 max_retries_in_a_row = 10) where{TPLOTTER<:AbstractPlotter}
 #     # before loop actions
@@ -431,11 +78,9 @@ Stellar evolution loop for step overshooting
 #         # time derivatives in the equations use the remeshed info, so
 #         # save start_step_props before we attempt any newton solver
 #         StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
-#         fill!(sm.start_step_props.D_overshoot, 0.0)
+#         StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
 #         sm.start_step_props.dt = sm.prv_step_props.dt_next  # dt of this step becomes dt_next of previous
-#         StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
-#         build_step_overshoot!(sm.start_step_props; alpha_ov = 0.0, f0 = 0.0)
-#         StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
+
 #         # step loop
 #         sm.solver_data.newton_iters = 0
 #         max_steps = sm.opt.solver.newton_max_iter
@@ -537,15 +182,6 @@ Stellar evolution loop for step overshooting
 #             end
 #         end
 
-#         iH = sm.network.xa_index[:H1]
-
-#         Xc_new = get_value(sm.props.xa[1, iH])
-#         Xc_old = get_value(sm.start_step_props.xa[1, iH])
-#         delta_Xc = abs(Xc_new - Xc_old)
-
-#         if delta_Xc > sm.opt.timestep.delta_Xc_limit
-#             retry_step = true
-#         end
 #         if retry_step
 #             StellarModels.uncycle_props!(sm)  # reset props to what prv_step_props contains, ie mimic state at end of previous step
 #             sm.props.dt_next *= sm.opt.timestep.dt_retry_decrease # adapt dt
@@ -597,6 +233,431 @@ Stellar evolution loop for step overshooting
 #     return
 # end
 
+"""
+Stellar evolution loop for step overshooting 
+"""
+
+@inline function build_step_overshoot!(
+    props;
+    alpha_ov,
+    f0 = 0.005
+)
+
+    fill!(props.D_overshoot, 0.0)
+
+    nzf = props.nz - 1
+    nzf < 3 && return
+
+    # ============================================================
+    # 1. Find formal Schwarzschild boundary
+    # ============================================================
+
+    discriminant(i) = get_value(props.turb_res[i].∇ᵣ) - get_value(props.∇ₐ_face[i])
+    # Convective core must begin at centre.
+    d_prev = discriminant(1)
+    if !isfinite(d_prev) || d_prev <= 0
+        return
+    end
+
+    i_rad = nothing
+    for i in 2:nzf
+        d = discriminant(i)
+        isfinite(d) || return
+        if d <= 0
+            i_rad = i
+            break
+        end
+        d_prev = d
+    end
+    isnothing(i_rad) && return
+
+    i_conv = i_rad - 1
+
+    d_conv = discriminant(i_conv)
+    d_rad  = discriminant(i_rad)
+
+    # Fraction between convective and radiative face where
+    # nabla_rad - nabla_ad = 0.
+    w_b = d_conv / (d_conv - d_rad)
+    if !isfinite(w_b) || !(0.0 <= w_b <= 1.0)
+        return
+    end
+    # ============================================================
+    # 2. Interpolate physical quantities to Schwarzschild boundary
+    # ============================================================
+
+    logr_conv = get_value(props.lnr[i_conv])
+    logr_rad  = get_value(props.lnr[i_rad])
+
+    logP_conv = get_value(props.lnP_face[i_conv])
+    logP_rad  = get_value(props.lnP_face[i_rad])
+
+    logρ_conv = get_value(props.lnρ_face[i_conv])
+    logρ_rad  = get_value(props.lnρ_face[i_rad])
+
+    m_conv = props.m[i_conv]
+    m_rad  = props.m[i_rad]
+
+    logr_b = logr_conv + w_b * (logr_rad - logr_conv)
+    logP_b = logP_conv + w_b * (logP_rad - logP_conv)
+    logρ_b = logρ_conv + w_b * (logρ_rad - logρ_conv)
+    m_b    = m_conv    + w_b * (m_rad - m_conv)
+
+    r_b = exp(logr_b)
+    P_b = exp(logP_b)
+    ρ_b = exp(logρ_b)
+
+    if !all(isfinite, (r_b, P_b, ρ_b, m_b)) ||
+       r_b <= 0 || P_b <= 0 || ρ_b <= 0 || m_b <= 0
+        return
+    end
+
+    # ============================================================
+    # 3. Hp at formal convective boundary
+    # ============================================================
+
+    g_b = CGRAV * m_b / r_b^2
+    Hp_b = P_b / (ρ_b * g_b)
+
+    if !isfinite(Hp_b) || Hp_b <= 0
+        return
+    end
+    # Geometric limiter
+    H_eff = min(Hp_b, r_b)
+
+    # ============================================================
+    # 4. MESA-style geometry
+    #
+    # r0: point f0 Hp inside the formal boundary
+    #
+    # f_total = alpha_ov + f0
+    #
+    # r_out = r0 + f_total Hp
+    #
+    # therefore:
+    #
+    # r_out - r_b = alpha_ov Hp
+    # ============================================================
+
+    f_total = alpha_ov + f0
+
+    r0 = r_b - f0 * H_eff
+    r_out = r0 + f_total * H_eff
+
+    r0 = max(r0, 0.0)
+
+    # ============================================================
+    # 5 & 6. Find bracket and interpolate D_MLT at r0
+    # ============================================================
+    r_face_1 = exp(get_value(props.lnr[1]))
+    D0 = 0.0
+
+    if r0 <= r_face_1
+        # r0 is inside the innermost cell. No interpolation needed, 
+        # just use the innermost diffusion coefficient.
+        D0 = get_value(props.D_turb[1])
+    else
+        i0 = nothing
+        for i in 1:(i_conv)
+            r_left  = exp(get_value(props.lnr[i]))
+            r_right = exp(get_value(props.lnr[i+1]))
+
+            if r_left <= r0 <= r_right
+                i0 = i
+                break
+            end
+        end
+
+        isnothing(i0) && return
+
+        r_left  = exp(get_value(props.lnr[i0]))
+        r_right = exp(get_value(props.lnr[i0+1]))
+        D_left  = get_value(props.D_turb[i0])
+        D_right = get_value(props.D_turb[i0+1])
+
+       if D_left > 0 && D_right > 0
+            w0 = (r0 - r_left) / (r_right - r_left)
+            D0 = exp(log(D_left) + w0 * (log(D_right) - log(D_left)))
+        elseif D_left > 0
+            D0 = D_left
+        else
+            return
+        end
+    end
+
+    if !isfinite(D0) || D0 <= 0
+        return
+    end
+
+    # ============================================================
+    # 7. Apply the constant step FROM r0, not from rb
+    # ============================================================
+
+    for i in 1:nzf
+
+        r_face = exp(get_value(props.lnr[i]))
+
+        if r0 <= r_face <= r_out
+
+            props.D_overshoot[i] = D0
+
+        elseif r_face > r_out
+
+            break
+
+        end
+    end
+
+    number_of_overshoot_faces = 0
+
+    for i in 1:nzf
+        r_face = exp(get_value(props.lnr[i]))
+
+        if r0 <= r_face <= r_out
+            props.D_overshoot[i] = D0
+            number_of_overshoot_faces += 1
+        elseif r_face > r_out
+            break
+        end
+    end
+    return
+end
+
+@inline function find_convective_core_boundary_mass(props)
+
+    nzf = props.nz - 1
+    nzf < 2 && return 0.0
+    discriminant(i) = get_value(props.turb_res[i].∇ᵣ) - get_value(props.∇ₐ_face[i])
+    d_prev = discriminant(1)
+    if !isfinite(d_prev) || d_prev <= 0
+        return 0.0
+    end
+    # Find the first radiative face outside the central convection zone.
+    for i_rad in 2:nzf
+        d_rad = discriminant(i_rad)
+        # A nonfinite discriminant should not be interpreted as a boundary.
+        if !isfinite(d_rad)
+            return NaN
+        end
+        if d_rad <= 0
+            i_conv = i_rad - 1
+            d_conv = d_prev
+            denominator = d_conv - d_rad
+            if !isfinite(denominator) || denominator <= 0
+                return NaN
+            end
+            # Fractional position of the Schwarzschild boundary between
+            # the convective and radiative faces.
+            w_b = d_conv / denominator
+            if !isfinite(w_b) || !(0.0 <= w_b <= 1.0)
+                return NaN
+            end
+            m_conv = props.m[i_conv]
+            m_rad  = props.m[i_rad]
+            m_b = m_conv + w_b * (m_rad - m_conv)
+            return isfinite(m_b) ? m_b : NaN
+        end
+        d_prev = d_rad
+    end
+
+    # No radiative face was found: the model is convective throughout
+    # the available mass range.
+    return props.m[props.nz]
+end
+"""
+    do_evolution_loop(sm::StellarModel)
+
+Performs the main evolutionary loop of the input StellarModel `sm`. It continues taking steps until one of the
+termination criteria is reached (defined in `sm.opt.termination`).
+"""
+function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullPlotter(),
+                                max_retries_in_a_row = 10) where{TPLOTTER<:AbstractPlotter}
+    # before loop actions
+    TNUMBER = eltype(sm.props.ind_vars)  # determine type of numbers
+    StellarModels.create_output_files!(sm, TNUMBER)
+    compute_starting_model_properties!(sm)
+    retry_count = 0
+
+    # evolution loop, be sure to have sensible termination conditions or this will go on forever!
+    while true
+        StellarModels.cycle_props!(sm)  # move props of previous step to prv_step_props of current step
+
+        # either remesh, or copy over from prv_step_props
+        if sm.opt.remesh.do_remesh
+            StellarModels.remesher!(sm)
+        else
+            StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props)
+        end
+        # time derivatives in the equations use the remeshed info, so
+        # save start_step_props before we attempt any newton solver
+        StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
+        fill!(sm.start_step_props.D_overshoot, 0.0)
+        sm.start_step_props.dt = sm.prv_step_props.dt_next  # dt of this step becomes dt_next of previous
+        StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
+        build_step_overshoot!(sm.start_step_props; alpha_ov = 0.2, f0 = 0.005)
+        StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
+        # step loop
+        sm.solver_data.newton_iters = 0
+        max_steps = sm.opt.solver.newton_max_iter
+        if (sm.start_step_props.model_number == 0)
+            max_steps = sm.opt.solver.newton_max_iter_first_step
+        end
+
+        exit_evolution = false
+        retry_step = false
+        StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
+        StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
+
+        corr = @view sm.solver_data.solver_corr[1:sm.nvars*sm.props.nz]
+        equs = @view sm.solver_data.eqs_numbers[1:sm.nvars*sm.props.nz]
+
+        # evaluate the equations for the first step
+        StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+        eval_jacobian_eqs!(sm)  # heavy lifting happens here!
+        for i = 1:max_steps
+            block_tridiagonal_solver!(sm, sm.solver_data)  # here as well
+
+            (abs_max_corr, i_corr) = findmax(abs, corr)
+            signed_max_corr = corr[i_corr]
+            corr_nz = i_corr÷sm.nvars + 1
+            corr_equ = i_corr%sm.nvars
+            rel_corr = abs_max_corr/eps(sm.props.ind_vars[i_corr])
+
+            # scale correction
+            if sm.props.model_number == 0
+                correction_limit = sm.opt.solver.initial_model_scale_max_correction
+            else
+                correction_limit = sm.opt.solver.scale_max_correction
+            end
+            correction_multiplier = 1.0
+            for j in 1:sm.nvars
+                sub_corr = @view sm.solver_data.solver_corr[j:sm.nvars:(sm.nvars*(sm.props.nz-1)+j)]
+                max_sub_corr = maximum(abs, sub_corr)
+                if sm.var_scaling[j] == :log || sm.var_scaling[j] == :unity
+                    correction_multiplier = min(correction_multiplier,
+                                                    correction_limit/max_sub_corr)
+                elseif sm.var_scaling[j] == :maxval
+                    sub_ind_vars = @view sm.props.ind_vars[j:sm.nvars:(sm.nvars*(sm.props.nz-1)+j)]
+                    max_var_value = maximum(abs, sub_ind_vars)
+                    correction_multiplier = min(correction_multiplier,
+                                                    max_var_value*correction_limit/max_sub_corr)
+                end
+            end
+
+            if correction_multiplier < 1.0
+                corr .*= correction_multiplier
+            end
+
+            # apply correction!
+            sm.props.ind_vars[1:sm.nvars*sm.props.nz] .+= corr[1:sm.nvars*sm.props.nz]
+            sm.solver_data.newton_iters = i
+
+            # evaluate the equations after correction and get residuals
+            try
+                StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+                eval_jacobian_eqs!(sm)  # heavy lifting happens here!
+
+                (max_res, i_res) = findmax(abs, equs)
+                res_nz = i_res÷sm.nvars + 1
+                res_equ = i_res%sm.nvars
+
+                #reporting
+                if sm.opt.solver.report_solver_progress &&
+                    i % sm.opt.solver.solver_progress_iter == 0
+                    @show sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ
+                end
+                #check if tolerances are satisfied
+                if rel_corr < sm.opt.solver.relative_correction_tolerance &&
+                        max_res < sm.opt.solver.maximum_residual_tolerance
+                    if sm.props.model_number == 0
+                        println("Found first model")
+                    end
+                    break  # successful, break the step loop
+                end
+            catch e
+                if isa(e, InterruptException)
+                    throw(e)
+                end
+                println("Error while evaluating equations")
+                showerror(stdout, e)
+                retry_step = true
+            end
+            #if not, determine if we give up or retry
+            if i == max_steps
+                if retry_count > max_retries_in_a_row
+                    exit_evolution = true
+                    println("Too many retries, ending simulation")
+                else
+                    retry_count = retry_count + 1
+                    retry_step = true
+                    if sm.opt.solver.report_retries
+                        println("Failed to converge step $(sm.props.model_number) with timestep $(sm.props.dt/SECYEAR), retrying")
+                    end
+                end
+            end
+        end
+
+         
+        iH = sm.network.xa_index[:H1]
+
+        Xc_new = get_value(sm.props.xa[1, iH])
+        Xc_old = get_value(sm.start_step_props.xa[1, iH])
+        delta_Xc = abs(Xc_new - Xc_old)
+
+        if delta_Xc > sm.opt.timestep.delta_Xc_limit
+            retry_step = true
+        end
+        if retry_step
+            StellarModels.uncycle_props!(sm)  # reset props to what prv_step_props contains, ie mimic state at end of previous step
+            sm.props.dt_next *= sm.opt.timestep.dt_retry_decrease # adapt dt
+            continue  # go back to top of evolution loop
+        end
+
+        if (exit_evolution)
+            println("Terminating evolution")
+            break
+        end
+
+        # step must be successful at this point
+        retry_count = 0
+
+        # increment age and model number since we accept the step.
+        sm.props.time += sm.props.dt
+        sm.props.model_number += 1
+
+        # write state in sm.props and potential history/profiles.
+        StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+        StellarModels.write_data(sm, TNUMBER)
+        StellarModels.write_terminal_info(sm)
+
+        update_plotter!(plotter, sm)
+
+        # check termination conditions
+        if (sm.props.model_number > sm.opt.termination.max_model_number)
+            StellarModels.write_terminal_info(sm; now=true)
+            println("Reached maximum model number")
+            break
+        end
+        if (exp(get_value(sm.props.lnT[1])) > sm.opt.termination.max_center_T)
+            StellarModels.write_terminal_info(sm; now=true)
+            println("Reached maximum central temperature")
+            break
+        end
+
+        if (get_value(sm.props.xa[1, sm.network.xa_index[:H1]]) < sm.opt.termination.min_center_X)
+            StellarModels.write_terminal_info(sm; now=true)
+            println("Reached minimum central hydrogen abundance")
+            break
+        end
+
+        # get dt for coming step
+        sm.props.dt_next = get_dt_next(sm)
+    end
+    StellarModels.shut_down_IO!(sm)
+
+    return
+end
+
 
 """
 Stellar evolution loop for TDC
@@ -606,8 +667,8 @@ Stellar evolution loop for TDC
 # function rr_numerical_error(e)
 #     e isa DomainError && return true
 #     e isa OverflowError && return true
-#     e isa LinearAlgebra.SingularException && return true
-#     e isa LinearAlgebra.ZeroPivotException && return true
+#     # e isa LinearAlgebra.SingularException && return true
+#     # e isa LinearAlgebra.ZeroPivotException && return true
 #     if e isa TaskFailedException
 #         errors = Base.current_exceptions(e.task)
 #         return !isempty(errors) && all(item -> rr_numerical_error(item.exception), errors)
