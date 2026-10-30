@@ -18,10 +18,10 @@ density-temperature parameter space (`logQ` and `logT`) for a specific chemical 
   defined over the (`logQ`, `logT`) grid.
 - `col_names::Vector{String}`: The physical names of the variables corresponding to the `interpolator` indices.
 """
-struct TρTableCollector <: AbstractEOS
+struct TρTableCollector{I} <: AbstractEOS
     X :: Float64 
     Z :: Float64
-    interpolator :: Vector{BicubicInterpolation}
+    interpolator :: Vector{I}
     col_names :: Vector{String}
 end 
 
@@ -38,10 +38,10 @@ This acts as a 1D lookup table across different Hydrogen mass fractions (X).
 - `tables::Vector{TρTableCollector}`: The individual EOS tables corresponding to each X value, 
   sorted to perfectly match the order of `Xs`.
 """
-struct EOS_Z_Slice
+struct EOS_Z_Slice{I}
     Z :: Float64
     Xs :: Vector{Float64}
-    tables :: Vector{TρTableCollector}
+    tables :: Vector{TρTableCollector{I}}
 end
 
 """
@@ -57,9 +57,9 @@ Metallicity (Z), Hydrogen fraction (X), log10Q, and log10T.
 - `include_radiation::Bool`: Flag to determine whether analytical radiation pressure 
   (P_rad = a T^4 / 3) should be explicitly added to the gas pressure evaluated from the tables.
 """
-struct EOSTableCollector <: AbstractEOS
+struct EOSTableCollector{I} <: AbstractEOS
     Zs :: Vector{Float64}
-    slices :: Vector{EOS_Z_Slice}
+    slices :: Vector{EOS_Z_Slice{I}}
     include_radiation :: Bool
 end
 
@@ -70,7 +70,7 @@ Constructor that parses an EOS data file from the provided `filepath`.
 Extracts metadata (version, X, Z, grid dimensions), streams the data block into a matrix, 
 and builds bicubic interpolators for every column/variable present in the table.
 """
-function TρTableCollector(filepath :: String)
+function TρTableCollector(filepath :: String; interp_type::Symbol = :bilinear)
     local X_val::Float64
     local Z_val::Float64
     local num_Ts::Int
@@ -140,18 +140,28 @@ function TρTableCollector(filepath :: String)
         eos_data_3D = reshape(eos_data_flat[:, 1:(data_idx-1)], (num_vars, num_Ts, num_Qs))
     end 
     
-    # Build bicubic interpolators for each variable
-    interpolators = BicubicInterpolation[]
+    if interp_type == :bicubic
+        build_func = build_bicubic_interpolator
+    elseif interp_type == :bilinear
+        build_func = build_bilinear_interpolator
+    else
+        error("Unknown interp_type: $interp_type. Use :bilinear or :bicubic")
+    end
+
+    # Build the first one to establish the strict Array type
+    first_slice = reshape(eos_data_3D[1, :, :], (1, num_Ts, num_Qs))
+    first_interp = build_func(logTs, logQs, first_slice)
     
-    for k in 1:num_vars 
-        # Extract 2D slice and wrap in 3D for build_bicubic_interpolator
+    interpolators = [first_interp]
+    # Loop through the rest of the variables
+    for k in 2:num_vars 
         data_slice = reshape(eos_data_3D[k, :, :], (1, num_Ts, num_Qs))
-        interp = build_bicubic_interpolator(logTs, logQs, data_slice)
+        interp = build_func(logTs, logQs, data_slice)
         push!(interpolators, interp)
     end 
     
     return TρTableCollector(X_val, Z_val, interpolators, col_names)
-end 
+end
 
 """
     EOSTableCollector(directory,include_radiation)
@@ -159,15 +169,17 @@ end
 Constructor that scans a given `directory` for `.data` files, parses each into a `TρTableCollector`, 
 and groups them sequentially into `EOS_Z_Slice` objects to construct the full 4D EOS grid.
 """
-function EOSTableCollector(directory :: String; include_radiation::Bool = true)
+function EOSTableCollector(directory :: String; include_radiation::Bool = true, interp_type::Symbol = :bilinear)
     files = readdir(directory; join = true)
     candidate_files = filter(f -> endswith(f, ".data"), files)
     #Load all tables
-    all_tables = [TρTableCollector(f) for f in candidate_files]
+    all_tables = [TρTableCollector(f; interp_type=interp_type) for f in candidate_files]
 
     unique_Zs = sort(unique([t.Z for t in all_tables]))
-
-    slices = EOS_Z_Slice[]
+    
+    #Dynamically get the exact interpolator type (I) from the first table
+    I_type = eltype(first(all_tables).interpolator)
+    slices = EOS_Z_Slice{I_type}[]
 
     for z_val in unique_Zs
         tables_at_z = filter(t -> t.Z == z_val, all_tables)
