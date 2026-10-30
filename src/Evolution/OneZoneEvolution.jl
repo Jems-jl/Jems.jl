@@ -1,17 +1,17 @@
-function get_dt_next(oz::OneZone)
-    dt_next = oz.props.dt  # this it calculated at end of step, so props.dt is the dt we used to do this step
+# function get_dt_next(oz::OneZone)
+#     dt_next = oz.props.dt  # this it calculated at end of step, so props.dt is the dt we used to do this step
 
-    X = get_value(oz.props.xa[oz.network.xa_index[:H1]])
-    Xold = get_value(oz.prv_step_props.xa[oz.network.xa_index[:H1]])
-    ΔX = abs(X - Xold)
+#     X = get_value(oz.props.xa[oz.network.xa_index[:H1]])
+#     Xold = get_value(oz.prv_step_props.xa[oz.network.xa_index[:H1]])
+#     ΔX = abs(X - Xold)
 
-    dt_nextX = dt_next * oz.opt.timestep.delta_Xc_limit / ΔX
+#     dt_nextX = dt_next * oz.opt.timestep.delta_Xc_limit / ΔX
 
-    min_dt = dt_next * oz.opt.timestep.dt_max_decrease
-    dt_next = min(oz.opt.timestep.dt_max_increase * dt_next, dt_nextX)
-    dt_next = max(dt_next, min_dt)
-    return dt_next
-end
+#     min_dt = dt_next * oz.opt.timestep.dt_max_decrease
+#     dt_next = min(oz.opt.timestep.dt_max_increase * dt_next, dt_nextX)
+#     dt_next = max(dt_next, min_dt)
+#     return dt_next
+# end
 
 function do_one_zone_burn!(oz::OneZone; plotter::TPLOTTER = Plotting.NullPlotter()) where{TPLOTTER<:AbstractPlotter}
     # before loop actions
