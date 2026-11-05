@@ -264,8 +264,13 @@ function evaluate_stellar_model_properties!(sm, props::StellarModelProperties)
                     κ_face_dual, L₀_dual, ρ_face_dual, P_face_dual, T_face_dual, r_dual,
                     δ_face_dual, cₚ_face_dual, ∇ₐ_face_dual, props.m[i])
         update_struct_dual_data_mixed_p1(props.turb_res[i], props.turb_res_dual[i])
-
-        flux_term_dual = (4π*r_dual^2*ρ_face_dual)^2*props.turb_res_dual[i].D_turb/
+        
+        if sm.opt.physics.freeze_D_turb_during_step
+            D_turb = sm.start_step_props.turb_res_dual[i].D_turb.value # explicit D_turb
+        else 
+            D_turb = props.turb_res_dual[i].D_turb # implicit D_turb 
+        end 
+        flux_term_dual = (4π*r_dual^2*ρ_face_dual)^2*D_turb/
                             (0.5*(props.dm[i]+props.dm[i+1]))
         update_dual_data_mixed_p1!(props.flux_term[i], flux_term_dual)
 

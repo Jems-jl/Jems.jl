@@ -104,6 +104,7 @@ Options that affect the physics of the computed model
 """
 @kwdef mutable struct PhysicsOptions
     flux_limiter::Float64 = 1e6
+    freeze_D_turb_during_step::Bool = true
 end
 
 """
