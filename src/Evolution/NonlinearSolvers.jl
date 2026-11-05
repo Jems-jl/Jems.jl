@@ -1,15 +1,23 @@
-# This structs help us to define 
-Base.@kwdef struct NewtonSolver <:AbstractNonlinearSolver
+# Nonlinear solver strategies used by the evolution drivers.
+Base.@kwdef struct NewtonSolver <: AbstractNonlinearSolver
 end
 
 Base.@kwdef struct BacktrackingNewtonSolver <: AbstractNonlinearSolver
     maximum_backtracks::Int = 16
     reduction_factor::Float64 = 0.5
-    some_constant::Float64 = 1e-4
+    armijo_constant::Float64 = 1e-4
 end
 
+StellarEvolver(; solver=NewtonSolver(), max_timestep_retries=10,
+               extra_termination_conditions=()) =
+    StellarEvolver(solver, max_timestep_retries, extra_termination_conditions)
 
-function solve_step!(solver:: NewtonSolver, sm::StellarModel, evolver::StellarEvolver, state::StellarEvolutionState)
+OneZoneEvolver(; solver=NewtonSolver(), max_timestep_retries=10,
+               extra_termination_conditions=()) =
+    OneZoneEvolver(solver, max_timestep_retries, extra_termination_conditions)
+
+function solve_step!(::NewtonSolver, sm::StellarModel, evolver::StellarEvolver,
+                     state::StellarEvolutionState)
     # step loop
     sm.solver_data.newton_iters = 0
     max_steps = sm.opt.solver.newton_max_iter
@@ -102,8 +110,4 @@ function solve_step!(solver:: NewtonSolver, sm::StellarModel, evolver::StellarEv
         end
     end
     return StepResult(false, :iteration_limit, max_steps)
-end 
-
-function solve_step!(solver:: NewtonSolver, sm::OneZone, evolver::OneZoneEvolver, state::OneZoneEvolutionState)
- ##
-end 
+end
