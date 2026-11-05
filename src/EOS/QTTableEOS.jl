@@ -78,67 +78,111 @@ function TρTableCollector(filepath :: String; interp_type::Symbol = :bilinear)
     local num_vars::Int
     local logTs::Vector{Float64}
     local col_names::Vector{String}
-    local eos_data_3D::Array{Float64, 3} 
-    logQs = Float64[]
+    local logQs::Vector{Float64}
 
-    open(filepath, "r") do file 
+    # Parsing from one buffer avoids allocating a Vector of tokens for every row and
+    # avoids parsing every numeric token twice. The buffer is released when this
+    # single-table constructor returns.
+    file_str = read(filepath, String)
+    file_end = lastindex(file_str)
+    cursor = firstindex(file_str)
 
-        # METADATA SEARCH
-        for line in eachline(file)
-            if occursin("version", line)
-                meta_line = readline(file)
-                parts = split(meta_line)
-                X_val = parse(Float64, parts[2])
-                Z_val = parse(Float64, parts[3])
-                num_Ts   = parse(Int, parts[4])
-                logT_min = parse(Float64, parts[5])
-                logT_del = parse(Float64, parts[7])
-                
-                num_Qs    = parse(Int, parts[8])
-                logQ_min  = parse(Float64, parts[9])
-                logQ_del  = parse(Float64, parts[11])
-                
-                logTs = collect(range(logT_min, step = logT_del, length = num_Ts))
-                logQs = collect(range(logQ_min, step = logQ_del, length = num_Qs))
-                break 
-            end
+    @inline function next_line_end(str, start_idx, end_idx)
+        idx = start_idx
+        while idx <= end_idx && str[idx] != '\n' && str[idx] != '\r'
+            idx = nextind(str, idx)
         end
-        
-        # FIND HEADER LINE
-        for line in eachline(file)
-            if occursin("logE", line)
-                col_names = String.(split(line))
+        return idx
+    end
+
+    @inline function skip_newlines(str, start_idx, end_idx)
+        idx = start_idx
+        while idx <= end_idx && (str[idx] == '\n' || str[idx] == '\r')
+            idx = nextind(str, idx)
+        end
+        return idx
+    end
+
+    found_metadata = false
+    found_header = false
+    while cursor <= file_end
+        line_end = next_line_end(file_str, cursor, file_end)
+        line = SubString(file_str, cursor, prevind(file_str, line_end))
+
+        if occursin("version", line)
+            cursor = skip_newlines(file_str, line_end, file_end)
+            cursor > file_end && break
+            line_end = next_line_end(file_str, cursor, file_end)
+            parts = split(SubString(file_str, cursor, prevind(file_str, line_end)))
+
+            X_val = parse(Float64, parts[2])
+            Z_val = parse(Float64, parts[3])
+            num_Ts = parse(Int, parts[4])
+            logT_min = parse(Float64, parts[5])
+            logT_del = parse(Float64, parts[7])
+            num_Qs = parse(Int, parts[8])
+            logQ_min = parse(Float64, parts[9])
+            logQ_del = parse(Float64, parts[11])
+
+            logTs = collect(range(logT_min, step=logT_del, length=num_Ts))
+            logQs = collect(range(logQ_min, step=logQ_del, length=num_Qs))
+            found_metadata = true
+        elseif occursin("logE", line)
+            col_names = String.(split(line))
+            num_vars = length(col_names)
+            cursor = skip_newlines(file_str, line_end, file_end)
+            found_header = true
+            break
+        end
+
+        cursor = skip_newlines(file_str, line_end, file_end)
+    end
+
+    found_metadata || error("EOS metadata not found in $filepath")
+    found_header || error("EOS column header not found in $filepath")
+
+    expected_rows = num_Ts * num_Qs
+    eos_data_flat = Matrix{Float64}(undef, num_vars, expected_rows)
+    data_idx = 1
+
+    while cursor <= file_end && data_idx <= expected_rows
+        line_end = next_line_end(file_str, cursor, file_end)
+        line_cursor = cursor
+        col_idx = 1
+        numeric_row = true
+
+        while line_cursor < line_end
+            while line_cursor < line_end && isspace(file_str[line_cursor])
+                line_cursor = nextind(file_str, line_cursor)
+            end
+            line_cursor >= line_end && break
+
+            token_start = line_cursor
+            while line_cursor < line_end && !isspace(file_str[line_cursor])
+                line_cursor = nextind(file_str, line_cursor)
+            end
+            token_end = prevind(file_str, line_cursor)
+            value = tryparse(Float64, SubString(file_str, token_start, token_end))
+
+            if value === nothing || col_idx > num_vars
+                numeric_row = false
                 break
             end
-        end 
-        
-        num_vars = length(col_names)
-
-        # Pre-allocate flat matrix
-        eos_data_flat = Matrix{Float64}(undef, num_vars, num_Ts * num_Qs)
-
-        # Stream data lines
-        data_idx = 1
-        for line in eachline(file)
-            if isempty(strip(line)) 
-                continue 
-            end
-
-            row_parts = split(line)
-            
-            if length(row_parts) == num_vars && all(x -> tryparse(Float64, x) !== nothing, row_parts)
-                eos_data_flat[:, data_idx] = parse.(Float64, row_parts)
-                data_idx += 1
-                
-                if data_idx > num_Ts * num_Qs
-                    break
-                end
-            end
+            eos_data_flat[col_idx, data_idx] = value
+            col_idx += 1
         end
 
-        # Reshape once to 3D
-        eos_data_3D = reshape(eos_data_flat[:, 1:(data_idx-1)], (num_vars, num_Ts, num_Qs))
-    end 
+        if numeric_row && col_idx == num_vars + 1
+            data_idx += 1
+        end
+        cursor = skip_newlines(file_str, line_end, file_end)
+    end
+
+    parsed_rows = data_idx - 1
+    parsed_rows == expected_rows ||
+        error("Expected $expected_rows EOS rows in $filepath, parsed $parsed_rows")
+
+    eos_data_3D = reshape(eos_data_flat, (num_vars, num_Ts, num_Qs))
     
     if interp_type == :bicubic
         build_func = build_bicubic_interpolator
@@ -149,13 +193,13 @@ function TρTableCollector(filepath :: String; interp_type::Symbol = :bilinear)
     end
 
     # Build the first one to establish the strict Array type
-    first_slice = reshape(eos_data_3D[1, :, :], (1, num_Ts, num_Qs))
+    first_slice = reshape(view(eos_data_3D, 1, :, :), (1, num_Ts, num_Qs))
     first_interp = build_func(logTs, logQs, first_slice)
     
     interpolators = [first_interp]
     # Loop through the rest of the variables
     for k in 2:num_vars 
-        data_slice = reshape(eos_data_3D[k, :, :], (1, num_Ts, num_Qs))
+        data_slice = reshape(view(eos_data_3D, k, :, :), (1, num_Ts, num_Qs))
         interp = build_func(logTs, logQs, data_slice)
         push!(interpolators, interp)
     end 
@@ -228,7 +272,7 @@ function set_EOS_resultsTρ!(eos::EOSTableCollector, r::EOSResults{TT}, lnT::TT,
 
     # Weights for transition regimes
     w_low = smooth_step_func(logT, 3.1, 3.2)
-    w_high = 1.0 - smooth_step_func(logT, 7.0, 7.4)
+    w_high = 1.0 - smooth_step_func(logT, 8.1, 8.2)
     w = w_low * w_high
     iw = 1.0 - w
 
@@ -253,7 +297,7 @@ function set_EOS_resultsTρ!(eos::EOSTableCollector, r::EOSResults{TT}, lnT::TT,
 
     
     iH1  = findfirst(==(:H1), species)
-    iH2  = findfirst(==(:H2), species)
+    iH2  = findfirst(==(:D2), species)
     iHe3 = findfirst(==(:He3), species)
     iHe4 = findfirst(==(:He4), species)
     

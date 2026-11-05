@@ -1,3 +1,4 @@
+using Revise
 using BenchmarkTools
 using Jems.Chem
 using Jems.Constants
@@ -45,15 +46,25 @@ if !isdir("MESA_data")
     cd("../")
 end
 ##
-net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+# net = NuclearNetwork([:H1, :He4, :C12, :N14, :O16], [(:kipp_rates, :kipp_pp), (:kipp_rates, :kipp_cno)])
+net = merge_nuclear_networks([
+    NuclearNetworks.networks[:basic_He_burn], 
+    NuclearNetworks.networks[:basic_CO_burn],
+    NuclearNetworks.networks[:JINA_PPI],
+    NuclearNetworks.networks[:JINA_PPII],
+    NuclearNetworks.networks[:JINA_PPIII],
+    NuclearNetworks.networks[:JINA_CNOI],
+    NuclearNetworks.networks[:JINA_CNOII],
+    ])
 nz = 2000
 nextra = 100
 eos = EOS.IdealEOS(true)
-eos_table = EOSTableCollector("MESA_data/eosFreeEOS_data", include_radiation = true, interp_type = :bicubic)
+eos_table = EOSTableCollector("MESA_data/eosFreeEOS_data", include_radiation = true, interp_type = :bilinear)
 low_T_collection = OpacityTableCollector("MESA_data/kap_data", "lowT_fa05_gs98") 
 high_T_collection = OpacityTableCollector("MESA_data/kap_data","oplib_agss09" ) 
 opacity = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2)
 turbulence = Turbulence.BasicMLT(2.0)
+##
 sm = StellarModel(StellarModels.DefaultStellarEquationSet(), nz, nextra, net, eos_table, opacity, turbulence);
 ##
 n = 1.5
@@ -99,7 +110,7 @@ open("example_options.toml", "w") do file
           [solver]
           newton_max_iter_first_step = 1000
           initial_model_scale_max_correction = 0.2
-          newton_max_iter = 20
+          newton_max_iter = 100
           scale_max_correction = 0.1
           solver_progress_iter = 1
           relative_correction_tolerance = 1e12
@@ -117,7 +128,7 @@ open("example_options.toml", "w") do file
           max_center_T = 1e8
 
           [io]
-          profile_interval = 1
+          profile_interval = 1000
           terminal_header_interval = 100
           terminal_info_interval = 100
           profile_values = ["zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity",
@@ -149,7 +160,7 @@ n = 1.5
 # StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
 #                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 StellarModels.adiabatic_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            5 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+                                            1 * MSUN, 80 * RSUN; initial_dt=0.01 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm, plotter=plotter);
  
 ##
