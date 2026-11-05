@@ -117,6 +117,9 @@ open("example_options.toml", "w") do file
           maximum_residual_tolerance = 1e-2
           use_preconditioning = true
 
+          [physics]
+          freeze_D_turb_during_step = false
+
           [timestep]
           dt_max_increase = 1.5
           delta_R_limit = 0.01
@@ -124,11 +127,11 @@ open("example_options.toml", "w") do file
           delta_Xc_limit = 0.005
 
           [termination]
-          max_model_number = 20000
-          max_center_T = 1e8
+          max_model_number = 40000
+          max_center_T = 1e40
 
           [io]
-          profile_interval = 1000
+          profile_interval = 100
           terminal_header_interval = 100
           terminal_info_interval = 100
           profile_values = ["zone", "mass", "dm", "log10_rho", "log10_r", "log10_P", "log10_T", "luminosity",
