@@ -1,3 +1,9 @@
+"""
+    get_dt_next(oz)
+
+Compute the next one-zone timestep from the change in hydrogen abundance and
+the configured timestep growth limits.
+"""
 function get_dt_next(oz::OneZone)
     dt_next = oz.props.dt
     X = get_value(oz.props.xa[oz.network.xa_index[:H1]])
@@ -8,135 +14,133 @@ function get_dt_next(oz::OneZone)
     return max(proposed_dt, minimum_dt)
 end
 
-function do_one_zone_burn!(oz::OneZone; plotter::TPLOTTER = Plotting.NullPlotter()) where{TPLOTTER<:AbstractPlotter}
-    # before loop actions
-    StellarModels.create_output_files!(oz)
-    StellarModels.evaluate_one_zone_properties!(oz, oz.props)  # set the initial condition as the result of a previous phantom step
-    retry_count = 0
+"""
+    prepare_step!(oz::OneZone, evolver)
 
-    # evolution loop, be sure to have sensible termination conditions or this will go on forever!
-    while true
-        StellarModels.cycle_props!(oz)  # move props of previous step to prv_step_props of current step
-
-        # step loop
-        oz.solver_data.newton_iters = 0
-        max_steps = oz.opt.solver.newton_max_iter
-        if (oz.props.model_number == 0)
-            max_steps = oz.opt.solver.newton_max_iter_first_step
-        end
-
-        exit_evolution = false
-        retry_step = false
-        oz.props = deepcopy(oz.prv_step_props)
-        oz.props.dt = oz.prv_step_props.dt_next  # dt of this step becomes dt_next of previous
-
-        corr = oz.solver_data.solver_corr
-        equs = oz.solver_data.eqs_numbers
-
-        # evaluate the equations for the first step
-        eval_jacobian_eqs!(oz)  # heavy lifting happens here!
-        for i = 1:max_steps
-            block_tridiagonal_solver!(oz, oz.solver_data)  # here as well
-
-            (abs_max_corr, i_corr) = findmax(abs, corr)
-            signed_max_corr = corr[i_corr]
-            corr_nz = i_corr ÷ oz.nvars + 1
-            corr_equ = i_corr % oz.nvars
-            rel_corr = abs_max_corr / eps(oz.props.ind_vars[i_corr])
-
-            # scale correction
-            if oz.props.model_number == 0
-                correction_multiplier = min(1.0, oz.opt.solver.initial_model_scale_max_correction / abs_max_corr)
-            else
-                correction_multiplier = min(1.0, oz.opt.solver.scale_max_correction / abs_max_corr)
-            end
-            if correction_multiplier < 1
-                corr .*= correction_multiplier
-            end
-
-            # first try applying correction and see if it would give negative luminosity
-            oz.props.ind_vars .+= corr
-            oz.solver_data.newton_iters = i
-
-            # evaluate the equations after correction and get residuals
-            try
-                StellarModels.evaluate_one_zone_properties!(oz, oz.props)
-                eval_jacobian_eqs!(oz)  # heavy lifting happens here!
-
-                (max_res, i_res) = findmax(abs, equs)
-                res_nz = i_res ÷ oz.nvars + 1
-                res_equ = i_res % oz.nvars
-
-                #reporting
-                if oz.opt.solver.report_solver_progress &&
-                   i % oz.opt.solver.solver_progress_iter == 0
-                    @show oz.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz,
-                          res_equ
-                end
-                #check if tolerances are satisfied
-                if rel_corr < oz.opt.solver.relative_correction_tolerance &&
-                   max_res < oz.opt.solver.maximum_residual_tolerance
-                    if oz.props.model_number == 0
-                        println("Found first model")
-                    end
-                    break  # successful, break the step loop
-                end
-            catch e
-                if isa(e, InterruptException)
-                    throw(e)
-                end
-                println("Error while evaluating equations")
-                showerror(stdout, e)
-                retry_step = true
-            end
-            # if not, determine if we give up or retry
-            if i == max_steps
-                if retry_count > 10
-                    exit_evolution = true
-                    println("Too many retries, ending simulation")
-                else
-                    retry_count = retry_count + 1
-                    retry_step = true
-                    println("Failed to converge step $(oz.props.model_number) with timestep $(oz.props.dt/SECYEAR), retrying")
-                end
-            end
-        end
-
-        if retry_step
-            StellarModels.uncycle_props!(oz)  # reset props to what prv_step_props contains, ie mimic state at end of previous step
-            oz.props.dt_next *= oz.opt.timestep.dt_retry_decrease # adapt dt
-            continue  # go back to top of evolution loop
-        end
-
-        if (exit_evolution)
-            println("Terminating evolution")
-            break
-        end
-
-        # step must be successful at this point
-        retry_count = 0
-
-        # increment age and model number since we accept the step.
-        oz.props.time += oz.props.dt
-        oz.props.model_number += 1
-
-        # write state in oz.props and potential history/profiles.
-        StellarModels.evaluate_one_zone_properties!(oz, oz.props)
-        StellarModels.write_data(oz)
-        StellarModels.write_terminal_info(oz)
-
-        update_plotter!(plotter, oz)
-
-        # check termination conditions
-        if (oz.props.model_number > oz.opt.termination.max_model_number)
-            # StellarModels.write_terminal_info(oz; now=true)
-            println("Reached maximum model number")
-            break
-        end
-
-        # get dt for coming step
-        oz.props.dt_next = get_dt_next(oz)
+Restore the last accepted one-zone model and initialize the timestep for the
+next nonlinear trial.
+"""
+function prepare_step!(oz::OneZone, evolver::DefaultEvolver)
+    if evolver.starting_new_step
+        evolver.base_timestep = oz.props.dt_next
+        evolver.timestep_retry_count = 0
+        evolver.starting_new_step = false
     end
-    StellarModels.shut_down_IO!(oz)
-    return
+
+    StellarModels.cycle_props!(oz)
+    oz.props = deepcopy(oz.prv_step_props)
+    oz.props.dt = oz.prv_step_props.dt_next
+end
+
+"""
+    accept_step!(oz::OneZone, evolver, plotter)
+
+Accept a converged one-zone trial, advance its age and model number, and update
+its output and plots.
+"""
+function accept_step!(oz::OneZone, evolver::DefaultEvolver, plotter)
+    evolver.timestep_retry_count = 0
+    evolver.starting_new_step = true
+    oz.props.time += oz.props.dt
+    oz.props.model_number += 1
+
+    StellarModels.evaluate_one_zone_properties!(oz, oz.props)
+    StellarModels.write_data(oz)
+    StellarModels.write_terminal_info(oz)
+    update_plotter!(plotter, oz)
+end
+
+"""
+    retry_step!(oz::OneZone, evolver, result)
+
+Restore a failed one-zone trial and reduce its timestep. Returns `true` while
+another retry is available and `false` once retries are exhausted.
+"""
+function retry_step!(oz::OneZone, evolver::DefaultEvolver, ::NamedTuple)
+    StellarModels.uncycle_props!(oz)
+
+    if evolver.timestep_retry_count < evolver.max_timestep_retries
+        evolver.timestep_retry_count += 1
+        oz.props.dt_next *= oz.opt.timestep.dt_retry_decrease
+        println("Retrying timestep " *
+                "$(evolver.timestep_retry_count)/$(evolver.max_timestep_retries)")
+        return true
+    end
+
+    return false
+end
+
+"""
+    do_one_zone_burn!(oz; plotter=Plotting.NullPlotter(),
+                      max_retries_in_a_row=10,
+                      evolver=DefaultEvolver())
+
+Evolve the one-zone burn until a termination condition is reached or the
+nonlinear solver exhausts its timestep retries.
+"""
+function do_one_zone_burn!(oz::OneZone;
+                           plotter::TPLOTTER=Plotting.NullPlotter(),
+                           max_retries_in_a_row=10,
+                           evolver=DefaultEvolver(
+                               max_timestep_retries=max_retries_in_a_row,
+                           )) where {TPLOTTER<:AbstractPlotter}
+    evolver.timestep_retry_count = 0
+    evolver.base_timestep = 0.0
+    evolver.use_remeshing = false
+    evolver.starting_new_step = true
+    evolver.skip_remesh_steps_remaining = 0
+    StellarModels.create_output_files!(oz)
+    StellarModels.evaluate_one_zone_properties!(oz, oz.props)
+
+    trial_active = false
+    try
+        while true
+            trial_active = true
+            prepare_step!(oz, evolver)
+            result = solve_step!(evolver.solver, oz, evolver)
+
+            if !result.converged
+                retrying = retry_step!(oz, evolver, result)
+                trial_active = false
+                retrying && continue
+                println("Terminating evolution: ", result.reason)
+                break
+            end
+
+            trial_active = false
+            accept_step!(oz, evolver, plotter)
+
+            if oz.props.model_number > oz.opt.termination.max_model_number
+                StellarModels.write_terminal_info(oz; now=true)
+                println("Reached maximum model number")
+                break
+            end
+            if oz.props.T > oz.opt.termination.max_center_T
+                StellarModels.write_terminal_info(oz; now=true)
+                println("Reached maximum temperature")
+                break
+            end
+            if get_value(oz.props.xa[oz.network.xa_index[:H1]]) <
+               oz.opt.termination.min_center_X
+                StellarModels.write_terminal_info(oz; now=true)
+                println("Reached minimum hydrogen abundance")
+                break
+            end
+
+            hook_reason = hook_termination_condition(oz, evolver)
+            if hook_reason !== nothing
+                StellarModels.write_terminal_info(oz; now=true)
+                println("Terminating evolution: ", hook_reason)
+                break
+            end
+
+            oz.props.dt_next = get_dt_next(oz)
+            hook_dt_next = hook_get_dt_next(oz, evolver)
+            hook_dt_next !== nothing && (oz.props.dt_next = hook_dt_next)
+        end
+    finally
+        trial_active && StellarModels.uncycle_props!(oz)
+        StellarModels.shut_down_IO!(oz)
+    end
+    return nothing
 end

@@ -1,23 +1,22 @@
-# Nonlinear solver strategies used by the evolution drivers.
+"""
+    NewtonSolver
+
+Standard Newton solver with correction limiting. Convergence tolerances and
+iteration limits are read from the model's solver options.
+"""
 Base.@kwdef struct NewtonSolver <: AbstractNonlinearSolver
 end
 
-Base.@kwdef struct BacktrackingNewtonSolver <: AbstractNonlinearSolver
-    maximum_backtracks::Int = 16
-    reduction_factor::Float64 = 0.5
-    armijo_constant::Float64 = 1e-4
-end
 
-StellarEvolver(; solver=NewtonSolver(), max_timestep_retries=10,
-               extra_termination_conditions=()) =
-    StellarEvolver(solver, max_timestep_retries, extra_termination_conditions)
+"""
+    solve_step!(solver, model, evolver)
 
-OneZoneEvolver(; solver=NewtonSolver(), max_timestep_retries=10,
-               extra_termination_conditions=()) =
-    OneZoneEvolver(solver, max_timestep_retries, extra_termination_conditions)
-
-function solve_step!(::NewtonSolver, sm::StellarModel, evolver::StellarEvolver,
-                     state::StellarEvolutionState)
+Solve one implicit evolutionary step. Returns a named tuple containing
+`converged`, `reason`, and `iterations`. Model-specific methods are selected by
+multiple dispatch.
+"""
+function solve_step!(::NewtonSolver, sm::StellarModel,
+                     evolver::DefaultEvolver)
     # step loop
     sm.solver_data.newton_iters = 0
     max_steps = sm.opt.solver.newton_max_iter
@@ -29,14 +28,16 @@ function solve_step!(::NewtonSolver, sm::StellarModel, evolver::StellarEvolver,
     
     # evaluate the equations for the first step
     try 
+        hook_before_evaluate_stellar_model_properties!(sm, sm.props, evolver) # hook function 
         StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+        hook_after_evaluate_stellar_model_properties!(sm, sm.props, evolver) # hook function
         eval_jacobian_eqs!(sm)  # heavy lifting happens here!]
     catch e
         e isa InterruptException && rethrow()
         println("Error while evaluating initial equations")
         showerror(stdout,e)
         println()
-        return StepResult(false, :initial_evaluation_error, 0,)
+        return (converged=false, reason=:initial_evaluation_error, iterations=0)
     end 
 
     for i = 1:max_steps
@@ -81,7 +82,9 @@ function solve_step!(::NewtonSolver, sm::StellarModel, evolver::StellarEvolver,
             sm.solver_data.newton_iters = i
 
             # evaluate the equations after correction and get residuals
+            hook_before_evaluate_stellar_model_properties!(sm, sm.props, evolver) # hook function
             StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+            hook_after_evaluate_stellar_model_properties!(sm, sm.props, evolver) # hook function
             eval_jacobian_eqs!(sm)  # heavy lifting happens here!
 
             (max_res, i_res) = findmax(abs, equs)
@@ -99,144 +102,87 @@ function solve_step!(::NewtonSolver, sm::StellarModel, evolver::StellarEvolver,
                 if sm.props.model_number == 0
                     println("Found first model")
                 end
-                return StepResult(true,:converged,i)
+                return (converged=true, reason=:converged, iterations=i)
             end
         catch e
             e isa InterruptException && rethrow()
             println("Error during Newton iteration $i")
             showerror(stdout, e)
             println()
-            return StepResult(false, :evaluation_error, i)
+            return (converged=false, reason=:evaluation_error, iterations=i)
         end
     end
-    return StepResult(false, :iteration_limit, max_steps)
+    return (converged=false, reason=:iteration_limit,
+            iterations=max_steps)
 end
 
-function solve_step!(solver::BacktrackingNewtonSolver, sm::StellarModel,
-                     evolver::StellarEvolver, state::StellarEvolutionState)
-    solver.maximum_backtracks >= 0 ||
-        throw(ArgumentError("maximum_backtracks must be nonnegative"))
-    0.0 < solver.reduction_factor < 1.0 ||
-        throw(ArgumentError("reduction_factor must be between zero and one"))
-    0.0 < solver.armijo_constant < 1.0 ||
-        throw(ArgumentError("armijo_constant must be between zero and one"))
-
-    sm.solver_data.newton_iters = 0
-    max_steps = sm.start_step_props.model_number == 0 ?
-        sm.opt.solver.newton_max_iter_first_step :
-        sm.opt.solver.newton_max_iter
-    number_of_unknowns = sm.nvars * sm.props.nz
-    corr = @view sm.solver_data.solver_corr[1:number_of_unknowns]
-    equs = @view sm.solver_data.eqs_numbers[1:number_of_unknowns]
-    ind_vars = @view sm.props.ind_vars[1:number_of_unknowns]
+function solve_step!(::NewtonSolver, oz::OneZone, evolver::DefaultEvolver)
+    oz.solver_data.newton_iters = 0
+    max_steps = oz.props.model_number == 0 ?
+        oz.opt.solver.newton_max_iter_first_step :
+        oz.opt.solver.newton_max_iter
+    corr = oz.solver_data.solver_corr
+    equs = oz.solver_data.eqs_numbers
 
     try
-        StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
-        eval_jacobian_eqs!(sm)
+        eval_jacobian_eqs!(oz)
     catch e
         e isa InterruptException && rethrow()
         println("Error while evaluating initial equations")
         showerror(stdout, e)
         println()
-        return StepResult(false, :initial_evaluation_error, 0)
+        return (converged=false, reason=:initial_evaluation_error,
+                iterations=0)
     end
 
     for i in 1:max_steps
-        variables_before = copy(ind_vars)
-        merit_before = 0.5 * sum(abs2, equs)
-
         try
-            block_tridiagonal_solver!(sm, sm.solver_data)
+            block_tridiagonal_solver!(oz, oz.solver_data)
+
+            abs_max_corr, i_corr = findmax(abs, corr)
+            signed_max_corr = corr[i_corr]
+            corr_nz = div(i_corr - 1, oz.nvars) + 1
+            corr_equ = mod1(i_corr, oz.nvars)
+            rel_corr = abs_max_corr / eps(oz.props.ind_vars[i_corr])
+
+            correction_limit = oz.props.model_number == 0 ?
+                oz.opt.solver.initial_model_scale_max_correction :
+                oz.opt.solver.scale_max_correction
+            correction_multiplier = min(1.0,
+                                          correction_limit / abs_max_corr)
+            correction_multiplier < 1.0 &&
+                (corr .*= correction_multiplier)
+
+            oz.props.ind_vars .+= corr
+            oz.solver_data.newton_iters = i
+
+            StellarModels.evaluate_one_zone_properties!(oz, oz.props)
+            eval_jacobian_eqs!(oz)
+
+            max_res, i_res = findmax(abs, equs)
+            res_nz = div(i_res - 1, oz.nvars) + 1
+            res_equ = mod1(i_res, oz.nvars)
+
+            if oz.opt.solver.report_solver_progress &&
+               i % oz.opt.solver.solver_progress_iter == 0
+                @show oz.props.model_number, i, rel_corr, signed_max_corr,
+                    corr_nz, corr_equ, max_res, res_nz, res_equ
+            end
+
+            if rel_corr < oz.opt.solver.relative_correction_tolerance &&
+               max_res < oz.opt.solver.maximum_residual_tolerance
+                oz.props.model_number == 0 && println("Found first model")
+                return (converged=true, reason=:converged, iterations=i)
+            end
         catch e
             e isa InterruptException && rethrow()
-            println("Error while solving the Newton system at iteration $i")
+            println("Error during Newton iteration $i")
             showerror(stdout, e)
             println()
-            return StepResult(false, :linear_solve_error, i)
-        end
-
-        correction_limit = sm.props.model_number == 0 ?
-            sm.opt.solver.initial_model_scale_max_correction :
-            sm.opt.solver.scale_max_correction
-        correction_multiplier = 1.0
-        for j in 1:sm.nvars
-            sub_corr = @view corr[j:sm.nvars:number_of_unknowns]
-            max_sub_corr = maximum(abs, sub_corr)
-            if sm.var_scaling[j] == :log || sm.var_scaling[j] == :unity
-                correction_multiplier = min(
-                    correction_multiplier, correction_limit / max_sub_corr)
-            elseif sm.var_scaling[j] == :maxval
-                sub_ind_vars = @view ind_vars[j:sm.nvars:number_of_unknowns]
-                max_var_value = maximum(abs, sub_ind_vars)
-                correction_multiplier = min(
-                    correction_multiplier,
-                    max_var_value * correction_limit / max_sub_corr)
-            end
-        end
-        correction_multiplier < 1.0 && (corr .*= correction_multiplier)
-
-        # Use the limited Newton direction for the convergence test. Testing the
-        # damped correction could falsely report convergence merely because the
-        # line search selected a very small step length.
-        abs_max_corr, i_corr = findmax(abs, corr)
-        signed_max_corr = corr[i_corr]
-        corr_nz = div(i_corr - 1, sm.nvars) + 1
-        corr_equ = mod1(i_corr, sm.nvars)
-        rel_corr = abs_max_corr / abs(eps(sm.props.ind_vars[i_corr]))
-
-        accepted = false
-        accepted_alpha = 0.0
-        max_res = Inf
-        i_res = 1
-        alpha = 1.0
-
-        for _ in 0:solver.maximum_backtracks
-            ind_vars .= variables_before .+ alpha .* corr
-            try
-                StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
-                eval_jacobian_eqs!(sm)
-                trial_merit = 0.5 * sum(abs2, equs)
-                trial_max_res, trial_i_res = findmax(abs, equs)
-                sufficient_decrease = (1.0 - solver.armijo_constant * alpha) * merit_before
-                residual_converged = trial_max_res <
-                    sm.opt.solver.maximum_residual_tolerance
-                if isfinite(trial_merit) &&
-                   (residual_converged || trial_merit <= sufficient_decrease)
-                    accepted = true
-                    accepted_alpha = alpha
-                    max_res = trial_max_res
-                    i_res = trial_i_res
-                    break
-                end
-            catch e
-                e isa InterruptException && rethrow()
-                # An invalid trial state is treated like a rejected line-search
-                # point. The next trial starts again from variables_before.
-            end
-            alpha *= solver.reduction_factor
-        end
-
-        if !accepted
-            ind_vars .= variables_before
-            return StepResult(false, :line_search_failed, i)
-        end
-
-        sm.solver_data.newton_iters = i
-        res_nz = div(i_res - 1, sm.nvars) + 1
-        res_equ = mod1(i_res, sm.nvars)
-
-        if sm.opt.solver.report_solver_progress &&
-           i % sm.opt.solver.solver_progress_iter == 0
-            @show sm.props.model_number, i, rel_corr, signed_max_corr,
-                corr_nz, corr_equ, max_res, res_nz, res_equ, accepted_alpha
-        end
-
-        if rel_corr < sm.opt.solver.relative_correction_tolerance &&
-           max_res < sm.opt.solver.maximum_residual_tolerance
-            sm.props.model_number == 0 && println("Found first model")
-            return StepResult(true, :converged, i)
+            return (converged=false, reason=:evaluation_error, iterations=i)
         end
     end
 
-    return StepResult(false, :iteration_limit, max_steps)
+    return (converged=false, reason=:iteration_limit,
+            iterations=max_steps)
 end
