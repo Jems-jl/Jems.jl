@@ -22,8 +22,9 @@ if !isdir("MESA_data")
     mv("mesa-26.04.1/kap/kap_data.tar.xz", "./kap_data.tar.xz")
     run(`tar -xJf kap_data.tar.xz`)
     rm("kap_data.tar.xz")
-
+``
     mkdir("eosFreeEOS_data_filtered")
+
     mv("mesa-26.04.1/eos/eosFreeEOS_data.tar.xz", "./eos_data.tar.xz")
     run(`tar -xJf eos_data.tar.xz`)
     rm("eos_data.tar.xz")
@@ -134,6 +135,7 @@ rm(sm.opt.io.hdf5_profile_filename; force=true)
 using GLMakie
 GLMakie.activate!()
 set_theme!(Plotting.basic_theme())
+##
 f = Figure(size=(1400,750))
 plots = [Plotting.HRPlot(f[1,1]),
          Plotting.TRhoProfile(f[1,2]),
@@ -147,9 +149,9 @@ plotter = Plotting.Plotter(fig=f,plots=plots)
 #set initial condition and run model
 n = 1.5
 # StellarModels.n_polytrope_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-#                                             1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+                                            # 1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
 StellarModels.adiabatic_initial_condition!(n, sm, nz, 0.7154, 0.0142, 0.0, Chem.abundance_lists[:ASG_09], 
-                                            1 * MSUN, 100 * RSUN; initial_dt=10 * SECYEAR)
+                                            1 * MSUN, 10 * RSUN; initial_dt=100 * SECYEAR)
 @time Evolution.do_evolution_loop!(sm, plotter=plotter);
  
 ##

@@ -315,7 +315,7 @@ function adiabatic_initial_condition!(n, sm::StellarModel, nz::Int, X, Z, Dfract
 
     massfractions = get_mass_fractions(abundanceList, sm.network.species_names, X, Z, Dfraction)
     species_names = collect(Symbol, keys(massfractions))
-    xa = collect(Float64, values(massfractions))
+    xa = collect(values(massfractions))
     lnRho_c_guess,  lnT_c_guess = n_polytrope_central_initial_condition(n, sm, X, Z, Dfraction, abundanceList, M, R)
     final_lnr, final_lnρ, final_lnT, final_P, ∇_ad_profile = surface_boundary(lnRho_c_guess, lnT_c_guess, sm, xa, species_names, nz, dms, m_face)
     # Mapping to the StellarModel independent variables (sm.props.ind_vars)

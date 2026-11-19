@@ -19,9 +19,9 @@ density-temperature parameter space (`logQ` and `logT`) for a specific chemical 
 - `col_names::Vector{String}`: The physical names of the variables corresponding to the `interpolator` indices.
 """
 struct TρTableCollector <: AbstractEOS
-    X :: Float64 
+    X :: Float64
     Z :: Float64
-    interpolator :: Vector{BicubicInterpolation}
+    interpolator :: Vector{BilinearInterpolation}
     col_names :: Vector{String}
 end 
 
@@ -140,13 +140,13 @@ function TρTableCollector(filepath :: String)
         eos_data_3D = reshape(eos_data_flat[:, 1:(data_idx-1)], (num_vars, num_Ts, num_Qs))
     end 
     
-    # Build bicubic interpolators for each variable
-    interpolators = BicubicInterpolation[]
+    # Build bilinear interpolators for each variable
+    interpolators = BilinearInterpolation[]
     
     for k in 1:num_vars 
-        # Extract 2D slice and wrap in 3D for build_bicubic_interpolator
+        # Extract 2D slice and wrap in 3D for build_bilinear_interpolator
         data_slice = reshape(eos_data_3D[k, :, :], (1, num_Ts, num_Qs))
-        interp = build_bicubic_interpolator(logTs, logQs, data_slice)
+        interp = build_bilinear_interpolator(logTs, logQs, data_slice)
         push!(interpolators, interp)
     end 
     

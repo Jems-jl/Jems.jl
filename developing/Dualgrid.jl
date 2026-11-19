@@ -12,6 +12,7 @@ using Jems.DualSupport
 using Jems.Plotting
 using ForwardDiff
 ##
+
 nbmodmax = 4000
 external_tag = ForwardDiff.Tag{:external,nothing}
 ForwardDiff.tagcount(external_tag)  # register tag
@@ -29,12 +30,13 @@ open("example_options.toml", "w") do file
           initial_model_scale_max_correction = 0.5
           scale_max_correction = 0.1
           report_solver_progress = false
+          report_retries = true
           relative_correction_tolerance = 1e8
           maximum_residual_tolerance =  5e-4
 
           [timestep]
-          dt_max_increase = 1.5
-          delta_R_limit = 0.01
+          dt_max_increase = 2.0
+          delta_R_limit = 0.05
           delta_Tc_limit = 0.01
           delta_Xc_limit = 0.001
 
@@ -51,7 +53,7 @@ open("example_options.toml", "w") do file
           """)
 end
 ##
-logM_range = [-0.2,-0.1]
+logM_range = [0.0]
 # logM_range = collect(0.75:0.01:0.85)
 # logM_range = collect(-0.8:0.1:1)
 # logM_range = [-0.4]
@@ -59,70 +61,73 @@ X = 0.7154
 overwrite = true
 
 ## Model creation, as usual
-for logM in logM_range
-    M = 10^logM
-    println("############################################################################################")
-    println("STARTING NEW logM = $logM , M = $M ##########################################")
-    history_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "/" * "X_" * string(X) * ".history.hdf5"
-    profile_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "/" * "X_" * string(X) * ".profiles.hdf5"
-    #history_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".history.hdf5"
-    #profile_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".profiles.hdf5"
-    
-    @show history_path
-    @show profile_path
-    if isfile(history_path)
-        if overwrite == true
-            println("History file for mass = $M / logM = $logM already exists: OVERWRITING")
-        else
-            println("History file for mass = $M / logM = $logM already exists: SKIPPING")
-            continue
-        end
+logM = logM_range[1]
+M = 10^logM
+println("############################################################################################")
+println("STARTING NEW logM = $logM , M = $M ##########################################")
+history_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "/" * "X_" * string(X) * "/history.hdf5"
+profile_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "/" * "X_" * string(X) * "/profiles.hdf5"
+#history_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".history.hdf5"
+#profile_path = "DualRuns/DualGrid/" * "logM_" * string(logM) * "_" * "X_" * string(X) * "_" * ".profiles.hdf5"
+
+@show history_path
+@show profile_path
+if isfile(history_path)
+    if overwrite == true
+        println("History file for mass = $M / logM = $logM already exists: OVERWRITING")
     else
-        println("History file for mass = $M / logM = $logM does not exist: CREATING")
+        println("History file for mass = $M / logM = $logM already exists: SKIPPING")
+        
     end
-
-    println("Create StellarModel ############################")
-    varnames = [:lnρ, :lnT, :lnr, :lum]
-    structure_equations = StellarModels.DefaultStellarEquationSet()
-    net = NuclearNetwork([:H1, :He4], [(:kipp_rates, :kipp_pp)])
-    nz = 800
-    nextra = 100
-    eos = EOS.IdealEOS(true)
-    opacity = Opacity.SimpleElectronScatteringOpacity()
-    turbulence = Turbulence.BasicMLT(1.0)
-    number_of_partials = 3 #number of partials we want to keep track of
-    dual_type = ForwardDiff.Dual{tag_external,Float64,number_of_partials}
-    println("Initialize StellarModel ############################")
-    sm = StellarModel(structure_equations, nz, nextra, net, eos, opacity, turbulence, 
-                    number_type=dual_type, internal_dual_tag=internal_tag);
-    n = 3
-    #define dual input numbers, all partial derivatives are with respect to the mass, give a '1.0' to indicate the order of the partials
-    logM_dual = ForwardDiff.Dual{tag_external}(logM, 1.0, 0.0, 0.0)
-    mass_dual = MSUN*10^logM_dual
-    X_dual = ForwardDiff.Dual{tag_external}(X, 0.0, 1.0, 0.0)
-    Z_dual = ForwardDiff.Dual{tag_external}(0.0142, 0.0, 0.0, 1.0)
-    #Dfraction_dual = ForwardDiff.Dual{tag_external}(0.0,     0.0,0.0,0.0,1.0,0.0)
-    Dfraction_dual = 0.0
-    #R_dual         = ForwardDiff.Dual{tag_external}(100*RSUN,0.0,0.0,0.0,0.0,1.0)
-    R_dual = 100 * RSUN
-
-    StellarModels.set_options!(sm.opt, "./example_options.toml")
-    sm.opt.io.hdf5_history_filename = history_path
-    sm.opt.io.hdf5_profile_filename = profile_path
-
-    StellarModels.n_polytrope_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction_dual,Chem.abundance_lists[:ASG_09],
-                                                mass_dual, R_dual; initial_dt=10 * SECYEAR)
-    @time Evolution.do_evolution_loop!(sm, plotter=Plotting.NullPlotter());
-    println("RUN ENDED, SAVED HISTORY AND PROFILES")
+else
+    println("History file for mass = $M / logM = $logM does not exist: CREATING")
 end
+
+println("Create StellarModel ############################")
+varnames = [:lnρ, :lnT, :lnr, :lum]
+structure_equations = StellarModels.DefaultStellarEquationSet()
+net = NuclearNetwork([:H1, :He4], [(:kipp_rates, :kipp_pp)])
+nz = 800
+nextra = 100
+eos = EOSTableCollector("MESA_data/eosFreeEOS_data", include_radiation=true);
+low_T_collection = OpacityTableCollector("MESA_data/kap_data", "lowT_fa05_gs98");
+high_T_collection = OpacityTableCollector("MESA_data/kap_data","oplib_agss09");
+opacity = CompositeOpacity(low_T_collection, high_T_collection, 3.8, 4.2);
+turbulence = Turbulence.BasicMLT(1.0)
+number_of_partials = 3  #number of partials we want to keep track of
+dual_type = ForwardDiff.Dual{external_tag,Float64,number_of_partials}
+println("Initialize StellarModel ############################")
+sm = StellarModel(structure_equations, nz, nextra, net, eos, opacity, turbulence, number_type=dual_type, internal_dual_tag=internal_tag);
+n = 1.5
+#define dual input numbers, all partial derivatives are with respect to the mass, give a '1.0' to indicate the order of the partials
+logM_dual = ForwardDiff.Dual{external_tag}(logM, 1.0, 0.0, 0.0)
+mass_dual = MSUN*10^logM_dual
+X_dual = ForwardDiff.Dual{external_tag}(X, 0.0, 1.0, 0.0)
+Z_dual = ForwardDiff.Dual{external_tag}(0.0142, 0.0, 0.0, 1.0)
+#Dfraction_dual = ForwardDiff.Dual{tag_external}(0.0,     0.0,0.0,0.0,1.0,0.0)
+Dfraction = 0.0
+#R_dual         = ForwardDiff.Dual{tag_external}(100*RSUN,0.0,0.0,0.0,0.0,1.0)
+R = 100 * RSUN
+
+StellarModels.set_options!(sm.opt, "./example_options.toml")
+sm.opt.io.hdf5_history_filename = history_path
+sm.opt.io.hdf5_profile_filename = profile_path
+
+StellarModels.adiabatic_initial_condition!(n, sm, nz, X_dual,Z_dual,Dfraction,Chem.abundance_lists[:ASG_09],mass_dual, R; initial_dt=10 * SECYEAR)
+Evolution.compute_starting_model_properties!(sm)
+
+##
+StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+Evolution.eval_jacobian_eqs!(sm)
+##
+println("Starting evolution loop for logM = $logM, M = $M, X = $X")
+@time Evolution.do_evolution_loop!(sm, plotter=Plotting.NullPlotter());
+println("RUN ENDED, SAVED HISTORY AND PROFILES")
 ##
 history_path = "Jems.jl/DualRuns/DualGrid/logM_0.03_X_0.7381_.history.hdf5"
 profile_path = "Jems.jl/DualRuns/DualGrid/logM_0.03_X_0.7381_.profiles.hdf5"
 cp("history.hdf5",  history_path, force = true)
 cp("profiles.hdf5", profile_path, force = true)
-println("RUN ENDED, SAVED HISTORY AND PROFILES")
-@show history_path
-@show profile_path
 ##
 #=
 ###Accessing the Dual profiles
@@ -132,7 +137,7 @@ For the profiles: it can still be accessed as before, but we should take care no
 Therefore i give a `value_names`, the string names of the original profiles, and `dual_names`, 
 containing lists of the string names of the corresponding partial profiles.
 =#
-##  
+##
 using DataFrames
 using HDF5
 """
