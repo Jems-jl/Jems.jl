@@ -8,12 +8,12 @@ Structure holding pre-calculated coefficients for bicubic (Catmull-Rom) interpol
 # Fields
 - `grid_x::Vector{Float64}`: Rectilinear grid axes for X.
 - `grid_y::Vector{Float64}`: Rectilinear grid axes for Y.
-- `coeff::Array{Float64, 4}`: 4D array `(num_vars, 16, Nx, Ny)` containing the 16 polynomial coefficients.
+- `coeff::Array{Float64, 3}`: Array `(16, Nx, Ny)` containing the 16 polynomial coefficients for one variable.
 """
 struct BicubicInterpolation <: Abstract2DInterpolation
     grid_x :: Vector{Float64}
     grid_y :: Vector{Float64}
-    coeff :: Array{Float64, 3} # (num_variables, 16, num_boxes_X, num_boxes_Y)
+    coeff :: Array{Float64, 3} # (16, num_boxes_X, num_boxes_Y)
 
 end
 

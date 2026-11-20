@@ -662,7 +662,7 @@ Stellar evolution loop for step overshooting
 """
 Stellar evolution loop for TDC
 """
-using LinearAlgebra
+# using LinearAlgebra
 
 function rr_numerical_error(e)
     e isa DomainError && return true
