@@ -22,9 +22,34 @@ function remesher!(sm::StellarModel)
             end
         end
     end
-    # we are ignoring the edges for now
-    # do_split[psp.nz] = false
     extra_cells = sum(do_split)
+
+    # next we determine cells to merge
+    # do_merge[i] == true implies cell i is to be merged with cell i+1
+    # vector is created with enough size to account for split cells, as we will be doing cell splitting
+    # first and moving the indeces for cell merging accordingly
+    do_merge = Vector{Bool}(undef, psp.nz + extra_cells)
+    do_merge .= false
+    if psp.model_number > 1
+        Threads.@threads for i in 1:psp.nz-1
+            a = abs(log10(get_value(psp.eos_res[i].P)) -
+                    log10(get_value(psp.eos_res[i+1].P)))
+            b = sm.opt.remesh.delta_log10P_split
+            if a < 0.03*b && i > psp.nz/2
+                # if the condition is satisfied, we merge these cells so long as neither is marked to split
+                if !do_split[i] && !do_split[i+1]
+                    do_merge[i] = true
+                end
+            end
+        end
+    end
+    # remove cascading mergers
+    for i in 1:psp.nz-1
+        if do_merge[i] && do_merge[i+1]
+            do_merge[i+1] = false
+        end
+    end
+
     # if allocated space is not enough, we need to reallocate everything
     if psp.nz + extra_cells > length(psp.dm)
         adjust_props_size!(sm, psp.nz + extra_cells, sm.nextra)
@@ -34,14 +59,22 @@ function remesher!(sm::StellarModel)
         # have the garbage collector do its job right away
         GC.gc()
     end
+
+    # keep track of original indeces before cell splitting
+    # these are needed when doing cell merge
+    original_index = zeros(Int64,psp.nz + extra_cells)
+
+    # do splits
     for i=psp.nz:-1:1
         if !do_split[i]
             # move everything upwards by extra_cells
             for j in 1:sm.nvars
                 ssp.ind_vars[(i+extra_cells-1)*sm.nvars+j] = psp.ind_vars[(i-1)*sm.nvars+j]
             end
+            do_merge[i+extra_cells] = do_merge[i]
             ssp.m[i+extra_cells] = psp.m[i]
             ssp.dm[i+extra_cells] = psp.dm[i]
+            original_index[i+extra_cells] = i
         else
             # split the cell and lower extra_cells by 1
             # get old values first
@@ -74,19 +107,69 @@ function remesher!(sm::StellarModel)
             ssp.dm[i+extra_cells] = 0.5*psp.dm[i]
             ssp.dm[i+extra_cells-1] = 0.5*psp.dm[i]
 
+            original_index[i+extra_cells] = i
+            original_index[i+extra_cells-1] = i
+
             extra_cells -= 1
         end
     end
-    
+
     if (extra_cells != 0)
         throw(AssertionError("extra_cells is not zero: $(extra_cells), cell splitting has gone wrong"))
     end
-
     ssp.nz = psp.nz + sum(do_split)  # set the new nz
 
-    # we then do cell merging
-    # TODO
+    # do merges
+    # we move from center to surface 
+    minus_cells = 0
+    i = 1
 
+    while i < ssp.nz
+        if do_merge[i]
+            i_o = original_index[i]
+            dm_00 = psp.dm[i_o]
+            var_00 = view(psp.ind_vars, ((i_o-1)*sm.nvars + 1):((i_o-1)*sm.nvars + sm.nvars))
+            if i > 1
+                dm_m1 = psp.dm[i_o-1]
+                var_m1 = view(psp.ind_vars, ((i_o-2)*sm.nvars + 1):((i_o-2)*sm.nvars + sm.nvars))
+            else
+                dm_m1 = NaN
+                var_m1 = []
+            end
+            dm_p1 = psp.dm[i_o+1]
+            var_p1 = view(psp.ind_vars, ((i_o)*sm.nvars + 1):((i_o)*sm.nvars + sm.nvars))
+
+            # view on the new values
+            varnew = view(ssp.ind_vars,
+                              ((i-1)*sm.nvars+1):((i-1)*sm.nvars+sm.nvars))
+            remesh_merging(sm.equation_set, sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew)
+
+            ssp.m[i] = ssp.m[i+1]
+            ssp.dm[i] = dm_00 + dm_p1
+        end
+        if minus_cells > 0
+            # move everything downwards (including cells that were merged above)
+            for j in 1:sm.nvars
+                ssp.ind_vars[(i-minus_cells-1)*sm.nvars+j] = ssp.ind_vars[(i-1)*sm.nvars+j]
+            end
+            ssp.m[i-minus_cells] = ssp.m[i]
+            ssp.dm[i-minus_cells] = ssp.dm[i]
+        end
+
+        # update counter of merged cells to correctly displace following cells
+        if do_merge[i]
+            minus_cells += 1
+            i += 1 # this will skip the cell above that was merged
+        end
+        i += 1
+    end
+
+    if (minus_cells != sum(do_merge))
+        throw(AssertionError("minus_cells is not equal to sum(do_merge): $(minus_cells), $(sum(do_merge)), cell merging has gone wrong"))
+    end
+    ssp.nz = ssp.nz - sum(do_merge)  # set the new nz
+
+    @show ssp.nz, sum(do_merge), sum(do_split)
 end
 
 function split_lnr_lnρ(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
@@ -159,12 +242,51 @@ end
 
 function split_xa(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew_low, varnew_up)
     # use same composition on both cells to preserve species
-    for i in 1:sm.network.nspecies
-        varnew_low[sm.nvars+1-i] = var_00[sm.nvars+1-i]
-        varnew_up[sm.nvars+1-i] = var_00[sm.nvars+1-i]
+    for j in 1:sm.network.nspecies
+        varnew_low[sm.nvars+1-j] = var_00[sm.nvars+1-j]
+        varnew_up[sm.nvars+1-j] = var_00[sm.nvars+1-j]
     end
 end
 
+function merge_lnr_lnρ(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew)
+
+    # new density corresponds to mass enclosed within the corresponding radius
+    # radius of the lower cell is computed with the continuity equation
+    # for i=1 we use the r=0 boundary condition as radius
+    if i == 1
+        r_face_below = 0
+    else
+        r_face_below = exp(var_m1[sm.vari[:lnr]])
+    end
+    r_face_above = exp(var_p1[sm.vari[:lnr]])
+    dV = 4pi/3*(r_face_above^3 - r_face_below^3)
+    ρ_new = (dm_00 + dm_p1)/dV
+
+    varnew[sm.vari[:lnρ]] = log(ρ_new)
+    varnew[sm.vari[:lnr]] = var_p1[sm.vari[:lnr]]
+end
+
+function merge_lum(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew)
+    L_above = var_p1[sm.vari[:lum]]
+    varnew[sm.vari[:lum]] = L_above
+end
+
+function merge_lnT(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew)
+    lnT_00 = var_00[sm.vari[:lnT]]
+    lnT_p1 = var_p1[sm.vari[:lnT]]
+
+    # linear interpolation to new cell center (TODO: verify this)
+    new_lnT = (dm_p1*lnT_00 + dm_00*lnT_p1)/(dm_p1 + dm_00)
+    varnew[sm.vari[:lnT]] = new_lnT
+end
+
+function merge_xa(sm, i, dm_m1, dm_00, dm_p1, var_m1, var_00, var_p1, varnew)
+    # preserve total mass of each isotope when merging abundance
+    new_dm = dm_00 + dm_p1
+    for j in 1:sm.network.nspecies
+        varnew[sm.nvars+1-j] = (dm_00*var_00[sm.nvars+1-j] + dm_p1*var_p1[sm.nvars+1-j])/new_dm
+    end
+end
 
 """
     adjust_props_size(sm, new_nz::Int, nextra::Int)
