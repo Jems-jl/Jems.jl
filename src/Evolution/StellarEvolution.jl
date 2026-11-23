@@ -1,230 +1,223 @@
-
 """
-    get_dt_next(sm::StellarModel)
+    get_dt_next(sm)
 
-Computes the timestep of the next evolutionary step to be taken by the StellarModel `sm` by considering all timestep
-controls (`sm.opt.timestep`).
+Compute the next stellar timestep from changes in surface radius, temperature,
+and central hydrogen abundance, subject to the configured timestep growth and
+reduction limits.
 """
 function get_dt_next(sm::StellarModel)
-    dt_next = sm.props.dt  # this it calculated at end of step, so props.dt is the dt we used to do this step
-        
-    Rsurf = exp(get_value(sm.props.lnr[sm.props.nz]))
-    Rsurf_old = exp(get_value(sm.prv_step_props.lnr[sm.prv_step_props.nz]))
-    ΔR_div_R = abs(Rsurf - Rsurf_old) / Rsurf
+    dt_next = sm.props.dt
 
-    Tc = exp(get_value(sm.props.lnT[sm.props.nz]))
-    Tc_old = exp(get_value(sm.prv_step_props.lnT[sm.prv_step_props.nz]))
-    ΔTc_div_Tc = abs(Tc - Tc_old) / Tc
+    radius = exp(get_value(sm.props.lnr[sm.props.nz]))
+    old_radius = exp(get_value(sm.prv_step_props.lnr[sm.prv_step_props.nz]))
+    delta_radius = abs(radius - old_radius) / radius
 
-    X = get_value(sm.props.xa[1, sm.network.xa_index[:H1]])
-    Xold = get_value(sm.prv_step_props.xa[1, sm.network.xa_index[:H1]])
-    ΔX = abs(X - Xold)
+    temperature = exp(get_value(sm.props.lnT[sm.props.nz]))
+    old_temperature = exp(get_value(sm.prv_step_props.lnT[sm.prv_step_props.nz]))
+    delta_temperature = abs(temperature - old_temperature) / temperature
 
-    dt_nextR = dt_next * sm.opt.timestep.delta_R_limit / ΔR_div_R
-    dt_nextTc = dt_next * sm.opt.timestep.delta_Tc_limit / ΔTc_div_Tc
-    dt_nextX = dt_next * sm.opt.timestep.delta_Xc_limit / ΔX
+    hydrogen = get_value(sm.props.xa[1, sm.network.xa_index[:H1]])
+    old_hydrogen = get_value(sm.prv_step_props.xa[1, sm.network.xa_index[:H1]])
+    delta_hydrogen = abs(hydrogen - old_hydrogen)
 
-    min_dt = dt_next * sm.opt.timestep.dt_max_decrease
-    dt_next = min(sm.opt.timestep.dt_max_increase * dt_next, dt_nextR, dt_nextTc, dt_nextX)
-    dt_next = max(dt_next, min_dt)
-    return dt_next
+    dt_radius = dt_next * sm.opt.timestep.delta_R_limit / delta_radius
+    dt_temperature = dt_next * sm.opt.timestep.delta_Tc_limit / delta_temperature
+    dt_hydrogen = dt_next * sm.opt.timestep.delta_Xc_limit / delta_hydrogen
+    minimum_dt = dt_next * sm.opt.timestep.dt_max_decrease
+    proposed_dt = min(sm.opt.timestep.dt_max_increase * dt_next,
+                      dt_radius, dt_temperature, dt_hydrogen)
+    return max(proposed_dt, minimum_dt)
 end
 
 """
-    compute_starting_model_properties(sm::StellarModel)
+    compute_starting_model_properties!(sm, evolver=DefaultEvolver())
 
-Computes all stellar model properties based on the current state of the star.
-This sets the model up to start the evolution loop, or test the evaluation of
-the equations and the linear solver.
+Evaluate the initial stellar model and populate the property buffers used to
+start the first evolutionary step.
 """
-function compute_starting_model_properties!(sm::StellarModel)
+function compute_starting_model_properties!(sm::StellarModel,
+                                            evolver::DefaultEvolver=DefaultEvolver())
+    hook_before_evaluate_stellar_model_properties!(sm, sm.props, evolver)
     StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
-    StellarModels.cycle_props!(sm);
+    hook_after_evaluate_stellar_model_properties!(sm, sm.props, evolver)
+    StellarModels.cycle_props!(sm)
     StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
     StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props)
+    hook_before_evaluate_stellar_model_properties!(sm, sm.start_step_props, evolver)
     StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
+    hook_after_evaluate_stellar_model_properties!(sm, sm.start_step_props, evolver)
     StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
     StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
 end
 
 """
-    do_evolution_loop(sm::StellarModel)
+    prepare_step!(model, evolver)
 
-Performs the main evolutionary loop of the input StellarModel `sm`. It continues taking steps until one of the
-termination criteria is reached (defined in `sm.opt.termination`).
+Prepare a trial step from the last accepted model. For a `StellarModel`, this
+also selects the remeshed or original-mesh retry path.
 """
-function do_evolution_loop!(sm::StellarModel; plotter::TPLOTTER = Plotting.NullPlotter(),
-                                max_retries_in_a_row = 10) where{TPLOTTER<:AbstractPlotter}
-    # before loop actions
-    TNUMBER = eltype(sm.props.ind_vars)  # determine type of numbers
-    StellarModels.create_output_files!(sm, TNUMBER)
-    compute_starting_model_properties!(sm)
-    retry_count = 0
-
-    # evolution loop, be sure to have sensible termination conditions or this will go on forever!
-    while true
-        StellarModels.cycle_props!(sm)  # move props of previous step to prv_step_props of current step
-
-        # either remesh, or copy over from prv_step_props
-        if sm.opt.remesh.do_remesh
-            StellarModels.remesher!(sm)
+function prepare_step!(sm::StellarModel, evolver::DefaultEvolver)
+    if evolver.starting_new_step
+        evolver.base_timestep = sm.props.dt_next
+        if evolver.skip_remesh_steps_remaining > 0
+            evolver.use_remeshing = false
+            evolver.skip_remesh_steps_remaining -= 1
         else
-            StellarModels.copy_mesh_properties!(sm, sm.start_step_props, sm.prv_step_props)
+            evolver.use_remeshing = sm.opt.remesh.do_remesh
         end
-        # time derivatives in the equations use the remeshed info, so
-        # save start_step_props before we attempt any newton solver
-        StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
-        StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
-        sm.start_step_props.dt = sm.prv_step_props.dt_next  # dt of this step becomes dt_next of previous
-
-        # step loop
-        sm.solver_data.newton_iters = 0
-        max_steps = sm.opt.solver.newton_max_iter
-        if (sm.start_step_props.model_number == 0)
-            max_steps = sm.opt.solver.newton_max_iter_first_step
-        end
-
-        exit_evolution = false
-        retry_step = false
-        StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
-        StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
-
-        corr = @view sm.solver_data.solver_corr[1:sm.nvars*sm.props.nz]
-        equs = @view sm.solver_data.eqs_numbers[1:sm.nvars*sm.props.nz]
-
-        # evaluate the equations for the first step
-        StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
-        eval_jacobian_eqs!(sm)  # heavy lifting happens here!
-        for i = 1:max_steps
-            block_tridiagonal_solver!(sm, sm.solver_data)  # here as well
-
-            (abs_max_corr, i_corr) = findmax(abs, corr)
-            signed_max_corr = corr[i_corr]
-            corr_nz = i_corr÷sm.nvars + 1
-            corr_equ = i_corr%sm.nvars
-            rel_corr = abs_max_corr/eps(sm.props.ind_vars[i_corr])
-
-            # scale correction
-            if sm.props.model_number == 0
-                correction_limit = sm.opt.solver.initial_model_scale_max_correction
-            else
-                correction_limit = sm.opt.solver.scale_max_correction
-            end
-            correction_multiplier = 1.0
-            for j in 1:sm.nvars
-                sub_corr = @view sm.solver_data.solver_corr[j:sm.nvars:(sm.nvars*(sm.props.nz-1)+j)]
-                max_sub_corr = maximum(abs, sub_corr)
-                if sm.var_scaling[j] == :log || sm.var_scaling[j] == :unity
-                    correction_multiplier = min(correction_multiplier,
-                                                    correction_limit/max_sub_corr)
-                elseif sm.var_scaling[j] == :maxval
-                    sub_ind_vars = @view sm.props.ind_vars[j:sm.nvars:(sm.nvars*(sm.props.nz-1)+j)]
-                    max_var_value = maximum(abs, sub_ind_vars)
-                    correction_multiplier = min(correction_multiplier,
-                                                    max_var_value*correction_limit/max_sub_corr)
-                end
-            end
-
-            if correction_multiplier < 1.0
-                corr .*= correction_multiplier
-            end
-
-            # apply correction!
-            sm.props.ind_vars[1:sm.nvars*sm.props.nz] .+= corr[1:sm.nvars*sm.props.nz]
-            sm.solver_data.newton_iters = i
-
-            # evaluate the equations after correction and get residuals
-            try
-                StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
-                eval_jacobian_eqs!(sm)  # heavy lifting happens here!
-
-                (max_res, i_res) = findmax(abs, equs)
-                res_nz = i_res÷sm.nvars + 1
-                res_equ = i_res%sm.nvars
-
-                #reporting
-                if sm.opt.solver.report_solver_progress &&
-                    i % sm.opt.solver.solver_progress_iter == 0
-                    @show sm.props.model_number, i, rel_corr, signed_max_corr, corr_nz, corr_equ, max_res, res_nz, res_equ
-                end
-                #check if tolerances are satisfied
-                if rel_corr < sm.opt.solver.relative_correction_tolerance &&
-                        max_res < sm.opt.solver.maximum_residual_tolerance
-                    if sm.props.model_number == 0
-                        println("Found first model")
-                    end
-                    break  # successful, break the step loop
-                end
-            catch e
-                if isa(e, InterruptException)
-                    throw(e)
-                end
-                println("Error while evaluating equations")
-                showerror(stdout, e)
-                retry_step = true
-            end
-            #if not, determine if we give up or retry
-            if i == max_steps
-                if retry_count > max_retries_in_a_row
-                    exit_evolution = true
-                    println("Too many retries, ending simulation")
-                else
-                    retry_count = retry_count + 1
-                    retry_step = true
-                    if sm.opt.solver.report_retries
-                        println("Failed to converge step $(sm.props.model_number) with timestep $(sm.props.dt/SECYEAR), retrying")
-                    end
-                end
-            end
-        end
-
-        if retry_step
-            StellarModels.uncycle_props!(sm)  # reset props to what prv_step_props contains, ie mimic state at end of previous step
-            sm.props.dt_next *= sm.opt.timestep.dt_retry_decrease # adapt dt
-            continue  # go back to top of evolution loop
-        end
-
-        if (exit_evolution)
-            println("Terminating evolution")
-            break
-        end
-
-        # step must be successful at this point
-        retry_count = 0
-
-        # increment age and model number since we accept the step.
-        sm.props.time += sm.props.dt
-        sm.props.model_number += 1
-
-        # write state in sm.props and potential history/profiles.
-        StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
-        StellarModels.write_data(sm, TNUMBER)
-        StellarModels.write_terminal_info(sm)
-
-        update_plotter!(plotter, sm)
-
-        # check termination conditions
-        if (sm.props.model_number > sm.opt.termination.max_model_number)
-            StellarModels.write_terminal_info(sm; now=true)
-            println("Reached maximum model number")
-            break
-        end
-        if (exp(get_value(sm.props.lnT[1])) > sm.opt.termination.max_center_T)
-            StellarModels.write_terminal_info(sm; now=true)
-            println("Reached maximum central temperature")
-            break
-        end
-
-        if (get_value(sm.props.xa[1, sm.network.xa_index[:H1]]) < sm.opt.termination.min_center_X)
-            StellarModels.write_terminal_info(sm; now=true)
-            println("Reached minimum central hydrogen abundance")
-            break
-        end
-
-        # get dt for coming step
-        sm.props.dt_next = get_dt_next(sm)
+        evolver.timestep_retry_count = 0
+        evolver.starting_new_step = false
     end
-    StellarModels.shut_down_IO!(sm)
+    StellarModels.cycle_props!(sm)
 
-    return
+    if sm.opt.remesh.do_remesh && evolver.use_remeshing
+        StellarModels.remesher!(sm)
+    else
+        StellarModels.copy_mesh_properties!(sm, sm.start_step_props,
+                                            sm.prv_step_props)
+    end
+
+    StellarModels.copy_scalar_properties!(sm.start_step_props, sm.prv_step_props)
+    hook_before_evaluate_stellar_model_properties!(sm, sm.start_step_props, evolver)
+    StellarModels.evaluate_stellar_model_properties!(sm, sm.start_step_props)
+    hook_after_evaluate_stellar_model_properties!(sm, sm.start_step_props, evolver)
+    sm.start_step_props.dt = sm.prv_step_props.dt_next
+    StellarModels.copy_scalar_properties!(sm.props, sm.start_step_props)
+    StellarModels.copy_mesh_properties!(sm, sm.props, sm.start_step_props)
+end
+
+"""
+    accept_step!(model, evolver, plotter)
+
+Accept a converged trial, advance its age and model number, write output, and
+update `plotter`.
+"""
+function accept_step!(sm::StellarModel, evolver::DefaultEvolver, plotter)
+    evolver.timestep_retry_count = 0
+    evolver.starting_new_step = true
+    sm.props.time += sm.props.dt
+    sm.props.model_number += 1
+
+    hook_before_evaluate_stellar_model_properties!(sm, sm.props, evolver)
+    StellarModels.evaluate_stellar_model_properties!(sm, sm.props)
+    hook_after_evaluate_stellar_model_properties!(sm, sm.props, evolver)
+    StellarModels.write_data(sm, eltype(sm.props.ind_vars))
+    StellarModels.write_terminal_info(sm)
+    update_plotter!(plotter, sm)
+end
+
+"""
+    retry_step!(model, evolver, result)
+
+Restore a failed trial and select the next recovery attempt. Returns `true`
+when another attempt should be made and `false` when retries are exhausted.
+"""
+function retry_step!(sm::StellarModel, evolver::DefaultEvolver, ::NamedTuple)
+    StellarModels.uncycle_props!(sm)
+
+    if evolver.timestep_retry_count < evolver.max_timestep_retries
+        evolver.timestep_retry_count += 1
+        sm.props.dt_next *= sm.opt.timestep.dt_retry_decrease
+        mesh = evolver.use_remeshing ? "remeshed" : "original"
+        println("Retrying $mesh mesh with timestep retry " *
+                "$(evolver.timestep_retry_count)/$(evolver.max_timestep_retries)")
+        return true
+    end
+
+    if evolver.use_remeshing
+        evolver.use_remeshing = false
+        evolver.timestep_retry_count = 0
+        evolver.skip_remesh_steps_remaining = evolver.skip_remesh_steps
+        sm.props.dt_next = evolver.base_timestep
+        println("Remeshed attempts exhausted; retrying the original mesh " *
+                "with the base timestep")
+        if evolver.skip_remesh_steps > 0
+            println("Remeshing will remain disabled for the next " *
+                    "$(evolver.skip_remesh_steps) accepted steps")
+        end
+        return true
+    end
+
+    return false
+end
+
+
+
+"""
+    do_evolution_loop!(sm; plotter=Plotting.NullPlotter(),
+                       max_retries_in_a_row=10,
+                       evolver=DefaultEvolver())
+
+Evolve `sm` until a built-in or user-defined termination condition is reached,
+or until the nonlinear solver exhausts its recovery attempts.
+"""
+function do_evolution_loop!(sm::StellarModel;
+                            plotter::TPLOTTER=Plotting.NullPlotter(),
+                            max_retries_in_a_row=10,
+                            evolver=DefaultEvolver(
+                                max_timestep_retries=max_retries_in_a_row,
+                            )) where {TPLOTTER<:AbstractPlotter}
+    evolver.timestep_retry_count = 0
+    evolver.base_timestep = 0.0
+    evolver.use_remeshing = sm.opt.remesh.do_remesh
+    evolver.starting_new_step = true
+    evolver.skip_remesh_steps_remaining = 0
+    StellarModels.create_output_files!(sm, eltype(sm.props.ind_vars))
+    compute_starting_model_properties!(sm, evolver)
+
+    trial_active = false
+    try
+        while true
+            trial_active = true
+            prepare_step!(sm, evolver)
+            result = solve_step!(evolver.solver, sm, evolver)
+
+            if !result.converged
+                retrying = retry_step!(sm, evolver, result)
+                trial_active = false
+                retrying && continue
+                println("Terminating evolution: ", result.reason)
+                break
+            end
+
+            trial_active = false
+            accept_step!(sm, evolver, plotter)
+
+            # Check termination conditions.
+            if sm.props.model_number > sm.opt.termination.max_model_number
+                StellarModels.write_terminal_info(sm; now=true)
+                println("Reached maximum model number")
+                break
+            end
+            if exp(get_value(sm.props.lnT[1])) >
+               sm.opt.termination.max_center_T
+                StellarModels.write_terminal_info(sm; now=true)
+                println("Reached maximum central temperature")
+                break
+            end
+            if get_value(sm.props.xa[1, sm.network.xa_index[:H1]]) <
+               sm.opt.termination.min_center_X
+                StellarModels.write_terminal_info(sm; now=true)
+                println("Reached minimum central hydrogen abundance")
+                break
+            end
+
+            # User-provided termination hooks run after the regular checks.
+            hook_reason = hook_termination_condition(sm, evolver)
+
+            if hook_reason !== nothing
+                StellarModels.write_terminal_info(sm; now=true)
+                println("Terminating evolution: ", hook_reason)
+                break
+            end
+
+            sm.props.dt_next = get_dt_next(sm)
+            hook_dt_next = hook_get_dt_next(sm, evolver)
+            hook_dt_next !== nothing && (sm.props.dt_next = hook_dt_next)
+        end
+    finally
+        trial_active && StellarModels.uncycle_props!(sm)
+        StellarModels.shut_down_IO!(sm)
+    end
+    return nothing
 end
