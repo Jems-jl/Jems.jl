@@ -80,11 +80,13 @@ end
 
 Updates all data of the DualData object to the given value.
 """
-@inline function update_dual_data_value!(dd::DualData, value)
-    dd.diff_cache_local.dual_data[1] = value
-    dd.diff_cache_m1.dual_data[1] = value
-    dd.diff_cache_00.dual_data[1] = value
-    dd.diff_cache_p1.dual_data[1] = value
+function update_dual_data_value!(dd::DualData, value)
+    @inbounds begin
+        dd.diff_cache_local.dual_data[1] = value
+        dd.diff_cache_m1.dual_data[1] = value
+        dd.diff_cache_00.dual_data[1] = value
+        dd.diff_cache_p1.dual_data[1] = value
+    end
 end
 
 """
@@ -92,62 +94,68 @@ end
 
 Updates all data of the DualData object to the data of a given dual number.
 """
-@inline function update_dual_data_local!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
+function update_dual_data_local!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
     update_dual_data_value!(dd, dual.value)
     nvars = SIZE1-1
-    for i in 1:nvars
+    @inbounds for i in 1:nvars
         dd.diff_cache_local.dual_data[1+i] = dual.partials[i]
         dd.diff_cache_m1.dual_data[1+i] = dual.partials[i]
         dd.diff_cache_00.dual_data[1+nvars+i] = dual.partials[i]
         dd.diff_cache_p1.dual_data[1+2*nvars+i] = dual.partials[i]
     end
 end
-@inline function update_dual_data_mixed_p1!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
-    # ensure we cannot cast accidentally this in the wrong place by setting NaNs
-    dd.diff_cache_local.dual_data[1] = one(TNUMBER)+NaN
-    dd.diff_cache_m1.dual_data[1] = dual.value
-    dd.diff_cache_00.dual_data[1] = dual.value
-    dd.diff_cache_p1.dual_data[1] = one(TNUMBER)+NaN
-    # we only need 2/3 of the partials, 
-    nvars = SIZE1-1
-    for i in 1:2*nvars
-        dd.diff_cache_m1.dual_data[1+i] = dual.partials[i+nvars]
-        dd.diff_cache_00.dual_data[1+nvars+i] = dual.partials[i+nvars]
-    end
-    # remaining entries are zero
-    for i in 1:nvars
-        dd.diff_cache_m1.dual_data[1+i+2*nvars] = zero(TNUMBER)
-        dd.diff_cache_00.dual_data[1+i] = zero(TNUMBER)
-    end
-end
-@inline function update_dual_data_mixed_m1!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
-    # ensure we cannot cast accidentally this in the wrong place by setting NaNs
-    dd.diff_cache_local.dual_data[1] = one(TNUMBER)+NaN
-    dd.diff_cache_m1.dual_data[1] = one(TNUMBER)+NaN
-    dd.diff_cache_00.dual_data[1] = dual.value
-    dd.diff_cache_p1.dual_data[1] = dual.value
-    # we only need 2/3 of the partials, 
-    nvars = SIZE1-1
-    for i in 1:2*nvars
-        dd.diff_cache_00.dual_data[1+i] = dual.partials[i]
-        dd.diff_cache_p1.dual_data[1+nvars+i] = dual.partials[i]
-    end
-    # remaining entries are zero
-    for i in 1:nvars
-        dd.diff_cache_00.dual_data[1+i+2*nvars] = dual.partials[i]
-        dd.diff_cache_p1.dual_data[1+i] = dual.partials[i]
+function update_dual_data_mixed_p1!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
+    @inbounds begin
+        # ensure we cannot cast accidentally this in the wrong place by setting NaNs
+        dd.diff_cache_local.dual_data[1] = one(TNUMBER)+NaN
+        dd.diff_cache_m1.dual_data[1] = dual.value
+        dd.diff_cache_00.dual_data[1] = dual.value
+        dd.diff_cache_p1.dual_data[1] = one(TNUMBER)+NaN
+        # we only need 2/3 of the partials, 
+        nvars = SIZE1-1
+        for i in 1:2*nvars
+            dd.diff_cache_m1.dual_data[1+i] = dual.partials[i+nvars]
+            dd.diff_cache_00.dual_data[1+nvars+i] = dual.partials[i+nvars]
+        end
+        # remaining entries are zero
+        for i in 1:nvars
+            dd.diff_cache_m1.dual_data[1+i+2*nvars] = zero(TNUMBER)
+            dd.diff_cache_00.dual_data[1+i] = zero(TNUMBER)
+        end
     end
 end
-@inline function update_dual_data_mixed_full!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
-    # same as above, but only 00 dual is available
-    dd.diff_cache_local.dual_data[1] = one(TNUMBER)+NaN
-    dd.diff_cache_m1.dual_data[1] = one(TNUMBER)+NaN
-    dd.diff_cache_00.dual_data[1] = dual.value
-    dd.diff_cache_p1.dual_data[1] = one(TNUMBER)+NaN
-    # we need all partials
-    nvars = SIZE1-1
-    for i in 1:3*nvars
-        dd.diff_cache_00.dual_data[1+i] = dual.partials[i]
+function update_dual_data_mixed_m1!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
+    @inbounds begin
+        # ensure we cannot cast accidentally this in the wrong place by setting NaNs
+        dd.diff_cache_local.dual_data[1] = one(TNUMBER)+NaN
+        dd.diff_cache_m1.dual_data[1] = one(TNUMBER)+NaN
+        dd.diff_cache_00.dual_data[1] = dual.value
+        dd.diff_cache_p1.dual_data[1] = dual.value
+        # we only need 2/3 of the partials, 
+        nvars = SIZE1-1
+        for i in 1:2*nvars
+            dd.diff_cache_00.dual_data[1+i] = dual.partials[i]
+            dd.diff_cache_p1.dual_data[1+nvars+i] = dual.partials[i]
+        end
+        # remaining entries are zero
+        for i in 1:nvars
+            dd.diff_cache_00.dual_data[1+i+2*nvars] = dual.partials[i]
+            dd.diff_cache_p1.dual_data[1+i] = dual.partials[i]
+        end
+    end
+end
+function update_dual_data_mixed_full!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
+    @inbounds begin
+        # same as above, but only 00 dual is available
+        dd.diff_cache_local.dual_data[1] = one(TNUMBER)+NaN
+        dd.diff_cache_m1.dual_data[1] = one(TNUMBER)+NaN
+        dd.diff_cache_00.dual_data[1] = dual.value
+        dd.diff_cache_p1.dual_data[1] = one(TNUMBER)+NaN
+        # we need all partials
+        nvars = SIZE1-1
+        for i in 1:3*nvars
+            dd.diff_cache_00.dual_data[1+i] = dual.partials[i]
+        end
     end
 end
 
