@@ -34,7 +34,7 @@ end
 # kudos to user Mason Protter from discourse.julia.com
 # beware of caveats
 # https://discourse.julialang.org/t/reinterpret-vector-into-single-struct/107709
-@inline function get_dual(sdc::StarDiffCache{SIZE,TNUMBER,DUAL_TAG}) where {SIZE,TNUMBER,DUAL_TAG}
+function get_dual(sdc::StarDiffCache{SIZE,TNUMBER,DUAL_TAG}) where {SIZE,TNUMBER,DUAL_TAG}
     p::Ptr{ForwardDiff.Dual{DUAL_TAG,TNUMBER,SIZE-1}} = pointer(sdc.dual_data)
     unsafe_load(p)         # Load the first element from that pointer
 end
