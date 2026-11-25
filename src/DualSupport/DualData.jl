@@ -71,7 +71,7 @@ function Base.convert(::Type{DualData{SIZE1,SIZE2,TN1,DUAL_TAG}}, x::TN2) where 
     return dd
 end
 
-function get_value(dd::DualData)
+@inline function get_value(dd::DualData)
     return dd.diff_cache_00.dual_data[1]
 end
 
@@ -80,7 +80,7 @@ end
 
 Updates all data of the DualData object to the given value.
 """
-function update_dual_data_value!(dd::DualData, value)
+@inline function update_dual_data_value!(dd::DualData, value)
     dd.diff_cache_local.dual_data[1] = value
     dd.diff_cache_m1.dual_data[1] = value
     dd.diff_cache_00.dual_data[1] = value
@@ -92,7 +92,7 @@ end
 
 Updates all data of the DualData object to the data of a given dual number.
 """
-function update_dual_data_local!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
+@inline function update_dual_data_local!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
     update_dual_data_value!(dd, dual.value)
     nvars = SIZE1-1
     for i in 1:nvars
@@ -102,7 +102,7 @@ function update_dual_data_local!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dua
         dd.diff_cache_p1.dual_data[1+2*nvars+i] = dual.partials[i]
     end
 end
-function update_dual_data_mixed_p1!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
+@inline function update_dual_data_mixed_p1!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
     # ensure we cannot cast accidentally this in the wrong place by setting NaNs
     dd.diff_cache_local.dual_data[1] = one(TNUMBER)+NaN
     dd.diff_cache_m1.dual_data[1] = dual.value
@@ -120,7 +120,7 @@ function update_dual_data_mixed_p1!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, 
         dd.diff_cache_00.dual_data[1+i] = zero(TNUMBER)
     end
 end
-function update_dual_data_mixed_m1!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
+@inline function update_dual_data_mixed_m1!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
     # ensure we cannot cast accidentally this in the wrong place by setting NaNs
     dd.diff_cache_local.dual_data[1] = one(TNUMBER)+NaN
     dd.diff_cache_m1.dual_data[1] = one(TNUMBER)+NaN
@@ -138,7 +138,7 @@ function update_dual_data_mixed_m1!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, 
         dd.diff_cache_p1.dual_data[1+i] = dual.partials[i]
     end
 end
-function update_dual_data_mixed_full!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
+@inline function update_dual_data_mixed_full!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}, dual::TDSC) where {SIZE1,SIZE2,TNUMBER,DUAL_TAG<:ForwardDiff.Tag,TDSC}
     # same as above, but only 00 dual is available
     dd.diff_cache_local.dual_data[1] = one(TNUMBER)+NaN
     dd.diff_cache_m1.dual_data[1] = one(TNUMBER)+NaN
@@ -151,18 +151,18 @@ function update_dual_data_mixed_full!(dd::DualData{SIZE1,SIZE2,TNUMBER,DUAL_TAG}
     end
 end
 
-function get_local_dual(dd::DualData)
+@inline function get_local_dual(dd::DualData)
     return get_dual(dd.diff_cache_local)
 end
 
-function get_m1_dual(dd::DualData)
+@inline function get_m1_dual(dd::DualData)
     return get_dual(dd.diff_cache_m1)
 end
 
-function get_00_dual(dd::DualData)
+@inline function get_00_dual(dd::DualData)
     return get_dual(dd.diff_cache_00)
 end
 
-function get_p1_dual(dd::DualData)
+@inline function get_p1_dual(dd::DualData)
     return get_dual(dd.diff_cache_p1)
 end

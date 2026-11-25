@@ -22,61 +22,55 @@ function block_tridiagonal_solver!(sm, ::StellarModels.ThomasSolverData)
     # Simple row preconditioning, divide each row by its maximum value
     # this is turned off by default as it seems to not change much. If we end up
     # using at some point it needs to be optimized
-    if sm.opt.solver.use_preconditioning
-        for i in 1:sm.props.nz
+    @inbounds if sm.opt.solver.use_preconditioning
+        Threads.@threads for i in 1:sm.props.nz
+            Li = jacobian_L[i]
+            Di = jacobian_D[i]
+            Ui = jacobian_U[i]
             for j in 1:sm.nvars
                 maxval = 0
                 for k in 1:sm.nvars
                     if i != 1
-                        if abs(jacobian_L[i][j,k]) > maxval
-                            maxval = abs(jacobian_L[i][j,k])
-                        end
+                        maxval = max(abs(Li[j,k]), maxval)
                     end
-                    if abs(jacobian_D[i][j,k]) > maxval
-                        maxval = abs(jacobian_D[i][j,k])
-                    end
+                        maxval = max(abs(Di[j,k]), maxval)
                     if i != sm.props.nz
-                        if abs(jacobian_U[i][j,k]) > maxval
-                            maxval = abs(jacobian_U[i][j,k])
-                        end
+                        maxval = max(abs(Ui[j,k]),maxval)
                     end
                 end
-                for k in 1:sm.nvars
-                    jacobian_L[i][j,k] = jacobian_L[i][j,k]/maxval
-                    jacobian_D[i][j,k] = jacobian_D[i][j,k]/maxval
-                    jacobian_U[i][j,k] = jacobian_U[i][j,k]/maxval
-                end
+                Li[j,:] .= Li[j,:]/maxval
+                Di[j,:] .= Di[j,:]/maxval
+                Ui[j,:] .= Ui[j,:]/maxval
                 eqs_numbers[(i-1)*sm.nvars + j] = eqs_numbers[(i-1)*sm.nvars + j]/maxval
             end
         end
         # Simple column-preconditioning. Divide all columns by their maximum value. This means
         # we need to rescale the correction afterwards
-        for i in 1:sm.props.nz
+        Threads.@threads for i in 1:sm.props.nz
+            if i != sm.props.nz
+                Lip1 = jacobian_L[i+1]
+            end
+            Di = jacobian_D[i]
+            if i!=1
+                Uim1 = jacobian_U[i-1]
+            end
             for j in 1:sm.nvars
                 maxval = 0
                 for k in 1:sm.nvars
                     if i != sm.props.nz
-                        if abs(jacobian_L[i+1][k,j]) > maxval
-                            maxval = abs(jacobian_L[i+1][k,j])
-                        end
+                        maxval = max(abs(Lip1[k,j]),maxval)
                     end
-                    if abs(jacobian_D[i][k,j]) > maxval
-                        maxval = abs(jacobian_D[i][k,j])
-                    end
+                    maxval = max(abs(Di[k,j]),maxval)
                     if i != 1
-                        if abs(jacobian_U[i-1][k,j]) > maxval
-                            maxval = abs(jacobian_U[i-1][k,j])
-                        end
+                        maxval = max(abs(Uim1[k,j]),maxval)
                     end
                 end
-                for k in 1:sm.nvars
-                    if i != sm.props.nz
-                        jacobian_L[i+1][k,j] = jacobian_L[i+1][k,j]/maxval
-                    end
-                    jacobian_D[i][k,j] = jacobian_D[i][k,j]/maxval
-                    if i != 1
-                        jacobian_U[i-1][k,j] = jacobian_U[i-1][k,j]/maxval
-                    end
+                if i != sm.props.nz
+                    Lip1[:,j] .= Lip1[:,j]/maxval
+                end
+                Di[:,j] .= Di[:,j]/maxval
+                if i != 1
+                    Uim1[:,j] .= Uim1[:,j]/maxval
                 end
                 sm.solver_data.preconditioning_factor[(i-1)*sm.nvars + j] = 1/maxval
             end
