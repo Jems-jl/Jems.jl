@@ -7,7 +7,6 @@ Substructure of Options containing controls relating to remeshing
 """
 @kwdef mutable struct RemeshOptions
     delta_log10P_split::Float64 = 0.1  # split two cells if difference in log10P is greater than this
-    delta_log10ρ_split::Float64 = 0.1
     max_cell_mass_ratio::Float64 = 5.0  # split cell if neighboring cell masses are smaller than this
     max_dq_center::Float64 = 1e-5  # maximum dm/M for center cell
     max_dq_surface::Float64 = 1e-5  # maximum dm/M for surface cell
@@ -66,7 +65,6 @@ Substructure of Options containing controls relating to termination of the simul
     max_model_number::Int = 1
     max_center_T::Float64 = 1e99
     min_center_X::Float64 = -1.0
-    min_center_H1::Float64 = 0.0
 end
 
 """
@@ -106,6 +104,7 @@ Options that affect the physics of the computed model
 """
 @kwdef mutable struct PhysicsOptions
     flux_limiter::Float64 = 1e6
+    freeze_D_turb_during_step::Bool = true
 end
 
 """

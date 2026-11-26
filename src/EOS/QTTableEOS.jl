@@ -389,3 +389,4 @@ function set_EOS_resultsTρ!(eos::EOSTableCollector, r::EOSResults{TT}, lnT::TT,
     r.α   = 1.0 / r.χ_ρ
     r.δ   = r.χ_T / r.χ_ρ
 end
+

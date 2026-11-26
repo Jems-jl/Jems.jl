@@ -71,7 +71,7 @@ nextra = 100
 #     interpolation = :bilinear,  # or :bilinear
 #     bounds = :extrapolate,
 # )
-eos_table = EOSTableCollector("MESA_data/eosFreeEOS_data", include_radiation = true)
+eos_table = EOSTableCollector("MESA_data/eosFreeEOS_data", include_radiation = true,interp_type = :bilinear)
 #println("Memory used: $(Base.summarysize(eos_table) / 1024^3) GB")
 low_T_collection = OpacityTableCollector("MESA_data/kap_data", "lowT_fa05_gs98") 
 high_T_collection = OpacityTableCollector("MESA_data/kap_data","oplib_agss09" ) 
@@ -490,8 +490,7 @@ open("example_options.toml", "w") do file
           relative_correction_tolerance= 1e14
           maximum_residual_tolerance = 1e-2
           use_preconditioning = true
-          report_solver_progress = true
-          report_retries = true
+         
           [timestep]
           dt_max_increase = 1.5
     
@@ -501,7 +500,10 @@ open("example_options.toml", "w") do file
           [termination]
           max_model_number = 20000
           max_center_T = 1e12
-          min_center_H1 = 1e-5
+          
+          [physics]
+          freeze_D_turb_during_step = true
+
 
           [io]
           profile_interval = 2

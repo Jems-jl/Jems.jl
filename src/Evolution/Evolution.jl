@@ -6,6 +6,8 @@ using Jems.Constants, Jems.Chem, Jems.EOS, Jems.Opacity,
 include("Evaluation.jl")
 include("Equations.jl")
 include("LinearSolver.jl")
+include("EvolutionInterface.jl")
+include("NonlinearSolvers.jl")
 include("StellarEvolution.jl")
 include("OneZoneEvolution.jl")
 
